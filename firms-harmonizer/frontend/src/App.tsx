@@ -96,34 +96,36 @@ export default function App() {
         </div>
       </header>
 
-      <main className="relative min-h-0 flex-1" onKeyDown={(e) => {
-        if (e.target instanceof HTMLElement && e.target.closest("input, select, textarea, [contenteditable=true]")) return;
-        const state = useAnalysisStore.getState();
-        const direction = e.key === "ArrowLeft" || e.key === "[" || e.key === "ArrowUp" ? -1 : 1;
-        if (["ArrowLeft", "ArrowRight", "[", "]", "ArrowUp", "ArrowDown"].includes(e.key)) {
-          e.preventDefault();
-          state.stepChronology(e.key === "[" || e.key === "]" ? "month" : e.key === "ArrowUp" || e.key === "ArrowDown" ? "year" : "day", direction);
-        } else if (e.key === "Escape") {
-          e.preventDefault(); state.setSelectedMonth(null); state.setHoveredDay(null);
-        }
-      }}>
-        {section === "map" && <MapPage />}
-        {section === "calendar" && <CalendarPage />}
-        {section === "trends" && <TrendsPage />}
-        {section === "impact" && <ImpactPage />}
-        {section === "risk" && (
-          <PageShell
-            eyebrow="Classical AI Forecasting"
-            title="Thermal risk forecast"
-          >
-            <RiskPredictionPanel />
-          </PageShell>
-        )}
-        {section === "observations" && <ObservationsPage />}
-      </main>
-      <HeatHistoryCard />
-      {section !== "risk" && <DateRiskPrompt onView={() => openSection("risk")} />}
-      <FireCopilotDrawer />
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <main className="relative min-h-0 flex-1" onKeyDown={(e) => {
+          if (e.target instanceof HTMLElement && e.target.closest("input, select, textarea, [contenteditable=true]")) return;
+          const state = useAnalysisStore.getState();
+          const direction = e.key === "ArrowLeft" || e.key === "[" || e.key === "ArrowUp" ? -1 : 1;
+          if (["ArrowLeft", "ArrowRight", "[", "]", "ArrowUp", "ArrowDown"].includes(e.key)) {
+            e.preventDefault();
+            state.stepChronology(e.key === "[" || e.key === "]" ? "month" : e.key === "ArrowUp" || e.key === "ArrowDown" ? "year" : "day", direction);
+          } else if (e.key === "Escape") {
+            e.preventDefault(); state.setSelectedMonth(null); state.setHoveredDay(null);
+          }
+        }}>
+          {section === "map" && <MapPage />}
+          {section === "calendar" && <CalendarPage />}
+          {section === "trends" && <TrendsPage />}
+          {section === "impact" && <ImpactPage />}
+          {section === "risk" && (
+            <PageShell
+              eyebrow="Classical AI Forecasting"
+              title="Thermal risk forecast"
+            >
+              <RiskPredictionPanel />
+            </PageShell>
+          )}
+          {section === "observations" && <ObservationsPage />}
+        </main>
+        <HeatHistoryCard />
+        {section !== "risk" && <DateRiskPrompt onView={() => openSection("risk")} />}
+        <FireCopilotDrawer />
+      </div>
     </div>
   );
 }
