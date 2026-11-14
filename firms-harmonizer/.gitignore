@@ -18,11 +18,7 @@ dist/
 .DS_Store
 .idea/
 .vscode/
-# Rebuildable cubes and heavy source archives; keep the bounded JSON mock
-data/raw/**/*.csv
-data/raw/**/*.csv.*
-data/raw/*.csv
-data/raw/*.csv.*
+# Rebuildable cubes and cache
 data/processed/*.parquet
 data/cache/
 # Aider local history
