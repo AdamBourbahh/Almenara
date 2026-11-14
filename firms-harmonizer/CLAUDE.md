@@ -13,7 +13,7 @@ Build the NASA Space Apps MODIS/VIIRS fire activity calendar with sensor-indepen
 | Owner | Exclusive files |
 |---|---|
 | ADAM — Lead & Math Core | `backend/core/*`, `backend/tests/test_math_core.py`, `backend/api/schemas.py`. Only NumPy/SciPy and the standard library in core; no FastAPI or DuckDB imports. |
-| MOHA — DuckDB & FastAPI | `backend/db/*`, `backend/api/main.py`, `backend/api/routes.py`, `backend/api/cache.py`, `backend/api/core_contract.py`, `backend/validation_report.py`, `backend/tests/test_api_contract.py`, `backend/tests/test_db_layer.py`, `backend/tests/conftest.py` |
+| MOHA — DuckDB & FastAPI | `backend/db/*`, `backend/api/main.py`, `backend/api/routes.py`, `backend/api/cache.py`, `backend/api/core_contract.py`, `backend/check_core.py`, `backend/validation_report.py`, `backend/tests/test_api_contract.py`, `backend/tests/test_db_layer.py`, `backend/tests/test_core_validation.py`, `backend/tests/conftest.py` |
 | GERMÁN — Offline ETL | `scripts/*`, `data/*`, `backend/tests/test_cube_schema.py` |
 | MOHAMMED — GPU map, store & calendar | `frontend/src/api/*`, `frontend/src/store/*`, `frontend/src/components/Map/*`, `frontend/src/components/Calendar/*` |
 | MIGUE — Charts, audit & shell | `frontend/src/components/Charts/*`, `frontend/src/components/Audit/*`, `frontend/src/App.tsx`, `README.md` |
