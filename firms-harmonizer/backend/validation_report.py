@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-PRESETS = {  # specs.md PRESET_REGIONS (±1° rectangles)
+PRESETS = {  # frontend/src/api/types.ts PRESET_REGIONS centres (±1° rectangles)
     "cerrado_brazil": (-48.0, -16.0),
     "california_usa": (-121.0, 39.0),
     "iberia_med": (-5.0, 39.0),

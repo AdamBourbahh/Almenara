@@ -1,6 +1,7 @@
 read:
-  - agent.md
-  - specs.md
+  - ../AGENTS.md
+  - ../SPECS.md
+  - CAMBIOS.md
   - backend/api/schemas.py
   - frontend/src/api/types.ts
 auto-commits: false

@@ -1,0 +1,4 @@
+# Local secrets (e.g. FIRMS_MAP_KEY) never go to git
+.env
+.env.*
+!.env.example

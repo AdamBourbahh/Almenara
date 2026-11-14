@@ -14,6 +14,18 @@ Cada fila es un cambio hecho por Moha (dueño de `backend/db/` y `backend/api/`)
 | 2026-11-14 | `agent.md` escudo 4 | Compartido | Ahora: polyfill R7 → padres R4 únicos → filtro `h3_r4` y después `h3_r7`. Sin polyfill R4 directo y sin fallback de centroide / `grid_disk` | `polygon_to_cells` en R4 solo incluye celdas cuyo centro cae dentro y pierde las celdas del borde (hay un test que lo demuestra) | Todos |
 | 2026-11-14 | `Makefile` | Compartido | `make test` también ejecuta `test_db_layer.py` | Nuevos tests de contrato | Todos |
 | 2026-11-14 | `agent.md` (y copias) | Compartido | La fila MOHA añade `backend/check_core.py` y `backend/tests/test_core_validation.py` | Archivos nuevos de este bloque | Todos |
+| 2026-11-14 | `AGENTS.md` (raíz, nuevo en main) | Compartido (Tifu0) | Al fusionar main en `api`: regla de oro 2 (se citan las excepciones de contrato registradas aquí), regla 4 (cubo sintético solo con `USE_SYNTHETIC_CUBE=1`, nunca automático), fila 3 ANTONIO → MOHA con sus archivos, Guardrail 4 reescrito (R7 primero → padres R4 únicos, sin polyfill R4 ni fallback de centroide) | Decisiones de Moha para este PR; el AGENTS.md nuevo las contradecía | Todos |
+| 2026-11-14 | `SPECS.md` (raíz, nuevo en main) | Compartido (Tifu0) | §5.2 sustituido por copia literal del `schemas.py` real (la versión de SPECS divergía: `gap_reason` como enum, `forecast_days` ≤ 30, años desde 2000, sin `data_source`). Forecast marcado como fuera del MVP | Una sola verdad: manda `backend/api/schemas.py` | Todos, sobre todo frontend |
+| 2026-11-14 | `firms-harmonizer/{agent,AGENTS,CLAUDE,specs}.md` | Compartido | Se acepta su borrado (hecho en main) | Las reglas viven ahora en la raíz | Todos |
+| 2026-11-14 | `.cursorrules`, `.windsurfrules`, `.clinerules` | Compartido | Enlaces simbólicos redirigidos de `agent.md` (borrado, quedaban rotos) a `../AGENTS.md`; `.github/copilot-instructions.md` sincronizado con la raíz | Los enlaces estaban rotos en main | Quien use Cursor, Windsurf, Cline o Copilot |
+| 2026-11-14 | `Makefile` (`sync-rules`), `.aider.conf.yml` | Compartido | Ahora copian o leen `../AGENTS.md`, `../SPECS.md` y `CAMBIOS.md` | `agent.md` y `specs.md` ya no existen | Todos |
+| 2026-11-14 | `.env` (raíz) | Tifu0 | Se deja de seguir en git (`git rm --cached`) y se añade un `.gitignore` en la raíz | Contenía `FIRMS_MAP_KEY`. **La clave sigue en el historial de main: hay que revocarla en NASA FIRMS y pedir una nueva** | Quien use la API de FIRMS |
+| 2026-11-14 | `data/mock/mock_analyze_response.json` | Germán | Regenerado con el generador fusionado (`write_mock` de main + `data_source` de este PR) | Conflicto de fusión | Frontend |
+
+### Discrepancias abiertas tras la fusión (decidir en equipo)
+- **Polígono del Cerrado**: `SPECS.md` §5.3 define el preset del Cerrado en lon −57,2..−55,2 y lat −17,8..−16,0. `types.ts`, el cubo sintético y los tests de la API usan ±1° alrededor de (−48, −16). No lo he cambiado.
+- **Columnas del cubo**: `SPECS.md` §5.1 marca `neighbor_fre_lag1`, `cloud_cover_pct` y `burned_area_ha_mcd64` como NOT NULL. La API las trata como opcionales: si faltan, las lee como NULL y lo avisa en `/api/health`.
+- **`cloud_cover_pct`**: `SPECS.md` habla de una fracción [0, 1]; el generador sintético produce porcentajes de 0 a 100.
 
 ## Comportamiento nuevo de la API que conviene conocer
 - **Cubo sintético solo con `USE_SYNTHETIC_CUBE=1`.**
