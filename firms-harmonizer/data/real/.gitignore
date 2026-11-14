@@ -1,0 +1,5 @@
+# Everything here is regenerable pipeline output; only the quality reports are versioned.
+*
+!.gitignore
+!quality_report.md
+!quality_report.json
