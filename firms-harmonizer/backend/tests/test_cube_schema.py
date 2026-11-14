@@ -1,7 +1,9 @@
-"""Offline synthetic cube schema, storage and physical scenario regression gates."""
+"""Offline ETL evidence, cube schema, storage and physical scenario regression gates."""
 
 import importlib.util
+from datetime import date, timedelta
 from importlib import import_module
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -24,6 +26,205 @@ from backend.api.schemas import AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequ
 spec = importlib.util.spec_from_file_location("bootstrap",ROOT/"scripts/00_bootstrap_synthetic_cube.py")
 bootstrap = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bootstrap)
+
+
+def run_outage_cli(staged, output, counts=None):
+    command = [sys.executable, str(ROOT / "scripts/02_detect_outages_clouds.py"),
+               "--staged", str(staged), "--output-dir", str(output)]
+    if counts is not None:
+        command.extend(["--global-counts", str(counts)])
+    return subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+
+
+def test_stage02_known_aqua_interval_is_exact_and_reproducible(tmp_path):
+    staged = tmp_path / "staged.parquet"
+    # A local detection drop must never be treated as a global outage.
+    pq.write_table(pa.Table.from_pylist([
+        dict(h3_r4=1, acq_date=date(2022, 1, 1) + timedelta(days=i),
+             satellite=sensor, daynight="D", corrected_frp=power)
+        for i in range(16) for sensor, power in (("Terra", 10.0), ("Aqua", 20.0))
+        if i < 15 or sensor == "Aqua"
+    ]), staged)
+    output = tmp_path / "lookup"
+    result = run_outage_cli(staged, output)
+    assert result.returncode == 0, result.stderr
+    paths = [output / name for name in ("sensor_outages.parquet", "diurnal_ratios.parquet")]
+    first = [path.read_bytes() for path in paths]
+    expected = [dict(acq_date=date(2022, 7, 31) + timedelta(days=i),
+                     satellite="Aqua", evidence="known_safe_mode") for i in range(17)]
+    actual = pq.read_table(paths[0])
+    assert [(field.name, field.type) for field in actual.schema] == [
+        ("acq_date", pa.date32()), ("satellite", pa.string()), ("evidence", pa.string())]
+    assert sorted(actual.to_pylist(), key=lambda row: row["acq_date"]) == expected
+    assert pq.read_table(paths[1]).to_pylist() == [
+        dict(h3_r4=1, month=1, ratio=2.0, matched_days=15)]
+    for _ in range(2):
+        result = run_outage_cli(staged, output)
+        assert result.returncode == 0, result.stderr
+        assert [path.read_bytes() for path in paths] == first
+
+
+@pytest.mark.parametrize("history,current,expected", [
+    ([100.0] * 15, 24.0, True),
+    ([100.0] * 15, 25.0, False),
+    ([100.0] * 15, 0.0, True),
+    ([100.0] * 14 + [0.0], 24.0, False),
+    ([100.0] * 14 + [0.0], 23.0, True),
+    ([0.0] * 15, 0.0, False),
+    ([100.0] * 14, 0.0, False),
+    ([100.0] * 7 + [None] + [100.0] * 7, 0.0, False),
+    ([100.0] * 15, None, False),
+])
+def test_stage02_global_counts_complete_window(tmp_path, history, current, expected):
+    target = date(2022, 2, 1)
+    records = [dict(satellite="Terra", acq_date=target - timedelta(days=len(history) - i),
+                    detection_count=count) for i, count in enumerate(history)]
+    records.append(dict(satellite="Terra", acq_date=target, detection_count=current))
+    # A second instrument cannot contribute days to Terra's baseline.
+    records.extend(dict(satellite="SNPP", acq_date=target - timedelta(days=i),
+                        detection_count=1000.0) for i in range(16))
+    counts = tmp_path / "global.parquet"
+    pq.write_table(pa.Table.from_pylist(records), counts)
+    result = run_outage_cli(tmp_path / "missing.parquet", tmp_path, counts)
+    assert result.returncode == 0, result.stderr
+    dynamic = [row for row in pq.read_table(tmp_path / "sensor_outages.parquet").to_pylist()
+               if row["evidence"] == "global_count_drop"]
+    assert dynamic == ([dict(acq_date=target, satellite="Terra", evidence="global_count_drop")]
+                       if expected else [])
+    assert pq.read_table(tmp_path / "diurnal_ratios.parquet").num_rows == 0
+
+
+def test_stage02_missing_calendar_day_does_not_trigger(tmp_path):
+    target = date(2022, 2, 1)
+    records = [dict(satellite="Terra", acq_date=target - timedelta(days=i), detection_count=100)
+               for i in range(1, 17) if i != 7]
+    records.append(dict(satellite="Terra", acq_date=target, detection_count=0))
+    counts = tmp_path / "global.parquet"
+    pq.write_table(pa.Table.from_pylist(records), counts)
+    result = run_outage_cli(tmp_path / "missing.parquet", tmp_path, counts)
+    assert result.returncode == 0, result.stderr
+    assert set(pq.read_table(tmp_path / "sensor_outages.parquet")["evidence"].to_pylist()) == {
+        "known_safe_mode"}
+
+
+def test_stage02_duplicate_days_cannot_fake_a_complete_window(tmp_path):
+    target = date(2022, 2, 1)
+    records = [dict(satellite="Terra", acq_date=target - timedelta(days=i), detection_count=100)
+               for i in range(1, 15)]
+    records.extend([records[0], dict(satellite="Terra", acq_date=target, detection_count=0)])
+    counts = tmp_path / "global.parquet"
+    pq.write_table(pa.Table.from_pylist(records), counts)
+    existing = tmp_path / "sensor_outages.parquet"
+    existing.write_bytes(b"previous lookup")
+    result = run_outage_cli(tmp_path / "missing.parquet", tmp_path, counts)
+    assert result.returncode != 0
+    assert "Duplicate global count" in result.stderr
+    assert existing.read_bytes() == b"previous lookup"
+
+
+@pytest.fixture
+def stage04_inputs(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    builder = import_module("04_build_master_cube")
+    outages = import_module("02_detect_outages_clouds")
+    lookup = tmp_path / "lookup"
+    outages.build_outages_table(tmp_path / "absent.parquet", lookup)
+    (lookup / "eqm_gpd_lut.json").write_text('{"models": {}}', encoding="utf-8")
+    center = h3.latlng_to_cell(40.0, -4.0, 7)
+    neighbor = next(cell for cell in h3.grid_disk(center, 1) if cell != center)
+    days = [date(2022, 7, 30) + timedelta(days=i) for i in range(19)]
+    records = [dict(h3_r4=int(h3.cell_to_parent(cell, 4), 16), h3_r7=int(cell, 16),
+                    acq_date=day, satellite=sensor, sensor_bit=bit, igbp_biome=8, scan_bin=0,
+                    corrected_frp=10.0, is_center=True, frp=10.0, industrial_prob=0.0,
+                    region="iberia_med", daynight="D")
+               for cell in (center, neighbor) for day in days
+               for sensor, bit in (("Terra", 1), ("Aqua", 2), ("SNPP", 4), ("N20", 8), ("N21", 16))]
+    staged = tmp_path / "staged.parquet"
+    pq.write_table(pa.Table.from_pylist(records), staged)
+    return builder, staged, lookup, int(center, 16), int(neighbor, 16)
+
+
+def test_stage04_aqua_outage_and_five_instrument_bits(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+    table = pq.read_table(path)
+    assert [(f.name, f.type) for f in table.schema] == EXPECTED
+    assert table.num_rows == 38
+    for row in table.to_pylist():
+        day = date(1970, 1, 1) + timedelta(days=row["epoch_day"])
+        outage = date(2022, 7, 31) <= day <= date(2022, 8, 16)
+        assert row["sensor_obs_mask"] == (29 if outage else 31)
+        assert row["gap_status_mask"] == (1 if outage else 0)
+        assert (row["obs_aqua_fre"] is None) == outage
+        assert row["obs_terra_fre"] > 0 and row["obs_viirs_fre"] > 0
+        assert row["raw_modis_cnt"] == 2 and row["raw_viirs_cnt"] == 3
+
+
+def test_stage04_viirs_outages_preserve_remaining_instrument(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    path = lookup / "sensor_outages.parquet"
+    records = pq.read_table(path).to_pylist()
+    for day, sensors in ((date(2022, 8, 1), ("Terra", "SNPP", "N20")),
+                         (date(2022, 8, 2), ("Terra", "SNPP", "N20", "N21"))):
+        records.extend(dict(acq_date=day, satellite=sensor, evidence="global_count_drop")
+                       for sensor in sensors)
+    pq.write_table(pa.Table.from_pylist(records), path)
+    cube = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+    rows = {r["epoch_day"]: r for r in pq.read_table(cube).to_pylist() if r["h3_r7"] == center}
+    first = rows[(date(2022, 8, 1) - date(1970, 1, 1)).days]
+    assert first["sensor_obs_mask"] == 16 and first["gap_status_mask"] == 1
+    assert first["obs_terra_fre"] is None and first["obs_aqua_fre"] is None
+    assert first["obs_viirs_fre"] > 0
+    second = rows[(date(2022, 8, 2) - date(1970, 1, 1)).days]
+    assert second["sensor_obs_mask"] == 0 and second["gap_status_mask"] == 9
+    assert all(second[field] is None for field in ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre"))
+
+
+@pytest.mark.parametrize("cloud,mask,missing", [(0.0, 0, False), (0.8, 0, False),
+                                               (0.8001, 10, True), (1.0, 10, True)])
+@pytest.mark.parametrize("cloud_type", [pa.float32(), pa.float64()])
+def test_stage04_cloud_masks_observations_before_neighbor_lag(stage04_inputs, tmp_path,
+                                                           cloud, mask, missing, cloud_type):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    ancillary_schema = pa.schema([
+        ("h3_r7", pa.uint64()), ("acq_date", pa.date32()),
+        ("cloud_cover_pct", cloud_type), ("burned_area_ha_mcd64", pa.float32()),
+    ])
+    pq.write_table(pa.Table.from_pylist([
+        dict(h3_r7=center, acq_date=date(2022, 7, 30), cloud_cover_pct=cloud,
+             burned_area_ha_mcd64=0.0),
+        dict(h3_r7=center, acq_date=date(2022, 7, 31), cloud_cover_pct=cloud,
+             burned_area_ha_mcd64=0.0),
+    ], schema=ancillary_schema), lookup / "cell_day_ancillary.parquet")
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+    rows = {(r["h3_r7"], r["epoch_day"]): r for r in pq.read_table(path).to_pylist()}
+    epoch = (date(2022, 7, 30) - date(1970, 1, 1)).days
+    for offset, outage_bit in ((0, 0), (1, 1)):
+        row = rows[center, epoch + offset]
+        assert row["gap_status_mask"] == mask | outage_bit
+        assert row["sensor_obs_mask"] == (0 if missing else (29 if offset else 31))
+        for field in ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre"):
+            assert (row[field] is None) == (missing or (offset == 1 and field == "obs_aqua_fre"))
+        assert row["raw_modis_cnt"] == 2 and row["raw_viirs_cnt"] == 3
+    lag = rows[neighbor, epoch + 1]["neighbor_fre_lag1"]
+    assert (lag == 0.0) if missing else (lag > 0.0)
+
+
+def test_stage04_ancillary_metadata_distinguishes_missing_and_observed_zero(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+    absent = json.loads(pq.read_schema(path).metadata[b"ancillary_coverage"])
+    assert absent["input_present"] is False
+    assert absent["cloud_cover_pct"] == {"observed_rows": 0, "missing_rows": 38, "observed_zero_rows": 0}
+    pq.write_table(pa.Table.from_pylist([
+        dict(h3_r7=center, acq_date=date(2022, 7, 30), cloud_cover_pct=0.0, burned_area_ha_mcd64=0.0),
+        dict(h3_r7=neighbor, acq_date=date(2022, 7, 30), cloud_cover_pct=None, burned_area_ha_mcd64=2.0),
+    ]), lookup / "cell_day_ancillary.parquet")
+    builder.build_master_cube(staged, path, lookup_dir=lookup)
+    present = json.loads(pq.read_schema(path).metadata[b"ancillary_coverage"])
+    assert present["input_present"] is True
+    assert present["cloud_cover_pct"] == {"observed_rows": 1, "missing_rows": 37, "observed_zero_rows": 1}
+    assert present["burned_area_ha_mcd64"] == {"observed_rows": 2, "missing_rows": 36, "observed_zero_rows": 1}
 
 def test_missing_staging_preserves_existing_master(tmp_path, monkeypatch):
     monkeypatch.syspath_prepend(str(ROOT / "scripts"))

@@ -41,7 +41,7 @@ def table_from_rows(rows):
     return pa.Table.from_pylist(list(rows), schema=bootstrap.CUBE_SCHEMA)
 
 
-def real_rows(con, staged, lookup, regions):
+def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
     lut = json.loads((lookup / "eqm_gpd_lut.json").read_text())["models"]
     outages = set(con.execute("SELECT acq_date, satellite FROM read_parquet(?)",
                               [str(lookup / "sensor_outages.parquet")]).fetchall())
@@ -88,26 +88,18 @@ def real_rows(con, staged, lookup, regions):
             viirs.setdefault(key, []).append(value)
     for key, values in viirs.items():
         daily[key]["obs_viirs_fre"] = float(np.mean(values))
-    energy = {}
-    neighbors = {}
-    for key, row in daily.items():
-        values = [row[name] for name in ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre")
-                  if row[name] is not None]
-        if values:
-            energy[key] = float(np.mean(values))
-    for (cell, epoch), row in daily.items():
-        if cell not in neighbors:
-            neighbors[cell] = [int(x, 16) for x in h3.grid_disk(format(cell, "x"), 1)
-                               if int(x, 16) != cell]
-        lag = [energy[(neighbor, epoch - 1)] for neighbor in neighbors[cell]
-               if (neighbor, epoch - 1) in energy]
-        if lag:
-            row["neighbor_fre_lag1"] = float(np.mean(lag))
     ancillary = lookup / "cell_day_ancillary.parquet"
+    coverage = {
+        "input_present": ancillary.exists(),
+        "cloud_cover_pct": {"observed_rows": 0, "missing_rows": len(daily), "observed_zero_rows": 0},
+        "burned_area_ha_mcd64": {"observed_rows": 0, "missing_rows": len(daily), "observed_zero_rows": 0},
+    }
     if ancillary.exists():
         seen = set()
-        for cell, day, cloud, burned in con.execute(
-            "SELECT h3_r7, acq_date::DATE, cloud_cover_pct, burned_area_ha_mcd64 "
+        # Compare in the stored numeric type so FLOAT 0.80 stays on the clean boundary.
+        for cell, day, cloud, burned, occluded in con.execute(
+            "SELECT h3_r7, acq_date::DATE, cloud_cover_pct, burned_area_ha_mcd64, "
+            "cloud_cover_pct > 0.80 AS occluded "
             "FROM read_parquet(?)", [str(ancillary)]
         ).fetchall():
             key = (cell, (day - EPOCH).days)
@@ -125,8 +117,37 @@ def real_rows(con, staged, lookup, regions):
                 row["burned_area_ha_mcd64"] = burned
             if cloud is not None:
                 row["cloud_cover_pct"] = cloud
-                if cloud > .8:
+                if occluded:
                     row["gap_status_mask"] |= 2
+                    row["sensor_obs_mask"] = 0
+                    for field in ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre"):
+                        row[field] = None
+            for field, value in (("cloud_cover_pct", cloud), ("burned_area_ha_mcd64", burned)):
+                if value is not None:
+                    coverage[field]["observed_rows"] += 1
+                    coverage[field]["missing_rows"] -= 1
+                    coverage[field]["observed_zero_rows"] += int(value == 0)
+    if ancillary_coverage is not None:
+        ancillary_coverage.update(coverage)
+
+    # Mask observations before deriving spatial energy; occluded values cannot seed a neighbor.
+    energy = {}
+    neighbors = {}
+    for key, row in daily.items():
+        values = [row[name] for name in ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre")
+                  if row[name] is not None]
+        if values:
+            energy[key] = float(np.mean(values))
+        else:
+            row["gap_status_mask"] |= 8
+    for (cell, epoch), row in daily.items():
+        if cell not in neighbors:
+            neighbors[cell] = [int(x, 16) for x in h3.grid_disk(format(cell, "x"), 1)
+                               if int(x, 16) != cell]
+        lag = [energy[(neighbor, epoch - 1)] for neighbor in neighbors[cell]
+               if (neighbor, epoch - 1) in energy]
+        if lag:
+            row["neighbor_fre_lag1"] = float(np.mean(lag))
     return daily
 
 
@@ -146,7 +167,8 @@ def build_master_cube(staged_path=ingest.STAGED, output_path=OUT, force_bootstra
     regions = ingest.load_regions()
     with TemporaryDirectory(dir=output.parent) as temp, duckdb.connect() as con:
         work = Path(temp)
-        daily = real_rows(con, staged, ROOT / lookup_dir, regions)
+        ancillary_coverage = {}
+        daily = real_rows(con, staged, ROOT / lookup_dir, regions, ancillary_coverage)
         metadata = {
             b"source": b"REAL FIRMS detections",
             b"real_rows": str(len(daily)).encode(),
@@ -154,6 +176,7 @@ def build_master_cube(staged_path=ingest.STAGED, output_path=OUT, force_bootstra
             b"epoch": EPOCH.isoformat().encode(),
             b"coverage": json.dumps(regions).encode(),
             b"real_cloud_and_burned_area": b"optional ancillary; zero sentinel for missing values",
+            b"ancillary_coverage": json.dumps(ancillary_coverage, sort_keys=True).encode(),
             b"real_igbp": b"local IGBP lookup or nominal regional fallback",
             b"fre_method": b"one-hour FRP integration proxy",
         }

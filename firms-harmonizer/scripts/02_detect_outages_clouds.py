@@ -13,17 +13,24 @@ def build_outages_table(staged=STAGED, output_dir="data/lookup", global_counts=N
     """Use optional global daily counts for anomaly detection, plus the known Aqua outage."""
     output = ROOT / output_dir
     output.mkdir(parents=True, exist_ok=True)
-    with duckdb.connect() as con:
+    # Serial aggregation fixes floating-point summation order for identical local inputs.
+    with duckdb.connect(config={"threads": 1}) as con:
         con.execute("""CREATE TABLE outages AS
             SELECT day::DATE AS acq_date, 'Aqua' AS satellite, 'known_safe_mode' AS evidence
             FROM generate_series(DATE '2022-07-31', DATE '2022-08-16', INTERVAL 1 DAY) t(day)
         """)
         if global_counts:
+            con.execute("""CREATE TEMP TABLE counts AS
+                SELECT satellite, acq_date::DATE AS acq_date, detection_count::DOUBLE AS n
+                FROM read_parquet(?)
+            """, [str(ROOT / global_counts)])
+            duplicate = con.execute("""SELECT satellite, acq_date FROM counts
+                GROUP BY satellite, acq_date HAVING count(*) > 1 LIMIT 1
+            """).fetchone()
+            if duplicate is not None:
+                raise ValueError(f"Duplicate global count instrument-day: {duplicate}")
             con.execute("""INSERT INTO outages
-                WITH counts AS (
-                    SELECT satellite, acq_date::DATE AS acq_date, detection_count::DOUBLE AS n
-                    FROM read_parquet(?)
-                ), baseline AS (
+                WITH baseline AS (
                     SELECT *, avg(n) OVER w AS baseline, count(n) OVER w AS days
                     FROM counts WINDOW w AS (
                         PARTITION BY satellite ORDER BY acq_date
@@ -32,8 +39,9 @@ def build_outages_table(staged=STAGED, output_dir="data/lookup", global_counts=N
                 )
                 SELECT acq_date, satellite, 'global_count_drop'
                 FROM baseline WHERE days = 15 AND baseline > 0 AND n * 4 < baseline
-            """, [str(ROOT / global_counts)])
-        con.table("outages").distinct().write_parquet(str(output / "sensor_outages.parquet"))
+            """)
+        con.table("outages").distinct().order("acq_date, satellite, evidence").write_parquet(
+            str(output / "sensor_outages.parquet"))
         path = ROOT / staged
         if path.exists():
             ratios = con.sql("""WITH matched AS (
