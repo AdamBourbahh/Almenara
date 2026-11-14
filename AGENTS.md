@@ -7,9 +7,9 @@
 
 ## 1. GOLDEN RULES FOR ALL AI CODING AGENTS
 1. **ZERO PLACEHOLDERS:** Never leave `# TODO`, `pass`, `...`, or stubbed functions. Every file must be 100% complete and production-ready.
-2. **FROZEN CONTRACTS:** Never rename, delete, or change types in `backend/api/schemas.py` or `frontend/src/api/types.ts`.
+2. **FROZEN CONTRACTS:** Never rename, delete, or change types in `backend/api/schemas.py` or `frontend/src/api/types.ts`. The only sanctioned exceptions are the additive/nullable changes of 2026-11-14 recorded in `firms-harmonizer/CAMBIOS.md` (`data_source` added; `forecast_series`, `pm25_emitted_kg`, `tooltip_narrative`, `audit_metrics`, `total_pm25_emitted_tonnes` and `burned_area_r2_*` nullable). Any further change must be coordinated across both files, `SPECS.md` and `CAMBIOS.md`.
 3. **100% ENGLISH UI & DOCS:** All UI text, tooltips, chart labels, audit verdicts, and `README.md` must be in **English** per NASA Space Apps Global Judging eligibility rules.
-4. **OFFLINE-FIRST RESILIENCE:** Both backend and frontend must work with Wi-Fi turned off (Airplane Mode). If `data/processed/fire_cube.parquet` is missing at startup, automatically invoke `scripts/00_bootstrap_synthetic_cube.py`.
+4. **OFFLINE-FIRST RESILIENCE:** Both backend and frontend must work with Wi-Fi turned off (Airplane Mode). The synthetic fixture cube is **opt-in only**: with `USE_SYNTHETIC_CUBE=1` the API serves `data/processed/fire_cube_synthetic.parquet` (generated via `scripts/00_bootstrap_synthetic_cube.py` if missing). Without it, the API refuses to start if the real `data/processed/fire_cube.parquet` is missing or is itself synthetic. Every response carries `data_source: "real" | "synthetic"`. Never fall back to synthetic data silently.
 
 ---
 
@@ -21,7 +21,7 @@ Each developer owns an isolated set of files. Only modify files belonging to the
 | :--- | :--- | :--- | :--- |
 | **1. ADAM** *(Team Lead)* | **Math & Physics Core** *(RTS Kalman + Cross Guard, Shannon Entropy, EQM, Von Mises, Chow/Wasserstein)* | `backend/api/schemas.py`<br>`backend/core/footprint_h3.py`<br>`backend/core/industrial_filter.py`<br>`backend/core/eqm_harmonizer.py`<br>`backend/core/kalman_rts.py`<br>`backend/core/von_mises.py`<br>`backend/core/auditor_stats.py`<br>`backend/core/chaos_monkey.py`<br>`backend/tests/test_math_core.py` | `pytest backend/tests/test_math_core.py -v`<br>*(0% FastAPI/DuckDB imports inside `backend/core/`)* |
 | **2. MOHAMMED** | **Frontend GPU Map, Store & 2D Canvas Calendar** | `frontend/src/api/types.ts`<br>`frontend/src/api/client.ts`<br>`frontend/src/store/useAnalysisStore.ts`<br>`frontend/src/components/Map/HexagonMap.tsx`<br>`frontend/src/components/Map/AoiDrawControl.tsx`<br>`frontend/src/components/Calendar/HatchPatternDefs.ts`<br>`frontend/src/components/Calendar/BurningCalendarCanvas.tsx`<br>`frontend/src/components/Calendar/CalendarTooltip.tsx` | `cd frontend && npx tsc --noEmit` |
-| **3. ANTONIO** | **DuckDB Engine, Hierarchical H3 Queries & FastAPI** | `backend/db/duckdb_engine.py`<br>`backend/db/queries.py`<br>`backend/db/nrt_poller.py`<br>`backend/api/cache.py`<br>`backend/api/routes.py`<br>`backend/api/main.py`<br>`backend/tests/test_api_contract.py` | `pytest backend/tests/test_api_contract.py -v` |
+| **3. MOHA** | **DuckDB Engine, Hierarchical H3 Queries & FastAPI** | `backend/db/duckdb_engine.py`<br>`backend/db/queries.py`<br>`backend/db/nrt_poller.py`<br>`backend/api/cache.py`<br>`backend/api/routes.py`<br>`backend/api/main.py`<br>`backend/api/core_contract.py`<br>`backend/check_core.py`<br>`backend/validation_report.py`<br>`backend/tests/test_api_contract.py`<br>`backend/tests/test_db_layer.py`<br>`backend/tests/test_core_validation.py`<br>`backend/tests/conftest.py` | `pytest backend/tests/test_db_layer.py backend/tests/test_api_contract.py backend/tests/test_core_validation.py -v` |
 | **4. GERMÁN** | **Offline ETL Pipeline & Master Parquet Cube** | `scripts/00_bootstrap_synthetic_cube.py`<br>`scripts/01_ingest_firms.py`<br>`scripts/02_detect_outages_clouds.py`<br>`scripts/03_train_eqm_lut.py`<br>`scripts/04_build_master_cube.py`<br>`scripts/05_cli_benchmark.py`<br>`backend/tests/test_cube_schema.py` | `python3 scripts/00_bootstrap_synthetic_cube.py && pytest backend/tests/test_cube_schema.py -v` |
 | **5. MIGUE** | **Scientific Charts, Audit Panel, Chaos Monkey UI & Pitch** | `frontend/src/components/Charts/PolarVonMisesClock.tsx`<br>`frontend/src/components/Charts/KalmanUncertaintyBandChart.tsx`<br>`frontend/src/components/Audit/AuditMetricsPanel.tsx`<br>`frontend/src/components/Audit/ChaosMonkeyButton.tsx`<br>`frontend/src/App.tsx`<br>`frontend/src/main.tsx`<br>`README.md` | `cd frontend && npm run build` |
 
@@ -50,8 +50,8 @@ def get_db_cursor():
         cursor.close()
 ```
 
-### Guardrail 4: Two-Level Hierarchical H3 Polygon Filtering
-Never call `h3.polygon_to_cells(poly, res=7)` directly on large polygons. Always compute `res=4` cells first (`< 0.4 ms`) to filter `WHERE h3_r4 IN (...)` via Parquet Zone Maps, and only refine `res=7` when `len(cells_r4) < 80`. If `res=4` is empty on a tiny polygon, fallback to the centroid's `res=4` cell and its `grid_disk(c, 1)`.
+### Guardrail 4: Two-Level Hierarchical H3 Polygon Filtering (R7 first, then unique R4 parents)
+Polyfill the polygon at `res=7` with `polygon_to_cells` (GeoJSON `[lon, lat]` converted explicitly to `(lat, lng)`, H3 v4 API), derive the **unique** `res=4` parents (`cell_to_parent`), and filter DuckDB first on `h3_r4` (Parquet Zone Map pruning) and then on `h3_r7`. **Never polyfill at `res=4` directly** — it only keeps cells whose centre lies inside the polygon and silently drops border cells — and **never use a centroid / `grid_disk` fallback** (a polygon with no R7 cell returns empty lists). Cell lists reach DuckDB as registered Arrow tables, never concatenated into SQL. Polygons above 250,000 R7 cells are rejected with HTTP 422.
 
 ### Guardrail 5: Numerical Stability in RTS Kalman Smoother
 In `backend/core/kalman_rts.py`:

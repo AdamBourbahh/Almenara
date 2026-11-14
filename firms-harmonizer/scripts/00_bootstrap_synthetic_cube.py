@@ -150,7 +150,7 @@ def _write_mock(table: pa.Table, dates: np.ndarray, truth: np.ndarray,
                  executive_verdict_en=("Synthetic integration fixture. Harmonized Chow gate: "
                      + ("PASS" if harm_p > .10 else "FAIL")
                      + ". Chow and Wasserstein are simulated diagnostics; burned-area R² is squared proxy correlation, not independent validation. No production Kalman results are claimed."))
-    response = dict(query_hash=hashlib.sha256(b"synthetic-cerrado-2001-2026-v1").hexdigest(),
+    response = dict(data_source="synthetic", query_hash=hashlib.sha256(b"synthetic-cerrado-2001-2026-v1").hexdigest(),
                     execution_time_ms=elapsed_ms, aoi_area_km2=area, total_h3_cells=7,
                     calendar_series=cells, forecast_series=forecasts, phenology_by_year=phenology,
                     audit_metrics=audit, map_hexagons=[])
@@ -172,7 +172,7 @@ def _write_mock(table: pa.Table, dates: np.ndarray, truth: np.ndarray,
     mock.write_bytes(orjson.dumps(validated.model_dump(), option=orjson.OPT_APPEND_NEWLINE))
 
 
-def generate_bootstrap_cube(output_path="data/processed/fire_cube.parquet") -> Path:
+def generate_bootstrap_cube(output_path="data/processed/fire_cube.parquet", *, write_mock=True) -> Path:
     """Generate 28 R7 cells × 9496 days, sorted, ZSTD-compressed and reproducible."""
     started = perf_counter()
     rng = np.random.default_rng(42)
@@ -230,7 +230,8 @@ def generate_bootstrap_cube(output_path="data/processed/fire_cube.parquet") -> P
         path = ROOT/path
     path.parent.mkdir(parents=True,exist_ok=True)
     pq.write_table(table,path,compression="zstd",row_group_size=32768,write_statistics=True)
-    _write_mock(table,dates,np.asarray(truths),years,doy,(perf_counter()-started)*1000)
+    if write_mock:
+        _write_mock(table,dates,np.asarray(truths),years,doy,(perf_counter()-started)*1000)
     return path
 
 
