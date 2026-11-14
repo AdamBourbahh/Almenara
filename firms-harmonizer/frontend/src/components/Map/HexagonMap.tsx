@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DeckGL from "@deck.gl/react";
-import { FlyToInterpolator, WebMercatorViewport, MapView, type MapViewState, type PickingInfo } from "@deck.gl/core";
+import { FlyToInterpolator, MapView, type MapViewState, type PickingInfo } from "@deck.gl/core";
 import { PathLayer, PolygonLayer } from "@deck.gl/layers";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import MapLibreMap from "react-map-gl/maplibre";
@@ -8,11 +8,10 @@ import { setWorkerUrl } from "maplibre-gl";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useShallow } from "zustand/react/shallow";
-import { Box, ChartColumn, Eye, EyeOff, Square } from "lucide-react";
-import type { ObservedHex } from "../../api/client";
-import type { GeoJSONPolygon } from "../../api/types";
-import { useAnalysisStore } from "../../store/useAnalysisStore";
-import { HeatHistoryCard } from "./HeatHistoryCard";
+import { Box, Eye, EyeOff, Square } from "lucide-react";
+import type { GeoJSONPolygon, H3MapSummaryHex } from "../../api/types";
+import { selectedMapPeriod, useAnalysisStore } from "../../store/useAnalysisStore";
+import { summarizeMappedYear, colorIntensity } from "./mapMetrics";
 import { useTheme } from "../../lib/theme";
 
 setWorkerUrl(maplibreWorkerUrl);
@@ -86,6 +85,7 @@ const BASEMAPS: Record<BasemapKey, { label: string; style: unknown }> = {
   streets: { label: "Streets", style: CARTO_LIGHT }
 };
 
+const INDUSTRIAL_PURPLE: [number, number, number, number] = [106, 61, 154, 235];
 const MAX_ELEVATION_M = 1250;
 const PITCH_3D = 35;
 
@@ -160,17 +160,8 @@ export function HexagonMap() {
   const styleLoadedRef = useRef(false);
   const pointerOverMap = useRef(false);
   const reducedMotion = useMemo(() => window.matchMedia("(prefers-reduced-motion: reduce)"), []);
-  const [size, setSize] = useState({ width: 900, height: 600 });
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node) return;
-    const observer = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }));
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
   const {
-    observationData,
+    analysisData, mapHexagons, mapPeriod, mapLoading, mapError, requestedPeriod, startYear, endYear,
     viewMode,
     highlightIndustrialOnMap,
     excludeIndustrial,
@@ -181,7 +172,9 @@ export function HexagonMap() {
     isSynthetic
   } = useAnalysisStore(
     useShallow((s) => ({
-      observationData: s.observationData,
+      analysisData: s.analysisData,
+      mapHexagons: s.mapHexagons, mapPeriod: s.mapPeriod, mapLoading: s.mapLoading, mapError: s.mapError,
+      requestedPeriod: selectedMapPeriod(s), startYear: s.startYear, endYear: s.endYear,
       viewMode: s.viewMode,
       highlightIndustrialOnMap: s.highlightIndustrialOnMap,
       excludeIndustrial: s.excludeIndustrial,
@@ -197,7 +190,6 @@ export function HexagonMap() {
   const [basemap, setBasemap] = useState<BasemapKey>("satelliteRelief");
   const [is3D, setIs3D] = useState(false);
   const [showHeat, setShowHeat] = useState(true);
-  const [historyDismissed, setHistoryDismissed] = useState(false);
   const [basemapAvailable, setBasemapAvailable] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [viewState, setViewState] = useState<ViewState>(() => viewStateForAoi(currentAoi, 900, 600, 0));
   const [dragBox, setDragBox] = useState<{ start: LngLat; end: LngLat } | null>(null);
@@ -217,7 +209,6 @@ export function HexagonMap() {
 
   useEffect(() => {
     const el = containerRef.current;
-    setHistoryDismissed(false);
     setViewState((prev) => ({
       ...viewStateForAoi(currentAoi, el?.clientWidth ?? 900, el?.clientHeight ?? 600, prev.pitch ?? 0),
       transitionDuration: reducedMotion.matches ? 0 : 900,
@@ -297,10 +288,14 @@ export function HexagonMap() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const hexagons = useMemo(() => observationData?.map_hexagons ?? [], [observationData]);
+  const hexagons = useMemo(() => summarizeMappedYear(mapHexagons, excludeIndustrial).hexagons, [mapHexagons, excludeIndustrial]);
+  // Keep the same scale across days, months and years; never normalize each frame.
+  const reference = analysisData?.map_hexagons;
+  const span = Math.max(1, endYear - startYear + 1);
+  const maxRaw = useMemo(() => (reference ?? []).reduce((m, h) => Math.max(m, h.raw_pixel_count), 1), [reference]);
   const maxFre = useMemo(
-    () => hexagons.reduce((m, h) => Math.max(m, h.detection_count), 1),
-    [hexagons]
+    () => (reference ?? []).reduce((m, h) => Math.max(m, h.mean_annual_fre * span), 1),
+    [reference, span]
   );
 
   const toggle3D = () => {
@@ -361,7 +356,7 @@ export function HexagonMap() {
         widthUnits: "pixels",
         getWidth: 1
       }),
-      new H3HexagonLayer<ObservedHex>({
+      new H3HexagonLayer<H3MapSummaryHex>({
         id: "h3-hexagon-layer",
         data: hexagons,
         visible: showHeat,
@@ -378,16 +373,17 @@ export function HexagonMap() {
         highlightColor: [255, 255, 255, 110],
         getHexagon: (d) => d.h3_index,
         getFillColor: (d) => {
-          const t = Math.sqrt(Math.min(1, d.detection_count / maxFre));
+          if (highlightIndustrialOnMap && d.is_industrial_site) return INDUSTRIAL_PURPLE;
+          const t = colorIntensity(viewMode === "RAW" ? d.raw_pixel_count : d.mean_annual_fre, viewMode === "RAW" ? maxRaw : maxFre);
           const alpha = 120 + 130 * t;
           if (viewMode === "RAW") return rampColor(theme === "dark" ? RAW_DARK : RAW_LIGHT, t, alpha);
           return rampColor(THERMAL_LIGHT, t, alpha);
         },
-        getElevation: (d) => Math.sqrt(Math.min(1, d.detection_count / maxFre)) * MAX_ELEVATION_M,
+        getElevation: (d) => colorIntensity(viewMode === "RAW" ? d.raw_pixel_count : d.mean_annual_fre, viewMode === "RAW" ? maxRaw : maxFre) * MAX_ELEVATION_M,
         elevationScale: 1,
         updateTriggers: {
-          getFillColor: [viewMode, highlightIndustrialOnMap, maxFre, theme],
-          getElevation: [maxFre]
+          getFillColor: [viewMode, highlightIndustrialOnMap, maxFre, maxRaw, theme, mapPeriod],
+          getElevation: [maxFre, maxRaw, viewMode, mapPeriod]
         }
       }),
       new PolygonLayer<AoiFeature>({
@@ -412,19 +408,25 @@ export function HexagonMap() {
         getLineWidth: 2
       })
     ];
-  }, [hexagons, maxFre, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable]);
+  }, [hexagons, maxFre, maxRaw, mapPeriod, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable]);
 
   const getTooltip = useCallback(
-    ({ object }: PickingInfo<ObservedHex>) => {
+    ({ object }: PickingInfo<H3MapSummaryHex>) => {
       if (!object) return null;
       const lines = [
         `H3 ${object.h3_index}`,
-        `Satellite detections: ${object.detection_count.toLocaleString("en-US")}`,
-        `Summed instantaneous FRP: ${object.raw_frp_mw.toFixed(1)} MW`
+        `Period: ${mapPeriod}`,
+        `Period fire energy: ${object.mean_annual_fre.toFixed(1)} MJ/km²`,
+        `Period detections: ${object.raw_pixel_count.toLocaleString("en-US")}`,
+        "Color: logarithmic scale, fixed across dates",
+        "Satellite observations do not establish the exact ignition time."
       ];
+      if (object.is_industrial_site) {
+        lines.push(excludeIndustrial ? "Industrial gas flare (excluded)" : "Industrial gas flare");
+      }
       return { text: lines.join("\n") };
     },
-    [excludeIndustrial]
+    [excludeIndustrial, mapPeriod]
   );
 
   const controller = useMemo(
@@ -434,30 +436,11 @@ export function HexagonMap() {
 
   // Keep the dock contextual: selections must occupy a meaningful visible
   // area. A large region can remain relevant even at a low absolute zoom.
-  const selectionVisible = useMemo(() => {
-    if (isDrawingAoi || size.width < 260 || size.height < 250) return false;
-    const viewport = new WebMercatorViewport({ ...viewState, width: size.width, height: size.height });
-    const points = currentAoi.coordinates[0].map(([lng, lat]) => viewport.project([
-      viewState.longitude + ((lng - viewState.longitude + 540) % 360 - 180), lat
-    ]));
-    if (!points.length || points.some((point) => !point.every(Number.isFinite))) return false;
-    const left = Math.min(...points.map((point) => point[0]));
-    const right = Math.max(...points.map((point) => point[0]));
-    const top = Math.min(...points.map((point) => point[1]));
-    const bottom = Math.max(...points.map((point) => point[1]));
-    const visibleWidth = Math.max(0, Math.min(size.width, right) - Math.max(0, left));
-    const visibleHeight = Math.max(0, Math.min(size.height, bottom) - Math.max(0, top));
-    const fraction = visibleWidth * visibleHeight / (size.width * size.height);
-    return visibleWidth >= 64 && visibleHeight >= 44 && fraction >= .018;
-  }, [viewState, size, currentAoi, isDrawingAoi]);
-  const showHistory = selectionVisible && !historyDismissed;
-
 
   const mapStyle = basemap === "streets" ? (theme === "dark" ? CARTO_DARK : CARTO_LIGHT) : BASEMAPS[basemap].style;
 
   return (
     <div ref={containerRef} data-map-viewport className="relative h-full w-full overflow-hidden bg-paper"
-      style={{ '--map-bottom-inset': showHistory ? '64px' : '0px' } as React.CSSProperties}
       onPointerMove={(event) => { pointerOverMap.current = !(event.target instanceof Element && event.target.closest("[data-map-ui]")); }}
       onPointerEnter={() => { pointerOverMap.current = true; }}
       onPointerLeave={() => { pointerOverMap.current = false; }}
@@ -510,12 +493,8 @@ export function HexagonMap() {
         </div>
       )}
 
-      {showHistory && <div data-map-ui className="absolute inset-x-0 bottom-0 z-30">
-        <HeatHistoryCard key={JSON.stringify(currentAoi.coordinates)} onClose={() => setHistoryDismissed(true)} />
-      </div>}
-
       {/* Basemap and layer controls remain clear of the explorer. */}
-      <div data-map-ui className="absolute left-3 z-20 flex flex-wrap items-center gap-2 transition-[bottom] duration-200" style={{ bottom: showHistory ? 88 : 24 }}>
+      <div data-map-ui className="absolute left-3 z-20 flex flex-wrap items-center gap-2 transition-[bottom] duration-200" style={{ bottom: 24 }}>
         <select
           value={basemap}
           onChange={(e) => setBasemap(e.target.value as BasemapKey)}
@@ -553,7 +532,6 @@ export function HexagonMap() {
           Heat
           <kbd className="ml-0.5 border border-rule px-1 text-[9px] text-faint">H</kbd>
         </button>
-        {selectionVisible && historyDismissed && <button type="button" onClick={() => setHistoryDismissed(false)} aria-label="Show heat history" className="flex items-center gap-1.5 border border-rule bg-panel/95 px-2.5 py-1.5 text-xs text-ink hover:bg-paper"><ChartColumn className="h-3.5 w-3.5" />History</button>}
       </div>
 
       {/* Legend below the Google Maps-style search toolbar. */}
@@ -561,19 +539,20 @@ export function HexagonMap() {
         {showHeat && (
           <div className="mb-2 space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-24" style={{ background: "linear-gradient(90deg, #FEF0D9, #FDBE85, #E6550D, #B30000)" }} />
-              <span className="text-[10px] text-muted">Satellite detections · full period</span>
+              <span className="inline-block h-2.5 w-24" style={{ background: `linear-gradient(90deg, ${(viewMode === "RAW" ? (theme === "dark" ? RAW_DARK : RAW_LIGHT) : THERMAL_LIGHT).map((color) => `rgb(${color.join(",")})`).join(",")})` }} />
+              <span className="text-[10px] text-muted">{viewMode === "RAW" ? `Detections: 0–${Math.round(maxRaw).toLocaleString("en-US")}+` : `Period energy: 0–${Math.round(maxFre).toLocaleString("en-US")}+ MJ/km²`}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block h-3 w-3" style={{ background: "#6A3D9A" }} />
-              <span className="text-[10px] text-muted">Observed detection centers</span>
+              <span className="text-[10px] text-muted">Industrial gas flares</span>
             </div>
           </div>
         )}
         <p className="text-[10px] text-muted tnum">
-          {viewMode === "RAW" ? "Raw counts" : "Harmonized"} · {hexagons.length.toLocaleString("en-US")} cells
+          {mapLoading ? `Loading ${requestedPeriod}…` : mapError ? "Map period unavailable" : `${mapPeriod ?? requestedPeriod} · ${viewMode === "RAW" ? "Raw counts" : "Calibrated energy"} · ${hexagons.length.toLocaleString("en-US")} cells`}
           {isSynthetic && <span className="text-terracotta"> · synthetic data</span>}
         </p>
+        {!mapLoading && !mapError && hexagons.length === 0 && <p className="mt-1 text-[10px] text-muted">No mapped observations in this period. Missing observations do not rule out fire.</p>}
       </div>
     </div>
   );

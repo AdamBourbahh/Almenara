@@ -1,13 +1,12 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
-import { CloudOff, Satellite, ShieldCheck, Sparkles, TrendingUp, Wrench } from "lucide-react";
-import { calendarKey, useAnalysisStore } from "../../store/useAnalysisStore";
+import { CloudOff, Satellite, ShieldCheck, TrendingUp, Wrench } from "lucide-react";
+import { useAnalysisStore } from "../../store/useAnalysisStore";
 
 const TOOLTIP_WIDTH = 320;
-const TOOLTIP_EST_HEIGHT = 300;
+const TOOLTIP_EST_HEIGHT = 380;
 const OFFSET = 16;
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const GAP_REASON_LABEL: Record<string, string> = {
   NONE: "None",
@@ -23,8 +22,7 @@ function gapLabel(reason: string | null): string {
 }
 
 function formatDate(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return Number.isFinite(y) && m >= 1 && m <= 12 ? `${MONTHS[m - 1]} ${d}, ${y}` : iso;
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
 const fmt = (value: number | null | undefined, digits = 1) =>
@@ -35,20 +33,20 @@ const fmt = (value: number | null | undefined, digits = 1) =>
  * ancestors cannot offset it. Lookup is O(1) through the store calendar index.
  */
 export const CalendarTooltip: React.FC = () => {
-  const { hoveredDay, calendarIndex } = useAnalysisStore(
-    useShallow((s) => ({ hoveredDay: s.hoveredDay, calendarIndex: s.calendarIndex }))
+  const { hoveredDay, hoveredCell, isDatePinned, selectedDate, dateIndex } = useAnalysisStore(
+    useShallow((s) => ({ hoveredDay: s.hoveredDay, hoveredCell: s.hoveredCell, isDatePinned: s.isDatePinned, selectedDate: s.selectedDate, dateIndex: s.dateIndex }))
   );
-
-  if (!hoveredDay || typeof document === "undefined") return null;
-  const cell = calendarIndex.get(calendarKey(hoveredDay.year, hoveredDay.doy));
-  if (!cell) return null;
+  const cell = isDatePinned && selectedDate ? dateIndex.get(selectedDate) : hoveredCell;
+  if (!cell || typeof document === "undefined") return null;
+  const anchor = hoveredDay ?? { clientX: window.innerWidth - TOOLTIP_WIDTH - OFFSET - 8, clientY: 180 };
 
   const viewportW = window.innerWidth;
   const viewportH = window.innerHeight;
-  let left = hoveredDay.clientX + OFFSET;
-  if (left + TOOLTIP_WIDTH > viewportW - 8) left = hoveredDay.clientX - OFFSET - TOOLTIP_WIDTH;
-  let top = hoveredDay.clientY + OFFSET;
-  if (top + TOOLTIP_EST_HEIGHT > viewportH - 8) top = hoveredDay.clientY - OFFSET - TOOLTIP_EST_HEIGHT;
+  const width = Math.min(TOOLTIP_WIDTH, viewportW - 16);
+  let left = anchor.clientX + OFFSET;
+  if (left + width > viewportW - 8) left = anchor.clientX - OFFSET - width;
+  let top = anchor.clientY + OFFSET;
+  if (top + TOOLTIP_EST_HEIGHT > viewportH - 8) top = anchor.clientY - OFFSET - TOOLTIP_EST_HEIGHT;
   left = Math.max(8, left);
   top = Math.max(8, top);
 
@@ -58,12 +56,12 @@ export const CalendarTooltip: React.FC = () => {
   return createPortal(
     <div
       role="tooltip"
-      style={{ left, top, width: TOOLTIP_WIDTH }}
+      style={{ left, top, width }}
       className="pointer-events-none fixed z-50 border border-rule bg-panel p-4 text-xs text-ink"
     >
       <div className="mb-2 flex items-center justify-between border-b border-rule pb-2">
         <span className="font-serif text-sm text-ink">{formatDate(cell.date)}</span>
-        <span className="text-[10px] text-faint tnum">day {cell.doy}</span>
+        <span className="text-[10px] text-faint tnum">DOY {cell.doy}{isDatePinned ? " · pinned" : ""}</span>
       </div>
 
       <div className="mb-3 grid grid-cols-2 gap-2">
@@ -152,13 +150,6 @@ export const CalendarTooltip: React.FC = () => {
       {cell.tooltip_narrative && (
         <p className="border-t border-rule pt-2 text-[11px] leading-relaxed text-muted">{cell.tooltip_narrative}</p>
       )}
-
-      <div className="mt-2 flex items-center justify-between border-t border-rule pt-1.5 text-[10px]">
-        <span className="flex items-center gap-1 font-medium text-reference">
-          <Sparkles className="h-3 w-3" /> Click cell to explain with AI
-        </span>
-        <span className="font-mono text-faint">Physics Grounded</span>
-      </div>
     </div>,
     document.body
   );

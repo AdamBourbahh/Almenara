@@ -187,12 +187,18 @@ def _scan_sql(missing: set[str]) -> str:
     return "SELECT " + ", ".join(parts) + _SPATIAL_FILTER
 
 
-def query_aoi_rows(cur, cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int) -> pa.Table:
+def query_aoi_rows(cur, cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int,
+                   epoch_range: tuple[int, int] | None = None) -> pa.Table:
     """Single scan: every cube row of the AOI and year range (no grouping), as Arrow."""
     missing = set(duckdb_engine.missing_columns())
     _register_cells(cur, cells_r4, cells_r7)
     try:
-        return cur.sql(_scan_sql(missing), params=[int(start_year), int(end_year)]).to_arrow_table()
+        sql = _scan_sql(missing)
+        params = [int(start_year), int(end_year)]
+        if epoch_range is not None:
+            sql += " AND epoch_day BETWEEN ? AND ?"
+            params.extend(epoch_range)
+        return cur.sql(sql, params=params).to_arrow_table()
     finally:
         _unregister_cells(cur)
 
@@ -348,6 +354,30 @@ def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_ye
         used = [h.h3_index for h in hexagons]
     return AoiAggregate(daily, hexagons, removed, len(used), used)
 
+
+def fetch_map_period(cells_r4: list[int], cells_r7: list[int], year: int,
+                     epoch_range: tuple[int, int], exclude_industrial: bool) -> list[H3MapSummaryHex]:
+    """Observed per-cell energy and counts for an inclusive period within one year.
+
+    The legacy ``mean_annual_fre`` field contains the selected period's integrated
+    density here; no annual extrapolation or regional gap filling is applied.
+    """
+    if not cells_r4 or not cells_r7:
+        return []
+    with duckdb_engine.get_db_cursor() as cur:
+        table = query_aoi_rows(cur, cells_r4, cells_r7, year, year, epoch_range)
+        if exclude_industrial:
+            table = table.filter(pc.less(table["industrial_prob"], INDUSTRIAL_THRESHOLD))
+        if table.num_rows == 0:
+            return []
+        cols = {"h3_r7": table.column("h3_r7").to_numpy()}
+        for name in ("epoch_day", "year", "raw_modis_cnt", "raw_viirs_cnt"):
+            cols[name] = _int_col(table, name)
+        for name in ("industrial_prob",) + OBS_COLUMNS:
+            cols[name] = _float_col(table, name)
+        hexagons, _, _ = _summarize_hexagons(
+            cur, cols, np.asarray(sorted(cells_r7), dtype=np.uint64), year, year)
+    return [h for h in hexagons if h.raw_pixel_count > 0 or h.mean_annual_fre > 0]
 
 def fetch_observed_detections(cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int) -> dict:
     """Aggregate accepted FIRMS detection centers, without calibration or imputation."""

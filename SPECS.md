@@ -333,6 +333,30 @@ class ExplainSpikeResponse(ContractModel):
 2. **`california_usa` (Sierra Nevada, California):** `lon: -121.2 to -119.5, lat: 38.0 to 40.2` (Demonstrates von Mises phenological shift $+19$ days and the synthetic Aug 2022 Aqua-blackout RTS reconstruction scenario).
 3. **`iberia_med` (Iberian Peninsula / Mediterranean):** `lon: -6.5 to -3.2, lat: 37.2 to 39.8` (Demonstrates hierarchical `H3_r4` $\to$ `H3_r7` coastal precision and local operational impact).
 4. **`niger_delta_flaring` (Niger Delta Gas Flaring Control):** `lon: 5.6 to 7.2, lat: 4.6 to 5.8` (Demonstrates Shannon temporal entropy filter $H_{\text{temp}} > 0.75$ removing $95\%$ of stationary oil flares).
+
+### 5.4 Exact spatial map periods (2026-11-14 integration)
+
+`POST /api/map-period?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` accepts the existing
+`AnalyzeRequest` body without changing the frozen analysis contracts. Dates are inclusive,
+must belong to the same year, and must lie inside the body's requested year range.
+The response contains `data_source`, `start_date`, `end_date`, `map_hexagons` and
+`execution_time_ms`. Each hexagon retains the existing `H3MapSummaryHex` shape; on this
+endpoint, the legacy field `mean_annual_fre` is the integrated observed energy density
+over the requested dates, in MJ/km², with no annual extrapolation or regional Kalman
+gap filling. `raw_pixel_count` counts detections within those dates only.
+
+The query uses the same R7 polygon fill and unique R4 parents, registered Arrow cell
+tables, bound year and epoch-day parameters, request-local DuckDB cursors, and hexadecimal
+H3 serialization as annual analysis. Industrial observations are filtered before temporal
+aggregation when requested. Empty periods return an empty map, never an annual substitute.
+Responses are cached by geometry, exact dates, industrial filter and cube modification time.
+
+The chronology's selected day takes precedence over month, which takes precedence over
+year. Changing any of them reloads spatial observations with cancellation and stale-response
+protection. Map colors use one fixed reference across dates; tooltips and visible-map totals
+describe that same selected period. Missing observations do not establish absence of fire;
+the first satellite detection does not establish the actual ignition time.
+
 ### 5.4 Observations viewer (current scope, 2026-11-14)
 
 The current UI displays accepted, deduplicated FIRMS detection centers from the real staging dataset. `POST /api/observations` accepts a `GeoJSONPolygon` directly and returns real provenance, daily counts, summed instantaneous FRP in MW, all five instrument labels, per-R7 counts/FRP, first/last detection dates and the aggregation method. It never calls the scientific core, fills missing dates, estimates emissions or forecasts. No detections on a date does not establish zero fire activity or complete observation coverage. Counts are detections, not distinct fire events. Staging retains the ingestion quality and SAMA/date filters; raw FRP is not footprint-corrected or EQM-adjusted.

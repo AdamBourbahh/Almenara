@@ -16,7 +16,11 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
     isDrawingAoi,
     setDrawingAoi,
     setCustomBbox,
-    observationData,
+    excludeIndustrial,
+    setExcludeIndustrial,
+    highlightIndustrialOnMap,
+    setHighlightIndustrialOnMap,
+    analysisData,
   } = useAnalysisStore(
     useShallow((s) => ({
       selectedPreset: s.selectedPreset,
@@ -25,7 +29,11 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
       isDrawingAoi: s.isDrawingAoi,
       setDrawingAoi: s.setDrawingAoi,
       setCustomBbox: s.setCustomBbox,
-      observationData: s.observationData,
+      excludeIndustrial: s.excludeIndustrial,
+      setExcludeIndustrial: s.setExcludeIndustrial,
+      highlightIndustrialOnMap: s.highlightIndustrialOnMap,
+      setHighlightIndustrialOnMap: s.setHighlightIndustrialOnMap,
+      analysisData: s.analysisData,
     }))
   );
 
@@ -151,7 +159,7 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-faint">Pilot regions</p>
         <span className="font-mono text-[10px] text-faint tnum">
-          {observationData ? observationData.map_hexagons.length.toLocaleString("en-US") : "—"} cells
+          {analysisData ? analysisData.total_h3_cells.toLocaleString("en-US") : "—"} record cells
         </span>
       </div>
 
@@ -179,6 +187,29 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
       </div>
 
 
+      <div className="mt-3 space-y-1.5 border-t border-rule pt-3">
+        <label className="flex cursor-pointer items-start gap-2 text-[11px] text-muted">
+          <input
+            type="checkbox"
+            checked={excludeIndustrial}
+            onChange={(e) => void setExcludeIndustrial(e.target.checked)}
+            className="mt-0.5 h-3.5 w-3.5 accent-industrial"
+          />
+          <span>
+            Hide industrial heat (refineries and flares)
+            <span className="block text-[10px] text-faint">Shannon temporal entropy H &gt; 0.75</span>
+          </span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-muted">
+          <input
+            type="checkbox"
+            checked={highlightIndustrialOnMap}
+            onChange={(e) => setHighlightIndustrialOnMap(e.target.checked)}
+            className="h-3.5 w-3.5 accent-industrial"
+          />
+          Highlight flares on the map
+        </label>
+      </div>
 
     </div>
   );

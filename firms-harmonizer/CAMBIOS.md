@@ -1,5 +1,22 @@
 # CAMBIOS — registro de cambios que afectan a otros integrantes
 
+## 2026-11-14 — Exact daily and monthly map observations
+
+User-authorized integration across API, DuckDB and frontend: added synchronous
+`POST /api/map-period` with inclusive date bounds, source provenance, bounded caching,
+industrial filtering and per-cell energy/count aggregation from the local cube.
+The frozen `schemas.py` and `types.ts` contracts are unchanged. The new endpoint reuses
+the existing hexagon shape: its legacy `mean_annual_fre` field contains the selected
+period's integrated energy density, without annual extrapolation or regional gap filling.
+See root `SPECS.md` §5.4 for the additional endpoint contract.
+
+Day/month selection now reloads map cells with cancellation, stale-response protection
+and period-aware caching. Map tooltips, the chronology dock and the right panel identify
+the same period. Colors retain a shared reference; empty dates show no observations.
+The first satellite detection must not be described as an exact ignition time.
+Regression coverage includes leap days, month totals, empty periods, industrial filtering,
+date validation, cache isolation and late responses.
+
 Cada fila es un cambio hecho por Moha (dueño de `backend/db/` y `backend/api/`) sobre un archivo compartido o de otra persona. Motivo general: implementar la API sin datos falsos ni sustitutos silenciosos (plan v2).
 
 | Fecha | Archivo | Dueño original | Cambio | Motivo | Afecta a |
@@ -119,3 +136,11 @@ Verification: 148 backend tests passed (including four new actual-core HTTP inte
 The default frontend now uses additive `POST /api/observations` with a GeoJSON polygon body. Responses contain `data_source: "real"`, `daily` (UTC date/year/DOY, detection_count, raw_frp_mw, sensors), `map_hexagons` (15-character H3 hex, detection_count, raw_frp_mw), total detections, first/last observed dates, execution time and a method description. Values come exclusively from accepted staging detection centers, without calibration or imputation. Missing staging or synthetic backend mode returns 503. The endpoint uses hierarchical R4/R7 filtering, request-local cursors, Arrow cell tables and bound SQL parameters. Counts and FRP are additive across map cells and days; no scientific validation or energy interpretation is implied.
 
 The UI reads its four study envelopes from data/regions.json, displays observed counts, raw FRP, all five instruments and explicit missing-day semantics, and exports an observations CSV. It has no automatic synthetic fallback, gap-filling control, forecast or emissions/audit claims. Calendar gaps remain blank. Map colors summarize the full observed period; the history year control only selects the inspected annual count. The map stays mounted across tabs. Legacy scientific API contracts and their TypeScript mirror are unchanged.
+
+## 2026-11-14 — Main integration conflict resolution
+
+Merged upstream observations, ETL updates and Physics-First Fire Copilot while retaining
+the integrated chronology dock and exact daily/monthly energy maps. The Observations
+section exposes accepted FIRMS records and CSV export separately from calibrated energy.
+The upstream observations and explanation endpoints and their additive contracts are retained.
+Validation: 73 backend tests, 8 frontend tests and the production build passed.

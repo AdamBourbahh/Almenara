@@ -44,6 +44,13 @@ function formatP(p: number | undefined): string {
 }
 
 export function PolarVonMisesClock() {
+  const selectedYear = useAnalysisStore((s) => s.selectedYear);
+  const selectedDate = useAnalysisStore((s) => s.selectedDate);
+  const isDatePinned = useAnalysisStore((s) => s.isDatePinned);
+  const hoveredCell = useAnalysisStore((s) => s.hoveredCell);
+  const dateIndex = useAnalysisStore((s) => s.dateIndex);
+  const active = isDatePinned && selectedDate ? dateIndex.get(selectedDate) : hoveredCell ?? (selectedDate ? dateIndex.get(selectedDate) : null);
+  const inspectionYear = active?.year ?? selectedYear;
   const analysisData = useAnalysisStore((s) => s.analysisData);
   const phenology = analysisData?.phenology_by_year ?? [];
   const audit = analysisData?.audit_metrics;
@@ -61,7 +68,7 @@ export function PolarVonMisesClock() {
       return { year: entry.year, tip: polar(radius, angle), color: thermalColor((entry.year - minYear) / span) };
     });
 
-    const latest = phenology.length ? phenology[phenology.length - 1] : null;
+    const latest = phenology.find((entry) => entry.year === inspectionYear) ?? null;
     const peakAngle = latest ? doyToAngle(latest.peak_doy_mu) : 0;
     const halfWindow = latest ? (Math.PI * latest.season_width_days) / DAYS : Math.PI / 4;
     const start = polar(R_OUTER, peakAngle - halfWindow);
@@ -72,13 +79,13 @@ export function PolarVonMisesClock() {
       `A ${R_OUTER} ${R_OUTER} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)} Z`;
 
     return { minYear, maxYear, vectors, windowPath, latest };
-  }, [phenology]);
+  }, [phenology, inspectionYear]);
 
   const shift = audit?.phenology_shift_days_per_decade ?? 0;
   const shiftLabel = `${shift >= 0 ? "+" : ""}${shift.toFixed(1)}`;
-  const meanMu = phenology.length ? phenology.reduce((a, p) => a + p.peak_doy_mu, 0) / phenology.length : 0;
-  const meanKappa = phenology.length ? phenology.reduce((a, p) => a + p.concentration_kappa, 0) / phenology.length : 0;
-  const meanWidth = phenology.length ? phenology.reduce((a, p) => a + p.season_width_days, 0) / phenology.length : 0;
+  const meanMu = geometry.latest?.peak_doy_mu ?? 0;
+  const meanKappa = geometry.latest?.concentration_kappa ?? 0;
+  const meanWidth = geometry.latest?.season_width_days ?? 0;
   const peakLabel = geometry.latest?.peak_date_label ?? "—";
 
   return (
@@ -97,6 +104,7 @@ export function PolarVonMisesClock() {
         . Each spoke is one year: its direction is the peak day, its length the seasonal concentration.
       </p>
 
+      {active && <p aria-label="Clock active day" className="mb-2 text-xs text-reference tnum">{active.date} · DOY {active.doy}{geometry.latest ? ` · ${Math.abs(((active.doy - geometry.latest.peak_doy_mu + DAYS * 1.5) % DAYS) - DAYS / 2).toFixed(1)} days from peak (circular distance)` : " · No annual peak available"}</p>}
       <div className="flex justify-center">
         <svg viewBox="0 0 300 300" className="h-auto w-full max-w-[320px]" role="img" aria-label="Fire-season clock">
           {[0.34, 0.67, 1].map((ratio) => (
@@ -123,14 +131,15 @@ export function PolarVonMisesClock() {
 
           {geometry.vectors.map((vector) => (
             <g key={vector.year}>
-              <line x1={CX} y1={CY} x2={vector.tip.x} y2={vector.tip.y} stroke={vector.color} strokeWidth={1.4} opacity={0.85} />
-              <circle cx={vector.tip.x} cy={vector.tip.y} r={1.7} fill={vector.color} />
+              <line x1={CX} y1={CY} x2={vector.tip.x} y2={vector.tip.y} stroke={vector.color} strokeWidth={vector.year === inspectionYear ? 3 : 1} opacity={vector.year === inspectionYear ? 1 : 0.3} />
+              <circle cx={vector.tip.x} cy={vector.tip.y} r={vector.year === inspectionYear ? 3 : 1.7} fill={vector.color} />
             </g>
           ))}
 
+          {active && <line aria-label="Selected day angle" x1={CX} y1={CY} x2={polar(R_OUTER, 2 * Math.PI * active.doy / DAYS).x} y2={polar(R_OUTER, 2 * Math.PI * active.doy / DAYS).y} stroke="var(--color-reference)" strokeWidth={2} strokeDasharray="4 2" />}
           <circle cx={CX} cy={CY} r={R_CORE} fill="var(--color-panel)" stroke="var(--color-rule-strong)" />
           <text x={CX} y={CY - 8} fill="var(--color-faint)" fontSize="7" textAnchor="middle" letterSpacing="1">
-            AVERAGE PEAK
+            {inspectionYear} PEAK
           </text>
           <text x={CX} y={CY + 9} fill="var(--color-ink)" fontSize="16" fontFamily="var(--font-serif)" textAnchor="middle">
             {peakLabel}
@@ -146,7 +155,7 @@ export function PolarVonMisesClock() {
 
       <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 border-t border-rule pt-4 text-xs">
         <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-faint">Mean peak day (μ)</dt>
+          <dt className="text-faint">Selected peak day (μ)</dt>
           <dd className="text-ink tnum">{meanMu.toFixed(0)}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
