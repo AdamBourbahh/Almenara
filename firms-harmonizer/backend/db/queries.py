@@ -8,6 +8,7 @@ values are bound parameters: no user value is ever placed in SQL text.
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from typing import NamedTuple
 
 import h3.api.basic_int as h3i
@@ -20,6 +21,13 @@ from backend.api.schemas import H3MapSummaryHex
 from backend.db import duckdb_engine
 
 MAX_R7_CELLS = 250_000
+# Topology validation is O(n²) in the vertex count; 1,000 positions keep it well under half a second.
+MAX_POLYGON_VERTICES = 1_000
+# Each R4 cell has 7³ = 343 R7 descendants. A coarse R4 polyfill (centre containment) only
+# under- or over-counts border cells, so polygons estimated above twice the limit are rejected
+# before the expensive exact R7 polyfill; anything closer to the limit is counted exactly.
+R7_PER_R4 = 7 ** 3
+EARLY_REJECT_FACTOR = 2
 INDUSTRIAL_THRESHOLD = 0.75
 EPOCH = np.datetime64("1970-01-01", "D")  # epoch_day = days since 1970-01-01 (SPECS.md §5.1)
 OBS_COLUMNS = ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre")
@@ -69,6 +77,10 @@ class AoiAggregate(NamedTuple):
     industrial_false_positives_removed: int
     n_cells_used: int
     used_cells: list[str] = []
+    # km² of the kept cube cells present on each day of ``daily`` (aligned with daily["epoch_day"]).
+    # Daily AOI energy in MJ is the cell-mean density times this area, never times the area of every
+    # cell that burned at some point of the record.
+    daily_area_km2: np.ndarray | None = None
 
 
 # ---------------------------------------------------------------- geometry
@@ -91,7 +103,10 @@ def _segments_intersect(p1, p2, q1, q2) -> bool:
 
 
 def validate_polygon_topology(coords: list) -> None:
-    """Raise ValueError for rings with zero area or self-intersecting edges."""
+    """Raise ValueError for oversized vertex lists, rings with zero area or self-intersecting edges."""
+    positions = sum(len(ring) for ring in coords)
+    if positions > MAX_POLYGON_VERTICES:
+        raise ValueError(f"Polygon has {positions} positions; the limit is {MAX_POLYGON_VERTICES}.")
     for ring in coords:
         points = [(float(p[0]), float(p[1])) for p in ring]
         area2 = sum(points[i][0] * points[i + 1][1] - points[i + 1][0] * points[i][1]
@@ -127,6 +142,9 @@ def get_hierarchical_h3_filter(geojson_coords: list) -> tuple[list[int], list[in
     """Return (sorted unique R4 parents, sorted R7 cells inside the polygon, R7 area in km²)."""
     outer, *holes = (_to_latlng_ring(r) for r in geojson_coords)
     poly = h3i.LatLngPoly(outer, *holes)
+    estimate = len(h3i.polygon_to_cells(poly, 4)) * R7_PER_R4
+    if estimate > EARLY_REJECT_FACTOR * MAX_R7_CELLS:
+        raise ValueError(f"AOI too large: about {estimate} R7 cells exceed the limit of {MAX_R7_CELLS}.")
     r7_int = h3i.polygon_to_cells(poly, 7)
     if len(r7_int) > MAX_R7_CELLS:
         raise ValueError(f"AOI too large: {len(r7_int)} R7 cells exceed the limit of {MAX_R7_CELLS}.")
@@ -279,13 +297,51 @@ def _aggregate_daily(cols: dict[str, np.ndarray], keep: np.ndarray, start_year: 
     return {k: out[k] for k in DAILY_KEYS}
 
 
+@lru_cache(maxsize=1 << 19)
+def _cell_area_km2(cell: int) -> float:
+    """Exact km² of one H3 cell; cached because the same cube cells recur across requests."""
+    return h3i.cell_area(cell, unit="km^2")
+
+
+def _row_cell_areas(cells: np.ndarray) -> np.ndarray:
+    """Exact km² area of the H3 cell of every row (one lookup per distinct cell)."""
+    unique, inverse = np.unique(cells, return_inverse=True)
+    areas = np.fromiter((_cell_area_km2(c) for c in unique.tolist()), dtype=np.float64, count=len(unique))
+    return areas[inverse]
+
+
+def _daily_area(cols: dict[str, np.ndarray], keep: np.ndarray, row_area: np.ndarray,
+                start_year: int, end_year: int) -> np.ndarray:
+    """Per-day km² of the kept cube cells, on the same dense calendar as _aggregate_daily."""
+    lo = int((np.datetime64(f"{start_year}-01-01") - EPOCH).astype(int))
+    hi = int((np.datetime64(f"{end_year}-12-31") - EPOCH).astype(int))
+    return np.bincount(cols["epoch_day"][keep] - lo, weights=row_area[keep], minlength=hi - lo + 1)
+
+
+# Small blocks keep the pairwise-slope temporary cache-resident (64 × 325 doubles for 26 years);
+# measured ~2x faster than one full-size median and without a multi-hundred-MB allocation.
+THEIL_SEN_CHUNK_ROWS = 64
+
+
 def _theil_sen_rows(values: np.ndarray, x: np.ndarray) -> np.ndarray:
-    """Row-wise Theil-Sen slope (median of pairwise slopes), equal to scipy.stats.theilslopes."""
+    """Row-wise Theil-Sen slope (median of pairwise slopes), equal to scipy.stats.theilslopes.
+
+    Constant rows have slope 0 and are skipped; the rest are processed in fixed-size chunks so a
+    large AOI never materializes every pairwise slope at once.
+    """
+    out = np.zeros(values.shape[0])
     if values.shape[1] < 2:
-        return np.zeros(values.shape[0])
+        return out
     i, j = np.triu_indices(values.shape[1], 1)
-    slopes = np.median((values[:, j] - values[:, i]) / (x[j] - x[i]), axis=1)
-    return np.where(np.ptp(values, axis=1) > 0, slopes, 0.0)
+    dx = x[j] - x[i]
+    rows = np.flatnonzero(np.ptp(values, axis=1) > 0)
+    varying = values[rows]
+    slopes = np.empty(len(rows))
+    for start in range(0, len(rows), THEIL_SEN_CHUNK_ROWS):
+        block = varying[start:start + THEIL_SEN_CHUNK_ROWS]
+        slopes[start:start + THEIL_SEN_CHUNK_ROWS] = np.median((block[:, j] - block[:, i]) / dx, axis=1)
+    out[rows] = slopes
+    return out
 
 
 def _summarize_hexagons(cur, cols: dict[str, np.ndarray], cells_r7: np.ndarray, start_year: int, end_year: int
@@ -332,13 +388,13 @@ def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_ye
                               exclude_industrial: bool) -> AoiAggregate:
     """Dense daily arrays, map hexagons and industrial removal count for an AOI (one cube scan)."""
     if not cells_r4 or not cells_r7:
-        return AoiAggregate(_empty_daily(), [], 0, 0)
+        return AoiAggregate(_empty_daily(), [], 0, 0, [], np.empty(0))
     missing = set(duckdb_engine.missing_columns())
     r7_sorted = np.asarray(sorted(cells_r7), dtype=np.uint64)
     with duckdb_engine.get_db_cursor() as cur:
         table = query_aoi_rows(cur, cells_r4, cells_r7, start_year, end_year)
         if table.num_rows == 0:
-            return AoiAggregate(_empty_daily(), [], 0, 0)
+            return AoiAggregate(_empty_daily(), [], 0, 0, [], np.empty(0))
         cols = {"h3_r7": table.column("h3_r7").to_numpy()}
         for name in ("epoch_day", "year", "raw_modis_cnt", "raw_viirs_cnt") + MASK_COLUMNS:
             cols[name] = np.zeros(table.num_rows, dtype=np.int64) if name in missing else _int_col(table, name)
@@ -347,14 +403,18 @@ def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_ye
             cols[name] = _float_col(table, name)
         hexagons, industrial_total, min_probs = _summarize_hexagons(cur, cols, r7_sorted, start_year, end_year)
     keep = cols["industrial_prob"] < INDUSTRIAL_THRESHOLD if exclude_industrial else np.ones(table.num_rows, bool)
-    daily = _aggregate_daily(cols, keep, start_year, end_year, missing) if keep.any() else _empty_daily()
+    if keep.any():
+        daily = _aggregate_daily(cols, keep, start_year, end_year, missing)
+        area = _daily_area(cols, keep, _row_cell_areas(cols["h3_r7"]), start_year, end_year)
+    else:
+        daily, area = _empty_daily(), np.empty(0)
     if exclude_industrial:
         removed = industrial_total
         used = [h.h3_index for h, p in zip(hexagons, min_probs.tolist()) if p < INDUSTRIAL_THRESHOLD]
     else:
         removed = 0
         used = [h.h3_index for h in hexagons]
-    return AoiAggregate(daily, hexagons, removed, len(used), used)
+    return AoiAggregate(daily, hexagons, removed, len(used), used, area)
 
 
 def fetch_map_period(cells_r4: list[int], cells_r7: list[int], year: int,

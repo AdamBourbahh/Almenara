@@ -89,11 +89,16 @@ def run_chaos_monkey_simulation(daily, target_year, drop_fraction, simulate_dual
         raise ValueError('No observations in the requested target year.')
     obs = np.column_stack([daily[name] for name in ('obs_terra_fre', 'obs_aqua_fre', 'obs_viirs_fre')])
     dates = np.datetime64('1970-01-01') + daily['epoch_day'][selected].astype('timedelta64[D]')
+    # Holdout: the prior and sensor calibration are learned only from the other years. Including the
+    # target year would let the climatology see the very observations the experiment removes.
+    history = ~selected
+    if not np.isfinite(obs[history]).any():
+        raise ValueError('The stress test needs observations outside the target year to learn its prior.')
     result = dependency('run_chaos_monkey_simulation')(
         [str(date) for date in dates], daily['doy'][selected], obs[selected],
         daily['neighbor_fre_lag1'][selected], daily['cloud_cover_pct'][selected],
         drop_fraction=drop_fraction, simulate_dual_blackout=simulate_dual_blackout,
-        random_seed=random_seed, full_doy_history=daily['doy'], full_y_obs_history=obs,
+        random_seed=random_seed, full_doy_history=daily['doy'][history], full_y_obs_history=obs[history],
     )
     # The HTTP boundary supplies the cube's actual provenance, not the core's
     # experiment label. No synthetic observations are introduced by this adapter.

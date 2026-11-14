@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import h3.api.basic_int as h3i
 import numpy as np
 from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import JSONResponse
@@ -23,7 +22,8 @@ from pydantic import BaseModel
 
 from backend.api.science_adapter import KalmanInput
 from backend.api import core_contract, fire_copilot
-from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE, CachedJSON, LRUCache, geometry_key, make_cache_key
+from backend.api.cache import (ANALYZE_CACHE, GEOMETRY_CACHE, CachedGeometry, CachedJSON, LRUCache, geometry_key,
+                               make_cache_key)
 from backend.api.schemas import (AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse,
                                  ExplainSpikeRequest, ExplainSpikeResponse,
                                  GeoJSONPolygon, H3MapSummaryHex, RiskPredictionRequest, RiskPredictionResponse)
@@ -40,14 +40,22 @@ CI_Z_95 = 1.96
 CHOW_P_GATE = 0.10                 # AGENTS.md acceptance gate
 W1_REDUCTION_GATE_PCT = 88.0       # AGENTS.md acceptance gate
 GAP_LABELS = ((1, "Sensor outage"), (2, "Cloud cover >80%"), (4, "Swath gap"), (8, "Dual-sensor blackout"))
-SENSOR_BITS = ((1, "Terra"), (2, "Aqua"), (4, "VIIRS"))
+# sensor_obs_mask bits written by scripts/01_ingest_firms.py (SENSOR_BITS) and scripts/04_build_master_cube.py.
+SENSOR_BITS = ((1, "Terra"), (2, "Aqua"), (4, "VIIRS S-NPP"), (8, "VIIRS NOAA-20"), (16, "VIIRS NOAA-21"))
+SENSOR_MASK = sum(bit for bit, _ in SENSOR_BITS)
+# When the cube has no sensor_obs_mask, availability is derived from the three FRE channels.
+CHANNEL_SENSORS = ("Terra", "Aqua", "VIIRS")
 FULL_RANGE = (2001, 2026)
 JSON_MEDIA_TYPE = "application/json"
 
 # Lookup tables (built once): gap reason per gap_status_mask value, sensor list per 3-bit sensor code.
 GAP_REASON_BY_MASK = {m: "; ".join(label for bit, label in GAP_LABELS if m & bit) or None for m in range(256)}
-SENSORS_BY_CODE = [[name for bit, name in SENSOR_BITS if code & bit] for code in range(8)]
+SENSORS_BY_CODE = [[name for bit, name in SENSOR_BITS if code & bit] for code in range(SENSOR_MASK + 1)]
+SENSORS_BY_CHANNELS = [[name for i, name in enumerate(CHANNEL_SENSORS) if code & (1 << i)] for code in range(8)]
 NO_OBS_REASON = "No valid observations"
+# Free-text bounds for the copilot (conversation turns are already capped by the schema).
+MAX_QUESTION_CHARS = 2_000
+MAX_REGION_NAME_CHARS = 200
 
 
 class StageTimer:
@@ -78,7 +86,7 @@ def _filter_or_422(coords: list) -> tuple[list[int], list[int], float]:
         result = get_hierarchical_h3_filter(coords)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    GEOMETRY_CACHE.put(key, result)
+    GEOMETRY_CACHE.put(key, CachedGeometry(result))
     return result
 
 
@@ -93,6 +101,17 @@ def _call(timer: StageTimer, name: str, *args):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     timer.lap("core")
     return value
+
+
+def _through_cube_end(agg: AoiAggregate) -> AoiAggregate:
+    """Drop calendar days after the cube's last observed day (they hold no data, only padding)."""
+    last = duckdb_engine.last_epoch_day()
+    days = agg.daily["epoch_day"]
+    if last is None or len(days) == 0 or days[-1] <= last:
+        return agg
+    keep = days <= last
+    area = agg.daily_area_km2[keep] if agg.daily_area_km2 is not None else None
+    return agg._replace(daily={name: values[keep] for name, values in agg.daily.items()}, daily_area_km2=area)
 
 
 def _naive_mean(obs: np.ndarray) -> np.ndarray:
@@ -148,10 +167,10 @@ def _finish(key: str, payload: dict, t0: float, timer: StageTimer) -> Response:
     return _json_response(body, "MISS", timer)
 
 
-def _empty_payload(key: str, agg: AoiAggregate) -> dict:
-    return dict(data_source=duckdb_engine.data_source(), query_hash=key, aoi_area_km2=0.0,
+def _empty_payload(key: str, agg: AoiAggregate, aoi_area_km2: float) -> dict:
+    return dict(data_source=duckdb_engine.data_source(), query_hash=key, aoi_area_km2=aoi_area_km2,
                 total_h3_cells=len(agg.hexagons), calendar_series=[], forecast_series=None,
-                phenology_by_year=[], audit_metrics=None, map_hexagons=[h.model_dump() for h in agg.hexagons])
+                phenology_by_year=[], audit_metrics=None, map_hexagons=agg.hexagons)
 
 
 # ---------------------------------------------------------------- routes
@@ -232,7 +251,7 @@ def map_period(req: AnalyzeRequest, start_date: date, end_date: date) -> Respons
 def analyze(req: AnalyzeRequest) -> Response:
     t0 = perf_counter()
     timer = StageTimer()
-    r4, r7, _ = _filter_or_422(req.aoi.coordinates)
+    r4, r7, aoi_area_km2 = _filter_or_422(req.aoi.coordinates)
     key = make_cache_key(r7, {"endpoint": "analyze", **req.model_dump(exclude={"aoi"})},
                          duckdb_engine.cube_path().stat().st_mtime_ns)
     timer.lap("h3")
@@ -242,11 +261,12 @@ def analyze(req: AnalyzeRequest) -> Response:
         timer.lap("cache")
         return _json_response(body, "HIT", timer)
 
-    agg = fetch_aoi_aggregated_data(r4, r7, req.start_year, req.end_year, req.exclude_industrial_flaring)
+    agg = _through_cube_end(
+        fetch_aoi_aggregated_data(r4, r7, req.start_year, req.end_year, req.exclude_industrial_flaring))
     timer.lap("db")
     daily = agg.daily
     if len(daily["epoch_day"]) == 0:
-        return _finish(key, _empty_payload(key, agg), t0, timer)
+        return _finish(key, _empty_payload(key, agg, aoi_area_km2), t0, timer)
 
     missing = duckdb_engine.missing_columns()
     years, doy = daily["year"], daily["doy"]
@@ -270,17 +290,20 @@ def analyze(req: AnalyzeRequest) -> Response:
         unc = np.zeros(len(x))
         filled = np.zeros(len(x), dtype=bool)
 
-    area = float(sum(h3i.cell_area(h3i.str_to_int(c), unit="km^2") for c in agg.used_cells))
-    biomass_t = WOOSTER_KG_PER_MJ * x * area / 1000.0
+    # x is the mean density (MJ/km²) of the cells present that day; integrating it over the area of
+    # those same cells gives the AOI's daily energy (MJ). Kalman-only days without any cube row have
+    # no observed burning footprint and therefore contribute no energy or biomass.
+    energy_mj = x * agg.daily_area_km2
+    biomass_t = WOOSTER_KG_PER_MJ * energy_mj / 1000.0
     resid = x - prior_t
     resid_sd = float(resid.std())
     z = resid / resid_sd if resid_sd > 1e-12 else np.zeros(len(x))
     raw_count = daily["raw_modis_cnt"] + daily["raw_viirs_cnt"]
     gap_mask = daily["gap_status_mask"]
-    if "sensor_obs_mask" in missing:  # derive the sensor code from observation availability
-        sensor_code = finite[:, 0] * 1 + finite[:, 1] * 2 + finite[:, 2] * 4
+    if "sensor_obs_mask" in missing:  # derive availability from the three observation channels
+        sensors = [SENSORS_BY_CHANNELS[c] for c in (finite[:, 0] * 1 + finite[:, 1] * 2 + finite[:, 2] * 4).tolist()]
     else:
-        sensor_code = daily["sensor_obs_mask"] & 7
+        sensors = [SENSORS_BY_CODE[c] for c in (daily["sensor_obs_mask"] & SENSOR_MASK).tolist()]
     dates = np.datetime_as_string(queries.EPOCH + daily["epoch_day"].astype("timedelta64[D]")).tolist()
 
     calendar = [
@@ -289,11 +312,11 @@ def analyze(req: AnalyzeRequest) -> Response:
              biomass_burned_tonnes=bt, pm25_emitted_kg=None, z_score_anomaly=zv, is_gap_filled=fl,
              is_forecast=False,
              gap_reason=GAP_REASON_BY_MASK[gm] if gm > 0 else (NO_OBS_REASON if nob else None),
-             active_sensors=SENSORS_BY_CODE[sc], tooltip_narrative=None)
+             active_sensors=sc, tooltip_narrative=None)
         for date, yr, d, cnt, frp, xv, pv, lo, hi, un, bt, zv, fl, gm, nob, sc in zip(
             dates, years.tolist(), doy.tolist(), raw_count.tolist(), daily["raw_frp_mw"].tolist(), x.tolist(),
             prior_t.tolist(), lower.tolist(), upper.tolist(), unc.tolist(), biomass_t.tolist(), z.tolist(),
-            filled.tolist(), gap_mask.tolist(), no_obs.tolist(), sensor_code.tolist())
+            filled.tolist(), gap_mask.tolist(), no_obs.tolist(), sensors)
     ]
     phenology, peaks, pheno_years = [], [], []
     for yr in range(req.start_year, req.end_year + 1):
@@ -303,7 +326,7 @@ def analyze(req: AnalyzeRequest) -> Response:
         mu, kappa, width = _call(timer, "fit_von_mises_year", doy[sel], x[sel])
         phenology.append(dict(year=yr, peak_doy_mu=mu, peak_date_label=_peak_label(yr, mu),
                               concentration_kappa=kappa, season_width_days=width,
-                              total_annual_fre_gj=float(x[sel].sum() * area / 1000.0)))
+                              total_annual_fre_gj=float(energy_mj[sel].sum() / 1000.0)))
         if np.sum(x[sel]) > 0 and kappa > 1e-12:
             peaks.append(mu)
             pheno_years.append(yr)
@@ -341,22 +364,26 @@ def analyze(req: AnalyzeRequest) -> Response:
             total_biomass_burned_kt=float(biomass_t.sum() / 1000.0), total_pm25_emitted_tonnes=None,
             executive_verdict_en=_verdict(source, chow_raw, chow_harm, w_raw, w_harm, missing, spans_2012))
     payload = dict(
-        data_source=source, query_hash=key, aoi_area_km2=area, total_h3_cells=len(agg.hexagons),
+        data_source=source, query_hash=key, aoi_area_km2=aoi_area_km2, total_h3_cells=len(agg.hexagons),
         calendar_series=calendar, forecast_series=None, phenology_by_year=phenology,
-        audit_metrics=audit, map_hexagons=[h.model_dump() for h in agg.hexagons])
+        # Already-validated H3MapSummaryHex instances are reused as-is by model_validate.
+        audit_metrics=audit, map_hexagons=agg.hexagons)
     return _finish(key, payload, t0, timer)
 
 
 @router.post("/chaos-monkey", response_model=ChaosMonkeyResponse)
 def chaos_monkey(req: ChaosMonkeyRequest) -> ChaosMonkeyResponse:
     r4, r7, _ = _filter_or_422(req.aoi.coordinates)
-    agg = fetch_aoi_aggregated_data(r4, r7, FULL_RANGE[0], FULL_RANGE[1], True)
+    agg = _through_cube_end(fetch_aoi_aggregated_data(r4, r7, FULL_RANGE[0], FULL_RANGE[1], True))
     if len(agg.daily["epoch_day"]) == 0:
         raise HTTPException(status_code=404, detail="No non-industrial fire data inside the AOI")
     if not np.any(agg.daily["year"] == req.target_year):
         raise HTTPException(status_code=404, detail="No fire data in the requested target year")
-    out = _call(StageTimer(), "run_chaos_monkey_simulation", agg.daily, req.target_year, req.drop_fraction,
-                req.simulate_dual_blackout, req.random_seed)
+    try:
+        out = _call(StageTimer(), "run_chaos_monkey_simulation", agg.daily, req.target_year, req.drop_fraction,
+                    req.simulate_dual_blackout, req.random_seed)
+    except ValueError as exc:  # e.g. no history outside the target year to learn the prior from
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     return ChaosMonkeyResponse.model_validate({**out, "data_source": duckdb_engine.data_source()})
 
 
@@ -390,4 +417,13 @@ def observations(aoi: GeoJSONPolygon):
 @router.post("/explain-spike", response_model=ExplainSpikeResponse)
 def explain_spike(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
     """Answer using retrieved observations and explicitly attributed reports."""
+    if len(req.user_question) > MAX_QUESTION_CHARS:
+        raise HTTPException(status_code=422, detail=f"user_question exceeds {MAX_QUESTION_CHARS} characters.")
+    if len(req.region_name) > MAX_REGION_NAME_CHARS:
+        raise HTTPException(status_code=422, detail=f"region_name exceeds {MAX_REGION_NAME_CHARS} characters.")
+    if req.aoi is not None:
+        try:
+            validate_polygon_topology(req.aoi.coordinates)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     return fire_copilot.answer(req)

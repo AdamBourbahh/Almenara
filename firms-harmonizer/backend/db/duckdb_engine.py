@@ -36,6 +36,7 @@ _INIT_LOCK = threading.Lock()
 _DATA_SOURCE: DataSource | None = None
 _CUBE_PATH: Path | None = None
 _MISSING: list[str] = []
+_LAST_EPOCH_DAY: int | None = None
 
 
 class CubeNotAvailableError(RuntimeError):
@@ -85,7 +86,7 @@ def missing_optional_columns(names) -> list[str]:
 
 def init_engine() -> duckdb.DuckDBPyConnection:
     """Open the master connection once (thread-safe) and expose the cube as view ``fire_cube``."""
-    global _MASTER_CONN, _DATA_SOURCE, _CUBE_PATH, _MISSING
+    global _MASTER_CONN, _DATA_SOURCE, _CUBE_PATH, _MISSING, _LAST_EPOCH_DAY
     if _MASTER_CONN is not None:
         return _MASTER_CONN
     with _INIT_LOCK:
@@ -102,7 +103,9 @@ def init_engine() -> duckdb.DuckDBPyConnection:
         missing = missing_optional_columns(columns)
         if missing:
             logger.warning("Cube %s lacks optional columns (served as NULL): %s", path, ", ".join(missing))
+        last = conn.execute("SELECT max(epoch_day) FROM fire_cube").fetchone()[0]
         _DATA_SOURCE, _CUBE_PATH, _MISSING = source, path, missing
+        _LAST_EPOCH_DAY = None if last is None else int(last)
         _MASTER_CONN = conn
         return conn
 
@@ -132,6 +135,12 @@ def cube_path() -> Path:
 def missing_columns() -> list[str]:
     init_engine()
     return list(_MISSING)
+
+
+def last_epoch_day() -> int | None:
+    """Last day (days since 1970-01-01) present in the served cube; None for an empty cube."""
+    init_engine()
+    return _LAST_EPOCH_DAY
 
 
 def get_row_count() -> int:
