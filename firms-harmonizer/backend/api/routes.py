@@ -28,7 +28,7 @@ from backend.api.schemas import (AnalyzeRequest, AnalyzeResponse, ChaosMonkeyReq
                                  CubeSyncRequest, CubeSyncStatusResponse,
                                  ExplainSpikeRequest, ExplainSpikeResponse,
                                  GeoJSONPolygon, H3MapSummaryHex, RiskPredictionRequest, RiskPredictionResponse)
-from backend.core.risk_predictor import predict_risk as fit_risk_predictor
+from backend.core.risk_predictor import predict_risk as fit_risk_predictor, with_observation_gap
 from backend.db import duckdb_engine, nrt_poller, queries
 from backend.db.queries import (OBS_COLUMNS, AoiAggregate, fetch_aoi_aggregated_data,
                                 get_hierarchical_h3_filter, validate_polygon_topology)
@@ -171,10 +171,17 @@ def predict_risk(req: RiskPredictionRequest) -> Response:
         return _json_response(cached.render((perf_counter() - t0) * 1000), "HIT", timer)
     r4, r7, _ = _filter_or_422(req.aoi.coordinates)
     timer.lap("h3")
-    daily = queries.fetch_risk_daily(r4, r7, req.start_year, req.end_year, (cutoff - date(1970, 1, 1)).days)
+    cutoff_epoch = (cutoff - date(1970, 1, 1)).days
+    daily = queries.fetch_risk_daily(r4, r7, req.start_year, req.end_year, cutoff_epoch)
     timer.lap("db")
     model_start = perf_counter()
-    result = fit_risk_predictor(daily) if daily else None
+    result = None
+    if daily:
+        last_record = str(queries.EPOCH + int(daily["epoch_day"][-1]))
+        series = with_observation_gap(daily, cutoff_epoch) if req.as_of_date else daily
+        result = fit_risk_predictor(series)
+        if result:
+            result["last_observation_date"] = last_record
     model_time = (perf_counter() - model_start) * 1000
     timer.lap("model")
     reason = None

@@ -11,7 +11,7 @@ import { TrendsPage } from "./views/TrendsPage";
 import { ImpactPage } from "./views/ImpactPage";
 import { PageShell } from "./views/PageShell";
 import { RiskPredictionPanel } from "./components/Risk/RiskPredictionPanel";
-import { AoiRiskPrompt } from "./components/Map/AoiRiskPrompt";
+import { DateRiskPrompt } from "./components/Map/DateRiskPrompt";
 
 const SECTIONS = [
   { key: "map", label: "Map" },
@@ -31,7 +31,7 @@ export default function App() {
   const executeAnalysis = useAnalysisStore((s) => s.executeAnalysis);
   function openSection(next: SectionKey) {
     const state = useAnalysisStore.getState();
-    state.dismissAoiPrompt();
+    state.dismissDateRiskPrompt();
     if (next === "risk") void state.fetchRiskPredictionForAoi();
     setSection(next);
   }
@@ -122,7 +122,7 @@ export default function App() {
         {section === "observations" && <ObservationsPage />}
       </main>
       <HeatHistoryCard />
-      {section === "map" && <AoiRiskPrompt onView={() => openSection("risk")} />}
+      {section !== "risk" && <DateRiskPrompt onView={() => openSection("risk")} />}
       <FireCopilotDrawer />
     </div>
   );

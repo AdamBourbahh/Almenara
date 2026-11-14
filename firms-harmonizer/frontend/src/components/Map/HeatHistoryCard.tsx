@@ -160,9 +160,14 @@ export function HeatHistoryCard() {
             <Plus aria-hidden="true" className="h-4 w-4" />
           </button>
           <input type="date" lang="en-US" aria-label="Go to date" title={`Inspect an exact day. Arrow keys move one ${precision}.`} value={anchor} min={state.min ?? undefined} max={state.max ?? undefined} disabled={unavailable} onChange={(e) => {
-            if (e.target.value) {
-              useAnalysisStore.getState().setHoveredDay(null);
-              state.setDate(e.target.value, true);
+            const input = e.currentTarget;
+            const date = input.value;
+            if (!date || !input.validity.valid) return;
+            const store = useAnalysisStore.getState();
+            store.setSelectedDate(date, true);
+            if (useAnalysisStore.getState().selectedDate === date) {
+              const rect = input.getBoundingClientRect();
+              store.showDateRiskPrompt(date, rect.right - 14, rect.top);
             }
           }} className={inputClass + " w-40"} />
         </div>

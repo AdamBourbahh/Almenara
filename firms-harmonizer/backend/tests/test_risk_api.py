@@ -58,3 +58,31 @@ def test_risk_cube_features_are_prefix_invariant(client):
     assert len(prefix["epoch_day"]) >= 365
     for name, values in prefix.items():
         np.testing.assert_allclose(values, whole[name][:len(values)], atol=1e-9)
+
+
+def test_risk_explicit_origin_can_land_after_last_observation(client, monkeypatch):
+    from datetime import timedelta
+
+    start = date(2020, 2, 25)
+    origin = start + timedelta(days=4)
+    daily = {
+        "epoch_day": np.arange((start - EPOCH).days, (start - EPOCH).days + 2),
+        "vegetation_frp": np.array([10., 20.]),
+        "neighbor_frp": np.array([0., 4.]),
+        "industrial_z": np.zeros(2),
+        "persistent_share": np.zeros(2),
+        "cloud": np.full(2, np.nan),
+        "gap": np.zeros(2),
+    }
+
+    def history(*args):
+        assert args[-1] == (origin - EPOCH).days
+        return daily
+
+    monkeypatch.setattr(queries, "fetch_risk_daily", history)
+    response = client.post("/api/predict-risk", json={"aoi": AOI, "as_of_date": str(origin)})
+    assert response.status_code == 200
+    result = response.json()["assessment"]
+    assert result["as_of_date"] == str(origin)
+    assert result["last_observation_date"] == str(start + timedelta(days=1))
+    assert result["daily_probability_series"][-1]["date"] == str(origin)

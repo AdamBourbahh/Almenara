@@ -103,6 +103,7 @@ class RiskFactor(ContractModel):
 
 class AIRiskAssessment(ContractModel):
     as_of_date: date
+    last_observation_date: date | None = None
     validation_start_date: date
     wildfire_prob_24h_pct: float | None = Field(ge=0, le=100)
     wildfire_prob_7d_pct: float | None = Field(ge=0, le=100)
