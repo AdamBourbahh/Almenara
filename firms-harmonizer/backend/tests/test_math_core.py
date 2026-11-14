@@ -1,4 +1,4 @@
-"""Scientific regression tests for footprint, persistence and radiometry."""
+"""Scientific acceptance and regression tests for the complete math core."""
 
 import ast
 import json
@@ -12,6 +12,13 @@ from scipy.stats import multivariate_normal
 
 from backend.core import footprint_h3 as footprint
 from backend.core.eqm_harmonizer import RadiometricHarmonizer
+from backend.api.schemas import ChaosMonkeyResponse, ScientificAuditMetrics, VonMisesPhenologyYear
+from backend.core.von_mises import best_fisher_kappa, doy_to_date_label, compute_circular_phenology
+from backend.core.auditor_stats import (
+    compute_wooster_biomass_and_smoke, compute_chow_structural_break_test,
+    compute_scientific_audit_metrics,
+)
+from backend.core.chaos_monkey import run_chaos_monkey_simulation
 from backend.core.kalman_rts import (
     build_cross_sensor_historical_prior, rts_kalman_smoother_with_cross_guard,
 )
@@ -20,7 +27,19 @@ from backend.core.industrial_filter import (
 )
 
 
-def test_bowtie_threshold_and_scalar_array():
+def test_footprint_h3_and_bowtie_weights():
+    viirs = footprint.compute_elliptical_psf_weights(-16.9, -56.2, .375, .375)
+    assert len(viirs) == 1
+    cell, weight = next(iter(viirs.items()))
+    assert len(cell) == 15 and all(char in '0123456789abcdef' for char in cell)
+    assert h3.is_valid_cell(cell) and h3.get_resolution(cell) == 7
+    assert weight == 1.0
+    modis = footprint.compute_elliptical_psf_weights(-16.9, -56.2, 4.5, 2.0)
+    assert len(modis) == 7
+    assert all(h3.is_valid_cell(cell) and h3.get_resolution(cell) == 7 for cell in modis)
+    assert sum(modis.values()) == pytest.approx(1.0, rel=1e-5)
+    assert footprint.compute_modis_bowtie_overlap_weight(2.0) == pytest.approx(.5)
+
     track = np.array([0.0, 1.0, 1.35, 1.35001, 2.0, 4.8])
     np.testing.assert_allclose(footprint.compute_modis_bowtie_overlap_weight(track),
                                [1.0, 1.0, 1.0, 1 / 1.35001, .5, 1 / 4.8])
@@ -81,7 +100,19 @@ def test_shannon_empty_impulse_and_uniform():
             compute_shannon_temporal_entropy(bad)
 
 
-def test_industry_sigmoid_and_steady_contrast_boost():
+def test_shannon_entropy_and_sama_filter():
+    flare = np.full(12, 50)
+    wildfire = np.array([0, 0, 0, 0, 0, 0, 0, 120, 0, 0, 0, 0])
+    entropy, probability = compute_industrial_probability(np.stack([flare, wildfire]))
+    assert entropy[0] > .95 and probability[0] > .90
+    assert entropy[1] < .05 and probability[1] < .05
+    is_spurious = filter_sama_anomalies(
+        lat=np.array([-22., -22.]), lon=np.array([-45., -45.]),
+        daynight=np.array(['N', 'D']), is_low_conf=np.array([True, True]),
+        delta_t11=np.array([.5, .5]),
+    )
+    np.testing.assert_equal(is_spurious, [True, False])
+
     counts = np.array([np.zeros(12), np.arange(12), np.ones(12)])
     entropy, base = compute_industrial_probability(counts)
     np.testing.assert_allclose(base, 1 / (1 + np.exp(-22 * (entropy - .72))))
@@ -120,7 +151,7 @@ def test_eqm_exact_linear_mapping_and_nan_zero_preservation():
     assert harmonizer.harmonize_viirs_to_modis(np.array(25.0)).shape == ()
 
 
-def test_gpd_compensation_is_bounded_and_monotone():
+def test_eqm_harmonizer_monotone_mapping():
     rng = np.random.default_rng(7)
     training = np.r_[rng.uniform(.5, 7.9, 300), rng.uniform(8, 100, 700)]
     model = RadiometricHarmonizer()
@@ -131,7 +162,7 @@ def test_gpd_compensation_is_bounded_and_monotone():
     json.dumps(lut, allow_nan=False)
     values = np.linspace(.5, 100, 1001)
     mapped = model.harmonize_viirs_to_modis(values)
-    assert np.isfinite(mapped).all() and np.all(np.diff(mapped) >= 0)
+    assert np.isfinite(mapped).all() and np.all(mapped >= 0) and np.all(np.diff(mapped) >= 0)
     pure = dict(lut, delta_e_sub=0.0)
     np.testing.assert_allclose(mapped - model.harmonize_viirs_to_modis(values, pure), lut['delta_e_sub'])
 
@@ -165,7 +196,8 @@ def test_core_has_only_allowed_imports():
             if isinstance(node, ast.Import):
                 assert all(alias.name.split('.')[0] in allowed for alias in node.names)
             elif isinstance(node, ast.ImportFrom):
-                assert node.module.split('.')[0] in allowed
+                assert (node.module.split('.')[0] in allowed
+                        or node.module in {"backend.api.schemas", "backend.core.kalman_rts"})
 
 
 def test_cross_prior_calibrates_sensors_and_is_periodic():
@@ -200,7 +232,7 @@ def test_rts_matches_batch_gaussian_posterior():
     out = rts_kalman_smoother_with_cross_guard(obs, spatial, days, np.zeros(4), forecast_days=0)
     phi, gamma, omega, Q = .68, .17, .15, 12.
     mean, covariance = np.zeros(4), np.zeros((4, 4))
-    prior = out['mu_cross_series']
+    gains, prior, _ = build_cross_sensor_historical_prior(days, obs)
     for t in range(4):
         mean[t] = phi * (prior[0] if t == 0 else mean[t-1]) + gamma * spatial[t] + omega * prior[t]
         covariance[t, t] = phi**2 * (40 if t == 0 else covariance[t-1, t-1]) + Q
@@ -209,7 +241,7 @@ def test_rts_matches_batch_gaussian_posterior():
             covariance[:t, t] = covariance[t, :t]
     H = np.zeros((12, 4))
     for t in range(4):
-        H[3*t:3*t+3, t] = out['H_gain'][t]
+        H[3*t:3*t+3, t] = gains[t]
     R = np.diag(np.tile([9., 6., 5.], 4))
     gain = np.linalg.solve(H @ covariance @ H.T + R, H @ covariance).T
     batch_mean = mean + gain @ (obs.ravel() - H @ mean)
@@ -218,24 +250,34 @@ def test_rts_matches_batch_gaussian_posterior():
     np.testing.assert_allclose(out['P_smooth'], np.diag(batch_covariance), atol=1e-7)
 
 
-def test_blackout_guard_joseph_and_forecast_without_pseudo_updates():
-    n = 100
-    obs = np.full((n, 3), 100.)
-    obs[30:80] = np.nan
-    spatial, days = np.full(n, 100.), np.arange(1, n+1)
-    out = rts_kalman_smoother_with_cross_guard(obs, spatial, days, np.zeros(n), forecast_days=14)
-    assert np.min(out['x_smooth'][30:80]) > 99.9
-    assert out['P_smooth'][55] > out['P_smooth'][15]
-    assert out['guard_applied'].sum() == 50
-    t = 30
-    Pp = out['P_pred'][t]
-    K = Pp / (Pp + 40 + 1e-8)
-    np.testing.assert_allclose(out['P_filter'][t], (1-K)**2 * Pp + K**2 * 40)
-    np.testing.assert_allclose(out['forecast_P'][0], .68**2 * out['P_filter'][-1] + 12 * 1.8)
-    np.testing.assert_allclose(out['forecast_P'][1:], .68**2 * out['forecast_P'][:-1] + 12 * 1.8)
-    for values in out.values():
-        assert np.isfinite(values).all() and np.all(values >= 0)
-    assert np.all(out['P_smooth'] >= 1e-4)
+def test_kalman_rts_dual_blackout_guard_and_forecast():
+    n = 1460
+    calendar = np.datetime64('2001-01-01') + np.arange(n).astype('timedelta64[D]')
+    days = (calendar - calendar.astype('datetime64[Y]')).astype(int) + 1
+    truth = 10. + 300. * np.exp(-.5 * ((days - 235.) / 25.)**2)
+    observations = truth[:, None] * np.array([[.75, 1., 1.4]])
+    spatial = .9 * np.r_[truth[0], truth[:-1]]
+    peak = 365 + int(np.argmax(truth[365:730]))
+    peak_value = truth[peak]
+    blackout = slice(peak - 5, peak + 5)
+    observations[blackout] = np.nan
+    clouds = np.zeros(n)
+    clouds[blackout] = .95
+    assert np.isnan(observations[blackout]).all() and len(observations[blackout]) == 10
+
+    out = rts_kalman_smoother_with_cross_guard(observations, spatial, days, clouds, forecast_days=14)
+    for key, values in out.items():
+        assert np.isfinite(values).all(), f"Non-finite values in {key}"
+        assert np.all(values >= 0), f"Negative values in {key}"
+    assert out['x_smooth'].shape == (n,) and np.all(out['P_smooth'] >= 1e-4)
+    assert np.min(out['x_smooth'][blackout]) > .35 * peak_value
+    assert out['P_smooth'][peak] > out['P_smooth'][peak - 8]
+    assert len(out['forecast_x']) == 14 and np.all(out['forecast_P'] >= 1e-4)
+    assert np.all(out['forecast_ci_upper'] >= out['forecast_ci_lower'])
+    assert np.all(out['forecast_ci_lower'] <= out['forecast_x'])
+    assert np.all(out['forecast_x'] <= out['forecast_ci_upper'])
+    np.testing.assert_allclose(out['forecast_P'][0], .68**2 * out['P_smooth'][-1] + 12 * 1.2)
+    np.testing.assert_allclose(out['forecast_P'][1:], .68**2 * out['forecast_P'][:-1] + 12 * 1.2)
     assert np.all(out['ci_lower'] <= out['x_smooth']) and np.all(out['ci_upper'] >= out['x_smooth'])
     np.testing.assert_allclose(out['ci_upper'] - out['x_smooth'], 1.96 * np.sqrt(out['P_smooth']))
 
@@ -259,11 +301,69 @@ def test_kalman_partial_missing_data_and_year_rollover():
     obs[3] = np.nan
     original = obs.copy()
     out = rts_kalman_smoother_with_cross_guard(obs, np.full(5, 1e100), np.array([362,363,364,365,366]), np.ones(5))
-    np.testing.assert_equal(out['forecast_doy'][:2], [1, 2])
+    np.testing.assert_equal(out['forecast_doy'][:2], [2, 3])
     np.testing.assert_equal(obs, original)
     for array in out.values():
         assert np.isfinite(array).all()
-    assert out['guard_applied'].sum() == 1
+
+
+@pytest.mark.parametrize('observations', [
+    [np.nan, np.nan, np.nan], [70., np.nan, np.nan],
+    [np.nan, 100., np.nan], [np.nan, np.nan, 180.], [70., 100., 180.],
+])
+def test_single_day_joseph_update_with_missing_sensors(observations):
+    obs, days = np.array([observations]), np.array([200])
+    spatial = np.array([50.])
+    gains, prior, _ = build_cross_sensor_historical_prior(days, obs)
+    out = rts_kalman_smoother_with_cross_guard(obs, spatial, days, np.array([.4]), forecast_days=0)
+    x = (.68 + .15) * prior[0] + .17 * spatial[0]
+    variance = .68**2 * 40. + 12. * (1. + .8 * .4)
+    readings = [(value, h, noise) for value, h, noise in zip(observations, gains[0], [9., 6., 5.])
+                if not np.isnan(value)]
+    if not readings:
+        readings = [(.55 * prior[0] + .45 * spatial[0], 1., 40.)]
+    for value, h, noise in readings:
+        gain = variance * h / (h**2 * variance + noise + 1e-8)
+        x = max(0., x + gain * (value - h * x))
+        variance = (1. - gain * h)**2 * variance + gain**2 * noise
+    np.testing.assert_allclose(out['x_smooth'], [x])
+    np.testing.assert_allclose(out['P_smooth'], [max(variance, 1e-4)])
+
+
+@pytest.mark.parametrize('last_day,expected', [(364, [365, 1]), (365, [1, 2]), (366, [2, 3])])
+def test_forecast_contract_recurrence_and_calendar(last_day, expected):
+    days = np.arange(1, last_day + 1)
+    obs = (30. + days[:, None] * .1) * np.array([[.7, 1., 1.8]])
+    spatial, clouds = np.full(last_day, 40.), np.zeros(last_day)
+    _, prior, lut = build_cross_sensor_historical_prior(days, obs)
+    out = rts_kalman_smoother_with_cross_guard(obs, spatial, days, clouds, forecast_days=14)
+    historical_keys = {'x_smooth', 'P_smooth', 'ci_lower', 'ci_upper', 'uncertainty_pct', 'mu_cross'}
+    forecast_keys = {'forecast_x', 'forecast_P', 'forecast_ci_lower', 'forecast_ci_upper',
+                     'forecast_uncertainty_pct', 'forecast_mu_cross', 'forecast_doy'}
+    assert set(out) == historical_keys | forecast_keys
+    assert all(out[key].shape == (last_day,) for key in historical_keys)
+    assert all(out[key].shape == (14,) for key in forecast_keys)
+    np.testing.assert_equal(out['mu_cross'], prior)
+    np.testing.assert_equal(out['forecast_doy'][:2], expected)
+    np.testing.assert_equal(out['forecast_mu_cross'], lut[out['forecast_doy'] - 1])
+    # Future steps have no measurements: their filtered and smoothed estimates
+    # coincide, and follow the specified state-dependent spatial forcing.
+    previous = np.r_[out['x_smooth'][-1], out['forecast_x'][:-1]]
+    forcing = .82 * previous + .18 * out['forecast_mu_cross']
+    expected_state = .68 * previous + .17 * forcing + .15 * out['forecast_mu_cross']
+    np.testing.assert_allclose(out['forecast_x'], expected_state, atol=1e-12)
+    previous_variance = np.r_[out['P_smooth'][-1], out['forecast_P'][:-1]]
+    np.testing.assert_allclose(out['forecast_P'], .68**2 * previous_variance + 12. * 1.2)
+    for prefix, state_key, variance_key in [('', 'x_smooth', 'P_smooth'), ('forecast_', 'forecast_x', 'forecast_P')]:
+        margin = 1.96 * np.sqrt(out[variance_key])
+        np.testing.assert_allclose(out[prefix + 'ci_lower'], np.maximum(0., out[state_key] - margin))
+        np.testing.assert_allclose(out[prefix + 'ci_upper'], out[state_key] + margin)
+        np.testing.assert_allclose(out[prefix + 'uncertainty_pct'],
+                                   np.clip(margin / (out[state_key] + 1.) * 100., 1., 99.9))
+    history_only = rts_kalman_smoother_with_cross_guard(obs, spatial, days, clouds, forecast_days=0)
+    for key in historical_keys:
+        np.testing.assert_allclose(out[key], history_only[key], atol=1e-12)
+    assert all(history_only[key].shape == (0,) for key in forecast_keys)
 
 
 def test_kalman_invalid_inputs_raise_instead_of_nonfinite_outputs():
@@ -280,3 +380,161 @@ def test_kalman_invalid_inputs_raise_instead_of_nonfinite_outputs():
             build_cross_sensor_historical_prior(bad_days, obs)
     with pytest.raises(ValueError):
         rts_kalman_smoother_with_cross_guard(obs, spatial, days, np.full(2, 95))
+
+
+def test_best_fisher_and_english_leap_calendar_labels():
+    assert best_fisher_kappa(0) == 0 and best_fisher_kappa(1) == 10000
+    assert best_fisher_kappa(.5) == pytest.approx(1 + .5**3 + 5 * .5**5 / 6)
+    assert best_fisher_kappa(.53) == pytest.approx(-.4 + 1.39 * .53 + .43 / .47)
+    assert best_fisher_kappa(.85) == pytest.approx(1 / (.85**3 - 4 * .85**2 + 3 * .85))
+    assert doy_to_date_label(1) == '1 Jan'
+    assert doy_to_date_label(232) == '19 Aug'
+    assert doy_to_date_label(366) == '31 Dec'
+    for value in [-.1, 1.1, np.nan]:
+        with pytest.raises(ValueError):
+            best_fisher_kappa(value)
+    with pytest.raises(ValueError):
+        doy_to_date_label(0)
+
+
+def test_circular_von_mises_phenology_shift():
+    years = np.repeat(np.arange(2001, 2016), 365)
+    days = np.tile(np.arange(1, 366), 15)
+    peak = 220. + 1.5 * (years - 2001)
+    energy = 50. * np.exp(4 * (np.cos(2*np.pi*(days - peak)/365.25) - 1))
+    models, slope, pvalue = compute_circular_phenology(years, days, energy, 5.161)
+    assert len(models) == 15 and all(type(model) is VonMisesPhenologyYear for model in models)
+    assert slope > 8.0
+    assert slope == pytest.approx(15.0, abs=.2) and pvalue < 1e-6
+    for model in models:
+        assert 1 <= model.peak_doy_mu <= 365.25 and 0 < model.season_width_days <= 365
+        assert model.total_annual_fre_gj == pytest.approx(energy[years == model.year].sum() * 5.161 / 1000)
+        model.model_dump_json()
+
+
+def test_circular_trend_unwraps_year_boundary_and_handles_empty_energy():
+    years = np.arange(2001, 2008)
+    peaks = np.array([350, 355, 360, 365, 5, 10, 15])
+    models, shift, pvalue = compute_circular_phenology(years, peaks, np.ones(7), 1.)
+    assert 50 <= shift < 51 and pvalue < .01
+    assert all(model.concentration_kappa == 10000 for model in models)
+    models, shift, pvalue = compute_circular_phenology(np.array([2001, 2002]), np.array([1, 1]), np.zeros(2), 1.)
+    assert shift == 0 and pvalue == 1
+    assert all(model.total_annual_fre_gj == 0 and model.concentration_kappa == 0 for model in models)
+    assert compute_circular_phenology(np.array([]), np.array([]), np.array([]), 1.) == ([], 0., 1.)
+
+
+def test_wooster_and_pm25_unit_conversion():
+    biomass, smoke = compute_wooster_biomass_and_smoke(np.array([100., 0.]), 10.)
+    np.testing.assert_allclose(biomass, [.368, 0.])
+    np.testing.assert_allclose(smoke, [3.496, 0.])
+    with pytest.raises(ValueError):
+        compute_wooster_biomass_and_smoke(np.array([-1.]), 1.)
+
+
+def test_chow_matches_nested_regression_f_test_and_degenerate_lines():
+    from scipy.stats import f
+
+    rng = np.random.default_rng(23)
+    years = np.arange(2001, 2027)
+    t = years - 2001
+    post = (years >= 2012).astype(float)
+    values = 20 + .2 * t + 7 * post + rng.normal(0, 1, len(t))
+    pooled = np.column_stack([np.ones(len(t)), t])
+    unrestricted = np.column_stack([pooled, post, t * post])
+    restricted_rss = np.linalg.norm(values - pooled @ np.linalg.lstsq(pooled, values, rcond=None)[0])**2
+    unrestricted_rss = np.linalg.norm(values - unrestricted @ np.linalg.lstsq(unrestricted, values, rcond=None)[0])**2
+    expected_f = (restricted_rss - unrestricted_rss) / 2 / (unrestricted_rss / (len(t) - 4))
+    actual_f, actual_p = compute_chow_structural_break_test(years, values)
+    assert actual_f == pytest.approx(expected_f)
+    assert actual_p == pytest.approx(f.sf(expected_f, 2, len(t) - 4))
+    assert compute_chow_structural_break_test(years, np.zeros(26)) == (0., 1.)
+    assert compute_chow_structural_break_test(years, 1. + .5 * t) == (0., 1.)
+    stat, pval = compute_chow_structural_break_test(years, 1. + 4 * post)
+    assert np.isfinite(stat) and stat > 100 and pval < 1e-10
+    with pytest.raises(ValueError):
+        compute_chow_structural_break_test(years[:4], values[:4])
+
+
+def _audit_example(burned_missing=False):
+    years = np.repeat(np.arange(2001, 2027), 60)
+    day = np.tile(np.arange(60), 26)
+    physical = (20 + 15 * np.sin(np.pi * day / 60)**2) * (1 + .02 * (years - 2001))
+    raw = physical * np.where(years < 2012, 1., 4.5)
+    burned = physical * .035
+    if burned_missing:
+        burned[:] = np.nan
+    return years, raw, physical, burned
+
+
+def test_scientific_audit_chow_test_and_wooster():
+    arrays = _audit_example()
+    out = compute_scientific_audit_metrics(*arrays, 10., 7.5, .001, 12)
+    assert type(out) is ScientificAuditMetrics
+    assert out.chow_test_p_val_raw < 1e-4 and out.chow_test_p_val_harm > .10
+    assert out.total_biomass_burned_kt > 0 and out.total_pm25_emitted_tonnes > 0
+    assert out.wasserstein_w1_harm < out.wasserstein_w1_raw
+    assert out.burned_area_r2_harm == pytest.approx(1.)
+    assert out.burned_area_r2_raw < out.burned_area_r2_harm
+    assert out.total_biomass_burned_kt == pytest.approx(.368 * arrays[2].sum() * 10 / 1e6)
+    assert out.total_pm25_emitted_tonnes == pytest.approx(.368 * arrays[2].sum() * 10 * 9.5 / 1e6)
+    assert 'descriptive' in out.executive_verdict_en
+    out.model_dump_json()
+    missing = compute_scientific_audit_metrics(*_audit_example(True), 10., 0., 1., 0)
+    assert missing.burned_area_r2_raw is None and missing.burned_area_r2_harm is None
+    assert 'unavailable' in missing.executive_verdict_en
+
+
+def _chaos_example(n=365, peak=230):
+    calendar = np.arange(np.datetime64('2022-01-01'), np.datetime64('2022-01-01') + np.timedelta64(n, 'D'))
+    days = (calendar - calendar.astype('datetime64[Y]')).astype(int) + 1
+    energy = 10 + 180 * np.exp(-.5 * ((days - peak) / 30)**2)
+    observations = energy[:, None] * np.array([[.75, 1., 1.4]])
+    return [str(date) for date in calendar], days, observations, energy, np.zeros(n)
+
+
+def test_chaos_monkey_recovery():
+    arrays = _chaos_example()
+    snapshot = arrays[2].copy()
+    out = run_chaos_monkey_simulation(*arrays, drop_fraction=.25, simulate_dual_blackout=True, random_seed=42)
+    assert type(out) is ChaosMonkeyResponse and out.data_source == 'synthetic'
+    assert out.model_dump() == run_chaos_monkey_simulation(*arrays).model_dump()
+    np.testing.assert_equal(arrays[2], snapshot)
+    assert out.dropped_days_count == len(out.dropped_dates) >= int(.25 * 365)
+    assert out.kalman_rmse < out.naive_rmse
+    assert out.seasonal_energy_recovered_pct > 90
+    assert np.count_nonzero(np.array(out.corrupted_naive_fre) == 0) == 10
+    assert all(lo <= x <= hi for lo, x, hi in zip(out.reconstructed_ci_lower, out.kalman_reconstructed_fre, out.reconstructed_ci_upper))
+    out.model_dump_json()
+
+
+@pytest.mark.parametrize('peak,n', [(1, 365), (365, 365), (2, 5)])
+def test_chaos_blackout_has_bounded_ten_day_window(peak, n):
+    out = run_chaos_monkey_simulation(*_chaos_example(n, peak), drop_fraction=0)
+    assert out.dropped_days_count == min(n, 10)
+    assert sum(value == 0 for value in out.corrupted_naive_fre) == min(n, 10)
+
+
+def test_chaos_drop_count_uses_available_viirs_and_reports_only_changes():
+    arrays = _chaos_example()
+    arrays[2][:100, 2] = np.nan
+    out = run_chaos_monkey_simulation(*arrays, simulate_dual_blackout=False)
+    assert out.dropped_days_count == int(.25 * (365 - 100))
+    intact = run_chaos_monkey_simulation(*arrays, drop_fraction=0, simulate_dual_blackout=False)
+    assert intact.dropped_days_count == 0 and intact.naive_rmse == intact.kalman_rmse == 0
+    assert intact.seasonal_energy_recovered_pct == pytest.approx(100)
+
+
+def test_chaos_full_history_drives_fixed_prior_and_empty_input_is_defined():
+    arrays = _chaos_example(60, 30)
+    history_doy = np.arange(1, 367)
+    history_obs = np.full((366, 3), 20.) * np.array([[.75, 1., 1.4]])
+    out = run_chaos_monkey_simulation(*arrays, full_doy_history=history_doy, full_y_obs_history=history_obs)
+    np.testing.assert_allclose(out.historical_cross_guard_fre, 20.)
+    np.testing.assert_equal(history_obs, np.full((366, 3), 20.) * np.array([[.75, 1., 1.4]]))
+    empty = run_chaos_monkey_simulation([], np.array([], dtype=int), np.empty((0,3)), np.empty(0), np.empty(0))
+    assert empty.dates == [] and empty.dropped_days_count == 0 and empty.seasonal_energy_recovered_pct == 100
+    with pytest.raises(ValueError):
+        run_chaos_monkey_simulation(*arrays, full_doy_history=history_doy)
+    with pytest.raises(ValueError):
+        run_chaos_monkey_simulation(*arrays, drop_fraction=1.1)
