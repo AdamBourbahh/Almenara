@@ -31,8 +31,8 @@ Use local auxiliary Parquet files when available.
 ## Stage behavior
 
 - **01** uses DuckDB to read local CSVs. It normalizes sensors, UTC date and time, thermal channels and confidence. It deduplicates exact sensor/time/location matches, filters SAMA candidates, computes H3 resolutions 4, 7 and 10, and stages both center counts and Gaussian MODIS footprint contributions. The footprint weights sum to one per detection. Entropy is normalized over twelve calendar months and the industrial score includes a positional variance gate. The ETL delegates SAMA screening and Shannon industrial scoring to `backend/core/industrial_filter.py` (`filter_sama_anomalies` and `compute_industrial_probability`).
-- **02** records the Aqua safe-mode interval and optionally flags fourfold drops relative to the previous 15 complete days of global counts. Local detection counts cannot establish global outages. Diurnal ratios use coincident daytime Aqua and Terra FRP by H3 r4 and month.
-- **03** uses coincident daytime Aqua and SNPP r7 cell-days in 2012–2025. It fits empirical quantiles above 8 MW and fits a bounded sub-threshold contribution from VIIRS samples. Bins derive from footprint width, which is an angle proxy. Sparse strata fall back to biome then pooled fits. Unsupported models are omitted, with uncalibrated FRP as the build fallback.
+- **02** records the documented SNPP outage (2022-07-27..08-10) and flags fourfold drops relative to the previous 15 complete days of global counts, reading the tracked `data/lookup/global_daily_counts.csv` unless `--global-counts` names another CSV or Parquet file. Local detection counts cannot establish global outages. Diurnal ratios use coincident daytime Aqua and Terra FRP by H3 r4 and month.
+- **03** uses coincident daytime Aqua and SNPP r7 cell-days in 2012–2025 and delegates every stratum fit to `backend/core/eqm_harmonizer.py::RadiometricHarmonizer.fit_biome_eqm_gpd` (101-knot EQM plus the bounded sub-threshold GPD term `delta_e_sub`). Bins derive from footprint width, which is an angle proxy. Strata with fewer than 20 matched cell-days are omitted; stage 04 then falls back to the biome and pooled fits, and to uncalibrated FRP when no model exists. See the [Stage 03/04 radiometric harmonization contract](#stage-0304-radiometric-harmonization-contract-phase-6).
 - **04** aggregates per cell-day, applies available lookup corrections, uses a one-hour FRP integration proxy for FRE density and computes prior-day neighbor energy. Only staged FIRMS detections contribute rows to the real master. Missing staging stops the build before replacement. Coverage is declared independently of detection density. Real FIRMS rows are sparse detections, and days without detections have no real row. For real rows without auxiliary data, biome uses the configured nominal class and cloud and burned area use zero sentinels. Parquet metadata records these limitations. The final replacement is atomic.
 - **05** measures warmed regional queries against the physical Parquet, reports Chow p-values and Wasserstein distance, computes leave-one-year-out burned-area R2 where defined, and exercises a seasonal-prior recovery baseline. A missing audit result fails the gate. Fixture metrics are diagnostics. Full Chaos Monkey validation depends on the backend RTS implementation.
 
@@ -65,6 +65,33 @@ Use local auxiliary Parquet files when available.
   gated by spatial positional variance ($\sigma_{\text{pos}}^2 < 50\text{ m}^2$) to distinguish stationary industrial gas flaring ($H_{\text{temp}} > 0.75$) from dynamic seasonal wildfire events.
 - Parity between ETL and core is verified by `backend/tests/test_cube_schema.py::test_phase3_*` (14 automated test cases).
 
+### Stage 03/04 radiometric harmonization contract (Phase 6)
+
+**One implementation.** `SPECS.md` §3.3 is implemented once, in `backend/core/eqm_harmonizer.py`. Stage 03 trains each stratum with `RadiometricHarmonizer.fit_biome_eqm_gpd(aqua_mw, snpp_mw)` on matched daytime cell-day MW sums; stage 04 applies `harmonize_viirs_to_modis` to SNPP/NOAA-20/NOAA-21 daily sums and `compensate_modis_censoring` to Terra and Aqua daily sums, in one vectorized call per (stratum, instrument family), before the FRE scale and the orbital weight. The LUT records `method`; the cube metadata records `radiometric_harmonization`.
+
+**Common scale.** Both channels land on the sub-threshold-compensated MODIS scale:
+
+```text
+VIIRS_h = F_MODIS^-1(F_VIIRS(P_viirs)) + delta_E_sub       (101 empirical knots, endpoints clamped)
+MODIS_h = P_modis + delta_E_sub                            (P_modis > 0; Terra then * kappa)
+delta_E_sub = pi_sub * E_GPD[x | 0.5 <= x < 8 MW]          (pi_sub = share of SNPP cell-days in [0.5, 8) MW)
+```
+
+This is SPECS §3.3 equation 2 with the truncated GPD integral normalized to its conditional mean. MODIS omits sub-threshold fires in every year, so the compensation applies to all MODIS cell-days, not only pre-2012 ones; otherwise MODIS and VIIRS would sit on different scales after 2012. Zeros stay zero and missing values stay missing. Stratum selection is `biome:angle`, then `biome:all`, then `all:all`.
+
+**Superseded ETL path.** The earlier stage 03/04 code mapped only VIIRS ≥ 8 MW with 21 knots and ratio extrapolation, and added `mean·f/(1−f)` to MODIS ≥ 8 MW. On real held-out data it inflated harmonized VIIRS energy (sum VIIRS/Aqua 1.433 versus 1.121 raw) and worsened the distributional match (KS 0.060 versus 0.053 raw). It was replaced on 2026-11-14.
+
+**Real-data verification — 2026-11-14.** Inputs: 30,449 matched daytime Aqua/SNPP R7 cell-days from the four-region staging, trained on 2012–2022 (24,096) and evaluated on held-out 2023–2025 (6,353). The stage 03/04 path and direct core calls agree exactly (worst |ETL − core| = 0.0 MW in every stratum).
+
+| Stratum | Train / held-out | delta_E_sub (MW) | Median log(V/A) raw → harmonized | Sum V/A raw → harmonized | KS raw → harmonized |
+| --- | --- | --- | --- | --- | --- |
+| `all:all` | 24,096 / 6,353 | 0.918 (pi_sub 0.199, mean 4.615) | +0.087 → −0.052 | 1.121 → 1.108 | 0.053 → 0.016 |
+| `2:all` (Amazonas) | 6,631 / 2,507 | 1.132 | −0.053 → −0.048 | 1.142 → 1.134 | 0.055 → 0.020 |
+| `8:all` (Iberia, Orlando) | 15,285 / 3,460 | 0.850 | +0.178 → −0.018 | 1.106 → 1.056 | 0.069 → 0.017 |
+| `16:all` (Chilecito) | 2,180 / 386 | 0.716 | +0.270 → −0.029 | 1.510 → 1.042 | 0.142 → 0.075 |
+
+Pre-2012 compensation adds +2.60% energy to 179,238 real MODIS cell-days (pooled model). **Strata provenance:** `data/lookup/igbp_cells.parquet` (MCD12Q1) is absent, so every biome stratum uses the nominal regional class from `data/regions.json`; only `all:all` is independent of that fallback. Regression tests: `test_stage03_lut_is_trained_by_the_core_harmonizer`, `test_stage04_eqm_gpd_parity_with_core_on_every_channel` (pooled and biome strata) and `test_math_core.py::test_eqm_modis_censoring_compensation_shares_viirs_scale`. Limits: EQM matches marginal distributions, not paired cell-days, and the residual 4–13% energy excess of VIIRS is not corrected; a MODIS cell-day that receives only a fraction of a spread footprint still receives the full `delta_E_sub`.
+
 ### Stage 04 diurnal scaling and Eulerian integration contract
 
 **Architecture and scope.** `SPECS.md` §2(6) approves Eulerian aggregation on fixed H3 R7 cells and UTC calendar days. Stage 01 normalizes and deduplicates detections before footprint allocation. Stage 04 groups the staged contributions by `(h3_r4, h3_r7, acq_date, satellite, sensor_bit)`. Distinct acquisitions in the same cell-day add power within each instrument. The proposed spatio-temporal DAG event clustering (`ST-H3-DBSCAN`) and continuous trapezoidal integration are outside Phase 2: sparse polar-orbiting snapshots do not establish continuous event trajectories or burn duration.
@@ -73,11 +100,11 @@ The daily grouping uses DuckDB's vectorized hash aggregation, with expected O(N)
 
 **Exact record identity.** Stage 01 uses `(normalized_satellite, UTC_acq_date, four_digit_acq_time, round(latitude, 5), round(longitude, 5))`. Sensor aliases such as `T`/`Terra` and `A`/`Aqua` are normalized first; `930` and `0930` denote the same UTC acquisition time. Files whose names contain `nrt` (case-insensitive) are processed after standard/archive files, regardless of lexical filename order. The first accepted identity wins; ties within the same priority use sorted filenames and input row order. A later conflicting FRP does not replace the archive record. Different instruments, dates, times or five-decimal locations remain distinct, even when they occupy the same R7 cell-day. Footprint allocation follows deduplication, so one detection's distributed contributions are not independent duplicate acquisitions.
 
-**Conversion and units.** For cell h, UTC day t and instrument s, let P(h,t,s) be the sum of `corrected_frp` over all retained staged contributions. Stage 04 applies the existing `estimate(sensor, P, biome, angle, lut)` calibration to that daily instrument sum, using modal biome and scan bin; the Phase 2 arithmetic fixtures deliberately use an empty LUT (identity calibration). Let P_cal be the resulting power and A_h the exact `h3.cell_area(cell, unit="km^2")`, rather than a universal nominal 5.161 km². Then:
+**Conversion and units.** For cell h, UTC day t and instrument s, let P(h,t,s) be the sum of `corrected_frp` over all retained staged contributions. Stage 04 applies the core radiometric harmonization (`harmonize(modis, P, model)`, Phase 6 contract below) to that daily instrument sum, using modal biome and scan bin; the Phase 2 arithmetic fixtures deliberately use an empty LUT (identity calibration). Let P_cal be the resulting power and A_h the exact `h3.cell_area(cell, unit="km^2")`, rather than a universal nominal 5.161 km². Then:
 
 ```text
 FRP: 1 MW = 1 MJ/s
-FRE_obs(h,t,s) = P_cal(h,t,s) * 3600 s / A_h
+FRE_obs(h,t,s) = P_cal(h,t,s) * 3600 s / A_h * w_orb(h)      (Terra also * kappa; see below)
 reported unit: MJ / km² / day (energy assigned to one UTC daily bin)
 ```
 
@@ -96,6 +123,25 @@ This is a ratio of sums, not the unweighted mean of individual daily ratios. Mul
 
 **Diurnal application.** Stage 04 loads only lookup rows with `matched_days >= 3`. It multiplies Terra FRE by `kappa(h3_r4, month)` to represent the nominal morning Terra overpass (10:30 local time) on the afternoon Aqua amplitude scale (13:30 local time). A missing bucket or fewer than three matched days uses the neutral factor `1.0`. Aqua is not multiplied by kappa, nor are the VIIRS estimates. The grouping date remains UTC; local overpass times describe the physical rationale and do not shift the calendar key.
 
+**Orbital revisit weighting (Phase 4, `SPECS.md` §3.4(1)).** Sun-synchronous polar orbiters (inclination ≈ 98.2°) revisit high latitudes more often because their swaths converge: the relative daily revisit density at R7 centroid latitude φ_h is `π_orb(φ_h) / π_orb(0°) = sec(φ_h)`. The Horvitz-Thompson estimator divides each observation by that relative sampling probability, so the weight is the inverse, `cos(φ_h)`, not `sec(φ_h)`:
+
+```text
+φ_h      = h3.cell_to_latlng(h3_r7)[0]                       (centroid latitude, degrees)
+w_orb(h) = clip(cos(φ_h), cos(80°), 1.0)  ∈ [0.173648, 1.0]
+
+obs_terra_fre = P_cal,Terra * 3600 / A_h * kappa(h3_r4, month) * w_orb(h)
+obs_aqua_fre  = P_cal,Aqua  * 3600 / A_h * w_orb(h)
+obs_viirs_fre = mean over surviving VIIRS instruments of (P_cal,VIIRS * 3600 / A_h * w_orb(h))
+```
+
+- **Normalization:** `w_orb = 1.0` at the equator. Weighted densities are therefore expressed on the equatorial sampling scale.
+- **Domain and clamp:** the revisit model covers φ_h ∈ [−81.8°, +81.8°]. The lower clamp at `cos(80°) ≈ 0.173648` bounds the weight for cells poleward of ±80°.
+- **Single application:** Stage 04 multiplies each channel by `w_orb` exactly once, at the point where calibrated power becomes FRE density. Because the weight is constant per cell, weighting each VIIRS instrument before averaging equals weighting the mean. `neighbor_fre_lag1` is derived from the already-weighted channels and is not weighted again. DuckDB queries, the API and `backend/core/` must not re-apply it.
+- **Orthogonality:** `kappa` is the separate, existing Terra-only diurnal correction. Aqua and VIIRS receive `w_orb` without `kappa`.
+- **Unchanged fields:** `raw_frp_mw`, raw counts, masks and null semantics are untouched. A channel that is missing, in outage or cloud-occluded stays null; the weight only scales observed values.
+- **Provenance:** the published Parquet metadata records `orbital_weighting = "w_orb = clip(cos(centroid_lat_h3_r7), cos(80 deg), 1.0); applied once to obs_terra_fre, obs_aqua_fre, obs_viirs_fre"`.
+- **Limits:** `cos(φ)` is a first-order swath-convergence model. It does not use actual per-day swath geometry, scan angle or orbit tracks, and published real cubes acquire the weight only after a Stage 04 rebuild.
+
 **Spatial lag.** First form each source cell-day's mean across its non-null Terra, Aqua and grouped-VIIRS FRE channels. Let J(h,t-1) be the cells in `grid_disk(h, 1)`, excluding h itself, whose resulting mean on exactly `epoch_day - 1` is positive. An ordinary R7 cell has six neighbors (H3 pentagons can have five). Then:
 
 ```text
@@ -105,7 +151,7 @@ neighbor_fre_lag1(h,t) = 0.0 when J(h,t-1) is empty
 
 The mean is over active burning neighbors, not over all six locations; zero-energy neighbors do not dilute it. A measured zero remains a valid observation and does not become a blackout. Missing or occluded channels cannot contribute. Self, contemporaneous t, and older t-2 observations are excluded; there is no forward fill. The tests use valid FIRMS dates 2024-01-10 through 2024-01-12 (`epoch_day` 19732–19734), rather than literal epoch day 100 in 1970, which is outside the data contract.
 
-**Hand-checkable regression inputs.** All Phase 2 CSVs, region definitions, lookups and cubes are created under pytest temporary directories. Cell `87390c014ffffff` at 40° N, 4° W has an exact area of approximately 5.338061472892 km². Identity-calibrated 10, 30 and 75 MW give approximately 6,744.021249, 20,232.063746 and 50,580.159365 MJ/km²/day, respectively; assertions use `pytest.approx` to accommodate FLOAT storage. The end-to-end fixture has three daily groups of Terra 10 + 20 MW and Aqua 75 MW, plus archive/NRT conflicts and an exact duplicate. It retains nine detections, yields kappa `225 / 90 = 2.5` from three matched days, and publishes three daily rows with both channels at `75 * 3600 / A_h`. Independent cases cover insufficient/missing ratios, midnight boundaries, separate instrument means, and active-neighbor lag averaging.
+**Hand-checkable regression inputs.** All Phase 2 CSVs, region definitions, lookups and cubes are created under pytest temporary directories. Cell `87390c014ffffff` at 40° N, 4° W has an exact area of approximately 5.338061472892 km². Identity-calibrated 10, 30 and 75 MW give approximately 6,744.021249, 20,232.063746 and 50,580.159365 MJ/km²/day before orbital weighting, respectively; since Phase 4 the assertions multiply these by the cell's `w_orb = cos(centroid latitude)` (≈ 0.766 for this cell) and use `pytest.approx` to accommodate FLOAT storage. The end-to-end fixture has three daily groups of Terra 10 + 20 MW and Aqua 75 MW, plus archive/NRT conflicts and an exact duplicate. It retains nine detections, yields kappa `225 / 90 = 2.5` from three matched days, and publishes three daily rows with both channels at `75 * 3600 / A_h`. Independent cases cover insufficient/missing ratios, midnight boundaries, separate instrument means, and active-neighbor lag averaging.
 
 ### Stage 02 outage evidence contract
 
@@ -115,11 +161,15 @@ The mean is over active burning neighbors, not over all six locations; zero-ener
 | --- | --- | --- |
 | `acq_date` | `DATE` / `date32[day]` | UTC calendar day |
 | `satellite` | `VARCHAR` / `string` | Canonical instrument: `Terra`, `Aqua`, `SNPP`, `N20`, `N21` |
-| `evidence` | `VARCHAR` / `string` | `known_safe_mode` or `global_count_drop` |
+| `evidence` | `VARCHAR` / `string` | `known_outage` or `global_count_drop` |
 
-Rows are unique and sorted by `(acq_date, satellite, evidence)`. With no `--global-counts`, all three columns are non-null and the output is exactly 17 `Aqua` / `known_safe_mode` rows, inclusive from **2022-07-31 to 2022-08-16**. Staged regional detections are never used to infer global outages. Known and dynamic evidence can coexist for the same instrument-day; stage 04 consumes their distinct instrument-day pairs.
+Rows are unique and sorted by `(acq_date, satellite, evidence)`. The known evidence is exactly 15 `SNPP` / `known_outage` rows, inclusive from **2022-07-27 to 2022-08-10** (`KNOWN_OUTAGES` in the script). With the tracked global counts, the detector independently yields the same 15 `SNPP` / `global_count_drop` rows and nothing else. Staged regional detections are never used to infer global outages. Known and dynamic evidence can coexist for the same instrument-day; stage 04 consumes their distinct instrument-day pairs.
 
-The optional local Parquet supplied with `--global-counts` must use the canonical instrument names above and unique `(satellite, acq_date)` keys. Dates are cast to `DATE`; `detection_count` is cast to `DOUBLE`. Counts represent nonnegative global daily totals, including explicit observed zeros. For each instrument and target day `t`, the detector evaluates:
+**Correction — 2026-11-14.** The interval was previously hard-coded as "Aqua safe mode, 2022-07-31..08-16" (17 days). FIRMS world counts contradict it: MODIS Aqua reported 6,881–20,844 global detections on every one of those days, and the local Iberia, Chilecito and Orlando raw CSVs contain Aqua detections on 2022-07-31. The previous cube therefore nulled 843 valid Aqua cell-days. The measured outage is Suomi NPP VIIRS: zero global detections from 2022-07-27 through 2022-08-10, 65,996 on 07-26 and 85,776 on 08-11, while NOAA-20 stayed at 50,799–91,918 per day. The synthetic fixture (`scripts/00`) deliberately keeps its 2022-07-31..08-16 Aqua blackout as a reconstruction stress scenario; it is not a historical claim.
+
+**Tracked global counts.** `data/lookup/global_daily_counts.csv` holds Terra, Aqua, SNPP and NOAA-20 world totals for 2022-07-06..2022-08-24 (200 instrument-days, unique keys, explicit zeros). It was produced from the FIRMS area API (`/api/area/csv/{MAP_KEY}/{MODIS_SP|VIIRS_SNPP_SP|VIIRS_NOAA20_SP}/world/{≤5}/{date}`): every row of each standard-processing response was counted by `satellite` and UTC `acq_date`; a successful header-only day is an observed zero, and any failed or non-CSV response aborts the download, so a missing day is never written as zero. The MAP_KEY lives only in the untracked root `.env`. Stage 02 reads this file without network access.
+
+A global-counts file (`--global-counts`, CSV or Parquet) must use the canonical instrument names above and unique `(satellite, acq_date)` keys. Dates are cast to `DATE`; `detection_count` is cast to `DOUBLE`. Counts represent nonnegative global daily totals, including explicit observed zeros. For each instrument and target day `t`, the detector evaluates:
 
 ```text
 baseline = mean(counts on the 15 calendar days t-15 through t-1)
@@ -351,3 +401,32 @@ These date spans are the first/last detections in the supplied packages. The gen
 Each package includes archive and NRT observations from Terra/Aqua MODIS, SNPP, NOAA-20 and NOAA-21. FIRMS request IDs 848215–848218 identify Orlando and 848219–848222 identify Amazonas. Original `archive` and `nrt` labels are retained, so stage 01's deduplication priority is unchanged. Four temporary-fixture integration cases verify ingest and publication for Chilecito, Iberia, Orlando and Amazonas.
 
 The 16 new CSVs are tracked explicitly in Git at the user's request; generated Parquet remains excluded and can be rebuilt with stages 01–04. Earlier Chilecito/Iberia raw packages remain local and are required to reproduce a four-region cube. The incoming frontend merge is retained; this ETL import does not change its preset list or API contracts.
+
+## Four-region real cube publication — 2026-11-14
+
+Stages 01–04 were run in order from `firms-harmonizer/` on the local FIRMS CSVs of `amazonas_manaus`, `chilecito_la_rioja`, `iberia_med` and `orlando_florida`, without network access or credentials. Staging held 1,574,092 deduplicated detections and 1,870,624 footprint contributions. The cube includes the Phase 4 orbital revisit weight.
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `staged_firms.parquet` | 52,291,869 | `436bc71c1b1bc89b30741faf61add63c1a001b0b4c9ee6a48fad79082233be99` |
+| `fire_cube.parquet` | 10,900,199 | `1ed635f787564376470c284c834bf4512e090c1a2b212c4c70542f9a31dd6f3a` |
+| `sensor_outages.parquet` | 737 | `6ac6b1bec13f35cac06a39135b7386fa69367c788dbcd2faf1bea2038feb9d98` |
+| `diurnal_ratios.parquet` | 27,558 | `2a66f7251cc170f11a66a25b26d5b8991602b18500becf567d989b0a25ac6656` |
+| `eqm_gpd_lut.json` | 13,918 | `8ede60e41ca06a62f441d34e0f7339a82c53d0b449e32f2abcd69d5cc34a019c` |
+
+The cube has 761,801 unique cell-days from 2000-11-01 to 2026-11-01 (center cell-days: Manaus 191,509; Chilecito 37,955; Iberia 384,226; Orlando 24,752). The publication checks above pass: 18-field schema and nullability, ZSTD, real-only provenance, unique ascending keys, 1970 UTC calendar consistency, raw FRP (34,804,483 MW) and detection-count conservation, unit footprint weights, NOAA-21 bit 16 on 86,348 rows, sensor bits matching non-null channels, no Aqua values in the 2022 Safe Mode interval, and finite non-negative FRE. No ancillary file was present, so metadata records all rows as missing cloud and burned-area input rather than observed zero.
+
+Script 05 exits 1 on this cube. Warmed P95 is 17.92–60.10 ms against the 15 ms target, Chow p ≤ 0.010, burned-area R² is undefined without MCD64A1 input, recovery is 71.8–95.5%, and the `cerrado_brazil`, `california_usa` and `niger_delta_flaring` presets have no real rows. These are open acceptance results, not build failures.
+
+## Phase 5/6 republication — 2026-11-14
+
+Stages 02 and 04 were rerun on the unchanged staging (`436bc71c…`) after the Phase 6 harmonization unification and the Phase 5 outage correction; stage 03 regenerated the LUT from the same staging. No network access was used.
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `fire_cube.parquet` | 10,950,174 | `dc0ce0b87ee50cf2adc7dc3f1457ccf57335c4ed85ff1c9cc6ab83cc6d5340ae` |
+| `sensor_outages.parquet` | 788 | `3b3b000205daeca55dfe3876bd1b0148ee40faf72eb456ccf8cf6982bf9d64fc` |
+| `eqm_gpd_lut.json` | 102,760 | `e34f78c8cb228b78d9e04d5e70503559ce79662dea6c6151d76a4f829aa26451` |
+| `global_daily_counts.csv` (tracked input, LF) | 4,309 | `447b6c6754b0949da80fd0d7b14ac0d83da89fd17a868ba2d0d8ea15019e6735` |
+
+The cube keeps 761,801 unique cell-days, 24 ZSTD row groups and a verified ascending `(h3_r4, epoch_day, h3_r7)` order (PyArrow lexsort). Publication checks pass: schema, ZSTD, real-only provenance, unique keys, calendar consistency, four populated regions, raw FRP (34,804,483 MW) and detection (1,574,092) conservation, footprint weights summing to 1, NOAA-21 bit 16 on 86,348 rows, sensor bits matching non-null channels, finite non-negative FRE, and the corrected outage: across 2,020 cell-days in 2022-07-27..08-10 no row carries SNPP bit 4, every row carries outage bit 1, and 618 keep Aqua values. Across 2022-07-31..08-16, 843 Aqua cell-days that the previous cube nulled are now published. Metadata records `radiometric_harmonization`. A live uvicorn smoke test served `data_source=real` and schema-valid `/api/analyze` (9,496 days, audit present, cache HIT on repeat) and `/api/chaos-monkey` responses for Chilecito, Iberia, Orlando and Manaus; `python -m backend.check_core` exits 0 on the real cube.

@@ -14,27 +14,44 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 ingest = import_module("01_ingest_firms")
-training = import_module("03_train_eqm_lut")
 bootstrap = import_module("00_bootstrap_synthetic_cube")
+from backend.core.eqm_harmonizer import RadiometricHarmonizer  # noqa: E402  (path set by 01_ingest_firms)
+
 ROOT = ingest.ROOT
+HARMONIZER = RadiometricHarmonizer()
 EPOCH = date(1970, 1, 1)
 SORT = [(key, "ascending") for key in ("h3_r4", "epoch_day", "h3_r7")]
 OUT = ROOT / "data/processed/fire_cube.parquet"
+MIN_ORBITAL_WEIGHT = float(np.cos(np.deg2rad(80.0)))
+ORBITAL_WEIGHTING = ("w_orb = clip(cos(centroid_lat_h3_r7), cos(80 deg), 1.0); "
+                     "applied once to obs_terra_fre, obs_aqua_fre, obs_viirs_fre")
+RADIOMETRIC_HARMONIZATION = ("core RadiometricHarmonizer on daily MW sums before FRE scaling: VIIRS = "
+                             "EQM + delta_e_sub; Terra/Aqua = MW + delta_e_sub; stratum biome:angle > "
+                             "biome:all > all:all; untrained strata stay raw")
 
 
-def estimate(sensor, mw, biome, angle, lut):
-    model = lut.get(f"{biome}:{angle}") or lut.get(f"{biome}:all") or lut.get("all:all")
+def orbital_weight(h3_r7):
+    """Horvitz-Thompson inverse revisit weight (SPECS.md §3.4(1)).
+
+    Sun-synchronous revisit density grows as sec(latitude), so its inverse is cos(latitude),
+    normalized to 1.0 at the equator and clamped at cos(80°) near the poles.
+    """
+    latitude, _ = h3.cell_to_latlng(format(h3_r7, "x"))
+    return float(np.clip(np.cos(np.deg2rad(latitude)), MIN_ORBITAL_WEIGHT, 1.0))
+
+
+def model_name(lut, biome, angle):
+    """Most specific trained stratum: biome and angle, then biome, then pooled; None if untrained."""
+    return next((name for name in (f"{biome}:{angle}", f"{biome}:all", "all:all") if name in lut), None)
+
+
+def harmonize(modis, mw, model):
+    """SPECS.md §3.3 via the core: EQM + delta E_sub for VIIRS, delta E_sub for MODIS (daily MW sums)."""
     if model is None:
-        return mw
-    if sensor in ("Terra", "Aqua"):
-        tail = model["gpd"]
-        if tail and mw >= training.THRESHOLD:
-            return mw + tail["mean_mw"] * tail["fraction"] / (1 - tail["fraction"])
-        return mw
-    if mw < training.THRESHOLD:
-        return mw
-    x, y = model["viirs_quantiles"], model["aqua_quantiles"]
-    return float(np.interp(mw, x, y)) if x[0] <= mw <= x[-1] else mw * (y[0] / x[0] if mw < x[0] else y[-1] / x[-1])
+        return np.asarray(mw, dtype=float)
+    if modis:
+        return HARMONIZER.compensate_modis_censoring(mw, model)
+    return HARMONIZER.harmonize_viirs_to_modis(mw, model)
 
 
 def table_from_rows(rows):
@@ -55,7 +72,7 @@ def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
         max(industrial_prob) AS industrial, mode(region) AS region
         FROM read_parquet(?) GROUP BY h3_r4, h3_r7, acq_date, satellite, sensor_bit
         ORDER BY h3_r7, acq_date, satellite""", [str(staged)]).fetchall()
-    daily, viirs, areas = {}, {}, {}
+    daily, viirs, scales, pending = {}, {}, {}, []
     for h4, h7, day, sensor, bit, biome, angle, mw, n, raw, industrial, region in rows:
         ranges = regions[region].get("coverage", [])
         if not any(date.fromisoformat(start) <= day <= date.fromisoformat(end)
@@ -75,15 +92,26 @@ def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
         row["industrial_prob"] = max(row["industrial_prob"], industrial)
         if (day, sensor) in outages:
             continue
-        if h7 not in areas:
-            areas[h7] = h3.cell_area(format(h7, "x"), unit="km^2")
-        # One-hour integration proxy. FIRMS does not measure fire duration.
-        value = estimate(sensor, mw, biome, angle, lut) * 3600 / areas[h7]
+        if h7 not in scales:
+            # One-hour integration proxy (FIRMS does not measure fire duration) per km²,
+            # times the orbital revisit weight. This is the only place w_orb is applied.
+            scales[h7] = 3600 / h3.cell_area(format(h7, "x"), unit="km^2") * orbital_weight(h7)
+        factor = scales[h7] * (ratios.get((h4, day.month), 1.0) if sensor == "Terra" else 1.0)
+        pending.append((key, sensor, model_name(lut, biome, angle), mw, factor))
         row["sensor_obs_mask"] |= bit
+    # Harmonize daily MW sums in one vectorized core call per (stratum, instrument family).
+    groups = {}
+    for index, (_, sensor, name, _, _) in enumerate(pending):
+        groups.setdefault((name, sensor in ("Terra", "Aqua")), []).append(index)
+    harmonized = np.empty(len(pending))
+    for (name, modis), indices in groups.items():
+        harmonized[indices] = harmonize(modis, [pending[i][3] for i in indices], lut.get(name))
+    for (key, sensor, _, _, factor), mw in zip(pending, harmonized):
+        value = float(mw) * factor
         if sensor == "Terra":
-            row["obs_terra_fre"] = value * ratios.get((h4, day.month), 1.0)
+            daily[key]["obs_terra_fre"] = value
         elif sensor == "Aqua":
-            row["obs_aqua_fre"] = value
+            daily[key]["obs_aqua_fre"] = value
         else:
             viirs.setdefault(key, []).append(value)
     for key, values in viirs.items():
@@ -180,6 +208,8 @@ def build_master_cube(staged_path=ingest.STAGED, output_path=OUT, force_bootstra
             b"ancillary_coverage": json.dumps(ancillary_coverage, sort_keys=True).encode(),
             b"real_igbp": b"local IGBP lookup or nominal regional fallback",
             b"fre_method": b"one-hour FRP integration proxy",
+            b"orbital_weighting": ORBITAL_WEIGHTING.encode(),
+            b"radiometric_harmonization": RADIOMETRIC_HARMONIZATION.encode(),
         }
         table = table_from_rows(daily.values()).replace_schema_metadata(metadata)
         if not len(table):

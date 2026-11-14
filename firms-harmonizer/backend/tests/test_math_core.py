@@ -167,6 +167,33 @@ def test_eqm_harmonizer_monotone_mapping():
     np.testing.assert_allclose(mapped - model.harmonize_viirs_to_modis(values, pure), lut['delta_e_sub'])
 
 
+def test_eqm_modis_censoring_compensation_shares_viirs_scale():
+    rng = np.random.default_rng(11)
+    viirs = np.r_[rng.uniform(.5, 7.9, 300), rng.uniform(8, 100, 700), np.zeros(5)]
+    model = RadiometricHarmonizer()
+    lut = model.fit_biome_eqm_gpd(viirs * .9, viirs, biome_id=8)
+    below = np.count_nonzero((viirs >= .5) & (viirs < 8))
+    # SPECS §3.3: delta E_sub = pi_sub * conditional GPD mean over [0.5, 8) MW.
+    assert lut['delta_e_sub'] == pytest.approx(below / viirs.size * lut['gpd']['conditional_mean'])
+    modis = np.array([[0., 8., 40.], [np.nan, 2., 400.]])
+    compensated = model.compensate_modis_censoring(modis, lut)
+    expected = np.where(modis > 0, modis + lut['delta_e_sub'], modis)
+    np.testing.assert_allclose(compensated, expected, equal_nan=True)
+    assert compensated[0, 0] == 0 and np.isnan(compensated[1, 0])
+    assert model.compensate_modis_censoring(np.array(10.0)).shape == ()
+    # The same additive term lands on both channels, so the paired offset cancels.
+    pure = dict(lut, delta_e_sub=0.0)
+    np.testing.assert_allclose(model.harmonize_viirs_to_modis(viirs[viirs > 0], lut)
+                               - model.harmonize_viirs_to_modis(viirs[viirs > 0], pure), lut['delta_e_sub'])
+    for invalid in [np.array([-1.0]), np.array([np.inf])]:
+        with pytest.raises(ValueError):
+            model.compensate_modis_censoring(invalid, lut)
+    with pytest.raises(ValueError):
+        model.compensate_modis_censoring(np.ones(2), dict(lut, delta_e_sub=-1.0))
+    with pytest.raises(ValueError):
+        RadiometricHarmonizer().compensate_modis_censoring(np.ones(2))
+
+
 @pytest.mark.parametrize("training", [np.array([.5]), np.array([2., 2., 2.]), np.array([20., 20.])])
 def test_sparse_or_constant_training_is_finite(training):
     model = RadiometricHarmonizer()

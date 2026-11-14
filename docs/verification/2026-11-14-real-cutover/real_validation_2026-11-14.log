@@ -1,0 +1,95 @@
+Cube: C:\vscode\proyectos\Almenara\firms-harmonizer\data\processed\fire_cube.parquet  data_source=real  rows=761801  missing_columns=[]
+
+== Latency (first call | median of next 9) ==
+   reference targets: query <12.0 ms, analyze <250.0 ms (not gates)
+chilecito_la_rioja     h3 filter   62.84 |   52.12   query_daily_rows  591.35 |   26.58   fetch_aoi_aggregated_data  139.79 |  124.81   (R7=32349, R4=117)
+orlando_florida        h3 filter    9.39 |    6.38   query_daily_rows   26.31 |   20.69   fetch_aoi_aggregated_data   53.38 |   50.23   (R7=3891, R4=20)
+amazonas_manaus        h3 filter   56.71 |   57.56   query_daily_rows   29.15 |   24.91   fetch_aoi_aggregated_data  244.43 |  203.70   (R7=36927, R4=132)
+iberia_med             h3 filter  419.96 |  458.32   query_daily_rows  102.26 |  115.73   fetch_aoi_aggregated_data 1690.50 | 1323.81   (R7=193839, R4=623)
+
+== backend.core conformance (python -m backend.check_core) ==
+function                       status          ms  detail
+compute_cross_prior            PASS          2.85  n=9496
+kalman_rts_smooth              PASS         84.46  n=9496
+fit_von_mises_year             PASS          0.52  n=365
+phenology_trend                PASS          2.93  n=26
+chow_test                      PASS          1.27  n=9496
+wasserstein_w1_normalized      PASS          1.64  n=9496
+descriptive_r2                 PASS          0.13  n=6195
+run_chaos_monkey_simulation    PASS         10.82  n=9496
+
+All core functions conform to the API contract -> exit 0
+
+== Scientific diagnostics (printed as measured; real core) ==
+
+[chilecito_la_rioja] data_source=real cells=9760 execution_time_ms=324.4 wall cold=478.2 ms, cache hit=75.4 ms
+   Server-Timing cold: h3;dur=61.90, db;dur=119.14, build;dur=50.63, core;dur=92.70, validate;dur=46.76, serialize;dur=31.32
+   Server-Timing hit:  h3;dur=10.87, cache;dur=0.80
+   chow_test_f_stat_raw               2.309560909548673
+   chow_test_p_val_raw                0.12289056131940074
+   chow_test_f_stat_harm              0.7426989473726566
+   chow_test_p_val_harm               0.4873852049443547
+   wasserstein_w1_raw                 1.3150813689250955
+   wasserstein_w1_harm                0.2232975396967235
+   burned_area_r2_raw                 None
+   burned_area_r2_harm                None
+   phenology_shift_days_per_decade    1.5887081922805792
+   mann_kendall_p_value               0.7269745473586298
+   industrial_false_positives_removed 0
+   w1_reduction_pct                   83.02024916684512
+   verdict: Chow break test at 2012-01-01: raw p=0.123, harmonized p=0.487 (PASS against the p>0.1 gate). Wasserstein-1 1.315 -> 0.2233 (83.0% reduction; FAIL against the >88% gate). Burned-area R� values are descriptive squared correlations, not out-of-sample validation. PM2.5, tooltips and the 14-day forecast are not computed in this MVP.
+   chaos: recovered=95.29757595101924 naive_rmse=22607.047101648892 kalman_rmse=20221.497886700363 dropped=87
+
+[orlando_florida] data_source=real cells=3123 execution_time_ms=178.9 wall cold=293.1 ms, cache hit=51.6 ms
+   Server-Timing cold: h3;dur=8.19, db;dur=52.75, build;dur=25.44, core;dur=92.48, validate;dur=34.42, serialize;dur=22.52
+   Server-Timing hit:  h3;dur=1.19, cache;dur=0.79
+   chow_test_f_stat_raw               9.067666639125253
+   chow_test_p_val_raw                0.0013423132554618432
+   chow_test_f_stat_harm              11.427492983926458
+   chow_test_p_val_harm               0.0003951222738110394
+   wasserstein_w1_raw                 1.2936774975052303
+   wasserstein_w1_harm                0.303816153632263
+   burned_area_r2_raw                 None
+   burned_area_r2_harm                None
+   phenology_shift_days_per_decade    -16.961372072675942
+   mann_kendall_p_value               0.057446554888585626
+   industrial_false_positives_removed 0
+   w1_reduction_pct                   76.51530971063872
+   verdict: Chow break test at 2012-01-01: raw p=0.00134, harmonized p=0.000395 (FAIL against the p>0.1 gate). Wasserstein-1 1.294 -> 0.3038 (76.5% reduction; FAIL against the >88% gate). Burned-area R� values are descriptive squared correlations, not out-of-sample validation. PM2.5, tooltips and the 14-day forecast are not computed in this MVP.
+   chaos: recovered=99.85949877654046 naive_rmse=13543.493840244962 kalman_rmse=7217.385563716828 dropped=75
+
+[amazonas_manaus] data_source=real cells=13104 execution_time_ms=540.9 wall cold=765.1 ms, cache hit=104.4 ms
+   Server-Timing cold: h3;dur=77.82, db;dur=283.56, build;dur=73.56, core;dur=105.98, validate;dur=68.60, serialize;dur=51.86
+   Server-Timing hit:  h3;dur=16.50, cache;dur=1.26
+   chow_test_f_stat_raw               1.8208437550687067
+   chow_test_p_val_raw                0.18545427697627248
+   chow_test_f_stat_harm              4.476977272763087
+   chow_test_p_val_harm               0.023376093913424194
+   wasserstein_w1_raw                 1.4837680146220003
+   wasserstein_w1_harm                0.14169391105338697
+   burned_area_r2_raw                 None
+   burned_area_r2_harm                None
+   phenology_shift_days_per_decade    -9.418371430760715
+   mann_kendall_p_value               0.0034663307001632673
+   industrial_false_positives_removed 0
+   w1_reduction_pct                   90.45039995086533
+   verdict: Chow break test at 2012-01-01: raw p=0.185, harmonized p=0.0234 (FAIL against the p>0.1 gate). Wasserstein-1 1.484 -> 0.1417 (90.5% reduction; PASS against the >88% gate). Burned-area R� values are descriptive squared correlations, not out-of-sample validation. PM2.5, tooltips and the 14-day forecast are not computed in this MVP.
+   chaos: recovered=93.47217512006006 naive_rmse=16105.9832534912 kalman_rmse=11165.984642764188 dropped=73
+
+[iberia_med] data_source=real cells=71439 execution_time_ms=2163.2 wall cold=2763.3 ms, cache hit=328.3 ms
+   Server-Timing cold: h3;dur=522.19, db;dur=1201.70, build;dur=316.52, core;dur=122.83, validate;dur=226.01, serialize;dur=99.95
+   Server-Timing hit:  h3;dur=172.71, cache;dur=2.89
+   chow_test_f_stat_raw               3.190414288179029
+   chow_test_p_val_raw                0.06072586552235211
+   chow_test_f_stat_harm              0.6662205429738356
+   chow_test_p_val_harm               0.5237059788013968
+   wasserstein_w1_raw                 1.30065792993351
+   wasserstein_w1_harm                0.24454368481405447
+   burned_area_r2_raw                 None
+   burned_area_r2_harm                None
+   phenology_shift_days_per_decade    -3.117550798965567
+   mann_kendall_p_value               0.3356053064891282
+   industrial_false_positives_removed 0
+   w1_reduction_pct                   81.19846277902172
+   verdict: Chow break test at 2012-01-01: raw p=0.0607, harmonized p=0.524 (PASS against the p>0.1 gate). Wasserstein-1 1.301 -> 0.2445 (81.2% reduction; FAIL against the >88% gate). Burned-area R� values are descriptive squared correlations, not out-of-sample validation. PM2.5, tooltips and the 14-day forecast are not computed in this MVP.
+   chaos: recovered=94.1762288522776 naive_rmse=49579.833559922874 kalman_rmse=39458.791902608544 dropped=99

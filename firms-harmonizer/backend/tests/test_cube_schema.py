@@ -50,6 +50,12 @@ def phase2_etl(tmp_path, monkeypatch):
     return ingest, outages, builder
 
 
+def w_orb(cell):
+    """Independent SPECS.md §3.4(1) Horvitz-Thompson weight for an H3 R7 cell (hex or int)."""
+    latitude = h3.cell_to_latlng(cell if isinstance(cell, str) else format(cell, "x"))[0]
+    return float(np.clip(np.cos(np.radians(latitude)), np.cos(np.radians(80.0)), 1.0))
+
+
 def write_phase2_csv(path, records):
     """Write nadir FIRMS records; test inputs override the shared valid defaults."""
     defaults = dict(latitude=40.0, longitude=-4.0, acq_date="2024-01-10", acq_time="1030",
@@ -126,16 +132,17 @@ def test_stage04_eulerian_fre_conversion_and_units(phase2_etl, tmp_path):
     staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
     path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
     rows = pq.read_table(path).to_pylist()
-    area = h3.cell_area(h3.latlng_to_cell(40.0, -4.0, 7), unit="km^2")
+    cell = h3.latlng_to_cell(40.0, -4.0, 7)
+    scale = 3600 / h3.cell_area(cell, unit="km^2") * w_orb(cell)
     assert len(rows) == 2
     first, second = rows
-    assert first["obs_terra_fre"] == pytest.approx(30.0 * 3600 / area)
-    assert first["obs_aqua_fre"] == pytest.approx(7.0 * 3600 / area)
-    assert first["obs_viirs_fre"] == pytest.approx(12.0 * 3600 / area)
+    assert first["obs_terra_fre"] == pytest.approx(30.0 * scale)
+    assert first["obs_aqua_fre"] == pytest.approx(7.0 * scale)
+    assert first["obs_viirs_fre"] == pytest.approx(12.0 * scale)
     assert first["raw_frp_mw"] == 61.0
     assert first["raw_modis_cnt"] == 3 and first["raw_viirs_cnt"] == 2
     assert first["sensor_obs_mask"] == 15
-    assert second["obs_terra_fre"] == pytest.approx(5.0 * 3600 / area)
+    assert second["obs_terra_fre"] == pytest.approx(5.0 * scale)
     assert second["raw_modis_cnt"] == 1 and second["raw_frp_mw"] == 5.0
     assert second["epoch_day"] == first["epoch_day"] + 1
     assert second["neighbor_fre_lag1"] == 0.0  # Self is not a neighbor.
@@ -182,7 +189,7 @@ def test_stage04_diurnal_scaling_terra_to_aqua(phase2_etl, tmp_path, matched_day
         dict(h3_r4=parent, month=2, ratio=2.5, matched_days=2),
     ]), tmp_path / "data/lookup/diurnal_ratios.parquet")
     path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
-    base = 10.0 * 3600 / h3.cell_area(cell, unit="km^2")
+    base = 10.0 * 3600 / h3.cell_area(cell, unit="km^2") * w_orb(cell)
     rows = pq.read_table(path).to_pylist()
     assert len(rows) == 3
     for row, factor in zip(rows, (2.5, 1.0, 1.0)):
@@ -207,7 +214,7 @@ def test_stage04_neighbor_lag1_alignment(phase2_etl, tmp_path):
     rows = sorted((row for row in pq.read_table(path).to_pylist() if row["h3_r7"] == int(cell_b, 16)),
                   key=lambda row: row["epoch_day"])
     assert len(rows) == 3
-    expected = 10.0 * 3600 / h3.cell_area(cell_a, unit="km^2")
+    expected = 10.0 * 3600 / h3.cell_area(cell_a, unit="km^2") * w_orb(cell_a)
     assert [row["neighbor_fre_lag1"] for row in rows] == pytest.approx([0.0, expected, 0.0])
     assert [row["epoch_day"] for row in rows] == [19732, 19733, 19734]
 
@@ -223,7 +230,7 @@ def test_stage04_neighbor_lag_averages_only_active_burning_cells(phase2_etl, tmp
         lat, lon = h3.cell_to_latlng(cell)
         records.append(dict(latitude=lat, longitude=lon, frp=power))
         if power > 0:
-            expected_energy.append(power * 3600 / h3.cell_area(cell, unit="km^2"))
+            expected_energy.append(power * 3600 / h3.cell_area(cell, unit="km^2") * w_orb(cell))
     write_phase2_csv(tmp_path / "data/raw/archive.csv", records)
     staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
     path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
@@ -251,13 +258,95 @@ def test_phase2_csv_to_cube_preserves_energy_and_empirical_scaling(phase2_etl, t
     assert len(ratio) == 1 and ratio[0]["matched_days"] == 3 and ratio[0]["ratio"] == 2.5
     path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
     rows = pq.read_table(path).to_pylist()
-    area = h3.cell_area(h3.latlng_to_cell(40.0, -4.0, 7), unit="km^2")
+    cell = h3.latlng_to_cell(40.0, -4.0, 7)
+    expected = 75.0 * 3600 / h3.cell_area(cell, unit="km^2") * w_orb(cell)
     assert len(rows) == 3
     for row in rows:
         assert row["raw_modis_cnt"] == 3 and row["raw_frp_mw"] == 105.0
-        assert row["obs_terra_fre"] == pytest.approx(75.0 * 3600 / area)
-        assert row["obs_aqua_fre"] == pytest.approx(75.0 * 3600 / area)
+        assert row["obs_terra_fre"] == pytest.approx(expected)
+        assert row["obs_aqua_fre"] == pytest.approx(expected)
         assert row["neighbor_fre_lag1"] == 0.0
+
+
+def write_orbital_regions(tmp_path):
+    """Register an equatorial and a 60° N fixture region (bounds: west, south, east, north)."""
+    regions = {name: {"bounds": bounds, "nominal_biome": 8, "coverage": [["2024-01-01", "2024-12-31"]]}
+               for name, bounds in (("equator", [-61, -1, -59, 1]), ("subarctic", [9, 59, 11, 61]))}
+    (tmp_path / "data/regions.json").write_text(json.dumps(regions), encoding="utf-8")
+
+
+@pytest.mark.parametrize("latitude,expected", [
+    (0.0, 1.0), (60.0, 0.5), (-60.0, 0.5),
+    (85.0, float(np.cos(np.radians(80.0)))), (-89.0, float(np.cos(np.radians(80.0)))),
+])
+def test_stage04_orbital_weight_normalization_and_polar_clamp(phase2_etl, latitude, expected):
+    _, _, builder = phase2_etl
+    cell = h3.latlng_to_cell(latitude, 10.0, 7)
+    weight = builder.orbital_weight(int(cell, 16))
+    assert weight == pytest.approx(w_orb(cell), abs=1e-12)
+    assert weight == pytest.approx(expected, abs=2e-3)  # Centroid is within ~1.3 km of the input point.
+    assert np.cos(np.radians(80.0)) <= weight <= 1.0
+
+
+def test_stage04_orbital_revisit_weighting_equator_vs_high_latitude(phase2_etl, tmp_path):
+    ingest, _, builder = phase2_etl
+    write_orbital_regions(tmp_path)
+    points = {"equator": (0.0, -60.0), "subarctic": (60.0, 10.0)}
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [
+        dict(latitude=lat, longitude=lon, satellite=sensor, frp=40.0)
+        for lat, lon in points.values() for sensor in ("Terra", "Aqua", "SNPP")
+    ])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
+    table = pq.read_table(path)
+    rows = {row["h3_r7"]: row for row in table.to_pylist()}
+    assert len(rows) == 2
+    ratios = {}
+    for name, (lat, lon) in points.items():
+        cell = h3.latlng_to_cell(lat, lon, 7)
+        row = rows[int(cell, 16)]
+        unweighted = 40.0 * 3600 / h3.cell_area(cell, unit="km^2")
+        centroid_lat = h3.cell_to_latlng(cell)[0]
+        for field in ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre"):
+            assert row[field] == pytest.approx(unweighted * np.cos(np.radians(centroid_lat)), rel=1e-6)
+        assert row["raw_frp_mw"] == 120.0  # Raw provenance remains unweighted.
+        ratios[name] = row["obs_aqua_fre"] / unweighted
+    # Applied exactly once: cos(φ), never cos²(φ) and never sec(φ).
+    assert ratios["equator"] == pytest.approx(1.0, abs=1e-4)
+    assert ratios["subarctic"] == pytest.approx(0.5, abs=2e-3)
+    assert ratios["subarctic"] != pytest.approx(0.25, abs=0.05)
+    assert b"cos(centroid_lat_h3_r7)" in table.schema.metadata[b"orbital_weighting"]
+
+
+def test_stage04_orbital_weight_and_terra_diurnal_orthogonality(phase2_etl, tmp_path):
+    ingest, _, builder = phase2_etl
+    write_orbital_regions(tmp_path)
+    cell = h3.latlng_to_cell(60.0, 10.0, 7)
+    neighbor = sorted(set(h3.grid_disk(cell, 1)) - {cell})[0]
+    lat_n, lon_n = h3.cell_to_latlng(neighbor)
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [
+        dict(latitude=60.0, longitude=10.0, satellite=sensor, frp=frp)
+        for sensor, frp in (("Terra", 10.0), ("Aqua", 20.0), ("SNPP", 30.0), ("N20", 50.0))
+    ] + [dict(latitude=lat_n, longitude=lon_n, acq_date="2024-01-11", satellite="Aqua", frp=1.0)])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    pq.write_table(pa.Table.from_pylist([
+        dict(h3_r4=int(h3.cell_to_parent(cell, 4), 16), month=1, ratio=2.0, matched_days=3),
+    ]), tmp_path / "data/lookup/diurnal_ratios.parquet")
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
+    rows = {row["h3_r7"]: row for row in pq.read_table(path).to_pylist()}
+    row = rows[int(cell, 16)]
+    weight = float(np.cos(np.radians(h3.cell_to_latlng(cell)[0])))
+    assert weight == pytest.approx(0.5, abs=2e-3)
+    scale = 3600 / h3.cell_area(cell, unit="km^2")
+    terra = 10.0 * scale * 2.0 * weight
+    aqua = 20.0 * scale * weight
+    viirs = (30.0 + 50.0) / 2 * scale * weight
+    assert row["obs_terra_fre"] == pytest.approx(terra, rel=1e-6)
+    assert row["obs_aqua_fre"] == pytest.approx(aqua, rel=1e-6)
+    assert row["obs_viirs_fre"] == pytest.approx(viirs, rel=1e-6)
+    # Lag energy inherits the channel weights and is not weighted again.
+    lag = rows[int(neighbor, 16)]["neighbor_fre_lag1"]
+    assert lag == pytest.approx((terra + aqua + viirs) / 3, rel=1e-6)
 
 def run_outage_cli(staged, output, counts=None):
     command = [sys.executable, str(ROOT / "scripts/02_detect_outages_clouds.py"),
@@ -267,7 +356,29 @@ def run_outage_cli(staged, output, counts=None):
     return subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
 
 
-def test_stage02_known_aqua_interval_is_exact_and_reproducible(tmp_path):
+SNPP_OUTAGE = [date(2022, 7, 27) + timedelta(days=i) for i in range(15)]  # 2022-07-27..2022-08-10
+
+
+def test_stage02_tracked_global_counts_validate_the_known_snpp_outage(tmp_path):
+    """Real FIRMS world counts: the detector must find exactly the documented SNPP interval."""
+    counts = ROOT / "data/lookup/global_daily_counts.csv"
+    with counts.open(encoding="utf-8") as stream:
+        records = list(csv.DictReader(stream))
+    keys = {(r["satellite"], r["acq_date"]) for r in records}
+    assert len(keys) == len(records) == 4 * 50
+    assert {r["satellite"] for r in records} == {"Terra", "Aqua", "SNPP", "N20"}
+    zero = sorted(date.fromisoformat(r["acq_date"]) for r in records if int(r["detection_count"]) == 0)
+    assert zero == SNPP_OUTAGE and all(r["satellite"] == "SNPP" for r in records
+                                       if int(r["detection_count"]) == 0)
+    result = run_outage_cli(tmp_path / "missing.parquet", tmp_path, counts)
+    assert result.returncode == 0, result.stderr
+    rows = pq.read_table(tmp_path / "sensor_outages.parquet").to_pylist()
+    dynamic = [(r["acq_date"], r["satellite"]) for r in rows if r["evidence"] == "global_count_drop"]
+    known = [(r["acq_date"], r["satellite"]) for r in rows if r["evidence"] == "known_outage"]
+    assert dynamic == known == [(day, "SNPP") for day in SNPP_OUTAGE]
+
+
+def test_stage02_known_snpp_interval_is_exact_and_reproducible(tmp_path):
     staged = tmp_path / "staged.parquet"
     # A local detection drop must never be treated as a global outage.
     pq.write_table(pa.Table.from_pylist([
@@ -281,12 +392,13 @@ def test_stage02_known_aqua_interval_is_exact_and_reproducible(tmp_path):
     assert result.returncode == 0, result.stderr
     paths = [output / name for name in ("sensor_outages.parquet", "diurnal_ratios.parquet")]
     first = [path.read_bytes() for path in paths]
-    expected = [dict(acq_date=date(2022, 7, 31) + timedelta(days=i),
-                     satellite="Aqua", evidence="known_safe_mode") for i in range(17)]
+    # No --global-counts: the tracked lookup is used, so both evidence kinds cover the same days.
+    expected = [dict(acq_date=day, satellite="SNPP", evidence=evidence)
+                for day in SNPP_OUTAGE for evidence in ("global_count_drop", "known_outage")]
     actual = pq.read_table(paths[0])
     assert [(field.name, field.type) for field in actual.schema] == [
         ("acq_date", pa.date32()), ("satellite", pa.string()), ("evidence", pa.string())]
-    assert sorted(actual.to_pylist(), key=lambda row: row["acq_date"]) == expected
+    assert actual.to_pylist() == expected
     assert pq.read_table(paths[1]).to_pylist() == [
         dict(h3_r4=1, month=1, ratio=2.0, matched_days=15)]
     for _ in range(2):
@@ -335,7 +447,7 @@ def test_stage02_missing_calendar_day_does_not_trigger(tmp_path):
     result = run_outage_cli(tmp_path / "missing.parquet", tmp_path, counts)
     assert result.returncode == 0, result.stderr
     assert set(pq.read_table(tmp_path / "sensor_outages.parquet")["evidence"].to_pylist()) == {
-        "known_safe_mode"}
+        "known_outage"}
 
 
 def test_stage02_duplicate_days_cannot_fake_a_complete_window(tmp_path):
@@ -351,6 +463,46 @@ def test_stage02_duplicate_days_cannot_fake_a_complete_window(tmp_path):
     assert result.returncode != 0
     assert "Duplicate global count" in result.stderr
     assert existing.read_bytes() == b"previous lookup"
+
+
+def write_global_counts(path, records):
+    if path.suffix == ".csv":
+        with path.open("w", newline="", encoding="utf-8") as stream:
+            writer = csv.DictWriter(stream, fieldnames=["satellite", "acq_date", "detection_count"])
+            writer.writeheader()
+            writer.writerows(records)
+    else:
+        pq.write_table(pa.Table.from_pylist(records), path)
+
+
+def n20_drop_records(target):
+    records = [dict(satellite="N20", acq_date=target - timedelta(days=i), detection_count=100)
+               for i in range(15, 0, -1)]
+    return records + [dict(satellite="N20", acq_date=target, detection_count=3)]
+
+
+@pytest.mark.parametrize("suffix", [".csv", ".parquet"])
+def test_stage02_global_counts_accept_csv_and_parquet(tmp_path, suffix):
+    target = date(2022, 2, 1)
+    counts = tmp_path / f"global{suffix}"
+    write_global_counts(counts, n20_drop_records(target))
+    result = run_outage_cli(tmp_path / "missing.parquet", tmp_path, counts)
+    assert result.returncode == 0, result.stderr
+    dynamic = [row for row in pq.read_table(tmp_path / "sensor_outages.parquet").to_pylist()
+               if row["evidence"] == "global_count_drop"]
+    assert dynamic == [dict(acq_date=target, satellite="N20", evidence="global_count_drop")]
+
+
+def test_stage02_defaults_to_tracked_global_counts(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    outages = import_module("02_detect_outages_clouds")
+    monkeypatch.setattr(outages, "ROOT", tmp_path)
+    target = date(2022, 2, 1)
+    (tmp_path / "data/lookup").mkdir(parents=True)
+    write_global_counts(tmp_path / outages.GLOBAL_COUNTS, n20_drop_records(target))
+    outages.build_outages_table(tmp_path / "absent.parquet", "out")
+    rows = pq.read_table(tmp_path / "out/sensor_outages.parquet").to_pylist()
+    assert dict(acq_date=target, satellite="N20", evidence="global_count_drop") in rows
 
 
 @pytest.fixture
@@ -375,28 +527,32 @@ def stage04_inputs(tmp_path, monkeypatch):
     return builder, staged, lookup, int(center, 16), int(neighbor, 16)
 
 
-def test_stage04_aqua_outage_and_five_instrument_bits(stage04_inputs, tmp_path):
+def test_stage04_snpp_outage_and_five_instrument_bits(stage04_inputs, tmp_path):
     builder, staged, lookup, center, neighbor = stage04_inputs
     path = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
     table = pq.read_table(path)
     assert [(f.name, f.type) for f in table.schema] == EXPECTED
     assert table.num_rows == 38
+    outage_rows = 0
     for row in table.to_pylist():
         day = date(1970, 1, 1) + timedelta(days=row["epoch_day"])
-        outage = date(2022, 7, 31) <= day <= date(2022, 8, 16)
-        assert row["sensor_obs_mask"] == (29 if outage else 31)
+        outage = day in SNPP_OUTAGE
+        outage_rows += outage
+        assert row["sensor_obs_mask"] == (27 if outage else 31)
         assert row["gap_status_mask"] == (1 if outage else 0)
-        assert (row["obs_aqua_fre"] is None) == outage
-        assert row["obs_terra_fre"] > 0 and row["obs_viirs_fre"] > 0
+        # Aqua is never removed; NOAA-20/21 keep the VIIRS channel alive during the SNPP outage.
+        assert row["obs_terra_fre"] > 0 and row["obs_aqua_fre"] > 0 and row["obs_viirs_fre"] > 0
         assert row["raw_modis_cnt"] == 2 and row["raw_viirs_cnt"] == 3
+    assert outage_rows == 2 * 12  # fixture days 2022-07-30..08-10 inside the outage, two cells
 
 
 def test_stage04_viirs_outages_preserve_remaining_instrument(stage04_inputs, tmp_path):
     builder, staged, lookup, center, neighbor = stage04_inputs
     path = lookup / "sensor_outages.parquet"
     records = pq.read_table(path).to_pylist()
-    for day, sensors in ((date(2022, 8, 1), ("Terra", "SNPP", "N20")),
-                         (date(2022, 8, 2), ("Terra", "SNPP", "N20", "N21"))):
+    # SNPP is already out on both days (known outage); remove the other instruments around N21.
+    for day, sensors in ((date(2022, 8, 1), ("Terra", "Aqua", "N20")),
+                         (date(2022, 8, 2), ("Terra", "Aqua", "N20", "N21"))):
         records.extend(dict(acq_date=day, satellite=sensor, evidence="global_count_drop")
                        for sensor in sensors)
     pq.write_table(pa.Table.from_pylist(records), path)
@@ -422,20 +578,20 @@ def test_stage04_cloud_masks_observations_before_neighbor_lag(stage04_inputs, tm
         ("cloud_cover_pct", cloud_type), ("burned_area_ha_mcd64", pa.float32()),
     ])
     pq.write_table(pa.Table.from_pylist([
-        dict(h3_r7=center, acq_date=date(2022, 7, 30), cloud_cover_pct=cloud,
+        dict(h3_r7=center, acq_date=date(2022, 8, 10), cloud_cover_pct=cloud,
              burned_area_ha_mcd64=0.0),
-        dict(h3_r7=center, acq_date=date(2022, 7, 31), cloud_cover_pct=cloud,
+        dict(h3_r7=center, acq_date=date(2022, 8, 11), cloud_cover_pct=cloud,
              burned_area_ha_mcd64=0.0),
     ], schema=ancillary_schema), lookup / "cell_day_ancillary.parquet")
     path = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
     rows = {(r["h3_r7"], r["epoch_day"]): r for r in pq.read_table(path).to_pylist()}
-    epoch = (date(2022, 7, 30) - date(1970, 1, 1)).days
-    for offset, outage_bit in ((0, 0), (1, 1)):
+    epoch = (date(2022, 8, 10) - date(1970, 1, 1)).days  # last SNPP outage day, then recovery
+    for offset, outage_bit in ((0, 1), (1, 0)):
         row = rows[center, epoch + offset]
         assert row["gap_status_mask"] == mask | outage_bit
-        assert row["sensor_obs_mask"] == (0 if missing else (29 if offset else 31))
+        assert row["sensor_obs_mask"] == (0 if missing else (27 if outage_bit else 31))
         for field in ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre"):
-            assert (row[field] is None) == (missing or (offset == 1 and field == "obs_aqua_fre"))
+            assert (row[field] is None) == missing
         assert row["raw_modis_cnt"] == 2 and row["raw_viirs_cnt"] == 3
     lag = rows[neighbor, epoch + 1]["neighbor_fre_lag1"]
     assert (lag == 0.0) if missing else (lag > 0.0)
@@ -944,3 +1100,82 @@ def test_phase3_staged_entropy_and_industrial_score(phase2_etl, tmp_path):
     assert w["industrial_prob"] == pytest.approx(float(w_prob), abs=1e-6)
     assert w["h_temp"] < 0.05
     assert w["industrial_prob"] < 0.05
+
+
+def phase6_training_staged(path):
+    """Matched daytime Aqua/SNPP cell-days: 40 in biome 8, a sparse 5-day biome 16, plus excluded rows."""
+    rng = np.random.default_rng(6)
+    iberia = int(h3.latlng_to_cell(40.0, -4.0, 7), 16)
+    andes = int(h3.latlng_to_cell(-29.16, -67.5, 7), 16)
+    rows = []
+    for k in range(40):
+        day = date(2020, 1, 1) + timedelta(days=k)
+        viirs = float(rng.uniform(.6, 7.5) if k % 3 == 0 else rng.uniform(9, 120))
+        rows += [(iberia, day, "D", "Aqua", float(rng.uniform(8, 150)), 8, 3),
+                 (iberia, day, "D", "SNPP", viirs, 8, 3)]
+    for k in range(5):
+        day = date(2021, 3, 1) + timedelta(days=k)
+        rows += [(andes, day, "D", "Aqua", 30.0 + k, 16, 1), (andes, day, "D", "SNPP", 25.0 + k, 16, 1)]
+    rows += [(iberia, date(2020, 6, 1), "N", "Aqua", 500.0, 8, 3), (iberia, date(2020, 6, 1), "N", "SNPP", 1.0, 8, 3),
+             (iberia, date(2011, 6, 1), "D", "Aqua", 900.0, 8, 3), (iberia, date(2011, 6, 1), "D", "SNPP", 2.0, 8, 3)]
+    names = ["h3_r7", "acq_date", "daynight", "satellite", "corrected_frp", "igbp_biome", "scan_bin"]
+    types = [pa.uint64(), pa.date32(), pa.string(), pa.string(), pa.float64(), pa.int64(), pa.int64()]
+    columns = list(zip(*rows))
+    pq.write_table(pa.table({n: pa.array(c, t) for n, c, t in zip(names, columns, types)}), path)
+    included = [r for r in rows if r[2] == "D" and r[1].year >= 2012]
+    pick = lambda sat, biome=None: np.array([r[4] for r in included if r[3] == sat and biome in (None, r[5])])
+    return pick
+
+
+def test_stage03_lut_is_trained_by_the_core_harmonizer(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    training = import_module("03_train_eqm_lut")
+    from backend.core.eqm_harmonizer import RadiometricHarmonizer
+    pick = phase6_training_staged(tmp_path / "staged.parquet")
+    path = training.generate_eqm_gpd_lut(tmp_path / "lut.json", tmp_path / "staged.parquet")
+    lut = json.loads(path.read_text(encoding="utf-8"))
+    assert lut["method"] == training.METHOD and lut["threshold_mw"] == 8.0
+    models = lut["models"]
+    assert set(models) == {"all:all", "8:all", "8:3"}  # 5 biome-16 days < MIN_SAMPLES
+    for name, biome in (("all:all", None), ("8:all", 8), ("8:3", 8)):
+        expected = RadiometricHarmonizer().fit_biome_eqm_gpd(pick("Aqua", biome), pick("SNPP", biome),
+                                                             biome_id=biome or 1)
+        model = models[name]
+        assert model["biome_id"] == biome and model["matched_days"] == (45 if biome is None else 40)
+        assert len(model["viirs_quantiles"]) == len(model["modis_quantiles"]) == 101
+        np.testing.assert_allclose(model["viirs_quantiles"], expected["viirs_quantiles"], atol=1e-6)
+        np.testing.assert_allclose(model["modis_quantiles"], expected["modis_quantiles"], atol=1e-6)
+        assert model["delta_e_sub"] == pytest.approx(expected["delta_e_sub"], abs=1e-6)
+        assert model["delta_e_sub"] > 0 and model["gpd"]["fit_method"] == "maximum_likelihood"
+    assert path.stat().st_size < 150_000
+
+
+@pytest.mark.parametrize("stratum", ["all:all", "8:all"])
+def test_stage04_eqm_gpd_parity_with_core_on_every_channel(phase2_etl, tmp_path, stratum):
+    ingest, _, builder = phase2_etl
+    from backend.core.eqm_harmonizer import RadiometricHarmonizer
+    core = RadiometricHarmonizer()
+    rng = np.random.default_rng(3)
+    viirs = np.r_[rng.uniform(.5, 7.9, 200), rng.uniform(8, 90, 300)]
+    chosen = core.fit_biome_eqm_gpd(viirs * 1.3, viirs, biome_id=8)
+    decoy = core.fit_biome_eqm_gpd(viirs * 5.0, viirs, biome_id=8)
+    models = {stratum: chosen} if stratum == "all:all" else {"8:all": chosen, "all:all": decoy}
+    (tmp_path / "data/lookup/eqm_gpd_lut.json").write_text(json.dumps({"models": models}), encoding="utf-8")
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [
+        dict(satellite="Terra", frp=10.0, acq_time="1030"), dict(satellite="Aqua", frp=20.0, acq_time="1330"),
+        dict(satellite="SNPP", frp=40.0, acq_time="1330"),
+        dict(satellite="SNPP", frp=3.0, acq_date="2024-01-11"),
+    ])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    first, second = pq.read_table(builder.build_master_cube(staged, tmp_path / "cube.parquet")).to_pylist()
+    cell = h3.latlng_to_cell(40.0, -4.0, 7)
+    scale = 3600 / h3.cell_area(cell, unit="km^2") * w_orb(cell)
+    delta = chosen["delta_e_sub"]
+    assert delta > 0
+    assert first["obs_terra_fre"] == pytest.approx((10.0 + delta) * scale)
+    assert first["obs_aqua_fre"] == pytest.approx((20.0 + delta) * scale)
+    assert first["obs_viirs_fre"] == pytest.approx(float(core.harmonize_viirs_to_modis(40.0, chosen)) * scale)
+    # Sub-threshold VIIRS energy is mapped by the same full-distribution EQM, not left raw.
+    assert second["obs_viirs_fre"] == pytest.approx(float(core.harmonize_viirs_to_modis(3.0, chosen)) * scale)
+    assert second["obs_viirs_fre"] != pytest.approx(3.0 * scale)
+    assert first["raw_frp_mw"] == 70.0 and second["raw_frp_mw"] == 3.0

@@ -7,22 +7,36 @@ import duckdb
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGED = ROOT / "data/processed/staged_firms.parquet"
+GLOBAL_COUNTS = Path("data/lookup/global_daily_counts.csv")
+# Measured in FIRMS world counts (VIIRS_SNPP_SP = 0 detections; Aqua, Terra and NOAA-20 nominal).
+KNOWN_OUTAGES = (("SNPP", "2022-07-27", "2022-08-10"),)
+
+
+def read_counts_sql(path):
+    if Path(path).suffix.lower() == ".csv":
+        return ("read_csv(?, header = true, columns = {'satellite': 'VARCHAR', 'acq_date': 'DATE', "
+                "'detection_count': 'BIGINT'})")
+    return "read_parquet(?)"
 
 
 def build_outages_table(staged=STAGED, output_dir="data/lookup", global_counts=None):
-    """Use optional global daily counts for anomaly detection, plus the known Aqua outage."""
+    """Record documented outages and flag drops in global daily counts (tracked lookup by default)."""
+    if global_counts is None and (ROOT / GLOBAL_COUNTS).is_file():
+        global_counts = GLOBAL_COUNTS
     output = ROOT / output_dir
     output.mkdir(parents=True, exist_ok=True)
     # Serial aggregation fixes floating-point summation order for identical local inputs.
     with duckdb.connect(config={"threads": 1}) as con:
-        con.execute("""CREATE TABLE outages AS
-            SELECT day::DATE AS acq_date, 'Aqua' AS satellite, 'known_safe_mode' AS evidence
-            FROM generate_series(DATE '2022-07-31', DATE '2022-08-16', INTERVAL 1 DAY) t(day)
-        """)
+        con.execute("CREATE TABLE outages (acq_date DATE, satellite VARCHAR, evidence VARCHAR)")
+        for satellite, first, last in KNOWN_OUTAGES:
+            con.execute("""INSERT INTO outages
+                SELECT day::DATE, ?, 'known_outage'
+                FROM generate_series(?::DATE, ?::DATE, INTERVAL 1 DAY) t(day)
+            """, [satellite, first, last])
         if global_counts:
-            con.execute("""CREATE TEMP TABLE counts AS
+            con.execute(f"""CREATE TEMP TABLE counts AS
                 SELECT satellite, acq_date::DATE AS acq_date, detection_count::DOUBLE AS n
-                FROM read_parquet(?)
+                FROM {read_counts_sql(global_counts)}
             """, [str(ROOT / global_counts)])
             duplicate = con.execute("""SELECT satellite, acq_date FROM counts
                 GROUP BY satellite, acq_date HAVING count(*) > 1 LIMIT 1
@@ -68,6 +82,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--staged", default=STAGED)
     parser.add_argument("--output-dir", default="data/lookup")
-    parser.add_argument("--global-counts", help="Local Parquet of satellite, acq_date, detection_count")
+    parser.add_argument("--global-counts", help="Local CSV or Parquet of satellite, acq_date, detection_count "
+                                                f"(default: {GLOBAL_COUNTS} when present)")
     args = parser.parse_args()
     build_outages_table(args.staged, args.output_dir, args.global_counts)
