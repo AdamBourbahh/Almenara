@@ -244,7 +244,7 @@ export function exportToIpccCsv(data: AnalyzeResponse): void {
       .join(",")
   );
 
-  // BOM so Excel opens UTF-8 (kmÂ², Â±, Ïƒ) correctly.
+  // BOM so Excel opens UTF-8 (km², ±, σ) correctly.
   const csvContent = "ï»¿" + [headers.join(","), ...rows].join("\r\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -557,7 +557,7 @@ function narrativeFor(
   gapFilled: boolean,
   sensors: string[]
 ): string {
-  const head = `${dayLabel(year, doy)}: harmonized FRE ${fre.toFixed(1)} MJ/kmÂ² (Â±${unc.toFixed(1)}%, 95% CI).`;
+  const head = `${dayLabel(year, doy)}: harmonized FRE ${fre.toFixed(1)} MJ/km² (±${unc.toFixed(1)}%, 95% CI).`;
   if (!gapFilled) {
     return reason === "NONE"
       ? `${head} Clean multi-sensor observation (${sensors.join(" + ")}).`
@@ -565,11 +565,11 @@ function narrativeFor(
   }
   switch (reason) {
     case "SENSOR_OUTAGE":
-      return `${head} Reconstructed via RTS Kalman smoother: VIIRS SNPP outage; estimated from MODIS Terra and Aqua (diurnal scaling Îºâ‰ˆ3.1Ã—) + VIIRS NOAA-20.`;
+      return `${head} Reconstructed via RTS Kalman smoother: VIIRS SNPP outage; estimated from MODIS Terra and Aqua (diurnal scaling κ≈3.1×) + VIIRS NOAA-20.`;
     case "CLOUD_OCCLUSION":
       return `${head} Reconstructed via RTS Kalman + historical cross-guard: >80% cloud cover blocked every optical sensor.`;
     case "SWATH_GAP":
-      return `${head} Equatorial swath gap: partial coverage gap-filled from neighboring H3 cells (tâˆ’1).`;
+      return `${head} Equatorial swath gap: partial coverage gap-filled from neighboring H3 cells (t−1).`;
     case "MULTI_FACTOR":
       return `${head} Multi-factor gap (VIIRS SNPP outage + cloud occlusion): reconstructed from the historical cross-guard prior with widened CI.`;
     default:
@@ -657,7 +657,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
         uncertainty = 100;
       }
       harmonized = Math.max(0, harmonized);
-      const halfWidth = harmonized * (uncertainty / 100); // uncertainty_pct = 1.96Â·Ïƒ / x Â· 100
+      const halfWidth = harmonized * (uncertainty / 100); // uncertainty_pct = 1.96·σ / x · 100
       const biomassKg = harmonized * areaKm2 * WOOSTER_BIOMASS_KG_PER_MJ;
 
       calendar_series.push({
@@ -712,7 +712,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
       historical_cross_prior_fre: round(prior),
       biomass_burned_tonnes: round(biomassKg / 1000, 1),
       pm25_emitted_kg: round((biomassKg * PM25_EMISSION_FACTOR_G_PER_KG) / 1000, 1),
-      tooltip_narrative: `${dayLabel(year, doy)}: operational forecast day ${k}/${FORECAST_DAYS} from the Kalman state transition. Expected FRE ${fre.toFixed(1)} MJ/kmÂ² (Â±${uncertainty.toFixed(1)}%); CI widens with horizon.`
+      tooltip_narrative: `${dayLabel(year, doy)}: operational forecast day ${k}/${FORECAST_DAYS} from the Kalman state transition. Expected FRE ${fre.toFixed(1)} MJ/km² (±${uncertainty.toFixed(1)}%); CI widens with horizon.`
     });
   }
 
@@ -815,7 +815,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
     total_pm25_emitted_tonnes: round(totalPm25Tonnes, 1),
     executive_verdict_en:
       `[OFFLINE SYNTHETIC] Raw pixel counts show a structural break at Jan 2012 (Chow p=${chowRaw.p.toExponential(1)}); ` +
-      `harmonized FRE is homogeneous (p=${chowHarm.p.toFixed(2)}). MODISâ€“VIIRS W1 divergence reduced by ${w1Reduction.toFixed(0)}%. ` +
+      `harmonized FRE is homogeneous (p=${chowHarm.p.toFixed(2)}). MODIS–VIIRS W1 divergence reduced by ${w1Reduction.toFixed(0)}%. ` +
       `Fire-season peak drifting ${shiftPerDecade >= 0 ? "+" : ""}${shiftPerDecade.toFixed(1)} days/decade.`
   };
 
@@ -872,7 +872,7 @@ export function generateSyntheticChaosResponse(request: ChaosMonkeyRequest): Cha
 
   const naive = truth.map((v, i) => (dropped.has(i) ? 0 : v));
 
-  // RTS-like reconstruction: local observed/prior ratio (Â±15 d) scaled onto the cross-guard prior.
+  // RTS-like reconstruction: local observed/prior ratio (±15 d) scaled onto the cross-guard prior.
   const reconstructed = truth.map((v, i) => {
     if (!dropped.has(i)) return v;
     let num = 0;
