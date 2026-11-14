@@ -1,0 +1,9 @@
+read:
+  - agent.md
+  - specs.md
+  - backend/api/schemas.py
+  - frontend/src/api/types.ts
+auto-commits: false
+dirty-commits: false
+gitignore: true
+encoding: utf-8
