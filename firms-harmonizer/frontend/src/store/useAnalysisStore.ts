@@ -185,6 +185,8 @@ let mapTimer: ReturnType<typeof setTimeout> | undefined;
 const annualMapCache = new Map<string, H3MapSummaryHex[]>();
 let chaosController: AbortController | null = null;
 let chaosSeq = 0;
+let copilotController: AbortController | null = null;
+let copilotSeq = 0;
 
 function scheduleMapLoad() {
   mapController?.abort();
@@ -455,64 +457,14 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     set({ chaosData: null, chaosLoading: false, chaosError: null });
   } ,
   openCopilot: (spike) => {
-    const state = get();
-    const day = spike?.day !== undefined ? spike.day : state.activeSpikeDay;
-    const hex = spike?.hex !== undefined ? spike.hex : state.activeSpikeHex;
-    set({
-      isCopilotOpen: true,
-      activeSpikeDay: day,
-      activeSpikeHex: hex,
-      copilotError: null
-    });
-
-    if (spike && (spike.day || spike.hex)) {
-      const regionName =
-        state.selectedPreset !== "CUSTOM" && state.selectedPreset in PRESET_REGIONS
-          ? PRESET_REGIONS[state.selectedPreset as PresetKey].label
-          : "Analyzed Area of Interest";
-
-      const promptLabel = spike.day
-        ? `Explain thermal spike on ${spike.day.date} (${spike.day.harmonized_fre_mj_km2.toFixed(1)} MJ/km²)`
-        : `Explain thermal characteristics of selected H3 hex`;
-
-      const userMsg: CopilotMessage = {
-        id: `user-${Date.now()}`,
-        role: "user",
-        content: promptLabel,
-        timestamp: Date.now()
-      };
-
-      set((s) => ({
-        copilotMessages: [...s.copilotMessages, userMsg],
-        copilotLoading: true,
-        copilotError: null
-      }));
-
-      explainSpike({
-        region_name: regionName,
-        selected_day: day,
-        selected_hex: hex,
-        user_question: promptLabel
-      })
-        .then((res) => {
-          const assistantMsg: CopilotMessage = {
-            id: `assistant-${Date.now()}`,
-            role: "assistant",
-            content: res.data.explanation_markdown,
-            timestamp: Date.now(),
-            response: res.data
-          };
-          set((s) => ({
-            copilotMessages: [...s.copilotMessages, assistantMsg],
-            copilotLoading: false
-          }));
-        })
-        .catch((err: unknown) => {
-          set({
-            copilotLoading: false,
-            copilotError: err instanceof Error ? err.message : "Failed to explain thermal spike."
-          });
-        });
+    if (spike?.day || spike?.hex) {
+      get().clearCopilotMessages();
+      set({ isCopilotOpen: true, activeSpikeDay: spike.day ?? null, activeSpikeHex: spike.hex ?? null });
+      void get().askCopilot(spike.day
+        ? `Explain the selected satellite data on ${spike.day.date}. What can we verify?`
+        : "Explain the selected H3 cell for the selected period. What can we verify?");
+    } else {
+      set({ isCopilotOpen: true, copilotError: null });
     }
   },
 
@@ -522,8 +474,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   askCopilot: async (question: string) => {
     const trimmed = question.trim();
-    if (!trimmed) return;
+    if (!trimmed || get().copilotLoading) return;
     const state = get();
+    const sequence = ++copilotSeq;
+    copilotController?.abort();
+    copilotController = new AbortController();
+    const signal = copilotController.signal;
     const regionName =
       state.selectedPreset !== "CUSTOM" && state.selectedPreset in PRESET_REGIONS
         ? PRESET_REGIONS[state.selectedPreset as PresetKey].label
@@ -545,10 +501,15 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     try {
       const res = await explainSpike({
         region_name: regionName,
-        selected_day: state.activeSpikeDay,
+        selected_day: state.activeSpikeDay ?? (state.selectedDate ? state.dateIndex.get(state.selectedDate) ?? null : null),
         selected_hex: state.activeSpikeHex,
+        aoi: state.currentAoi,
+        period_start: state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 1, 1),
+        period_end: state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 12, 31),
+        conversation: state.copilotMessages.slice(-10).map(({ role, content }) => ({ role, content: content.slice(0, 6000) })),
         user_question: trimmed
-      });
+      }, signal);
+      if (sequence !== copilotSeq) return;
 
       const assistantMsg: CopilotMessage = {
         id: `assistant-${Date.now()}`,
@@ -563,6 +524,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         copilotLoading: false
       }));
     } catch (err: unknown) {
+      if (sequence !== copilotSeq || isAbortError(err)) return;
       set({
         copilotLoading: false,
         copilotError: err instanceof Error ? err.message : "Failed to obtain AI explanation."
@@ -570,6 +532,10 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }
   },
 
-  clearCopilotMessages: () => set({ copilotMessages: [], copilotError: null })
+  clearCopilotMessages: () => {
+    copilotController?.abort();
+    copilotSeq++;
+    set({ copilotMessages: [], copilotError: null, copilotLoading: false, activeSpikeDay: null, activeSpikeHex: null });
+  }
 
 }));

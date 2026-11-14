@@ -14,6 +14,52 @@ env -u USE_SYNTHETIC_CUBE python -m uvicorn backend.api.main:app --host 127.0.0.
 
 In a second terminal, run `cd firms-harmonizer/frontend && npm ci && npm run dev` and open the displayed local URL. Vite proxies `/api` to port 8000; `VITE_API_URL` can override the API base URL. Preview uses the same proxy. Hosting a production build requires a reverse proxy for `/api` to the backend. The viewer requires the real master and `data/processed/staged_firms.parquet`, both rebuilt from the 32 tracked CSVs. No network is needed for the data API after installation; online basemap tiles have a local coordinate-grid fallback. API failures are shown explicitly and never produce simulated results.
 
+## Fire Copilot
+
+Open **Fire Copilot** and ask about a place and date, in English, Spanish or Portuguese.
+Answers and UI text are in English. For example:
+
+- “What happened near Madrid on 24 July 2026?”
+- “Investigate Careiro, Amazonas on 13 September 2024.”
+- “Which days had the most detections near Manaus in September 2024?”
+- “And on the next day?” (after a dated question)
+
+The assistant queries accepted local FIRMS detections for the question's geography and
+exact inclusive dates. It reports counts, summed instantaneous power and busiest days
+without treating detections as distinct fires or converting MW into burned hectares.
+Madrid, Sierra Oeste, Careiro and Autazes use explicit study envelopes; the four project
+regions and custom drawn AOIs are also supported. Other named places can use web reports,
+but local counts require a supported envelope or a drawn AOI. Amazonas/Manaus coverage
+is a limited study area, not the whole Amazon basin.
+
+For natural-language interpretation and prose, configure `GROQ_API_KEY` in a local `.env`.
+`GROQ_MODEL` defaults to `openai/gpt-oss-120b`; `GROQ_FALLBACK_MODEL` defaults to
+`openai/gpt-oss-20b`. Optional `TAVILY_API_KEY` enables Tavily search; otherwise the assistant
+uses public search through `ddgs`. Search results are contextual leads, not automatic
+confirmation of a matching fire. Inline source markers open the actual cited pages.
+Provider availability and model permissions depend on the configured account.
+
+Set `COPILOT_OFFLINE=1` for deterministic answers from the local archive with no model or
+search requests. These answers still report observations, distinguish missing evidence,
+and explain basic sensor methods. A functioning local backend is required; a disconnected
+frontend displays a connection error. Synthetic mode explicitly cannot verify real events.
+The assistant never silently substitutes synthetic answers or invents an undocumented fire
+when no reports are found.
+
+Run the chatbot checks from `firms-harmonizer/`:
+
+```bash
+python -m pytest backend/tests/test_explain_spike.py -q
+python scripts/06_validate_copilot.py --output data/processed/copilot_validation_offline.json
+python scripts/06_validate_copilot.py --live --output data/processed/copilot_validation_live.json
+cd frontend && node --test tests/*.test.mjs && npm run build
+```
+
+The validation script requires a real cube and staging file, cross-checks numerical answers
+against separate SQL aggregates, and saves full answers for review. Its automated PASS
+checks numerical accuracy and contracts; it does not independently certify the narrative
+or prove a match between a detection and a news-reported incident.
+
 The scientific architecture and demonstration material below describe experimental modules retained in the repository, outside the current observations-only UI.
 
 ---

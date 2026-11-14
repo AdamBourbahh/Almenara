@@ -144,3 +144,53 @@ the integrated chronology dock and exact daily/monthly energy maps. The Observat
 section exposes accepted FIRMS records and CSV export separately from calibrated energy.
 The upstream observations and explanation endpoints and their additive contracts are retained.
 Validation: 73 backend tests, 8 frontend tests and the production build passed.
+
+## 2026-11-14 — Evidence-first Fire Copilot (`computo`)
+
+The chatbot now queries accepted FIRMS detection centers for the question's place and
+exact dates, instead of explaining whichever region happened to be selected in the UI.
+`backend/api/fire_copilot.py` separates scope resolution, parameterized observation
+retrieval, candidate web reports, bounded model calls and deterministic local answers.
+Local numerical summaries remain available without network access. Model failure no
+longer becomes an invented extreme fire or a remote/undocumented burn. Counts are not
+fire events; power is not energy; high entropy is not proof of gas flaring; a date in
+2012 is not proof of an instrumentation artifact.
+
+Coordinated contract addition: `CopilotTurn` and optional `conversation` (default empty,
+at most 12 turns, each at most 6,000 characters), `period_start` and `period_end` (default
+null) are mirrored in `backend/api/schemas.py`, `frontend/src/api/types.ts` and the
+frozen-contract excerpt in root `SPECS.md`. Existing fields and types are unchanged.
+The user's instruction granting full freedom for chatbot improvements authorizes the
+backend/frontend integration across the usual file-ownership tracks.
+
+The frontend supplies geometry, chronology and bounded conversation history, prevents
+concurrent duplicate sends, cancels cleared requests and ignores stale responses.
+Citation markers open their actual sources. Source labels distinguish retrieved web
+results from verified incident matches, and synthetic provenance remains visible.
+Backend outages surface errors instead of fabricated client-side explanations.
+
+Groq defaults to `openai/gpt-oss-120b` with `openai/gpt-oss-20b` as fallback; both can be
+overridden. The previously preferred Llama model returned HTTP 404 for the configured
+account. Authentication and quota failures are not retried across models. The retired
+`duckduckgo-search` dependency is replaced by `ddgs`, with bounded search fallback and
+10-minute in-memory caching of successful queries. Optional Tavily remains supported.
+`COPILOT_OFFLINE=1` prevents all assistant provider requests.
+
+`backend/tests/test_explain_spike.py` now tests grounded behavior without network access.
+It no longer requires scientifically unsupported classifications or unmeasured biomass
+claims. The four files listed in `FROZEN_TESTS.sha256` are unchanged. Frontend copilot
+regressions cover context transmission, provenance, cancellation and unavailable backend
+behavior. `scripts/06_validate_copilot.py` exercises Madrid/Sierra Oeste (2026-07-24),
+Careiro (2024-09-13), Autazes (2023-10-09), monthly Manaus observations and a next-day
+follow-up against the real local archive, saving complete responses and source links.
+
+Validation completed on 2026-11-14: 255 backend tests passed (35 copilot regressions),
+12 frontend tests passed, and the production frontend build passed. All four frozen
+test hashes match. Real-data offline and live numerical checks passed for all five
+cases and the next-day follow-up; full snapshots are in
+`data/processed/copilot_validation_{offline,live}.json`. Live model prose was also
+checked against retrieved reports; free search availability and provider quotas varied,
+so the snapshots explicitly record whether each response used a model or local fallback.
+These automated checks establish numerical consistency, not independent certification
+of every generated narrative. The missing real cube was rebuilt locally from existing
+staging and lookup files; generated Parquet remains ignored by git.
