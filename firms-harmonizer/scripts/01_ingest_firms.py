@@ -17,7 +17,7 @@ import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from backend.core import industrial_filter
+from backend.core import footprint_h3, industrial_filter
 
 STAGED = ROOT / "data/processed/staged_firms.parquet"
 SENSORS = {"T": "Terra", "A": "Aqua", "N": "SNPP", "NPP": "SNPP",
@@ -46,11 +46,16 @@ def scan_bin(scan, sensor):
 
 
 def sama_artifact(row):
-    predicate = getattr(industrial_filter, "is_sama_artifact", None)
+    predicate = getattr(industrial_filter, "filter_sama_anomalies", None)
     if callable(predicate):
-        return predicate(row["latitude"], row["longitude"], row["daynight"],
-                         row["confidence_norm"], row["brightness_mir"], row["brightness_tir"])
-    # Local implementation of spec section 3.2 while the core module is empty.
+        mir, tir = row["brightness_mir"], row["brightness_tir"]
+        delta = (mir - tir) if (mir is not None and tir is not None) else np.nan
+        day = row.get("acq_date")
+        is_terra = (row.get("satellite") == "Terra")
+        year = day.year if is_terra and hasattr(day, "year") else None
+        month = day.month if is_terra and hasattr(day, "month") else None
+        return bool(predicate(row["latitude"], row["longitude"], row["daynight"],
+                              row["confidence_norm"] == "low", delta, year, month))
     mir, tir = row["brightness_mir"], row["brightness_tir"]
     return (
         -35 <= row["latitude"] <= -15 and -65 <= row["longitude"] <= -30
@@ -67,16 +72,28 @@ def cell_center(cell):
 def footprint(lat, lon, cell, scan, track, modis):
     if not modis or scan * track <= 3.5:
         return [(cell, 1.0)]
-    cells = sorted(h3.grid_disk(cell, 1))
-    centers = np.asarray([cell_center(item) for item in cells])
-    north = (centers[:, 0] - lat) * 111.195
-    east = ((centers[:, 1] - lon + 180) % 360 - 180) * 111.195 * np.cos(np.radians(lat))
-    azimuth = np.radians(98.2)
-    along = north * np.cos(azimuth) + east * np.sin(azimuth)
-    across = -north * np.sin(azimuth) + east * np.cos(azimuth)
-    log_weights = -.5 * ((along * 2.355 / track)**2 + (across * 2.355 / scan)**2)
-    weights = np.exp(log_weights - log_weights.max())
-    return list(zip(cells, weights / weights.sum()))
+    psf_calc = getattr(footprint_h3, "compute_elliptical_psf_weights", None)
+    if callable(psf_calc):
+        return list(psf_calc(lat, lon, scan, track).items())
+    disk = getattr(h3, "grid_disk", getattr(h3, "k_ring", None))
+    cells = sorted(disk(cell, 1))
+    coordinates = np.array([cell_center(item) for item in cells], dtype=float)
+    delta_lon = (coordinates[:, 1] - lon + 180.0) % 360.0 - 180.0
+    xy = 6371.0088 * np.deg2rad(np.column_stack([
+        delta_lon * np.cos(np.deg2rad(lat)), coordinates[:, 0] - lat,
+    ]))
+    angle = np.deg2rad(98.2)
+    rotation = np.array([[np.cos(angle), -np.sin(angle)],
+                         [np.sin(angle), np.cos(angle)]])
+    scaled = (xy @ rotation) / (np.array([scan, track]) / 2.355)
+    log_weights = -0.5 * np.sum(scaled * scaled, axis=1)
+    weights = np.exp(log_weights - np.max(log_weights))
+    weights /= weights.sum()
+    largest = int(np.argmax(weights))
+    indices = [i for i in range(len(cells)) if i != largest]
+    result = {cells[i]: float(weights[i]) for i in indices}
+    result[cells[largest]] = 1.0 - sum(result.values())
+    return list(result.items())
 
 
 def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
@@ -150,12 +167,17 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
         if not rows:
             raise ValueError("The FIRMS inputs contain no usable detections.")
         scores = {}
+        calc_ind = getattr(industrial_filter, "compute_industrial_probability", None)
         for cell, counts in monthly.items():
-            p = counts[counts > 0] / counts.sum()
-            entropy = float(-np.sum(p * np.log(p)) / np.log(12))
+            if callable(calc_ind):
+                ent, prob = calc_ind(counts)
+                entropy, score = float(ent), float(prob)
+            else:
+                p = counts[counts > 0] / counts.sum()
+                entropy = float(-np.sum(p * np.log(p)) / np.log(12))
+                score = 1 / (1 + np.exp(-22 * (entropy - .72)))
             coords = np.asarray(positions[cell])
             metres = coords * [111195, 111195 * np.cos(np.radians(coords[:, 0].mean()))]
-            score = 1 / (1 + np.exp(-20 * (entropy - .72)))
             scores[cell] = (entropy, score if metres.var(axis=0).sum() < 50 else 0.0)
 
         con.execute("""CREATE TABLE detections (
@@ -171,7 +193,8 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
         records = []
         fields = [item[0] for item in con.execute("DESCRIBE detections").fetchall()]
         for row, cell, r10, region, filename, modis in rows:
-            weight = 1 / row["track"] if modis and row["track"] > 1.35 else 1.0
+            bowtie_calc = getattr(footprint_h3, "compute_modis_bowtie_overlap_weight", None)
+            weight = float(bowtie_calc(row["track"])) if callable(bowtie_calc) and modis else (1 / row["track"] if modis and row["track"] > 1.35 else 1.0)
             for target, fraction in footprint(row["latitude"], row["longitude"], cell,
                                               row["scan"], row["track"], modis):
                 record = dict(row)

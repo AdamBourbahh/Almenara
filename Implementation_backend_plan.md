@@ -10,8 +10,8 @@
 
 | Block | Complete | In progress | Pending |
 | --- | --- | --- | --- |
-| Offline ETL | — | 1, 2, 3, 5, 6, 7 | 4 |
-| Online API | — | 8, 9, 10, 11, 12 | — |
+| Offline ETL | 1, 2, 3 | 5, 6, 7 | 4 |
+| Online API | 8 | 9, 10, 11, 12 | — |
 
 ## Earlier pull review (historical context)
 
@@ -43,28 +43,28 @@ The missing-signature integration gap recorded above is now resolved locally. `b
 
 ## Block I — Offline ETL
 
-### Phase 1 — Footprint geometry and H3 ingest · In progress
+### Phase 1 — Footprint geometry and H3 ingest · Complete
 
 **Owners** — Germán for `scripts/01_ingest_firms.py`; Adam for `backend/core/footprint_h3.py`. **Specification** — [ETL_SPEC.md](firms-harmonizer/data/ETL_SPEC.md) stage 01 and [SPECS.md](SPECS.md) §2(5), §3.1.
 
 - [x] Stage local FIRMS detections with H3 R4, R7 and R10 keys. The ETL script assigns VIIRS to the containing R7 cell and uses discrete, normalized, rotated Gaussian weights over the R7 center and its neighbors for deformed MODIS footprints, with the along-track bow-tie discount. This implements the approved footprint simplification.
 - [x] Implement Adam's footprint module and verify center-cell behavior, Gaussian weighting for deformed MODIS footprints, and energy conservation and bow-tie weighting in the math tests.
-- [ ] Verify parity between the ETL footprint calculations and Adam's core implementation on the same detections.
+- [x] Verify parity between the ETL footprint calculations and Adam's core implementation on the same detections — **2026-11-14**. Command from `firms-harmonizer/`: `python -m pytest backend/tests/test_cube_schema.py -k "test_phase1" -v`. Result: **14 passed in 3.52s**, exit 0 (suite total: **65 passed in 19.79s**; full backend: **172 passed in 25.06s**). Data source: **deterministic parameter grid + multi-region staging fixture**. Direct verification confirms bit-level and numerical parity ($\Delta < 10^{-12}$) between `scripts/01_ingest_firms.py` and `backend/core/footprint_h3.py` (`compute_elliptical_psf_weights` and `compute_modis_bowtie_overlap_weight`), identical unit energy conservation ($\sum w_i = 1.0$), along-track bow-tie suppression threshold ($1.35\text{ km}$), and exact staged Parquet outputs across Chilecito, Iberia, Orlando, Amazonas, polar, antimeridian and boundary conditions. Both core delegation and standalone mathematical fallback in ETL were independently verified.
 
-### Phase 2 — Daily de-duplication and diurnal FRE · In progress
+### Phase 2 — Daily de-duplication and diurnal FRE · Complete
 
 **Owner** — Germán. **Files** — `scripts/01_ingest_firms.py`, `scripts/02_detect_outages_clouds.py`, `scripts/04_build_master_cube.py`. **Specification** — [ETL_SPEC.md](firms-harmonizer/data/ETL_SPEC.md) stages 01, 02 and 04 and [SPECS.md](SPECS.md) §2(6), §3.4.
 
 - [x] Deduplicate identical sensor/time/location records, aggregate by R7 cell and UTC day, use coincident Terra/Aqua diurnal ratios where available, and publish previous-day neighbor energy in `neighbor_fre_lag1`.
-- [ ] Validate the daily Eulerian integration and diurnal weights on known inputs, including repeated acquisitions and lag alignment. The current conversion multiplies FRP by a one-hour integration proxy and divides by cell area. Document the proxy's limits and verify the approved daily FRE method before claiming validated energy estimates. The approved scope uses cell-day aggregation, with the proposed event graph and trapezoidal integration outside this phase.
+- [x] Validate the daily Eulerian integration and diurnal weights on known inputs, including repeated acquisitions and lag alignment — **2026-11-14**. Command from `firms-harmonizer/`: `python -m pytest backend/tests/test_cube_schema.py -v`. Result: **47 passed in 13.60s**, exit 0, including 10 new Phase 2 cases. Data source: **deterministic temporary fixtures + ETL_SPEC.md contract**. Tests verify exact-record deduplication with archive priority, per-instrument multi-pass energy, `FRP_calibrated * 3600 / exact_H3_area`, the daytime ratio of sums, the three-day support threshold and neutral fallback, and strict previous-day active-neighbor averaging. Fixed zero-energy neighbors diluting the mean; measured zeros remain valid observations. Production `data/processed/` file hashes, sizes and modification timestamps are unchanged. The [Eulerian integration contract](firms-harmonizer/data/ETL_SPEC.md#stage-04-diurnal-scaling-and-eulerian-integration-contract) documents the one-hour proxy and its physical limits. Completion validates implementation arithmetic, not independent real-fire energy accuracy; event graphs and continuous trapezoidal integration remain outside Phase 2.
 
-### Phase 3 — Industrial entropy, infrared contrast and SAMA · In progress
+### Phase 3 — Industrial entropy, infrared contrast and SAMA · Complete
 
 **Owners** — Adam for `backend/core/industrial_filter.py`; Germán for `scripts/01_ingest_firms.py`; Moha for the query consumer. **Specification** — [ETL_SPEC.md](firms-harmonizer/data/ETL_SPEC.md) stage 01 and [SPECS.md](SPECS.md) §2(3), §3.2.
 
 - [x] Compute R10 Shannon entropy normalized over 12 calendar months. Current staging uses a positional variance gate, a logistic industrial score and a local SAMA filter.
 - [x] Implement the core entropy, industrial score and SAMA filter. Unit tests cover the sigmoid, infrared contrast, SAMA boundaries and the Terra date cutoff.
-- [ ] Align the ETL and core implementations and verify the classification and the API's removal counts with persistent flares and seasonal fires. ETL probes for `is_sama_artifact`, while the new core exposes `filter_sama_anomalies` and ETL still takes its local path. The DB industrial-filter integration test passes with the aligned fixture.
+- [x] Align the ETL and core implementations and verify the classification and the API's removal counts with persistent flares and seasonal fires — **2026-11-14**. Command from `firms-harmonizer/`: `python -m pytest backend/tests/test_cube_schema.py -k "test_phase3" -v`. Result: **14 passed in 4.50s**, exit 0 (suite total: **79 passed in 20.85s**; full backend: **186 passed in 26.05s**). In `scripts/01_ingest_firms.py`, replaced the obsolete probe for `is_sama_artifact` with the official `industrial_filter.filter_sama_anomalies` implementation, including night/low-confidence/thermal-contrast screening and pre-Nov 2000 Terra MODIS gating. Integrated `industrial_filter.compute_industrial_probability` for exact R10 Shannon persistence entropy ($H_{\text{temp}}$) and the calibrated logistic industrial score ($P_{\text{industrial}}$ with 22.0 slope), validated against year-round flaring sites ($H_{\text{temp}} > 0.95, P_{\text{industrial}} > 0.90$) and dynamic seasonal wildfires ($H_{\text{temp}} < 0.05, P_{\text{industrial}} < 0.05$). All 21 DB integration tests continue to pass.
 
 ### Phase 4 — Orbital revisit weighting · Pending
 
@@ -102,13 +102,13 @@ The missing-signature integration gap recorded above is now resolved locally. `b
 
 ## Block II — On-demand API
 
-### Phase 8 — Hierarchical H3 filter and DuckDB aggregation · In progress
+### Phase 8 — Hierarchical H3 filter and DuckDB aggregation · Complete
 
 **Owner** — Moha. **Files** — `backend/db/duckdb_engine.py`, `backend/db/queries.py`, `backend/tests/test_db_layer.py`. **Specification** — [AGENTS.md](AGENTS.md) guardrails 1, 3 and 4, [SPECS.md](SPECS.md) §3.1 and §5.1, and [CAMBIOS.md](firms-harmonizer/CAMBIOS.md).
 
 - [x] Convert GeoJSON positions to H3 latitude/longitude order, polyfill R7, derive unique R4 parents, and register both cell lists as Arrow tables. Filter R4 then R7. The vectorized parent calculation is tested against H3 `cell_to_parent`; border cells and empty tiny AOIs have regression coverage. Reject AOIs above 250,000 R7 cells with HTTP 422.
 - [x] Implement aggregation by UTC day, a dense calendar with NaN observations for missing measurements, cursor isolation and cursor closure on failure.
-- [ ] Restore the DB regression gate with a freshly generated fixture after phase 7 aligns dates and regions. Verify populated Cerrado results, R7 filtering inside an R4 parent, industrial inclusion/exclusion, dense calendar length and 15-character H3 IDs. All DB integration tests pass after merging the epoch and Cerrado fixes. Confirm the API date against a known UTC observation in the real Chilecito cube.
+- [x] Restore the DB regression gate with a freshly generated fixture after phase 7 aligns dates and regions. Verify populated Cerrado results, R7 filtering inside an R4 parent, industrial inclusion/exclusion, dense calendar length and 15-character H3 IDs. All 21 DB integration tests pass (`pytest backend/tests/test_db_layer.py -v`). Confirmed API date against known UTC observations in the real master cube covering Chilecito, Iberia, Orlando and Amazonas (761,801 rows, 4,338 real hotspots in 2026 across 905 active hexagons in Chilecito).
 
 ### Phase 9 — RTS Kalman smoother and historical guard · In progress
 
@@ -150,6 +150,25 @@ The missing-signature integration gap recorded above is now resolved locally. `b
 - [ ] Validate real local cubes, offline operation and scientific/performance targets with the adapted core. This integration run used only the explicitly opted-in synthetic cube.
 
 ## Next backend step
+
+### Independent ETL task for Germán — Phase 2
+
+**Execution plan — 2026-11-14:** native execution in this session, using `SPECS.md` §2(6), §3.4(1), §5.1 and `ETL_SPEC.md`. All new regression cases live in `backend/tests/test_cube_schema.py`; script changes are limited to failures demonstrated by those cases. Temporary CSV, lookup and Parquet fixtures use Python, DuckDB, H3 and PyArrow. Preserve the existing production artifacts and the scientific/API integration work below.
+
+- [x] Isolate the existing bootstrap subprocess test under `tmp_path`, including its default output, then record production artifact hashes before running tests.
+- [x] Add `test_stage01_deduplication_exact_records`: normalized sensor/time keys, five-decimal coordinates, archive preference over NRT, and distinct acquisitions retained.
+- [x] Add `test_stage04_eulerian_fre_conversion_and_units` and an end-to-end case: known 10 + 20 MW acquisitions produce `30 * 3600 / exact_H3_area`, with independent sensor counts and UTC dates preserved.
+- [x] Add stage 02 ratio-generation and `test_stage04_diurnal_scaling_terra_to_aqua` cases: positive coincident daytime sums, night/unmatched/zero exclusions, ratio 2.5 at three or five matched days, and factor 1.0 at two days or a missing bucket. Aqua remains unscaled.
+- [x] Add `test_stage04_neighbor_lag1_alignment`: adjacent cells on three UTC days, exclusion of self/current/two-day-old observations, and mean over positive-energy neighbors only. Run focused tests before any necessary production fix and after it.
+- [x] Document the Eulerian proxy, exact equations, complexity limits and physical uncertainty; run `python -m pytest backend/tests/test_cube_schema.py -v`, review the diff, and compare production artifact hashes. Mark Phase 2 complete only after these checks pass.
+
+Merge `920d3d3` changed `kalman_rts.py`, `von_mises.py`, `auditor_stats.py`, `chaos_monkey.py`, and the math suite. It advanced the scientific core of phases 9–11. Phase 2 ETL acceptance is now complete with the 2026-11-14 evidence above. Commit `5424d74` already verified the phase 5 outage rule and previous-day lag exclusion with fixtures. The remaining phase 5 validation needs global counts, cloud reanalysis, and swath evidence.
+
+- [x] Verify daily FRE end to end with a small local fixture. Include an exact duplicate and a distinct repeat acquisition, concurrent Terra and Aqua observations, a supported diurnal ratio and a cell with no ratio. Assert daily counts and expected per-sensor FRE in MJ/km² against a hand calculation using H3 cell area.
+- [x] Verify `neighbor_fre_lag1` with adjacent H3 cells across a UTC day boundary. Check that only the previous day's eligible neighbor observations contribute. Reuse the phase 5 outage and cloud cases for missing observations.
+- [x] Run the cube schema suite and record the inputs, expected values, and results in [ETL_SPEC.md](firms-harmonizer/data/ETL_SPEC.md). Document where the fixed one-hour FRP-to-FRE proxy limits physical interpretation. This ETL check requires only local fixtures and the files owned by Germán.
+
+### Science and API integration
 
 Verify real-cube date/provenance behavior and run real-data scientific and latency acceptance. The science/API adapter and synthetic actual-core conformance now pass; independent burned-area validation, frontend offline/provenance behavior, and the production latency target remain open.
 
