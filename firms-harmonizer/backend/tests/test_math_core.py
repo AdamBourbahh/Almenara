@@ -12,6 +12,9 @@ from scipy.stats import multivariate_normal
 
 from backend.core import footprint_h3 as footprint
 from backend.core.eqm_harmonizer import RadiometricHarmonizer
+from backend.core.kalman_rts import (
+    build_cross_sensor_historical_prior, rts_kalman_smoother_with_cross_guard,
+)
 from backend.core.industrial_filter import (
     compute_industrial_probability, compute_shannon_temporal_entropy, filter_sama_anomalies,
 )
@@ -163,3 +166,117 @@ def test_core_has_only_allowed_imports():
                 assert all(alias.name.split('.')[0] in allowed for alias in node.names)
             elif isinstance(node, ast.ImportFrom):
                 assert node.module.split('.')[0] in allowed
+
+
+def test_cross_prior_calibrates_sensors_and_is_periodic():
+    from scipy.ndimage import gaussian_filter1d
+
+    days = np.arange(1, 367)
+    truth = 50 + 20 * np.cos(2 * np.pi * (days - 1) / 366)
+    obs = truth[:, None] * np.array([.7, 1., 1.8])
+    gains, prior, lut = build_cross_sensor_historical_prior(days, obs)
+    np.testing.assert_allclose(gains, np.tile([.7, 1., 1.8], (366, 1)))
+    np.testing.assert_allclose(lut, gaussian_filter1d(truth, 5, mode='wrap', truncate=3))
+    np.testing.assert_equal(prior, lut)
+    _, sparse, sparse_lut = build_cross_sensor_historical_prior(np.array([366, 2]), np.full((2, 3), 12.))
+    np.testing.assert_allclose(sparse_lut, 12.)
+    np.testing.assert_allclose(sparse, 12.)
+
+
+def test_cross_prior_clipping_single_sensor_and_empty_history():
+    gains, prior, lut = build_cross_sensor_historical_prior(np.array([1, 1]), np.array([[.1, 2, 20], [.1, 2, 20]]))
+    np.testing.assert_equal(gains[0], [.5, 1., 2.5])
+    _, prior, lut = build_cross_sensor_historical_prior(np.array([1, 2]), np.array([[10, np.nan, np.nan], [np.nan, np.nan, np.nan]]))
+    np.testing.assert_allclose(lut, 10)
+    gains, prior, lut = build_cross_sensor_historical_prior(np.array([], dtype=int), np.empty((0, 3)))
+    assert gains.shape == (0, 3) and prior.shape == (0,)
+    np.testing.assert_equal(lut, np.zeros(366))
+
+
+def test_rts_matches_batch_gaussian_posterior():
+    obs = np.array([[30., 33., 29.], [31., 34., 32.], [32., 35., 31.], [33., 36., 34.]])
+    days = np.arange(1, 5)
+    spatial = np.full(4, 32.)
+    out = rts_kalman_smoother_with_cross_guard(obs, spatial, days, np.zeros(4), forecast_days=0)
+    phi, gamma, omega, Q = .68, .17, .15, 12.
+    mean, covariance = np.zeros(4), np.zeros((4, 4))
+    prior = out['mu_cross_series']
+    for t in range(4):
+        mean[t] = phi * (prior[0] if t == 0 else mean[t-1]) + gamma * spatial[t] + omega * prior[t]
+        covariance[t, t] = phi**2 * (40 if t == 0 else covariance[t-1, t-1]) + Q
+        if t:
+            covariance[t, :t] = phi * covariance[t-1, :t]
+            covariance[:t, t] = covariance[t, :t]
+    H = np.zeros((12, 4))
+    for t in range(4):
+        H[3*t:3*t+3, t] = out['H_gain'][t]
+    R = np.diag(np.tile([9., 6., 5.], 4))
+    gain = np.linalg.solve(H @ covariance @ H.T + R, H @ covariance).T
+    batch_mean = mean + gain @ (obs.ravel() - H @ mean)
+    batch_covariance = covariance - gain @ H @ covariance
+    np.testing.assert_allclose(out['x_smooth'], batch_mean, atol=1e-7)
+    np.testing.assert_allclose(out['P_smooth'], np.diag(batch_covariance), atol=1e-7)
+
+
+def test_blackout_guard_joseph_and_forecast_without_pseudo_updates():
+    n = 100
+    obs = np.full((n, 3), 100.)
+    obs[30:80] = np.nan
+    spatial, days = np.full(n, 100.), np.arange(1, n+1)
+    out = rts_kalman_smoother_with_cross_guard(obs, spatial, days, np.zeros(n), forecast_days=14)
+    assert np.min(out['x_smooth'][30:80]) > 99.9
+    assert out['P_smooth'][55] > out['P_smooth'][15]
+    assert out['guard_applied'].sum() == 50
+    t = 30
+    Pp = out['P_pred'][t]
+    K = Pp / (Pp + 40 + 1e-8)
+    np.testing.assert_allclose(out['P_filter'][t], (1-K)**2 * Pp + K**2 * 40)
+    np.testing.assert_allclose(out['forecast_P'][0], .68**2 * out['P_filter'][-1] + 12 * 1.8)
+    np.testing.assert_allclose(out['forecast_P'][1:], .68**2 * out['forecast_P'][:-1] + 12 * 1.8)
+    for values in out.values():
+        assert np.isfinite(values).all() and np.all(values >= 0)
+    assert np.all(out['P_smooth'] >= 1e-4)
+    assert np.all(out['ci_lower'] <= out['x_smooth']) and np.all(out['ci_upper'] >= out['x_smooth'])
+    np.testing.assert_allclose(out['ci_upper'] - out['x_smooth'], 1.96 * np.sqrt(out['P_smooth']))
+
+
+@pytest.mark.parametrize('n,horizon', [(0, 0), (1, 0), (1, 14), (366, 14)])
+def test_kalman_missing_and_zero_data_remain_finite(n, horizon):
+    days = np.arange(n) % 366 + 1
+    for observations in [np.zeros((n, 3)), np.full((n, 3), np.nan)]:
+        out = rts_kalman_smoother_with_cross_guard(observations, np.full(n, np.nan), days,
+                                                 np.full(n, np.nan), forecast_days=horizon,
+                                                 Q_var=0, R_var=(0, 0, 0), R_guard=0)
+        assert out['x_smooth'].shape == (n,) and out['forecast_x'].shape == (horizon,)
+        for array in out.values():
+            assert np.isfinite(array).all() and np.all(array >= 0)
+        assert np.all(out['P_smooth'] >= 1e-4) and np.all(out['forecast_P'] >= 1e-4)
+
+
+def test_kalman_partial_missing_data_and_year_rollover():
+    obs = np.full((5, 3), 1e100)
+    obs[1:3, 1] = np.nan
+    obs[3] = np.nan
+    original = obs.copy()
+    out = rts_kalman_smoother_with_cross_guard(obs, np.full(5, 1e100), np.array([362,363,364,365,366]), np.ones(5))
+    np.testing.assert_equal(out['forecast_doy'][:2], [1, 2])
+    np.testing.assert_equal(obs, original)
+    for array in out.values():
+        assert np.isfinite(array).all()
+    assert out['guard_applied'].sum() == 1
+
+
+def test_kalman_invalid_inputs_raise_instead_of_nonfinite_outputs():
+    obs, days, spatial, clouds = np.ones((2, 3)), np.array([1, 2]), np.ones(2), np.zeros(2)
+    for kwargs in [dict(phi=1.1), dict(Q_var=-1), dict(R_var=(1, 2)), dict(R_guard=np.inf),
+                   dict(forecast_days=-1), dict(forecast_days=1.5)]:
+        with pytest.raises(ValueError):
+            rts_kalman_smoother_with_cross_guard(obs, spatial, days, clouds, **kwargs)
+    for bad in [np.full((2,3), np.inf), -obs]:
+        with pytest.raises(ValueError):
+            build_cross_sensor_historical_prior(days, bad)
+    for bad_days in [np.array([0,1]), np.array([1,367]), np.array([1,1.5])]:
+        with pytest.raises(ValueError):
+            build_cross_sensor_historical_prior(bad_days, obs)
+    with pytest.raises(ValueError):
+        rts_kalman_smoother_with_cross_guard(obs, spatial, days, np.full(2, 95))
