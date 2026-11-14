@@ -1,103 +1,117 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  color-scheme: dark;
+@custom-variant dark (&:where(.dark, .dark *));
 
-  --bg: #0a0d13;
-  --surface: #11151c;
-  --surface-2: #171c25;
-  --line: rgba(255, 255, 255, 0.08);
-  --ink: #e8ebf0;
-  --dim: #98a1b0;
-  --ember: #ff6b3d;
-  --heat: #ffb454;
-  --info: #5aa7e0;
-  --danger: #e5484d;
-  --success: #2fa97a;
+@theme {
+  --font-serif: "Source Serif 4 Variable", Georgia, "Times New Roman", serif;
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  /* Institutional paper palette (light) */
+  --color-paper: #f8f7f4;
+  --color-panel: #ffffff;
+  --color-rule: #dcdcdc;
+  --color-rule-strong: #c4c4c4;
+  --color-ink: #111827;
+  --color-muted: #4b5563;
+  --color-faint: #6b7280;
+
+  /* Cartographic / data palettes (theme-independent) */
+  --color-thermal-1: #fef0d9;
+  --color-thermal-2: #fdbe85;
+  --color-thermal-3: #e6550d;
+  --color-thermal-4: #b30000;
+  --color-industrial: #6a3d9a;
+  --color-validated: #15803d;
+  --color-bias: #b91c1c;
+  --color-reference: #1d4ed8;
+  --color-terracotta: #b45309;
+  --color-raw: #475569;
 }
 
-html,
-body,
-#root {
-  height: 100%;
-  margin: 0;
+/* Dark theme: override the semantic surfaces; the data ramps stay legible. */
+.dark {
+  --color-paper: #0b0e14;
+  --color-panel: #12161f;
+  --color-rule: #232a36;
+  --color-rule-strong: #364152;
+  --color-ink: #e6e9ef;
+  --color-muted: #9aa3b2;
+  --color-faint: #7b8494;
+  --color-raw: #cbd5e1;
+  --color-thermal-1: #3a2a18;
+  --color-thermal-2: #7a4a1f;
 }
 
-body {
-  background-color: var(--bg);
-  color: var(--ink);
-  font-family: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI",
-    sans-serif;
-  font-optical-sizing: auto;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background: #fde68a;
+    color: #111827;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-reference);
+    outline-offset: 2px;
+  }
 }
 
-::selection {
-  background: rgba(255, 107, 61, 0.28);
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
-/* Minimal dark scrollbars */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-ink) 22%, transparent);
+  border-radius: 6px;
+}
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid transparent;
-  background-clip: padding-box;
-  border-radius: 8px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.18);
-  background-clip: padding-box;
+
+/* deck.gl default tooltip, tuned for the paper/dark palette */
+.deck-tooltip {
+  background: var(--color-panel) !important;
+  color: var(--color-ink) !important;
+  border: 1px solid var(--color-rule) !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  padding: 8px 10px !important;
 }
 
-/* Focus treatment */
-:focus-visible {
-  outline: 2px solid var(--ember);
-  outline-offset: 2px;
-}
-
-/* Numeric readouts stay tabular for stable alignment */
-.font-tabular {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Translucent chrome for floating panels over the map */
-.glass {
-  background: rgba(17, 21, 28, 0.74);
-  backdrop-filter: blur(22px) saturate(170%);
-  -webkit-backdrop-filter: blur(22px) saturate(170%);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-}
-
-/* Soft ember glow used sparingly for the active view/CTA */
-.ember-glow {
-  box-shadow: 0 12px 40px -16px rgba(255, 107, 61, 0.65);
-}
-
-/* MapLibre dark chrome so the basemap controls match the app */
 .maplibregl-ctrl-attrib,
 .maplibregl-ctrl-attrib a {
-  background: rgba(10, 13, 19, 0.8) !important;
-  color: #98a1b0 !important;
-  font-size: 10px !important;
-}
-.maplibregl-ctrl-group {
-  background: rgba(17, 21, 28, 0.9) !important;
-  border: 1px solid rgba(255, 255, 255, 0.09) !important;
-}
-.maplibregl-ctrl-group button + button {
-  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  font-size: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -105,8 +119,6 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
   }
 }

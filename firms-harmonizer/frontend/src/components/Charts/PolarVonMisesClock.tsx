@@ -1,313 +1,171 @@
 import { useMemo } from "react";
-import { Compass, TrendingUp } from "lucide-react";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
 
-/**
- * Circular von Mises phenology clock.
- *
- * Each year y contributes a directional vector whose angle is the weight-averaged
- * peak burning day mu_hat_y mapped onto [0, 2*pi) and whose length is the seasonal
- * concentration kappa_hat_y. Vectors are colour-graded from cyan (2001) to fire red
- * (2026) so the decadal rotation of the fire season is directly visible. The shaded
- * wedge is the critical fire-season window (season_width_days) of the latest year,
- * and the core readout shows the Theil-Sen drift (days/decade) plus the circular
- * Mann-Kendall p-value.
- */
+const DAYS = 365.25;
+const CX = 150;
+const CY = 150;
+const R_OUTER = 116;
+const R_LABEL = 133;
+const R_MIN = 20;
+const R_MAX = 102;
+const R_CORE = 54;
 
-const MONTH_LABELS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_START = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+
+const THERMAL: Array<[number, number, number]> = [
+  [253, 212, 158],
+  [230, 85, 13],
+  [179, 0, 0]
 ];
 
-// Day-of-year of the first day of each month (non-leap baseline).
-const MONTH_START_DOY = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
-
-const DAYS_IN_YEAR = 365.25;
-
-const CX = 140;
-const CY = 140;
-const R_OUTER = 108;
-const R_LABEL = 124;
-const R_VECTOR_MIN = 18;
-const R_VECTOR_MAX = 96;
-const R_CORE = 52;
-
-function polarToXY(radius: number, angle: number): { x: number; y: number } {
-  // Angle 0 points up; positive angles rotate clockwise.
+function polar(radius: number, angle: number): { x: number; y: number } {
   return { x: CX + radius * Math.sin(angle), y: CY - radius * Math.cos(angle) };
 }
 
 function doyToAngle(doy: number): number {
-  return (2 * Math.PI * ((doy - 1) % DAYS_IN_YEAR)) / DAYS_IN_YEAR;
+  return (2 * Math.PI * ((doy - 1) % DAYS)) / DAYS;
 }
 
-function mix(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
-function yearGradient(t: number): string {
+function thermalColor(t: number): string {
   const clamped = Math.max(0, Math.min(1, t));
-  const cyan = [90, 167, 224];
-  const amber = [245, 158, 11];
-  const fire = [239, 68, 68];
-  const rgb =
-    clamped < 0.5
-      ? cyan.map((channel, index) => mix(channel, amber[index], clamped / 0.5))
-      : amber.map((channel, index) =>
-          mix(channel, fire[index], (clamped - 0.5) / 0.5),
-        );
-  return `rgb(${rgb.map((value) => Math.round(value)).join(", ")})`;
+  const scaled = clamped * (THERMAL.length - 1);
+  const k = Math.min(THERMAL.length - 2, Math.floor(scaled));
+  const f = scaled - k;
+  const [r, g, b] = THERMAL[k].map((c, i) => Math.round(c + (THERMAL[k + 1][i] - c) * f));
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
-function formatPValue(p: number): string {
-  if (!Number.isFinite(p)) return "p = n/a";
-  if (p <= 0) return "p < 1e-300";
-  if (p < 1e-4) return `p = ${p.toExponential(1)}`;
-  return `p = ${p.toFixed(3)}`;
+function formatP(p: number | undefined): string {
+  if (p === undefined || !Number.isFinite(p)) return "—";
+  if (p <= 0) return "< 1e-300";
+  if (p < 1e-4) return p.toExponential(1);
+  return p.toFixed(3);
 }
 
 export function PolarVonMisesClock() {
-  const analysisData = useAnalysisStore((state) => state.analysisData);
+  const analysisData = useAnalysisStore((s) => s.analysisData);
   const phenology = analysisData?.phenology_by_year ?? [];
   const audit = analysisData?.audit_metrics;
 
   const geometry = useMemo(() => {
     const years = phenology.map((entry) => entry.year);
-    const minYear = years.length > 0 ? Math.min(...years) : 2001;
-    const maxYear = years.length > 0 ? Math.max(...years) : 2026;
+    const minYear = years.length ? Math.min(...years) : 2001;
+    const maxYear = years.length ? Math.max(...years) : 2026;
     const span = Math.max(maxYear - minYear, 1);
-    const maxKappa = phenology.reduce(
-      (acc, entry) => Math.max(acc, entry.concentration_kappa),
-      1e-6,
-    );
+    const maxKappa = phenology.reduce((acc, entry) => Math.max(acc, entry.concentration_kappa), 1e-6);
 
     const vectors = phenology.map((entry) => {
       const angle = doyToAngle(entry.peak_doy_mu);
-      const normalized = Math.min(1, entry.concentration_kappa / maxKappa);
-      const radius =
-        R_VECTOR_MIN + normalized * (R_VECTOR_MAX - R_VECTOR_MIN);
-      return {
-        year: entry.year,
-        angle,
-        tip: polarToXY(radius, angle),
-        color: yearGradient((entry.year - minYear) / span),
-      };
+      const radius = R_MIN + Math.min(1, entry.concentration_kappa / maxKappa) * (R_MAX - R_MIN);
+      return { year: entry.year, tip: polar(radius, angle), color: thermalColor((entry.year - minYear) / span) };
     });
 
-    const latest =
-      phenology.length > 0 ? phenology[phenology.length - 1] : null;
+    const latest = phenology.length ? phenology[phenology.length - 1] : null;
     const peakAngle = latest ? doyToAngle(latest.peak_doy_mu) : 0;
-    const halfWindow = latest
-      ? (Math.PI * latest.season_width_days) / DAYS_IN_YEAR
-      : Math.PI / 4;
-
-    const start = polarToXY(R_OUTER, peakAngle - halfWindow);
-    const end = polarToXY(R_OUTER, peakAngle + halfWindow);
+    const halfWindow = latest ? (Math.PI * latest.season_width_days) / DAYS : Math.PI / 4;
+    const start = polar(R_OUTER, peakAngle - halfWindow);
+    const end = polar(R_OUTER, peakAngle + halfWindow);
     const largeArc = halfWindow * 2 > Math.PI ? 1 : 0;
     const windowPath =
-      `M ${CX} ${CY} ` +
-      `L ${start.x.toFixed(2)} ${start.y.toFixed(2)} ` +
+      `M ${CX} ${CY} L ${start.x.toFixed(2)} ${start.y.toFixed(2)} ` +
       `A ${R_OUTER} ${R_OUTER} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)} Z`;
 
-    return { vectors, minYear, maxYear, windowPath };
+    return { minYear, maxYear, vectors, windowPath, latest };
   }, [phenology]);
 
-  const hasData = phenology.length > 0;
   const shift = audit?.phenology_shift_days_per_decade ?? 0;
   const shiftLabel = `${shift >= 0 ? "+" : ""}${shift.toFixed(1)}`;
-  const mannKendall = formatPValue(audit?.mann_kendall_p_value ?? Number.NaN);
+  const meanMu = phenology.length ? phenology.reduce((a, p) => a + p.peak_doy_mu, 0) / phenology.length : 0;
+  const meanKappa = phenology.length ? phenology.reduce((a, p) => a + p.concentration_kappa, 0) / phenology.length : 0;
+  const meanWidth = phenology.length ? phenology.reduce((a, p) => a + p.season_width_days, 0) / phenology.length : 0;
+  const peakLabel = geometry.latest?.peak_date_label ?? "—";
 
   return (
-    <section className="flex h-full flex-col rounded-2xl border border-line bg-surface p-4 shadow-panel">
-      <header className="mb-2 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-sm font-bold text-slate-100">
-          <Compass className="h-4 w-4 text-ember" />
-          von Mises Phenology Clock
-        </h2>
-        <span className="rounded border border-slate-700 bg-slate-900 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-slate-400">
-          {geometry.minYear} → {geometry.maxYear}
-        </span>
+    <section className="border border-rule bg-panel p-6">
+      <header className="mb-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-faint">Fire-season clock</p>
+        <h3 className="mt-1 font-serif text-xl text-ink">How the fire season is moving</h3>
       </header>
 
-      <div className="flex flex-1 items-center justify-center">
-        <svg
-          viewBox="0 0 280 280"
-          className="h-auto w-full max-w-[300px]"
-          role="img"
-          aria-label="Circular fire-season phenology clock"
-        >
-          <defs>
-            <linearGradient id="phenologyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#5AA7E0" />
-              <stop offset="50%" stopColor="#f59e0b" />
-              <stop offset="100%" stopColor="#ef4444" />
-            </linearGradient>
-          </defs>
+      <p className="mb-5 max-w-xl text-sm leading-relaxed text-muted">
+        The fire-season peak is moving{" "}
+        <strong className="font-medium text-thermal-4 tnum">
+          {shift >= 0 ? "+" : ""}
+          {shift.toFixed(1)} days per decade
+        </strong>
+        . Each spoke is one year: its direction is the peak day, its length the seasonal concentration.
+      </p>
 
-          {/* Radial guide rings */}
+      <div className="flex justify-center">
+        <svg viewBox="0 0 300 300" className="h-auto w-full max-w-[320px]" role="img" aria-label="Fire-season clock">
           {[0.34, 0.67, 1].map((ratio) => (
-            <circle
-              key={ratio}
-              cx={CX}
-              cy={CY}
-              r={R_OUTER * ratio}
-              fill="none"
-              stroke="rgba(148, 163, 184, 0.12)"
-              strokeDasharray="2 4"
-            />
+            <circle key={ratio} cx={CX} cy={CY} r={R_OUTER * ratio} fill="none" stroke="var(--color-rule)" strokeDasharray="2 4" />
           ))}
-          <circle
-            cx={CX}
-            cy={CY}
-            r={R_OUTER}
-            fill="none"
-            stroke="rgba(148, 163, 184, 0.28)"
-          />
+          <circle cx={CX} cy={CY} r={R_OUTER} fill="none" stroke="var(--color-rule-strong)" />
 
-          {/* Month spokes and labels */}
-          {MONTH_START_DOY.map((startDoy, index) => {
-            const spoke = polarToXY(R_OUTER, doyToAngle(startDoy));
-            const label = polarToXY(R_LABEL, doyToAngle(startDoy) + Math.PI / 12);
+          {MONTH_START.map((startDoy, index) => {
+            const spoke = polar(R_OUTER, doyToAngle(startDoy));
+            const label = polar(R_LABEL, doyToAngle(startDoy) + Math.PI / 12);
             return (
-              <g key={MONTH_LABELS[index]}>
-                <line
-                  x1={CX}
-                  y1={CY}
-                  x2={spoke.x}
-                  y2={spoke.y}
-                  stroke="rgba(148, 163, 184, 0.14)"
-                />
-                <text
-                  x={label.x}
-                  y={label.y}
-                  fill="#94a3b8"
-                  fontSize="8"
-                  fontFamily="ui-monospace, monospace"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                >
-                  {MONTH_LABELS[index]}
+              <g key={MONTHS[index]}>
+                <line x1={CX} y1={CY} x2={spoke.x} y2={spoke.y} stroke="var(--color-rule)" />
+                <text x={label.x} y={label.y} fill="var(--color-faint)" fontSize="8" textAnchor="middle" dominantBaseline="middle">
+                  {MONTHS[index]}
                 </text>
               </g>
             );
           })}
 
-          {/* Critical fire-season window of the latest year */}
-          {hasData && (
-            <path
-              d={geometry.windowPath}
-              fill="rgba(56, 189, 248, 0.12)"
-              stroke="rgba(56, 189, 248, 0.55)"
-              strokeDasharray="4 3"
-            />
+          {phenology.length > 0 && (
+            <path d={geometry.windowPath} fill="rgba(253, 190, 133, 0.18)" stroke="rgba(230, 85, 13, 0.55)" strokeDasharray="4 3" />
           )}
 
-          {/* Annual directional vectors */}
           {geometry.vectors.map((vector) => (
             <g key={vector.year}>
-              <line
-                x1={CX}
-                y1={CY}
-                x2={vector.tip.x}
-                y2={vector.tip.y}
-                stroke={vector.color}
-                strokeWidth={1.6}
-                strokeLinecap="round"
-                opacity={0.92}
-              />
-              <circle
-                cx={vector.tip.x}
-                cy={vector.tip.y}
-                r={1.8}
-                fill={vector.color}
-              />
+              <line x1={CX} y1={CY} x2={vector.tip.x} y2={vector.tip.y} stroke={vector.color} strokeWidth={1.4} opacity={0.85} />
+              <circle cx={vector.tip.x} cy={vector.tip.y} r={1.7} fill={vector.color} />
             </g>
           ))}
 
-          {/* Core readout */}
-          <circle
-            cx={CX}
-            cy={CY}
-            r={R_CORE}
-            fill="#0b1220"
-            stroke="rgba(148, 163, 184, 0.3)"
-          />
-          <text
-            x={CX}
-            y={CY - 20}
-            fill="#64748b"
-            fontSize="7"
-            fontFamily="ui-monospace, monospace"
-            textAnchor="middle"
-            letterSpacing="1"
-          >
-            THEIL–SEN
+          <circle cx={CX} cy={CY} r={R_CORE} fill="var(--color-panel)" stroke="var(--color-rule-strong)" />
+          <text x={CX} y={CY - 8} fill="var(--color-faint)" fontSize="7" textAnchor="middle" letterSpacing="1">
+            AVERAGE PEAK
           </text>
-          <text
-            x={CX}
-            y={CY - 1}
-            fill="#f59e0b"
-            fontSize="17"
-            fontWeight="700"
-            fontFamily="ui-monospace, monospace"
-            textAnchor="middle"
-          >
-            {hasData ? shiftLabel : "—"}
-          </text>
-          <text
-            x={CX}
-            y={CY + 11}
-            fill="#94a3b8"
-            fontSize="7"
-            fontFamily="ui-monospace, monospace"
-            textAnchor="middle"
-          >
-            days / decade
-          </text>
-          <text
-            x={CX}
-            y={CY + 29}
-            fill="#38bdf8"
-            fontSize="7"
-            fontFamily="ui-monospace, monospace"
-            textAnchor="middle"
-          >
-            {hasData ? mannKendall : "Mann–Kendall"}
+          <text x={CX} y={CY + 9} fill="var(--color-ink)" fontSize="16" fontFamily="var(--font-serif)" textAnchor="middle">
+            {peakLabel}
           </text>
         </svg>
       </div>
 
-      <div className="mt-2 space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[9px] text-slate-400">2001</span>
-          <span className="h-1.5 flex-1 rounded-full bg-gradient-to-r from-info via-heat to-danger" />
-          <span className="font-mono text-[9px] text-slate-400">2026</span>
-        </div>
-        <p className="flex items-start gap-1.5 text-[10px] leading-snug text-slate-400">
-          <TrendingUp className="mt-0.5 h-3 w-3 shrink-0 text-amber-400" />
-          <span>
-            Fire-season drift: Theil–Sen{" "}
-            <span className="font-mono text-amber-300">
-              {hasData ? `${shiftLabel} days/decade` : "pending"}
-            </span>
-            , Mann–Kendall{" "}
-            <span className="font-mono text-info">
-              {hasData ? mannKendall : "pending"}
-            </span>
-            .
-          </span>
-        </p>
+      <div className="mt-5 flex items-center gap-2 text-[10px] text-faint">
+        <span>{geometry.minYear}</span>
+        <span className="h-1.5 flex-1" style={{ background: "linear-gradient(90deg, #fdd49e, #e6550d, #b30000)" }} />
+        <span>{geometry.maxYear}</span>
       </div>
+
+      <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 border-t border-rule pt-4 text-xs">
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-faint">Mean peak day (μ)</dt>
+          <dd className="text-ink tnum">{meanMu.toFixed(0)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-faint">Concentration (κ)</dt>
+          <dd className="text-ink tnum">{meanKappa.toFixed(2)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-faint">Season width</dt>
+          <dd className="text-ink tnum">{meanWidth.toFixed(0)} days</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-faint">Mann–Kendall (p)</dt>
+          <dd className="text-ink tnum">{formatP(audit?.mann_kendall_p_value)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-faint">Theil–Sen drift</dt>
+          <dd className="text-thermal-4 tnum">{shiftLabel} d/decade</dd>
+        </div>
+      </dl>
     </section>
   );
 }

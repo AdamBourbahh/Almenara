@@ -52,14 +52,14 @@ FIRMS CSV  ──►  Offline ETL (DuckDB + Arrow/Parquet)
 
 ### 2.1 Interface
 
-The dashboard is split into four focused views behind a persistent sidebar, so the story is never crammed onto a single screen:
+The dashboard is a single guided, editorial article that reads top to bottom (no sci-fi cockpit, no sidebar):
 
-- **Map** — a full-screen MapLibre basemap with GPU H3 hexagons, a dark / satellite / light / offline basemap switch, an area-of-interest panel (presets plus manual coordinates), industrial-flaring overlays, an intensity legend, and hover cards that explain each cell in plain language.
-- **History** — the 26-year burning calendar with the 2012 raw-versus-harmonized curtain and hatched cells for auto-repaired days.
-- **Trends** — the circular fire-season clock, decadal drift, the 14-day uncertainty band, and the interactive Chaos Monkey stress test.
-- **Validation** — the live statistical audit (Chow, Wasserstein, burned-area R², entropy filter, Wooster carbon and smoke) with an IPCC-ready CSV export.
+- **Explorer** — a case-study tab row (Cerrado/Pantanal, Sierra Nevada, Iberia, Niger Delta) above a light MapLibre basemap with GPU H3 hexagons coloured by a perceptual thermal ramp, industrial gas flaring in sober purple, drag-to-draw AOI boxes, an offline graticule fallback and a 2D/3D toggle.
+- **Section 1 — the 2012 problem** — the 26 × 366 burning calendar with a slider comparing raw pixel counts (neutral grey) against harmonized fire energy (thermal ramp), cobalt hatching for reconstructed days and terracotta hatching for the 14-day forecast.
+- **Section 2 — season and reconstruction** — the circular von Mises fire-season clock (plain-language decadal drift plus a compact μ / κ / Mann–Kendall table for researchers) and the Kalman uncertainty band chart with a scripted satellite-blackout stress test.
+- **Section 3 — impact and audit** — physical impact first (dry biomass, PM2.5, analysed area, a plain-language verdict and an IPCC-ready CSV) followed by a researcher validation table (Chow, Wasserstein, R²) with quiet `[VALIDATED]` / `[BIAS DETECTED]` indicators.
 
-Design language: a dark, high-contrast mission-control palette (`#0A0D13` base, ember `#FF6B3D` accent), **Inter** for UI and **IBM Plex Mono** for identifiers, accessible sequential color ramps for fire intensity, and reduced-motion-aware transitions. All copy is in plain English for non-technical judges.
+Design language: an institutional paper palette (`#F8F7F4` page, white panels, 1 px `#DCDCDC` rules, 2–4 px radii), **Source Serif 4** for headings, **Inter** for controls and **IBM Plex Mono** for every figure (`tabular-nums`), a ColorBrewer-style thermal ramp (`#FEF0D9 → #B30000`) for fire energy and `#6A3D9A` for industrial flaring. No neon, glassmorphism, gradients, coloured shadows or emoji.
 
 ---
 

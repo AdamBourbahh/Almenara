@@ -1,295 +1,514 @@
-import { useCallback, useEffect, useRef } from "react";
-import { CalendarDays } from "lucide-react";
-import { useAnalysisStore } from "../../store/useAnalysisStore";
-import { createHatchPattern } from "./HatchPatternDefs";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
+import type { AnalyzeResponse } from "../../api/types";
+import { calendarKey, useAnalysisStore, type HoveredDay } from "../../store/useAnalysisStore";
+import { getHatchPattern, hatchCss } from "./HatchPatternDefs";
+import { useTheme } from "../../lib/theme";
 
-const WIDTH = 920;
-const HEIGHT = 372;
-const PAD_LEFT = 48;
-const PAD_TOP = 34;
-const PAD_RIGHT = 18;
-const PAD_BOTTOM = 16;
+const DAY_COLUMNS = 366;
+const CANVAS_CSS_HEIGHT = 340;
+const PAD = { left: 46, top: 20, right: 10, bottom: 16 };
+const MONTH_START_DOY = [1, 32, 61, 92, 122, 153, 183, 214, 245, 275, 306, 336];
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const FONT = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
-const START_YEAR = 2001;
-const END_YEAR = 2026;
-const TOTAL_YEARS = END_YEAR - START_YEAR + 1;
-const DAYS = 366;
+const VIIRS_MARKER = { year: 2012, label: "Jan 2012 · VIIRS comes online", color: "#b45309" };
+const AQUA_MARKER = { year: 2022, startDoy: 212, endDoy: 228, label: "Aug 2022 · MODIS Aqua safe mode", color: "#b91c1c" };
 
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-const MONTH_START_DOY = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+const FLAG_DATA = 1;
+const FLAG_GAP = 2;
+const FLAG_FORECAST = 4;
 
-const HARMONIZED_STOPS = ["#1A1F2B", "#7A2D1E", "#D95F18", "#F2A93B", "#FFE29A"];
-const RAW_STOPS = ["#241016", "#6E1621", "#B6212F", "#E5484D", "#FF9AA0"];
+type Rgb = readonly [number, number, number];
 
-function hexToRgb(hex: string): [number, number, number] {
-  const value = hex.replace("#", "");
-  return [
-    parseInt(value.slice(0, 2), 16),
-    parseInt(value.slice(2, 4), 16),
-    parseInt(value.slice(4, 6), 16),
-  ];
+function buildRamp(stops: Rgb[]): Uint8ClampedArray {
+  const lut = new Uint8ClampedArray(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const t = (i / 255) * (stops.length - 1);
+    const k = Math.min(stops.length - 2, Math.floor(t));
+    const f = t - k;
+    for (let c = 0; c < 3; c++) lut[i * 3 + c] = stops[k][c] + (stops[k + 1][c] - stops[k][c]) * f;
+  }
+  return lut;
 }
 
-function rampColor(stops: string[], t: number, alpha: number): string {
-  const clamped = Math.max(0, Math.min(1, t));
-  const scaled = clamped * (stops.length - 1);
-  const index = Math.min(stops.length - 2, Math.floor(scaled));
-  const fraction = scaled - index;
-  const a = hexToRgb(stops[index]);
-  const b = hexToRgb(stops[index + 1]);
-  const r = Math.round(a[0] + (b[0] - a[0]) * fraction);
-  const g = Math.round(a[1] + (b[1] - a[1]) * fraction);
-  const bl = Math.round(a[2] + (b[2] - a[2]) * fraction);
-  return `rgba(${r}, ${g}, ${bl}, ${alpha})`;
+const HARM_RAMP = buildRamp([[254, 240, 217], [253, 190, 133], [230, 85, 13], [179, 0, 0]]);
+const RAW_RAMP_LIGHT = buildRamp([[229, 231, 235], [156, 163, 175], [71, 85, 105]]);
+const RAW_RAMP_DARK = buildRamp([[42, 47, 58], [107, 114, 128], [203, 213, 225]]);
+const EMPTY_LIGHT: Rgb = [239, 238, 235];
+const EMPTY_DARK: Rgb = [24, 28, 38];
+
+interface PreparedGrid {
+  rows: number;
+  startYear: number;
+  raw: Float32Array;
+  harm: Float32Array;
+  flags: Uint8Array;
+  rawRef: number;
+  harmRef: number;
+  gapCells: number[];
+  forecastCells: number[];
+  hasData: boolean;
+}
+
+function percentile(values: number[], q: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor(q * (sorted.length - 1)))];
+}
+
+function prepareGrid(data: AnalyzeResponse | null, startYear: number, endYear: number): PreparedGrid {
+  const rows = Math.max(1, endYear - startYear + 1);
+  const size = rows * DAY_COLUMNS;
+  const grid: PreparedGrid = {
+    rows,
+    startYear,
+    raw: new Float32Array(size),
+    harm: new Float32Array(size),
+    flags: new Uint8Array(size),
+    rawRef: 1,
+    harmRef: 1,
+    gapCells: [],
+    forecastCells: [],
+    hasData: false
+  };
+  if (!data) return grid;
+
+  const preRaw: number[] = [];
+  const preHarm: number[] = [];
+  const allRaw: number[] = [];
+  const allHarm: number[] = [];
+
+  const place = (year: number, doy: number) => {
+    const row = year - startYear;
+    if (row < 0 || row >= rows || doy < 1 || doy > DAY_COLUMNS) return -1;
+    return row * DAY_COLUMNS + (doy - 1);
+  };
+
+  for (const cell of data.calendar_series) {
+    const idx = place(cell.year, cell.doy);
+    if (idx < 0) continue;
+    grid.raw[idx] = cell.raw_hotspot_count;
+    grid.harm[idx] = cell.harmonized_fre_mj_km2;
+    grid.flags[idx] = FLAG_DATA | (cell.is_gap_filled ? FLAG_GAP : 0);
+    if (cell.is_gap_filled) grid.gapCells.push(idx);
+    if (cell.raw_hotspot_count > 0) {
+      allRaw.push(cell.raw_hotspot_count);
+      if (cell.year < VIIRS_MARKER.year) preRaw.push(cell.raw_hotspot_count);
+    }
+    if (cell.harmonized_fre_mj_km2 > 0) {
+      allHarm.push(cell.harmonized_fre_mj_km2);
+      if (cell.year < VIIRS_MARKER.year) preHarm.push(cell.harmonized_fre_mj_km2);
+    }
+  }
+
+  for (const cell of data.forecast_series ?? []) {
+    const idx = place(cell.year, cell.doy);
+    if (idx < 0 || grid.flags[idx] & FLAG_DATA) continue;
+    grid.harm[idx] = cell.harmonized_fre_mj_km2;
+    grid.flags[idx] = FLAG_DATA | FLAG_FORECAST;
+    grid.forecastCells.push(idx);
+  }
+
+  grid.rawRef = Math.max(1, percentile(preRaw.length > 30 ? preRaw : allRaw, 0.95));
+  grid.harmRef = Math.max(1, percentile(preHarm.length > 30 ? preHarm : allHarm, 0.95));
+  grid.hasData = allRaw.length + allHarm.length > 0 || grid.forecastCells.length > 0;
+  grid.gapCells.sort((a, b) => a - b);
+  grid.forecastCells.sort((a, b) => a - b);
+  return grid;
+}
+
+interface Layout {
+  width: number;
+  height: number;
+  gridX: number;
+  gridY: number;
+  gridW: number;
+  gridH: number;
+  cellW: number;
+  cellH: number;
+  rows: number;
+  startYear: number;
+}
+
+function computeLayout(width: number, rows: number, startYear: number): Layout {
+  const gridW = Math.max(1, width - PAD.left - PAD.right);
+  const gridH = CANVAS_CSS_HEIGHT - PAD.top - PAD.bottom;
+  return {
+    width,
+    height: CANVAS_CSS_HEIGHT,
+    gridX: PAD.left,
+    gridY: PAD.top,
+    gridW,
+    gridH,
+    cellW: gridW / DAY_COLUMNS,
+    cellH: gridH / rows,
+    rows,
+    startYear
+  };
+}
+
+function prepareCanvas(canvas: HTMLCanvasElement, L: Layout): CanvasRenderingContext2D | null {
+  const dpr = window.devicePixelRatio || 1;
+  const pxW = Math.round(L.width * dpr);
+  const pxH = Math.round(L.height * dpr);
+  if (canvas.width !== pxW) canvas.width = pxW;
+  if (canvas.height !== pxH) canvas.height = pxH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, L.width, L.height);
+  return ctx;
+}
+
+function fillRuns(ctx: CanvasRenderingContext2D, L: Layout, sortedIdx: number[]) {
+  let i = 0;
+  while (i < sortedIdx.length) {
+    const start = sortedIdx[i];
+    const row = Math.floor(start / DAY_COLUMNS);
+    let end = start;
+    while (i + 1 < sortedIdx.length && sortedIdx[i + 1] === end + 1 && Math.floor(sortedIdx[i + 1] / DAY_COLUMNS) === row) end = sortedIdx[++i];
+    const col = start % DAY_COLUMNS;
+    ctx.fillRect(L.gridX + col * L.cellW, L.gridY + row * L.cellH, (end - start + 1) * L.cellW, L.cellH);
+    i++;
+  }
+}
+
+function labelBox(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, bg: string, align: "left" | "right" = "left") {
+  ctx.font = `9px ${FONT}`;
+  const w = ctx.measureText(text).width + 8;
+  const bx = align === "left" ? x : x - w;
+  ctx.fillStyle = bg;
+  ctx.fillRect(bx, y - 9, w, 12);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  ctx.strokeRect(bx + 0.5, y - 8.5, w - 1, 11);
+  ctx.fillStyle = color;
+  ctx.textAlign = "left";
+  ctx.fillText(text, bx + 4, y);
 }
 
 export function BurningCalendarCanvas() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const analysisData = useAnalysisStore((state) => state.analysisData);
-  const viewMode = useAnalysisStore((state) => state.viewMode);
-  const splitCurtainPct = useAnalysisStore((state) => state.splitCurtainPct);
-  const setSplitCurtainPct = useAnalysisStore((state) => state.setSplitCurtainPct);
-  const selectedYear = useAnalysisStore((state) => state.selectedYear);
-  const setSelectedYear = useAnalysisStore((state) => state.setSelectedYear);
-  const setHoveredDay = useAnalysisStore((state) => state.setHoveredDay);
+  const overlayRef = useRef<HTMLCanvasElement | null>(null);
+  const offscreenRef = useRef<HTMLCanvasElement | null>(null);
+  const layoutRef = useRef<Layout | null>(null);
+  const [width, setWidth] = useState(0);
 
-  const plotWidth = WIDTH - PAD_LEFT - PAD_RIGHT;
-  const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
-  const cellWidth = plotWidth / DAYS;
-  const cellHeight = plotHeight / TOTAL_YEARS;
+  const theme = useTheme((s) => s.theme);
+  const { analysisData, viewMode, splitCurtainPct, setSplitCurtainPct, selectedYear, setSelectedYear, setHoveredDay, startYear, endYear } =
+    useAnalysisStore(
+      useShallow((s) => ({
+        analysisData: s.analysisData,
+        viewMode: s.viewMode,
+        splitCurtainPct: s.splitCurtainPct,
+        setSplitCurtainPct: s.setSplitCurtainPct,
+        selectedYear: s.selectedYear,
+        setSelectedYear: s.setSelectedYear,
+        setHoveredDay: s.setHoveredDay,
+        startYear: s.startYear,
+        endYear: s.endYear
+      }))
+    );
+
+  const grid = useMemo(() => prepareGrid(analysisData, startYear, endYear), [analysisData, startYear, endYear]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => setWidth(Math.floor(entries[0].contentRect.width)));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const drawOverlay = useCallback((hovered: HoveredDay | null) => {
+    const canvas = overlayRef.current;
+    const L = layoutRef.current;
+    if (!canvas || !L) return;
+    const ctx = prepareCanvas(canvas, L);
+    if (!ctx || !hovered) return;
+    const row = hovered.year - L.startYear;
+    const col = hovered.doy - 1;
+    if (row < 0 || row >= L.rows || col < 0 || col >= DAY_COLUMNS) return;
+    const x = L.gridX + col * L.cellW;
+    const y = L.gridY + row * L.cellH;
+    ctx.fillStyle = theme === "dark" ? "rgba(255,255,255,0.10)" : "rgba(17,24,39,0.06)";
+    ctx.fillRect(L.gridX, y, L.gridW, L.cellH);
+    ctx.fillRect(x, L.gridY, L.cellW, L.gridH);
+    ctx.strokeStyle = theme === "dark" ? "#e6e9ef" : "#111827";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - 1.5, y - 1.5, L.cellW + 3, L.cellH + 3);
+  }, [theme]);
 
   const renderCalendar = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    if (!canvas || width <= 0) return;
+    const L = computeLayout(width, grid.rows, grid.startYear);
+    layoutRef.current = L;
+    const ctx = prepareCanvas(canvas, L);
     if (!ctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = WIDTH * dpr;
-    canvas.height = HEIGHT * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    const isDark = theme === "dark";
+    const rawRamp = isDark ? RAW_RAMP_DARK : RAW_RAMP_LIGHT;
+    const emptyRgb = isDark ? EMPTY_DARK : EMPTY_LIGHT;
+    const gridLine = isDark ? "rgba(255,255,255,0.08)" : "rgba(220,220,220,0.85)";
+    const guideLine = isDark ? "rgba(255,255,255,0.10)" : "rgba(196,196,196,0.55)";
+    const monthLabel = isDark ? "#7b8494" : "#6b7280";
+    const yearLabel = isDark ? "#9aa3b2" : "#4b5563";
+    const labelBg = isDark ? "rgba(18,22,31,0.94)" : "rgba(255,255,255,0.94)";
 
-    const hatchRepaired = createHatchPattern(
-      ctx,
-      "rgba(90, 167, 224, 0.55)",
-      "rgba(20, 32, 48, 0.35)",
-    );
-    const hatchForecast = createHatchPattern(
-      ctx,
-      "rgba(255, 180, 84, 0.7)",
-      "rgba(60, 38, 12, 0.4)",
-    );
+    const offscreen = (offscreenRef.current ??= document.createElement("canvas"));
+    if (offscreen.width !== DAY_COLUMNS) offscreen.width = DAY_COLUMNS;
+    if (offscreen.height !== grid.rows) offscreen.height = grid.rows;
+    const octx = offscreen.getContext("2d");
+    if (!octx) return;
+    const image = octx.createImageData(DAY_COLUMNS, grid.rows);
+    const px = image.data;
+    const curtainCol = viewMode === "RAW" ? DAY_COLUMNS : Math.round((DAY_COLUMNS * splitCurtainPct) / 100);
+    const rawScale = 1 / (grid.rawRef * 2.5);
+    const harmScale = 1 / (grid.harmRef * 1.25);
 
-    // Month guides
-    ctx.fillStyle = "rgba(152, 161, 176, 0.9)";
-    ctx.font = "500 10px 'Inter Variable', system-ui, sans-serif";
-    for (let month = 0; month < 12; month += 1) {
-      const x = PAD_LEFT + (MONTH_START_DOY[month] - 1) * cellWidth;
-      ctx.fillText(MONTHS[month], x + 1, PAD_TOP - 12);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x, PAD_TOP);
-      ctx.lineTo(x, HEIGHT - PAD_BOTTOM);
-      ctx.stroke();
-    }
-
-    // Year labels
-    ctx.fillStyle = "rgba(152, 161, 176, 0.85)";
-    ctx.font = "500 10px 'IBM Plex Mono', monospace";
-    for (let row = 0; row < TOTAL_YEARS; row += 1) {
-      const y = PAD_TOP + row * cellHeight;
-      ctx.fillText(String(START_YEAR + row), 8, y + cellHeight * 0.78);
-    }
-
-    const cells = analysisData?.calendar_series ?? [];
-    if (cells.length === 0) {
-      ctx.fillStyle = "rgba(255,255,255,0.03)";
-      ctx.fillRect(PAD_LEFT, PAD_TOP, plotWidth, plotHeight);
-      return;
-    }
-
-    let maxRaw = 1;
-    let maxFre = 1;
-    const cellMap = new Map<string, (typeof cells)[number]>();
-    for (const cell of cells) {
-      maxRaw = Math.max(maxRaw, cell.raw_hotspot_count);
-      maxFre = Math.max(maxFre, cell.harmonized_fre_mj_km2);
-      cellMap.set(`${cell.year}-${cell.doy}`, cell);
-    }
-
-    const curtainX = PAD_LEFT + plotWidth * (splitCurtainPct / 100);
-
-    for (let row = 0; row < TOTAL_YEARS; row += 1) {
-      const year = START_YEAR + row;
-      const y = PAD_TOP + row * cellHeight;
-
-      for (let doy = 1; doy <= DAYS; doy += 1) {
-        const cell = cellMap.get(`${year}-${doy}`);
-        const x = PAD_LEFT + (doy - 1) * cellWidth;
-
-        if (!cell) {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.025)";
-          ctx.fillRect(x, y, cellWidth - 0.4, cellHeight - 0.4);
-          continue;
-        }
-
-        const isRawSide = viewMode === "RAW" || x < curtainX;
-        if (isRawSide) {
-          const t = Math.min(1, cell.raw_hotspot_count / maxRaw);
-          ctx.fillStyle = rampColor(RAW_STOPS, t + 0.06, 0.92);
-        } else {
-          const t = Math.min(1, cell.harmonized_fre_mj_km2 / maxFre);
-          ctx.fillStyle = rampColor(HARMONIZED_STOPS, t + 0.06, 0.94);
-        }
-        ctx.fillRect(x, y, cellWidth - 0.4, cellHeight - 0.4);
-
-        if (cell.is_gap_filled && hatchRepaired) {
-          ctx.fillStyle = hatchRepaired;
-          ctx.fillRect(x, y, cellWidth - 0.4, cellHeight - 0.4);
-        }
+    for (let idx = 0; idx < grid.flags.length; idx++) {
+      const flag = grid.flags[idx];
+      const o = idx * 4;
+      px[o + 3] = 255;
+      if (!(flag & FLAG_DATA)) {
+        px[o] = emptyRgb[0];
+        px[o + 1] = emptyRgb[1];
+        px[o + 2] = emptyRgb[2];
+        continue;
       }
+      const useRaw = !(flag & FLAG_FORECAST) && idx % DAY_COLUMNS < curtainCol;
+      const v = useRaw ? grid.raw[idx] * rawScale : grid.harm[idx] * harmScale;
+      const lutIdx = Math.round(Math.pow(Math.min(1, v), 0.6) * 255) * 3;
+      const lut = useRaw ? rawRamp : HARM_RAMP;
+      px[o] = lut[lutIdx];
+      px[o + 1] = lut[lutIdx + 1];
+      px[o + 2] = lut[lutIdx + 2];
+    }
+    octx.putImageData(image, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(offscreen, L.gridX, L.gridY, L.gridW, L.gridH);
+
+    if (L.cellH >= 6) {
+      ctx.fillStyle = gridLine;
+      for (let r = 1; r < L.rows; r++) ctx.fillRect(L.gridX, L.gridY + r * L.cellH - 0.5, L.gridW, 1);
+    }
+    ctx.font = `9px ${FONT}`;
+    ctx.textAlign = "left";
+    MONTH_START_DOY.forEach((doy, m) => {
+      const x = L.gridX + (doy - 1) * L.cellW;
+      ctx.fillStyle = guideLine;
+      ctx.fillRect(x, L.gridY, 1, L.gridH);
+      ctx.fillStyle = monthLabel;
+      ctx.fillText(MONTH_LABELS[m], x + 2, PAD.top - 7);
+    });
+
+    const gapPattern = getHatchPattern(ctx, "gapFilled");
+    if (gapPattern && grid.gapCells.length) {
+      ctx.fillStyle = gapPattern;
+      fillRuns(ctx, L, grid.gapCells);
+    }
+    const forecastPattern = getHatchPattern(ctx, "forecast");
+    if (forecastPattern && grid.forecastCells.length) {
+      ctx.fillStyle = forecastPattern;
+      fillRuns(ctx, L, grid.forecastCells);
     }
 
-    // 14-day forecast band on the last row
-    const forecast = analysisData?.forecast_series ?? [];
-    if (forecast.length > 0) {
-      const y = PAD_TOP + (TOTAL_YEARS - 1) * cellHeight;
-      forecast.forEach((_cell, index) => {
-        const x = PAD_LEFT + (180 + index) * cellWidth;
-        if (hatchForecast) {
-          ctx.fillStyle = hatchForecast;
-          ctx.fillRect(x, y, cellWidth * 1.4, cellHeight - 0.4);
-        }
-      });
+    const step = L.cellH >= 9 ? 1 : 2;
+    for (let r = 0; r < L.rows; r++) {
+      const year = L.startYear + r;
+      const isSelected = year === selectedYear;
+      if (r % step !== 0 && !isSelected && year !== VIIRS_MARKER.year && year !== AQUA_MARKER.year) continue;
+      ctx.font = `${isSelected ? "bold " : ""}9px ${FONT}`;
+      ctx.fillStyle = isSelected ? "#b30000" : yearLabel;
+      ctx.textAlign = "right";
+      ctx.fillText(String(year), L.gridX - 6, L.gridY + r * L.cellH + L.cellH / 2 + 3);
     }
-
-    // Split curtain
-    ctx.strokeStyle = "rgba(255, 107, 61, 0.95)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(curtainX, PAD_TOP - 4);
-    ctx.lineTo(curtainX, HEIGHT - PAD_BOTTOM);
-    ctx.stroke();
-    ctx.fillStyle = "#FF6B3D";
-    ctx.beginPath();
-    ctx.arc(curtainX, PAD_TOP - 6, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Historical markers
-    const marker = (doy: number, label: string, color: string) => {
-      const x = PAD_LEFT + (doy - 1) * cellWidth;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      ctx.moveTo(x, PAD_TOP);
-      ctx.lineTo(x, HEIGHT - PAD_BOTTOM);
-      ctx.stroke();
+    ctx.textAlign = "left";
+    const selRow = selectedYear - L.startYear;
+    if (selRow >= 0 && selRow < L.rows) {
+      ctx.strokeStyle = "#b30000";
+      ctx.lineWidth = 1.5;
       ctx.setLineDash([]);
-      ctx.fillStyle = color;
-      ctx.font = "500 9px 'Inter Variable', system-ui, sans-serif";
-      ctx.fillText(label, x + 4, PAD_TOP + 12);
-    };
-    marker(1, "Jan 2012 · VIIRS joins", "rgba(255, 180, 84, 0.9)");
-    marker(225, "Aug 2022 · Aqua safe mode", "rgba(229, 72, 77, 0.9)");
-  }, [analysisData, viewMode, splitCurtainPct, plotWidth, plotHeight, cellWidth, cellHeight]);
+      ctx.strokeRect(L.gridX - 0.75, L.gridY + selRow * L.cellH - 0.75, L.gridW + 1.5, L.cellH + 1.5);
+    }
+
+    const viirsRow = VIIRS_MARKER.year - L.startYear;
+    if (viirsRow >= 0 && viirsRow < L.rows) {
+      const y = L.gridY + viirsRow * L.cellH;
+      ctx.strokeStyle = VIIRS_MARKER.color;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(L.gridX - 4, y);
+      ctx.lineTo(L.gridX + L.gridW, y);
+      ctx.stroke();
+      labelBox(ctx, VIIRS_MARKER.label, L.gridX + L.gridW - 2, y - 2, VIIRS_MARKER.color, labelBg, "right");
+    }
+    const aquaRow = AQUA_MARKER.year - L.startYear;
+    if (aquaRow >= 0 && aquaRow < L.rows) {
+      const x = L.gridX + (AQUA_MARKER.startDoy - 1) * L.cellW;
+      const w = (AQUA_MARKER.endDoy - AQUA_MARKER.startDoy + 1) * L.cellW;
+      const y = L.gridY + aquaRow * L.cellH;
+      ctx.strokeStyle = AQUA_MARKER.color;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 2]);
+      ctx.strokeRect(x - 2, y - 2, w + 4, L.cellH + 4);
+      ctx.setLineDash([]);
+      ctx.font = `9px ${FONT}`;
+      const labelWidth = ctx.measureText(AQUA_MARKER.label).width + 8;
+      const fitsRight = x + w + 6 + labelWidth < L.gridX + L.gridW;
+      labelBox(ctx, AQUA_MARKER.label, fitsRight ? x + w + 6 : x - 6, y + L.cellH / 2 + 3, AQUA_MARKER.color, labelBg, fitsRight ? "left" : "right");
+    }
+
+    if (viewMode === "HARMONIZED") {
+      const cx = L.gridX + (L.gridW * splitCurtainPct) / 100;
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "#1d4ed8";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, L.gridY - 4);
+      ctx.lineTo(cx, L.gridY + L.gridH + 2);
+      ctx.stroke();
+      ctx.font = `bold 8px ${FONT}`;
+      const tagY = L.gridY + L.gridH + 12;
+      if (splitCurtainPct > 6) {
+        ctx.fillStyle = isDark ? "#9aa3b2" : "#475569";
+        ctx.textAlign = "right";
+        ctx.fillText("◀ RAW COUNTS", cx - 4, tagY);
+      }
+      if (splitCurtainPct < 94) {
+        ctx.fillStyle = "#b30000";
+        ctx.textAlign = "left";
+        ctx.fillText("HARMONIZED ENERGY ▶", cx + 4, tagY);
+      }
+      ctx.textAlign = "left";
+    }
+
+    if (!grid.hasData) {
+      ctx.fillStyle = monthLabel;
+      ctx.font = `11px ${FONT}`;
+      ctx.textAlign = "center";
+      ctx.fillText("Waiting for the analysis…", L.gridX + L.gridW / 2, L.gridY + L.gridH / 2);
+      ctx.textAlign = "left";
+    }
+
+    drawOverlay(useAnalysisStore.getState().hoveredDay);
+  }, [grid, viewMode, splitCurtainPct, selectedYear, width, drawOverlay, theme]);
 
   useEffect(() => {
     renderCalendar();
   }, [renderCalendar]);
 
-  const pointToCell = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  useEffect(
+    () =>
+      useAnalysisStore.subscribe((state, prev) => {
+        if (state.hoveredDay !== prev.hoveredDay) drawOverlay(state.hoveredDay);
+      }),
+    [drawOverlay]
+  );
+
+  const locate = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const L = layoutRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return null;
+    if (!L || !canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) * WIDTH) / rect.width;
-    const y = ((event.clientY - rect.top) * HEIGHT) / rect.height;
-    const doy = Math.floor((x - PAD_LEFT) / cellWidth) + 1;
-    const row = Math.floor((y - PAD_TOP) / cellHeight);
-    if (doy < 1 || doy > DAYS || row < 0 || row >= TOTAL_YEARS) return null;
-    return { year: START_YEAR + row, doy };
+    const x = (e.clientX - rect.left) * (L.width / rect.width);
+    const y = (e.clientY - rect.top) * (L.height / rect.height);
+    const col = Math.floor((x - L.gridX) / L.cellW);
+    const row = Math.floor((y - L.gridY) / L.cellH);
+    if (col < 0 || col >= DAY_COLUMNS || row < 0 || row >= L.rows) return null;
+    return { year: L.startYear + row, doy: col + 1 };
   };
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const loc = locate(e);
+    if (loc && useAnalysisStore.getState().calendarIndex.has(calendarKey(loc.year, loc.doy))) {
+      setHoveredDay({ ...loc, clientX: e.clientX, clientY: e.clientY });
+    } else {
+      setHoveredDay(null);
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const loc = locate(e);
+    if (loc) setSelectedYear(loc.year);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedYear(selectedYear + (e.key === "ArrowUp" ? -1 : 1));
+    }
+  };
+
+  const curtainDisabled = viewMode === "RAW";
+
   return (
-    <div className="rounded-2xl border border-line bg-surface p-4 shadow-panel">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
-            <CalendarDays className="h-4 w-4 text-ember" />
-            Burning activity calendar
-            <span className="rounded-md border border-line bg-base/60 px-2 py-0.5 font-mono text-[10px] text-dim">
-              {selectedYear}
-            </span>
+    <div className="border border-rule bg-panel p-6">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-2xl">
+          <h3 className="font-serif text-lg text-ink">
+            Burning activity calendar ({startYear}–{endYear})
           </h3>
-          <p className="mt-0.5 text-xs text-dim">
-            Click a row to inspect a year. Drag the curtain to compare raw and
-            harmonized data.
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            Each row is a year, each column a day. Drag the curtain to put raw hot-spot counts on the
+            left against harmonized fire energy on the right.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 rounded-lg border border-line bg-base/60 px-3 py-1.5">
-          <span className="text-[10px] font-medium text-dim">2012 curtain</span>
+        <label
+          className={`flex items-center gap-2 border border-rule px-3 py-1.5 text-xs ${curtainDisabled ? "opacity-50" : ""}`}
+          title={curtainDisabled ? "Switch to Harmonized to use the curtain" : "Left: raw counts · right: harmonized energy"}
+        >
+          <span className="text-muted">2012 curtain</span>
           <input
             type="range"
             min={0}
             max={100}
             value={splitCurtainPct}
-            onChange={(event) => setSplitCurtainPct(Number(event.target.value))}
-            className="w-28 accent-ember"
+            disabled={curtainDisabled}
+            onChange={(e) => setSplitCurtainPct(Number(e.target.value))}
+            className="w-28 cursor-pointer accent-[#1d4ed8] disabled:cursor-not-allowed"
+            aria-label="2012 curtain position"
           />
-          <span className="w-8 font-tabular text-[11px] text-ink">
-            {splitCurtainPct}%
-          </span>
-        </div>
+          <span className="w-9 text-right text-ink tnum">{splitCurtainPct}%</span>
+        </label>
       </div>
 
-      <div className="relative w-full">
+      <div ref={containerRef} className="relative w-full border border-rule" style={{ height: CANVAS_CSS_HEIGHT }}>
         <canvas
           ref={canvasRef}
-          style={{ width: "100%", height: "auto", aspectRatio: `${WIDTH} / ${HEIGHT}` }}
-          onClick={(event) => {
-            const cell = pointToCell(event);
-            if (cell) setSelectedYear(cell.year);
-          }}
-          onMouseMove={(event) => {
-            const cell = pointToCell(event);
-            setHoveredDay(cell ? `${cell.year} (DOY: ${cell.doy})` : null);
-          }}
+          tabIndex={0}
+          role="img"
+          aria-label={`Burning activity calendar ${startYear}–${endYear}, ${viewMode === "RAW" ? "raw" : "harmonized"} view`}
+          onClick={handleClick}
+          onMouseMove={handleMouseMove}
           onMouseLeave={() => setHoveredDay(null)}
-          className="cursor-crosshair rounded-lg border border-line bg-base"
+          onKeyDown={handleKeyDown}
+          className="absolute inset-0 h-full w-full cursor-crosshair bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-reference"
         />
+        <canvas ref={overlayRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" />
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] text-dim">
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-muted">
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-4 rounded-sm" style={{ background: "linear-gradient(90deg,#241016,#E5484D)" }} />
-          Raw counts
+          <span className="inline-block h-2.5 w-8" style={{ background: "linear-gradient(90deg, rgb(229,231,235), rgb(71,85,105))" }} />
+          Raw hot-spot count
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-4 rounded-sm" style={{ background: "linear-gradient(90deg,#7A2D1E,#FFE29A)" }} />
-          Harmonized energy
+          <span className="inline-block h-2.5 w-8" style={{ background: "linear-gradient(90deg, rgb(254,240,217), rgb(253,190,133), rgb(230,85,13), rgb(179,0,0))" }} />
+          Harmonized energy (MJ/km²)
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-4 rounded-sm border border-info/50" style={{ background: "repeating-linear-gradient(45deg, rgba(90,167,224,0.5) 0 2px, transparent 2px 4px)" }} />
-          Auto-repaired day
+          <span className="inline-block h-2.5 w-4 border border-rule" style={{ background: hatchCss("gapFilled") }} />
+          Repaired (Kalman)
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-4 rounded-sm border border-heat/50" style={{ background: "repeating-linear-gradient(45deg, rgba(255,180,84,0.6) 0 2px, transparent 2px 4px)" }} />
+          <span className="inline-block h-2.5 w-4 border border-rule" style={{ background: hatchCss("forecast") }} />
           14-day forecast
         </span>
       </div>

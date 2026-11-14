@@ -2,3 +2,7 @@
 .env
 .env.*
 !.env.example
+
+# Local scratch / personal folders (not part of the project)
+/frontendAntonioTemp/
+/skills/
