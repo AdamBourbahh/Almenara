@@ -1,5 +1,28 @@
 # Change log — integration changes
 
+## 2026-11-14 — Incident explanation and acceptance tests
+
+Reproduced the user's Madrid 24 July 2026 failure with live providers. Search found
+relevant reports but the official-only short-quote gate discarded useful explanations.
+Repaired provider selection and queries, article-body/encoding extraction, approved
+redirect handling and diverse official/news retrieval. A source-URL index supplies a
+verified official starting point for Madrid without embedding any incident answer.
+Regional passage selection prevents multi-fire liveblogs from assigning another
+incident's cause to Madrid. Explanations distinguish reported spread from ignition;
+model failure can return validated reporting instead of only database counts.
+Added deterministic scientific guidance, unavailable-metric handling and multilingual
+numeric-intent fixes, plus a real-data acceptance runner with explicit answer-quality
+checks and independent SQL counts. Full-text articles are not copied into public
+citation records. Existing API contracts and map/calendar interactions are unchanged.
+
+Validation: 419 backend tests (57 new acceptance/retrieval cases), 19 frontend tests
+and the production build pass. Twelve real-data scenarios pass both with actual
+search/model providers and with providers disabled. Numerical checks use independent
+SQL. The Madrid 2026-07-24 case must contain a sourced spread explanation, rather than
+only counts or a generic refusal. Reports are under root
+`docs/verification/2026-11-14-copilot-acceptance/`. This finite matrix does not claim
+perfect answers to every possible question or independently certify incident causes.
+
 ## 2026-11-14 — Dependency repair and synchronized integration
 
 Completed the pending main rebase and resolved five accidentally committed conflict

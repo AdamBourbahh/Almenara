@@ -55,8 +55,9 @@ inferred from detection counts, power, weather theory or the busiest day.
 
 The assistant searches official agencies and reputable news, reads a bounded number of
 official pages, and checks related scientific publication metadata using Crossref.
-A causal excerpt must be present in retrieved official text, retain its complete
-sentence and uncertainty, and match a nearby explicit event date and locality. Search
+Reported explanations must be grounded in retrieved official or reputable-news text,
+retain uncertainty and match the requested date/locality. Ignition, spread conditions
+and incident context are treated separately. Search
 snippets remain leads. DOI metadata and general scientific papers do not establish the
 cause of a particular fire. Useful sources are cited, without inflating source counts.
 This is retrieval and evidence checking, not model training. Source details can be
@@ -96,9 +97,11 @@ when no reports are found.
 Run the chatbot checks from `firms-harmonizer/`:
 
 ```bash
-python -m pytest backend/tests/test_explain_spike.py backend/tests/test_copilot_metrics.py backend/tests/test_copilot_research.py -q
+python -m pytest backend/tests/test_explain_spike.py backend/tests/test_copilot_metrics.py backend/tests/test_copilot_research.py backend/tests/test_copilot_acceptance.py -q
 python scripts/06_validate_copilot.py --output data/processed/copilot_validation_offline.json
 python scripts/06_validate_copilot.py --live --output data/processed/copilot_validation_live.json
+python scripts/08_validate_copilot_acceptance.py
+python scripts/08_validate_copilot_acceptance.py --live
 cd frontend && node --test tests/*.test.mjs && npm run build
 ```
 

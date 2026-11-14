@@ -1,0 +1,375 @@
+{
+  "mode": "live",
+  "cases": [
+    {
+      "id": "madrid_cause",
+      "question": "por que sucedio ese incendio en madrid el 24 de julio de 2026",
+      "elapsed_ms": 6358,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "independent_count": true,
+        "answers_reported_spread": true,
+        "no_other_incident_as_answer": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "### Answer\n\nThe cited report discusses wind, temperature, merging fire fronts in explaining the fire’s development. This describes spread, not proof of ignition. [W1] Reported regional incidents are not automatically a match to each selected satellite cell.\n\n### What the local data show\n\n**1,384 satellite detections** in **Madrid study envelope, Spain**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Reported spread conditions\n\n**Comunidad de Madrid reports:** The cited report discusses wind, temperature, merging fire fronts in explaining the fire’s development. This describes spread, not proof of ignition. [W1]\n\n### Ignition cause\n\nThe retrieved reports do not establish the ignition cause. Conditions that help a fire spread are not proof of what ignited it.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\nRelated scientific literature: [7] [8] [9] Publication metadata checked through Crossref; full texts have not been reviewed. These papers do not investigate this selected incident. Expand Sources for titles and DOI links.",
+      "sources": [
+        {
+          "id": "[5]",
+          "title": "NASA FIRMS active fire observations",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "dataset_or_doi": "NASA Earthdata / FIRMS"
+        },
+        {
+          "id": "[2]",
+          "title": "The New VIIRS 375 m active fire detection product",
+          "url": "https://doi.org/10.1016/j.rse.2013.12.008",
+          "dataset_or_doi": "10.1016/j.rse.2013.12.008"
+        },
+        {
+          "id": "[3]",
+          "title": "The Collection 6 MODIS active fire detection algorithm and fire products",
+          "url": "https://doi.org/10.1016/j.rse.2016.02.054",
+          "dataset_or_doi": "10.1016/j.rse.2016.02.054"
+        },
+        {
+          "id": "[W1]",
+          "title": "Madrid regional government's report on the Sierra Oeste fire, 24 July 2026",
+          "url": "https://www.comunidad.madrid/noticias/2026/07/24/diaz-ayuso-es-peor-incendio-historia-comunidad-madrid-prioridad-es-salvar-vidas",
+          "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed"
+        },
+        {
+          "id": "[7]",
+          "title": "Wildfire prevention must distinguish ignition from fire weather",
+          "url": "https://doi.org/10.1136/bmj-2026-101082",
+          "dataset_or_doi": "10.1136/bmj-2026-101082; Crossref publication metadata; full text not reviewed"
+        },
+        {
+          "id": "[8]",
+          "title": "Inferring Wildfire Ignition Causes in Spain Using Machine Learning and Explainable AI",
+          "url": "https://doi.org/10.3390/fire9040138",
+          "dataset_or_doi": "10.3390/fire9040138; Crossref publication metadata; full text not reviewed"
+        },
+        {
+          "id": "[9]",
+          "title": "Incorporating Short-Term Forecast Mean Winds and NWP Maximum Gusts into Effective Wind Speed for Extreme Weather-Aware Wildfire Spread Prediction",
+          "url": "https://doi.org/10.3390/fire9010031",
+          "dataset_or_doi": "10.3390/fire9010031; Crossref publication metadata; full text not reviewed"
+        }
+      ]
+    },
+    {
+      "id": "madrid_english",
+      "question": "Why did the Madrid fire spread on 24 July 2026?",
+      "elapsed_ms": 6643,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "independent_count": true,
+        "answers_reported_spread": true,
+        "no_other_incident_as_answer": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "### Answer\n\nThe fire’s severity was linked to exceptionally high temperatures, strong wind, and the merging of three separate fires, which together amplified the spread. [W1] Reported regional incidents are not automatically a match to each selected satellite cell.\n\n### What the local data show\n\n**1,384 satellite detections** in **Madrid study envelope, Spain**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Reported spread conditions\n\n**Comunidad de Madrid reports:** The fire’s severity was linked to exceptionally high temperatures, strong wind, and the merging of three separate fires, which together amplified the spread. [W1]\n\n**elpais.com reports:** Three fire fronts merged into a single front, expanding the area affected and forcing evacuations across multiple municipalities. [W3]\n\n### Ignition cause\n\nThe retrieved reports do not establish the ignition cause. Conditions that help a fire spread are not proof of what ignited it.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\nRelated scientific literature: [7] [8] [9] Publication metadata checked through Crossref; full texts have not been reviewed. These papers do not investigate this selected incident. Expand Sources for titles and DOI links.",
+      "sources": [
+        {
+          "id": "[5]",
+          "title": "NASA FIRMS active fire observations",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "dataset_or_doi": "NASA Earthdata / FIRMS"
+        },
+        {
+          "id": "[2]",
+          "title": "The New VIIRS 375 m active fire detection product",
+          "url": "https://doi.org/10.1016/j.rse.2013.12.008",
+          "dataset_or_doi": "10.1016/j.rse.2013.12.008"
+        },
+        {
+          "id": "[3]",
+          "title": "The Collection 6 MODIS active fire detection algorithm and fire products",
+          "url": "https://doi.org/10.1016/j.rse.2016.02.054",
+          "dataset_or_doi": "10.1016/j.rse.2016.02.054"
+        },
+        {
+          "id": "[W1]",
+          "title": "Madrid regional government's report on the Sierra Oeste fire, 24 July 2026",
+          "url": "https://www.comunidad.madrid/noticias/2026/07/24/diaz-ayuso-es-peor-incendio-historia-comunidad-madrid-prioridad-es-salvar-vidas",
+          "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed"
+        },
+        {
+          "id": "[W3]",
+          "title": "Los incendios forestales - 24 de julio de 2026 | Más de 60. ...",
+          "url": "https://elpais.com/espana/2026-07-24/ultima-hora-de-los-incendios-forestales-en-directo.html",
+          "dataset_or_doi": "News report; article text retrieved; incident match unconfirmed"
+        },
+        {
+          "id": "[7]",
+          "title": "Wildfire prevention must distinguish ignition from fire weather",
+          "url": "https://doi.org/10.1136/bmj-2026-101082",
+          "dataset_or_doi": "10.1136/bmj-2026-101082; Crossref publication metadata; full text not reviewed"
+        },
+        {
+          "id": "[8]",
+          "title": "Inferring Wildfire Ignition Causes in Spain Using Machine Learning and Explainable AI",
+          "url": "https://doi.org/10.3390/fire9040138",
+          "dataset_or_doi": "10.3390/fire9040138; Crossref publication metadata; full text not reviewed"
+        },
+        {
+          "id": "[9]",
+          "title": "Incorporating Short-Term Forecast Mean Winds and NWP Maximum Gusts into Effective Wind Speed for Extreme Weather-Aware Wildfire Spread Prediction",
+          "url": "https://doi.org/10.3390/fire9010031",
+          "dataset_or_doi": "10.3390/fire9010031; Crossref publication metadata; full text not reviewed"
+        }
+      ]
+    },
+    {
+      "id": "madrid_facts",
+      "question": "What happened in Madrid on 24 July 2026?",
+      "elapsed_ms": 4572,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "independent_count": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "### Answer\n\nTwo regional news reports describe a large fire affecting the Sierra Oeste area of the Community of Madrid that was active on 24 July 2026. The president of the Community, Isabel Díaz Ayuso, reported from an advanced command post in Cenicientos that the incident was being treated as the worst in the region’s history, with efforts focused on protecting lives and supporting affected municipalities. She also announced a €1 million emergency contract to aid livestock producers and repair infrastructure damaged by the fire. Both reports refer to the same date and region, confirming that a significant wildfire was ongoing in the Madrid study envelope on that day, though they do not provide specific satellite detection details or exact damage estimates. [W1] [W2]\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,384 satellite detections** in the **Madrid study envelope, Spain** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **87,121.19 MW**.\n- Strongest individual detection: **1,237.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "sources": [
+        {
+          "id": "[5]",
+          "title": "NASA FIRMS active fire observations",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "dataset_or_doi": "NASA Earthdata / FIRMS"
+        },
+        {
+          "id": "[W1]",
+          "title": "Madrid regional government's report on the Sierra Oeste fire, 24 July 2026",
+          "url": "https://www.comunidad.madrid/noticias/2026/07/24/diaz-ayuso-es-peor-incendio-historia-comunidad-madrid-prioridad-es-salvar-vidas",
+          "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed"
+        },
+        {
+          "id": "[W2]",
+          "title": "Díaz Ayuso anuncia un millón de euros ... - Comunidad de Madrid",
+          "url": "https://www.comunidad.madrid/noticias/2026/07/24/diaz-ayuso-anuncia-millon-euros-ayudar-ganaderos-afectados-incendios-alimentacion-asistencia-veterinaria",
+          "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed"
+        }
+      ]
+    },
+    {
+      "id": "madrid_counts",
+      "question": "How many detections in Madrid on 24 July 2026?",
+      "elapsed_ms": 113,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "independent_count": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "### Satellite observations\n\nThe local FIRMS archive contains **1,384 satellite detections** in the **Madrid study envelope, Spain** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **87,121.19 MW**.\n- Strongest individual detection: **1,237.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "sources": [
+        {
+          "id": "[5]",
+          "title": "NASA FIRMS active fire observations",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "dataset_or_doi": "NASA Earthdata / FIRMS"
+        }
+      ]
+    },
+    {
+      "id": "madrid_power",
+      "question": "Total FRP in Madrid on 24 July 2026",
+      "elapsed_ms": 108,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "independent_count": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "### Satellite observations\n\nThe local FIRMS archive contains **1,384 satellite detections** in the **Madrid study envelope, Spain** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **87,121.19 MW**.\n- Strongest individual detection: **1,237.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "sources": [
+        {
+          "id": "[5]",
+          "title": "NASA FIRMS active fire observations",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "dataset_or_doi": "NASA Earthdata / FIRMS"
+        }
+      ]
+    },
+    {
+      "id": "madrid_energy",
+      "question": "How many GJ in Madrid on 24 July 2026?",
+      "elapsed_ms": 431,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "energy_computed": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "### Energy result\n\nFor **Madrid study envelope, Spain**, **2026-07-24 to 2026-07-24**, the scientific cube gives **1,918,710.861 GJ** of integrated fire radiative energy. [6]\n\n### Scope and method\n\nThis uses RTS Kalman reconstruction, with industrial heat sources excluded. The calculation covers **9,995.374 km²** of represented H3 cells and **1 days**, including **0 reconstructed days**. It uses the dashboard's 2001–2026 analysis history, then selects the requested inclusive dates.\n\n### Derived estimates\n\n- Estimated dry biomass consumed: **706,085.597 tonnes** (0.368 kg/MJ). This is a model-derived estimate, not measured burned area or emissions. [1]\n\n- The highest-energy day in this period is **2026-07-24** with **1,918,710.861 GJ**. [6]\n\n### Interpretation\n\nGJ = Σ daily FRE (MJ/km²) × represented area (km²) / 1,000. This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. Raw detection counts below use accepted centers before the scientific industrial-source filter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,384 satellite detections** in the **Madrid study envelope, Spain** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **87,121.19 MW**.\n- Strongest individual detection: **1,237.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "sources": [
+        {
+          "id": "[5]",
+          "title": "NASA FIRMS active fire observations",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "dataset_or_doi": "NASA Earthdata / FIRMS"
+        },
+        {
+          "id": "[6]",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "url": null,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze"
+        },
+        {
+          "id": "[1]",
+          "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "dataset_or_doi": "10.1029/2005JD006318"
+        }
+      ]
+    },
+    {
+      "id": "manaus_counts",
+      "question": "Quantas deteccoes em Manaus em September 2024?",
+      "elapsed_ms": 321,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "independent_count": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "### Satellite observations\n\nThe local FIRMS archive contains **19,123 satellite detections** in the **Amazonas / Manaus study envelope, Brazil** for **2024-09-01 to 2024-09-30** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **265,757.40 MW**.\n- Strongest individual detection: **6,548.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "sources": [
+        {
+          "id": "[5]",
+          "title": "NASA FIRMS active fire observations",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "dataset_or_doi": "NASA Earthdata / FIRMS"
+        }
+      ]
+    },
+    {
+      "id": "careiro",
+      "question": "How many fires in Careiro on 13 September 2024?",
+      "elapsed_ms": 109,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "independent_count": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "### Satellite observations\n\nThe local FIRMS archive contains **834 satellite detections** in the **Careiro study envelope, Amazonas, Brazil** for **2024-09-13** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **10,189.18 MW**.\n- Strongest individual detection: **182.02 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "sources": [
+        {
+          "id": "[5]",
+          "title": "NASA FIRMS active fire observations",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "dataset_or_doi": "NASA Earthdata / FIRMS"
+        }
+      ]
+    },
+    {
+      "id": "gj_definition",
+      "question": "¿Qué significa GJ?",
+      "elapsed_ms": 8,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "unit_conversion": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "A gigajoule (GJ) is 1,000 megajoules (MJ), or one billion joules. Here total energy is daily FRE density (MJ/km²) integrated over represented H3 area and the selected days, divided by 1,000. Summing instantaneous FRP values in MW does not produce GJ. [1] [6]",
+      "sources": [
+        {
+          "id": "[6]",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "url": null,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze"
+        },
+        {
+          "id": "[1]",
+          "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "dataset_or_doi": "10.1029/2005JD006318"
+        }
+      ]
+    },
+    {
+      "id": "pm25_unavailable",
+      "question": "How much PM2.5 was emitted in Madrid in 2026?",
+      "elapsed_ms": 6,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "no_substitute_counts": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "This chat endpoint does not compute a verified total of burned hectares, CO2 or PM2.5 emissions. Detections and instantaneous MW cannot substitute for those measurements. I can query integrated energy and model-derived biomass, or explain the additional burned-area and emission-factor data needed. [1] [6]",
+      "sources": [
+        {
+          "id": "[6]",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "url": null,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze"
+        },
+        {
+          "id": "[1]",
+          "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "dataset_or_doi": "10.1029/2005JD006318"
+        }
+      ]
+    },
+    {
+      "id": "impossible_date",
+      "question": "How many detections in Madrid on 31 February 2026?",
+      "elapsed_ms": 5,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "invalid_explained": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "The date is invalid. Use a real calendar date, such as 2026-07-24.",
+      "sources": []
+    },
+    {
+      "id": "help",
+      "question": "What can you do?",
+      "elapsed_ms": 5,
+      "checks": {
+        "http_ok": true,
+        "nonempty": true,
+        "real": true,
+        "links_safe": true,
+        "no_empty_or_invented_citations": true
+      },
+      "answer": "I can explain a reported fire, query local detections and energy in GJ, compare years within one area, and explain MODIS/VIIRS, uncertainty and reconstruction. Select an area and date or name a place and period. For ignition causes I distinguish sourced reports from satellite measurements.",
+      "sources": []
+    }
+  ],
+  "limits": "Case-specific acceptance, not a guarantee about every possible question or independent certification of reports.",
+  "passed": 12,
+  "total": 12
+}

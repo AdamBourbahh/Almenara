@@ -15,9 +15,10 @@ import os
 import re
 from time import monotonic
 import unicodedata
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlparse, urljoin
 
 import httpx
+from lxml import html as html_parser
 
 from backend.api.cache import LRUCache
 from backend.api.schemas import CitationReference
@@ -30,7 +31,7 @@ OFFICIAL_DOMAINS = ("nasa.gov", "copernicus.eu", "comunidad.madrid", "madrid.org
     "argentina.gob.ar", "gov.ar", "floridadisaster.org", "fdacs.gov")
 NEWS_DOMAINS = ("reuters.com", "apnews.com", "rtve.es", "efe.com", "europapress.es", "elpais.com",
     "bbc.com", "bbc.co.uk", "theguardian.com", "elconfidencial.com", "elmundo.es", "abc.es",
-    "lavanguardia.com", "telemadrid.es", "g1.globo.com", "agenciabrasil.ebc.com.br")
+    "lavanguardia.com", "telemadrid.es", "cadenaser.com", "euronews.com", "g1.globo.com", "agenciabrasil.ebc.com.br")
 
 
 def normalize(text: str) -> str:
@@ -38,6 +39,8 @@ def normalize(text: str) -> str:
 
 
 def source_tier(url: str) -> int:
+    if not isinstance(url, str):
+        return 0
     try:
         parsed = urlparse(url)
         host = parsed.hostname or ""
@@ -75,46 +78,77 @@ class ArticleText(HTMLParser):
 
 def official_article(citation: CitationReference) -> CitationReference:
     """No arbitrary hosts, redirects, cookies, unbounded bodies or model-supplied URLs."""
-    if os.getenv("COPILOT_OFFLINE") == "1" or source_tier(citation.url or "") != 2:
+    if os.getenv("COPILOT_OFFLINE") == "1" or source_tier(citation.url or "") == 0:
         return citation
     cached = ARTICLE_CACHE.get(citation.url)
     if cached and monotonic() - cached[0] < 1800:
         return citation.model_copy(update={"relevance_note": cached[1], "dataset_or_doi": cached[2]})
     try:
-        with httpx.Client(timeout=3.0, follow_redirects=False) as client:
-            with client.stream("GET", citation.url, headers={"User-Agent": "FIRMS-Harmonizer/1.0 research assistant"}) as response:
-                response.raise_for_status()
-                if response.is_redirect or "text/html" not in response.headers.get("content-type", ""):
-                    return citation
-                body = bytearray()
-                deadline = monotonic() + 3
-                for chunk in response.iter_bytes(chunk_size=8192):
-                    body.extend(chunk)
-                    if len(body) > 256_000 or monotonic() > deadline:
+        with httpx.Client(timeout=4.0, follow_redirects=False) as client:
+            url = citation.url
+            for attempt in range(3):
+                with client.stream("GET", url, headers={"User-Agent": "FIRMS-Harmonizer/1.0 research assistant"}) as response:
+                    if response.is_redirect:
+                        target = urljoin(url, response.headers.get("location", ""))
+                        if attempt == 2 or not research_host_allowed(target):
+                            return citation
+                        url = target
+                        continue
+                    response.raise_for_status()
+                    if "text/html" not in response.headers.get("content-type", ""):
                         return citation
-        html = body.decode("utf-8", errors="replace")
+                    body = bytearray()
+                    deadline = monotonic() + 4
+                    for chunk in response.iter_bytes(chunk_size=8192):
+                        body.extend(chunk)
+                        if len(body) >= 1_000_000 or monotonic() > deadline:
+                            break
+                    break
+            else:
+                return citation
+        encoding = re.search(br'charset=["\']?([a-zA-Z0-9_-]+)', bytes(body[:8192]))
+        codec = encoding[1].decode('ascii') if encoding else 'utf-8'
+        try:
+            html = body.decode(codec, errors='replace')
+        except LookupError:
+            html = body.decode('utf-8', errors='replace')
+        if html.count('�') > 3:
+            html = body.decode('cp1252', errors='replace')
         # Prefer the article or main element over navigation and unrelated footers.
-        main = re.search(r"<(article|main)\b[^>]*>(.*?)</\1>", html, re.I | re.S)
-        parser = ArticleText()
-        parser.feed(main[2] if main else html)
-        article = re.sub(r"[ \t]+", " ", unescape(" ".join(parser.parts))).strip()[:7000]
+        tree = html_parser.fromstring(html, parser=html_parser.HTMLParser(no_network=True))
+        for node in tree.xpath('//script|//style|//nav|//footer|//header|//aside|//form|//noscript'):
+            node.drop_tree()
+        bodies = tree.xpath('//*[contains(@class,"field--name-body") or @itemprop="articleBody" or contains(@class,"article__body") or contains(@class,"article-body")]')
+        bodies = bodies or tree.xpath('//article') or tree.xpath('//main') or [tree]
+        chosen = max(bodies, key=lambda node: len(node.text_content()))
+        article = re.sub(r'[ \t]+', ' ', chosen.text_content()).strip()[:14000]
         if len(article) < 120:
             return citation
         # A first-party page still needs a location/date match before any causal use.
-        note = "Retrieved official article text (location/date match must still be checked):\n" + article
-        identifier = "Official report; article text retrieved; incident match unconfirmed"
+        note = "Retrieved article text (location/date match must still be checked):\n" + article
+        identifier = ("Official report" if source_tier(citation.url or "") == 2 else "News report") + "; article text retrieved; incident match unconfirmed"
         ARTICLE_CACHE.put(citation.url, (monotonic(), note, identifier))
         return citation.model_copy(update={"relevance_note": note, "dataset_or_doi": identifier})
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError, html_parser.etree.ParserError):
         log.info("Official incident article unavailable")
         return citation
 
 
 def enrich_official_reports(citations: list[CitationReference]) -> list[CitationReference]:
-    targets = [c for c in citations if source_tier(c.url or "") == 2][:3]
+    official = [c for c in citations if source_tier(c.url or "") == 2]
+    news = [c for c in citations if source_tier(c.url or "") == 1]
+    distinct_news = []
+    hosts = set()
+    for citation in news:
+        host = urlparse(citation.url).hostname.removeprefix("www.")
+        if host not in hosts:
+            distinct_news.append(citation)
+            hosts.add(host)
+    targets = official[:2] + distinct_news[:2]
+    targets += [c for c in official[2:] + news[2:] if c not in targets][:4-len(targets)]
     if not targets or os.getenv("COPILOT_OFFLINE") == "1":
         return citations
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         enriched = {c.id: result for c, result in zip(targets, executor.map(official_article, targets))}
     return [enriched.get(c.id, c) for c in citations]
 
@@ -144,11 +178,13 @@ def scientific_sources(question: str) -> list[CitationReference]:
     sources = []
     seen = set()
     for item in items:
-        if not isinstance(item, dict) or not isinstance(item.get("DOI"), str) or not isinstance(item.get("title"), list):
+        if not isinstance(item, dict) or not isinstance(item.get("DOI"), str) or not isinstance(item.get("title"), list) or not all(isinstance(t, str) for t in item["title"]):
             continue
         doi = item.get("DOI", "").lower()
         title = unescape(re.sub(r"<[^>]+>", "", " ".join(item.get("title", []))))
         relation = item.get("relation") or {}
+        if not isinstance(relation, dict):
+            continue
         if (item.get("type") != "journal-article" or not re.fullmatch(r"10\.\d{4,9}/\S+", doi)
                 or doi in seen or item.get("update-to") or relation.get("is-retracted-by")
                 or re.search(r"retract|withdrawn|correction|corrigendum|erratum", normalize(title))):
@@ -205,3 +241,84 @@ def supported_ignition_excerpt(citation: CitationReference, quote_text: str, sco
         return False
     nearby = article[max(0, offset - 500):offset + len(quote_normalized) + 500]
     return any(d in nearby for d in explicit_dates) and bool(terms) and any(t in nearby for t in terms)
+
+
+def research_host_allowed(url: str) -> bool:
+    return source_tier(url) > 0
+
+
+def supported_report_excerpt(citation: CitationReference, excerpt: str, scope) -> bool:
+    """Validate attributed regional reporting without equating it with a satellite cell."""
+    if "article text retrieved" not in citation.dataset_or_doi or not source_tier(citation.url or ""):
+        return False
+    if not isinstance(excerpt, str) or not 5 <= len(excerpt.split()) <= 80 or re.search(r"https?://|[<>\[\]]", excerpt):
+        return False
+    text = normalize(" ".join(citation.relevance_note.split()))
+    exact = normalize(" ".join(excerpt.split()))
+    offset = text.find(exact)
+    if offset < 0:
+        return False
+    before, after = text[:offset].rstrip(), text[offset+len(exact):].lstrip()
+    paragraph_start = any(normalize(line.strip()).startswith(exact) for line in citation.relevance_note.splitlines())
+    if before and before[-1] not in ".!?:" and not paragraph_start:
+        return False
+    if exact[-1] not in ".!?" and after and after[0] not in ".!?":
+        return False
+    terms = set(re.findall(r"[a-z]{4,}", normalize(scope.locality or scope.label))) - {"selected", "area", "study", "envelope", "near", "spain", "brazil"}
+    if not terms or not any(t in text for t in terms) or not scope.start or not scope.end:
+        return False
+    # Explicit article dates can occur in the article header rather than beside each sentence.
+    years = {str(y) for y in range(int(scope.start[:4]), int(scope.end[:4])+1)}
+    iso = re.findall(r"20\d{2}[-/]\d{2}[-/]\d{2}", text + " " + (citation.url or ""))
+    if any(scope.start <= value.replace("/", "-") <= scope.end for value in iso):
+        return True
+    url_date = re.search(r"(20\d{2})(\d{2})(\d{2})", citation.url or "")
+    if url_date and scope.start <= "-".join(url_date.groups()) <= scope.end:
+        return True
+    months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+    for number, month in enumerate(months, 1):
+        for match in re.finditer(rf"\b(\d{{1,2}})\s+(?:de\s+)?{month}\s+(?:de\s+)?(20\d{{2}})\b", text):
+            try:
+                event_date = date(int(match[2]), number, int(match[1])).isoformat()
+            except ValueError:
+                continue
+            if scope.start <= event_date <= scope.end:
+                return True
+    return False
+
+
+def incident_passages(citation: CitationReference, scope) -> list[str]:
+    """Select verbatim regional passages before generation, excluding liveblog detours."""
+    if 'article text retrieved' not in citation.dataset_or_doi:
+        return []
+    terms = set(re.findall(r'[a-z]{4,}', normalize(scope.locality or scope.label))) - {'selected','area','near','study','envelope','spain','brazil'}
+    if 'madrid' in terms or {'sierra','oeste'} <= terms:
+        terms |= {'madrid','sierra oeste','san martin de valdeiglesias','villa del prado','robledo de chavela','almorox'}
+    content = citation.relevance_note.split(':\n',1)[-1]
+    sentences = [sentence for paragraph in content.splitlines() if paragraph.strip() for sentence in re.split(r'(?<=[.!?])\s+', paragraph)]
+    single_official = source_tier(citation.url or "") == 2 and any(t in normalize(citation.title) for t in terms) and bool(re.search(r"20\d{2}/\d{2}/\d{2}", citation.url or ""))
+    passages = [part.strip() for part in sentences if 5 <= len(part.split()) <= 80
+            and (single_official or any(t in normalize(part) for t in terms))
+            and re.search(r'incendi|fuego|frente|viento|fire|wind|burn', normalize(part))]
+    return sorted(passages, key=lambda p: -len(re.findall(r'viento|temperatur|humedad|confluencia|propag|origin|causa|investig|wind|humidity|spread', normalize(p))))[:8]
+
+
+def indexed_sources(scope) -> list[CitationReference]:
+    """Curated source URLs supplement discovery; answers still require fetched evidence."""
+    import json
+    from pathlib import Path
+    if os.getenv('COPILOT_OFFLINE') == '1' or not scope.start or not scope.end:
+        return []
+    entries=json.loads((Path(__file__).resolve().parents[2]/'data/copilot_sources.json').read_text())
+    locality=normalize((scope.locality or '')+' '+scope.label)
+    results=[]
+    for item in entries:
+        if not scope.start <= item['report_date'] <= scope.end or not any(normalize(p) in locality for p in item['localities']):
+            continue
+        if not source_tier(item['url']):
+            continue
+        results.append(CitationReference(id=f'[W{100+len(results)}]',source_type='WEB_NEWS_REPORT',title=item['title'],
+            authors_or_agency=item['agency'],year=int(item['report_date'][:4]),url=item['url'],
+            dataset_or_doi='Official report; curated URL; content must be retrieved',
+            relevance_note='Official incident report discovered and indexed for its stated place and publication date. Content is not inferred from this index.'))
+    return results

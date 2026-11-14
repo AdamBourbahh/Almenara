@@ -149,3 +149,68 @@ def test_article_retrieval_extracts_only_text_and_refuses_redirects(monkeypatch)
     assert "Unrelated rumor" not in result.relevance_note
     redirect = official().model_copy(update={"url":"https://comunidad.madrid/redirect"})
     assert research.official_article(redirect) == redirect
+
+
+def test_liveblog_detours_cannot_be_presented_as_madrid_cause(real_archive, monkeypatch):
+    note=('Madrid. 24 de julio de 2026. El incendio de Madrid avanzó con fuertes vientos y altas temperaturas.\n'
+          'La Guardia Civil investiga el origen del incendio de Burgohondo por una posible imprudencia.')
+    article=official(note).model_copy(update={'url':'https://elpais.com/espana/2026-07-24/incendios.html',
+        'dataset_or_doi':'News report; article text retrieved; incident match unconfirmed'})
+    monkeypatch.setattr(copilot,'search_reports',lambda scope:([article],'test search'))
+    monkeypatch.setattr(copilot,'complete',lambda *a,**k:(json.dumps({'claims':[{'source_id':'[W1]','kind':'ignition',
+        'quote':'La Guardia Civil investiga el origen del incendio de Burgohondo por una posible imprudencia.',
+        'summary':'The Madrid fire was caused by negligence.'}]}),'mock'))
+    result=copilot.answer(ExplainSpikeRequest(user_question='Why did the Madrid fire happen on 24 July 2026?'))
+    assert result.physical_classification=='REPORTED_INCIDENT_CONTEXT'
+    assert 'Burgohondo' not in result.explanation_markdown
+    assert 'caused by negligence' not in result.explanation_markdown
+    assert 'vientos' in result.explanation_markdown
+
+
+def test_model_failure_still_returns_literal_reported_conditions(real_archive,monkeypatch):
+    article=official('Madrid. 24 de julio de 2026. El incendio de Madrid avanzó con fuertes vientos y altas temperaturas.').model_copy(
+        update={'url':'https://rtve.es/noticias/20260724/incendio','dataset_or_doi':'News report; article text retrieved'})
+    monkeypatch.setattr(copilot,'search_reports',lambda scope:([article],'mock'))
+    monkeypatch.setattr(copilot,'complete',lambda *a,**k:(None,'deterministic-offline-science'))
+    result=copilot.answer(ExplainSpikeRequest(user_question='Why did the Madrid fire spread on 24 July 2026?'))
+    assert 'vientos' in result.explanation_markdown
+    assert 'Reported spread conditions' in result.explanation_markdown
+    assert 'ignition cause' in result.explanation_markdown
+
+
+def test_official_long_spread_evidence_is_not_discarded_as_unknown_ignition(real_archive,monkeypatch):
+    sentence='La Comunidad de Madrid atribuye la gravedad del incendio a una combinación de temperaturas muy elevadas, fuertes vientos y la confluencia de tres incendios que se unieron en un único frente.'
+    article=official('Madrid. 24 de julio de 2026. '+sentence).model_copy(update={'url':'https://comunidad.madrid/noticias/2026/07/24/incendio'})
+    monkeypatch.setattr(copilot,'search_reports',lambda scope:([article],'mock'))
+    monkeypatch.setattr(copilot,'complete',lambda *a,**k:(json.dumps({'claims':[{'source_id':'[W1]',
+        'kind':'spread','quote':sentence,'summary':'The authority attributes severity to heat, wind and merging fire fronts.'}]}),'test'))
+    result=copilot.answer(ExplainSpikeRequest(user_question='Why did the Madrid fire spread on 24 July 2026?'))
+    assert 'heat, wind' in result.explanation_markdown.split('### What the local')[0]
+    assert 'The retrieved reports do not establish the ignition cause' in result.explanation_markdown
+
+
+@pytest.mark.parametrize('bad',[None,3,{},[],{'url':['https://rtve.es']},{'url':'https://rtve.es','body':{}}])
+def test_malformed_search_items_cannot_crash_the_assistant(bad):
+    scope=copilot.resolve_scope(ExplainSpikeRequest(user_question='Madrid 24 July 2026'))
+    assert copilot.filter_reports(scope,[bad])==[]
+
+
+def test_curated_index_contains_urls_not_incident_answers(monkeypatch):
+    monkeypatch.delenv('COPILOT_OFFLINE')
+    scope=copilot.resolve_scope(ExplainSpikeRequest(user_question='Madrid 24 July 2026'))
+    sources=research.indexed_sources(scope)
+    assert sources and all('content must be retrieved' in c.dataset_or_doi for c in sources)
+    assert all('temperatur' not in c.relevance_note.lower() for c in sources)
+    scope.start=scope.end='2025-07-24'
+    assert research.indexed_sources(scope)==[]
+
+
+def test_article_body_extraction_removes_share_links_and_preserves_encoding(monkeypatch):
+    monkeypatch.delenv('COPILOT_OFFLINE')
+    factory=httpx.Client
+    text='<html><meta charset="iso-8859-1"><main>Compartir en Facebook<div class="field--name-body"><p>Madrid. 24 de julio de 2026.</p><p>La gravedad del incendio de Madrid se atribuye al viento y las altas temperaturas. La investigación continúa sin causa confirmada.</p></div></main></html>'
+    monkeypatch.setattr(research.httpx,'Client',lambda **kw:factory(transport=httpx.MockTransport(lambda r:httpx.Response(200,content=text.encode('latin-1'),headers={'content-type':'text/html'})),**kw))
+    result=research.official_article(official())
+    assert 'investigación' in result.relevance_note
+    assert 'Compartir' not in result.relevance_note
+    assert '�' not in result.relevance_note

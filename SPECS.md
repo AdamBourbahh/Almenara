@@ -670,3 +670,39 @@ no model training or automatic confirmation of ignition causes is performed.
 Offline mode skips all external providers while retaining local data and curated
 scientific references. Source failures and insufficient context produce explicit,
 useful limitations. The single DeckGL mount and calendar canvas are preserved.
+
+### 5.7 Incident-answer acceptance and source extraction repair (2026-11-14)
+
+This revision supersedes the research restrictions in section 5.6.
+
+Incident research now reads both official reports and reputable news instead of
+requiring a short official ignition quotation before it can explain anything. Search
+queries separate place/date from provider syntax and use the supported automatic
+backend, with a localized date fallback. The curated `data/copilot_sources.json`
+contains source URLs and publication metadata, never ready-made event answers;
+its Madrid 2026-07-24 reference is fetched and validated before use.
+
+Up to four official/news articles are selected with publisher diversity. Every
+redirect target must remain on an allowed source host. HTML retrieval is bounded
+and honors character encodings. Article-body fields take precedence over navigation,
+sharing links and related-story fragments. The model sees region-relevant verbatim
+passages instead of an entire multi-incident liveblog. Reported ignition, spread
+conditions, incident context and uncertainty are separate categories. Literal source
+checks reject invented/truncated excerpts and unrelated liveblog incidents. Longer
+passages (up to 80 words) may be checked internally; returned citations omit full
+article bodies and displayed original excerpts are at most 25 words. Failure of model
+extraction can fall back to validated report passages with conservative English text.
+No source is equated automatically with a satellite cell or a known ignition cause.
+
+Deterministic help, unit definitions and unsupported-metric explanations work without
+providers. Unknown emissions/burned-area totals are not replaced by detection counts.
+Numeric intent recognizes multilingual paraphrases such as “number of fires”; scientific
+definitions such as “Qué significa GJ” are not routed as requests for an energy total.
+
+`scripts/08_validate_copilot_acceptance.py` runs twelve real-data acceptance cases;
+`--live` additionally exercises actual search/model providers. Assertions compare
+counts with independent SQL, check dates/provenance/citations, and require a sourced
+spread explanation for the user's Madrid 24 July case, rather than only HTTP success.
+The automated suite also covers provider failures, malformed results, evidence checks,
+encoding/navigation cleanup and multilingual scientific/data questions. These finite
+checks do not imply universal correctness or independent certification of every report.
