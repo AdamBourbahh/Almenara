@@ -146,46 +146,8 @@ export async function explainSpike(
   request: ExplainSpikeRequest,
   signal?: AbortSignal
 ): Promise<ApiResult<ExplainSpikeResponse>> {
-  try {
-    return { data: await postJson<ExplainSpikeResponse>("/explain-spike", request, signal), isSynthetic: false };
-  } catch (error) {
-    if (!isBackendUnavailable(error)) throw error;
-    console.warn("[firms-harmonizer] Backend unreachable. Using fallback for /explain-spike.", error);
-    return {
-      data: {
-        physical_classification: "EXTREME_VEGETATION_FIRE",
-        explanation_markdown:
-          "### Offline Fallback Explanation\n\nThermal spike detected by NASA sensors. Live backend connection currently unreachable; displaying deterministic physics grounding.",
-        citations: [
-          {
-            id: "[1]",
-            source_type: "PEER_REVIEWED",
-            title: "Retrieval of biomass combustion rates and totals from fire radiative power observations",
-            authors_or_agency: "Wooster, M. J., et al.",
-            year: 2005,
-            dataset_or_doi: "10.1029/2005JD006318",
-            url: "https://doi.org/10.1029/2005JD006318",
-            relevance_note: "Biomass combustion factor beta = 0.368 kg/MJ.",
-          },
-          {
-            id: "[5]",
-            source_type: "NASA_DATASET",
-            title: "Fire Information for Resource Management System (FIRMS)",
-            authors_or_agency: "NASA EOSDIS LANCE",
-            year: 2026,
-            dataset_or_doi: "NASA Earthdata / FIRMS",
-            url: "https://firms.modaps.eosdis.nasa.gov/",
-            relevance_note: "Active fire hot spots and FRP telemetry.",
-          },
-        ],
-        web_search_used: false,
-        search_query_executed: null,
-        model_used: "deterministic-offline-client",
-        data_source: "synthetic",
-      },
-      isSynthetic: true,
-    };
-  }
+  const data = await postJson<ExplainSpikeResponse>("/explain-spike", request, signal);
+  return { data, isSynthetic: data.data_source === "synthetic" };
 }
 
 // ============================================================================

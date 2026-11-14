@@ -20,6 +20,7 @@ dist/
 .vscode/
 # Rebuildable cubes and cache
 data/processed/*.parquet
+data/processed/copilot_validation.json
 data/cache/
 # Aider local history
 .aider.chat.history.md

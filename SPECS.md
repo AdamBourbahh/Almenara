@@ -309,6 +309,11 @@ class CitationReference(ContractModel):
     relevance_note: str
 
 
+class CopilotTurn(ContractModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=6000)
+
+
 class ExplainSpikeRequest(ContractModel):
     region_name: str = "Unknown Region"
     selected_day: DailyCalendarCell | None = None
@@ -316,6 +321,9 @@ class ExplainSpikeRequest(ContractModel):
     user_question: str = ""
     aoi: GeoJSONPolygon | None = None
     confidence_level: Literal["low", "nominal", "high"] = "nominal"
+    conversation: list[CopilotTurn] = Field(default_factory=list, max_length=12)
+    period_start: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    period_end: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
 
 class ExplainSpikeResponse(ContractModel):
@@ -362,3 +370,37 @@ the first satellite detection does not establish the actual ignition time.
 The current UI displays accepted, deduplicated FIRMS detection centers from the real staging dataset. `POST /api/observations` accepts a `GeoJSONPolygon` directly and returns real provenance, daily counts, summed instantaneous FRP in MW, all five instrument labels, per-R7 counts/FRP, first/last detection dates and the aggregation method. It never calls the scientific core, fills missing dates, estimates emissions or forecasts. No detections on a date does not establish zero fire activity or complete observation coverage. Counts are detections, not distinct fire events. Staging retains the ingestion quality and SAMA/date filters; raw FRP is not footprint-corrected or EQM-adjusted.
 
 The active region catalogue is `firms-harmonizer/data/regions.json`: entries with declared `coverage` are offered by the frontend. Current regions are Orlando, Manaus, Chilecito and the full Iberia study rectangle. Rectangles are study envelopes, not administrative boundaries. Section 5.3 and the frozen TypeScript preset helper describe legacy scientific demo cases and are not the active observations catalogue. Existing `/api/analyze` and `/api/chaos-monkey` contracts remain unchanged and are not used by the observations UI.
+
+
+### 5.5 Evidence-first Fire Copilot (2026-11-14)
+
+`POST /api/explain-spike` retains its existing fields and response shape. Additive,
+optional request fields `conversation` (at most 12 user/assistant turns, 6,000
+characters each), `period_start` and `period_end` (ISO date strings or null) carry
+follow-up context and the selected map period. Existing clients remain compatible.
+The Python/TypeScript contracts and CAMBIOS.md record these additions together.
+
+Question place/date override UI context. Supported names resolve to documented study
+envelopes; arbitrary AOIs preserve their geometry. Madrid, Sierra Oeste, Careiro and
+Autazes are geographic envelopes, not administrative polygons or known fire perimeters.
+Unknown places can use web evidence but never model-generated coordinates or SQL.
+Exact-day/date-range/year filtering of accepted staging detection centers uses R7
+polygon filling, unique R4 parents, registered Arrow filters, bound parameters and
+request-local DuckDB cursors. Synthetic mode never queries real staging for a real-event
+claim. Observed counts, summed instantaneous FRP, individual maxima and busiest days
+are calculated locally; counts do not identify distinct fires, severity or ignition.
+
+Groq model selection is configurable. Offline operation (`COPILOT_OFFLINE=1`), provider
+failure and invalid model output return useful deterministic local evidence. Quantitative
+questions use local calculations. Search results are candidate contextual reports;
+publication dates are not invented from the event date. `web_search_used` means relevant
+web results were retrieved, not that an incident was confirmed. Only citations actually
+used in an answer are returned, and the UI links their markers to the supplied sources.
+The model cannot introduce links or cite unknown source IDs. Missing search results do
+not establish a remote or undocumented fire. Entropy, reconstruction flags and a 2012
+date alone cannot confirm gas flaring, an actual fire or a fixed sensor artifact.
+
+`python scripts/06_validate_copilot.py` verifies real-data numerical answers offline;
+`--live` additionally exercises configured model and search providers and saves full
+answers for narrative/source review. Regression tests mock network services and cover
+scope precedence, follow-ups, exact dates, provenance, concurrency and provider failures.
