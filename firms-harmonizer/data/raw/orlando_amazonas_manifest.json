@@ -1,0 +1,363 @@
+{
+  "imported_on": "2026-11-14",
+  "source": "User-supplied NASA FIRMS CSV downloads",
+  "coverage_basis": "Bounds enclose the supplied coordinates; configured time spans use the first and last supplied detections. Original request interval metadata was not included; daily completeness is not established.",
+  "files": [
+    {
+      "region": "orlando_florida",
+      "original_filename": "fire_archive_J1V-C2_848216.csv",
+      "filename": "orlando_fire_archive_J1V-C2_848216.csv",
+      "request_id": 848216,
+      "rows": 13098,
+      "observed_dates": [
+        "2018-04-01",
+        "2026-07-30"
+      ],
+      "observed_bounds": [
+        -81.99998,
+        28.00001,
+        -80.70015,
+        29.29968
+      ],
+      "satellites": [
+        "N20"
+      ],
+      "bytes": 1065410,
+      "sha256": "1cb99b973e451943914293e6bedc654d234139a2b54ba8653a16451d9846a925"
+    },
+    {
+      "region": "amazonas_manaus",
+      "original_filename": "fire_archive_J1V-C2_848220.csv",
+      "filename": "amazonas_fire_archive_J1V-C2_848220.csv",
+      "request_id": 848220,
+      "rows": 80943,
+      "observed_dates": [
+        "2018-04-08",
+        "2026-07-31"
+      ],
+      "observed_bounds": [
+        -61.99955,
+        -4.9991,
+        -58.0,
+        -1.00607
+      ],
+      "satellites": [
+        "N20"
+      ],
+      "bytes": 6589650,
+      "sha256": "f2f64e6f418c0465bca28568147f5504bf33b476b2bae377bff76987e2566842"
+    },
+    {
+      "region": "orlando_florida",
+      "original_filename": "fire_archive_J2V-C2_848217.csv",
+      "filename": "orlando_fire_archive_J2V-C2_848217.csv",
+      "request_id": 848217,
+      "rows": 5186,
+      "observed_dates": [
+        "2023-03-01",
+        "2026-07-29"
+      ],
+      "observed_bounds": [
+        -81.99966,
+        28.00002,
+        -80.70107,
+        29.29983
+      ],
+      "satellites": [
+        "N21"
+      ],
+      "bytes": 422178,
+      "sha256": "0efc9da8346a953d0ce93d275e463aff83f149536984c3e1b67cf712b1c314ce"
+    },
+    {
+      "region": "amazonas_manaus",
+      "original_filename": "fire_archive_J2V-C2_848221.csv",
+      "filename": "amazonas_fire_archive_J2V-C2_848221.csv",
+      "request_id": 848221,
+      "rows": 42495,
+      "observed_dates": [
+        "2023-03-01",
+        "2026-07-31"
+      ],
+      "observed_bounds": [
+        -61.99992,
+        -4.9874,
+        -58.00009,
+        -1.00545
+      ],
+      "satellites": [
+        "N21"
+      ],
+      "bytes": 3459427,
+      "sha256": "1b5185abb701d5a598b9f7c000ae0f20fb917bc2680b718a67bb6033a2a185db"
+    },
+    {
+      "region": "orlando_florida",
+      "original_filename": "fire_archive_M-C61_848215.csv",
+      "filename": "orlando_fire_archive_M-C61_848215.csv",
+      "request_id": 848215,
+      "rows": 12742,
+      "observed_dates": [
+        "2000-11-01",
+        "2026-08-28"
+      ],
+      "observed_bounds": [
+        -82.0,
+        28.0,
+        -80.7,
+        29.2999
+      ],
+      "satellites": [
+        "Aqua",
+        "Terra"
+      ],
+      "bytes": 1011566,
+      "sha256": "e16f5df64a06312c3fec746752f66048114ed83a482e6a624f9699d80357ff3e"
+    },
+    {
+      "region": "amazonas_manaus",
+      "original_filename": "fire_archive_M-C61_848219.csv",
+      "filename": "amazonas_fire_archive_M-C61_848219.csv",
+      "request_id": 848219,
+      "rows": 59125,
+      "observed_dates": [
+        "2000-11-01",
+        "2026-08-31"
+      ],
+      "observed_bounds": [
+        -61.9995,
+        -4.9953,
+        -58.0001,
+        -1.0019
+      ],
+      "satellites": [
+        "Aqua",
+        "Terra"
+      ],
+      "bytes": 4653792,
+      "sha256": "b3a5182d45091fa5208b3a91f562d810b947561647346dc6580cf20a70c96b5a"
+    },
+    {
+      "region": "orlando_florida",
+      "original_filename": "fire_archive_SV-C2_848218.csv",
+      "filename": "orlando_fire_archive_SV-C2_848218.csv",
+      "request_id": 848218,
+      "rows": 21359,
+      "observed_dates": [
+        "2012-01-20",
+        "2026-07-30"
+      ],
+      "observed_bounds": [
+        -81.99998,
+        28.00001,
+        -80.70004,
+        29.29974
+      ],
+      "satellites": [
+        "SNPP"
+      ],
+      "bytes": 1737233,
+      "sha256": "6b2e202e3f7ce71b6df3a55c2803ba15a78139e18f59eb741431f328757b85c7"
+    },
+    {
+      "region": "amazonas_manaus",
+      "original_filename": "fire_archive_SV-C2_848222.csv",
+      "filename": "amazonas_fire_archive_SV-C2_848222.csv",
+      "request_id": 848222,
+      "rows": 144337,
+      "observed_dates": [
+        "2012-01-23",
+        "2026-07-31"
+      ],
+      "observed_bounds": [
+        -61.99994,
+        -4.99869,
+        -58.00002,
+        -1.00065
+      ],
+      "satellites": [
+        "SNPP"
+      ],
+      "bytes": 11750716,
+      "sha256": "a58f38f2ff1fda781b17a6cef048f9cbd98e8be3c5a0b7eccb8df9b52e4a6043"
+    },
+    {
+      "region": "orlando_florida",
+      "original_filename": "fire_nrt_J1V-C2_848216.csv",
+      "filename": "orlando_fire_nrt_J1V-C2_848216.csv",
+      "request_id": 848216,
+      "rows": 190,
+      "observed_dates": [
+        "2026-08-04",
+        "2026-10-29"
+      ],
+      "observed_bounds": [
+        -81.99026,
+        28.02974,
+        -80.70712,
+        29.29446
+      ],
+      "satellites": [
+        "N20"
+      ],
+      "bytes": 16126,
+      "sha256": "90203df6caede0bbb6c5c53585cc79051dc5a4578b601a07856c6b1662dfaa91"
+    },
+    {
+      "region": "amazonas_manaus",
+      "original_filename": "fire_nrt_J1V-C2_848220.csv",
+      "filename": "amazonas_fire_nrt_J1V-C2_848220.csv",
+      "request_id": 848220,
+      "rows": 19964,
+      "observed_dates": [
+        "2026-08-01",
+        "2026-11-01"
+      ],
+      "observed_bounds": [
+        -61.99716,
+        -4.9418,
+        -58.00014,
+        -1.02385
+      ],
+      "satellites": [
+        "N20"
+      ],
+      "bytes": 1685187,
+      "sha256": "9233378517301b4287a23c53b041896127bd750bf19ea719422d837536ddea8b"
+    },
+    {
+      "region": "orlando_florida",
+      "original_filename": "fire_nrt_J2V-C2_848217.csv",
+      "filename": "orlando_fire_nrt_J2V-C2_848217.csv",
+      "request_id": 848217,
+      "rows": 192,
+      "observed_dates": [
+        "2026-08-01",
+        "2026-10-30"
+      ],
+      "observed_bounds": [
+        -81.99987,
+        28.0086,
+        -80.71115,
+        29.29366
+      ],
+      "satellites": [
+        "N21"
+      ],
+      "bytes": 16346,
+      "sha256": "36a04fa206f78f27cd4bbc1b69b980a68823a72c6c5eca447d9a6cae9d722ad2"
+    },
+    {
+      "region": "amazonas_manaus",
+      "original_filename": "fire_nrt_J2V-C2_848221.csv",
+      "filename": "amazonas_fire_nrt_J2V-C2_848221.csv",
+      "request_id": 848221,
+      "rows": 20156,
+      "observed_dates": [
+        "2026-08-01",
+        "2026-11-01"
+      ],
+      "observed_bounds": [
+        -61.9864,
+        -4.98399,
+        -58.00031,
+        -1.02543
+      ],
+      "satellites": [
+        "N21"
+      ],
+      "bytes": 1701670,
+      "sha256": "83d40c0882fa96695dc62b4d281aa0185865c597cf106ff50f53acc266ca8253"
+    },
+    {
+      "region": "orlando_florida",
+      "original_filename": "fire_nrt_M-C61_848215.csv",
+      "filename": "orlando_fire_nrt_M-C61_848215.csv",
+      "request_id": 848215,
+      "rows": 16,
+      "observed_dates": [
+        "2026-09-01",
+        "2026-10-22"
+      ],
+      "observed_bounds": [
+        -81.9931,
+        28.15289,
+        -80.81374,
+        28.9503
+      ],
+      "satellites": [
+        "Aqua",
+        "Terra"
+      ],
+      "bytes": 1513,
+      "sha256": "6157c9cf3ed3941da7fa95a83b9c49f1a3ee93eeaeb3da9c3687c55534b76950"
+    },
+    {
+      "region": "amazonas_manaus",
+      "original_filename": "fire_nrt_M-C61_848219.csv",
+      "filename": "amazonas_fire_nrt_M-C61_848219.csv",
+      "request_id": 848219,
+      "rows": 3766,
+      "observed_dates": [
+        "2026-09-01",
+        "2026-10-30"
+      ],
+      "observed_bounds": [
+        -61.98127,
+        -4.65488,
+        -58.00003,
+        -1.24197
+      ],
+      "satellites": [
+        "Aqua",
+        "Terra"
+      ],
+      "bytes": 324815,
+      "sha256": "698dbcfd1b0c9c02f3ec11ee4d3181f5b9a8bee4304481985000a1ed6ff07e4a"
+    },
+    {
+      "region": "orlando_florida",
+      "original_filename": "fire_nrt_SV-C2_848218.csv",
+      "filename": "orlando_fire_nrt_SV-C2_848218.csv",
+      "request_id": 848218,
+      "rows": 160,
+      "observed_dates": [
+        "2026-08-07",
+        "2026-10-27"
+      ],
+      "observed_bounds": [
+        -81.9999,
+        28.02052,
+        -80.80882,
+        29.29399
+      ],
+      "satellites": [
+        "SNPP"
+      ],
+      "bytes": 13618,
+      "sha256": "481c782fbcd602e4f4162fcc48520bdeda451967365e616612d026a65adf905a"
+    },
+    {
+      "region": "amazonas_manaus",
+      "original_filename": "fire_nrt_SV-C2_848222.csv",
+      "filename": "amazonas_fire_nrt_SV-C2_848222.csv",
+      "request_id": 848222,
+      "rows": 20168,
+      "observed_dates": [
+        "2026-08-01",
+        "2026-11-01"
+      ],
+      "observed_bounds": [
+        -61.98575,
+        -4.93937,
+        -58.00001,
+        -1.11056
+      ],
+      "satellites": [
+        "SNPP"
+      ],
+      "bytes": 1701263,
+      "sha256": "536b9b43ebb78f6df251c47f2f26acd7b40d59e1b61bc6a350337a94cca9c237"
+    }
+  ]
+}

@@ -59,6 +59,34 @@ def write_phase2_csv(path, records):
         writer.writerows(defaults | record for record in records)
 
 
+@pytest.mark.parametrize("region,latitude,longitude,biome", [
+    ("chilecito_la_rioja", -29.16, -67.5, 16),
+    ("iberia_med", 40.0, -4.0, 8),
+    ("orlando_florida", 28.54, -81.38, 8),
+    ("amazonas_manaus", -3.1, -60.02, 2),
+])
+def test_registered_real_regions_ingest_and_publish(phase2_etl, tmp_path,
+                                                  region, latitude, longitude, biome):
+    ingest, _, builder = phase2_etl
+    regions = json.loads((ROOT / "data/regions.json").read_text(encoding="utf-8"))
+    assert region in regions
+    (tmp_path / "data/regions.json").write_text(json.dumps(regions), encoding="utf-8")
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [
+        dict(latitude=latitude, longitude=longitude, satellite="Terra", frp=10.0),
+        dict(latitude=latitude, longitude=longitude, satellite="Aqua", frp=20.0),
+    ])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    assert pq.read_table(staged)["region"].to_pylist() == [region, region]
+    cube = builder.build_master_cube(staged, tmp_path / "cube.parquet")
+    table = pq.read_table(cube)
+    assert table.num_rows == 1 and table.schema.metadata[b"synthetic_rows"] == b"0"
+    row = table.to_pylist()[0]
+    assert row["h3_r7"] == int(h3.latlng_to_cell(latitude, longitude, 7), 16)
+    assert row["igbp_biome"] == biome and row["sensor_obs_mask"] == 3
+    assert row["raw_modis_cnt"] == 2 and row["raw_frp_mw"] == 30.0
+    assert row["obs_terra_fre"] > 0 and row["obs_aqua_fre"] > 0
+
+
 def test_stage01_deduplication_exact_records(phase2_etl, tmp_path):
     ingest, _, _ = phase2_etl
     raw = tmp_path / "data/raw"

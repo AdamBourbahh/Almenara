@@ -307,3 +307,18 @@ backend\tests\test_cube_schema.py::test_h3_compatibility_adapters[4] PASSED [100
 The `iberia_med` ingest region uses west/south/east/north bounds `[-9.5, 36, 4, 44]` and the declared request window 2000-11-01 through 2026-11-01. The archive includes land outside Spain. A country-only study needs an explicit administrative polygon. The original frontend preset covers a smaller area.
 
 Eight files named `spain_fire_*.csv` are staged directly under `data/raw/`. FIRMS request IDs are 847720 (MODIS), 847721 (NOAA-20), 847722 (NOAA-21) and 847723 (Suomi-NPP). Download notes are under `data/raw/spain_download_notes/`.
+
+## Orlando and Amazonas FIRMS archives — 2026-11-14
+
+Two additional user-supplied packages are registered in `data/regions.json` and copied directly into `data/raw/` with region prefixes. Their full file inventory and original-byte SHA-256 hashes are recorded in `data/raw/orlando_amazonas_manifest.json`; the eight generic FIRMS notes are preserved under `data/raw/orlando_amazonas_download_notes/`. Original local uploads are retained outside the ingest glob.
+
+| Region key | Bounds (west, south, east, north) | Configured date span | Raw files / rows | Nominal IGBP fallback |
+| --- | --- | --- | --- | ---: |
+| `orlando_florida` | `[-82, 28, -80.7, 29.3]` | 2000-11-01 to 2026-10-30 | 8 / 52,943 | 8 |
+| `amazonas_manaus` | `[-62, -5, -58, -1]` | 2000-11-01 to 2026-11-01 | 8 / 390,954 | 2 |
+
+These date spans are the first/last detections in the supplied packages. The generic download notes do not establish the original requested date interval or daily completeness. Bounds enclose the source coordinates; nominal biome classes are documented regional fallbacks, not observed MCD12Q1 classes. Amazonas here means the Manaus-area rectangle, distinct from the Cerrado/Pantanal demo AOI.
+
+Each package includes archive and NRT observations from Terra/Aqua MODIS, SNPP, NOAA-20 and NOAA-21. FIRMS request IDs 848215–848218 identify Orlando and 848219–848222 identify Amazonas. Original `archive` and `nrt` labels are retained, so stage 01's deduplication priority is unchanged. Four temporary-fixture integration cases verify ingest and publication for Chilecito, Iberia, Orlando and Amazonas.
+
+The 16 new CSVs are tracked explicitly in Git at the user's request; generated Parquet remains excluded and can be rebuilt with stages 01–04. Earlier Chilecito/Iberia raw packages remain local and are required to reproduce a four-region cube. The incoming frontend merge is retained; this ETL import does not change its preset list or API contracts.

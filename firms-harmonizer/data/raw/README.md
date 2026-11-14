@@ -1,62 +1,59 @@
-# NASA FIRMS Raw Data Inventory — Chilecito & La Rioja (CONAE Study Region)
+# NASA FIRMS raw data inventory
 
-## 1. Overview & Geographic Bounding Box
-This directory contains official raw satellite active fire observation CSVs acquired from **NASA LANCE / MODAPS FIRMS Archive Download** (`firms.modaps.eosdis.nasa.gov/download/`) covering the official CONAE Chilecito / La Rioja demonstration area.
+## Local regions
 
-- **Target Region:** Chilecito, La Rioja & NOA, Argentina
-- **Bounding Box (`West, South, East, North`):** `-69.5, -31.0, -65.5, -27.5`
-- **Temporal Coverage:** `2000-11-01` to `2026-11-14` (26 continuous years)
-- **Total Validated Hotspots:** **108,072 detections**
+Inventory verified from the supplied CSVs on 2026-11-14. Counts are raw rows before exact-record deduplication, quality filtering and footprint allocation. Dates below describe observed detections, not proof of uninterrupted daily sensor coverage.
 
----
+| Region key | CSV prefix | Files | Raw rows | First / last observed date | Configured bounds (west, south, east, north) |
+| --- | --- | ---: | ---: | --- | --- |
+| `chilecito_la_rioja` | `chilecito_` | 8 | 108,072 | 2000-11-05 / 2026-11-01 | `[-69.5, -31, -65.5, -27.5]` |
+| `iberia_med` | `spain_` | 8 | 1,022,123 | 2000-11-01 / 2026-11-01 | `[-9.5, 36, 4, 44]` |
+| `orlando_florida` | `orlando_` | 8 | 52,943 | 2000-11-01 / 2026-10-30 | `[-82, 28, -80.7, 29.3]` |
+| `amazonas_manaus` | `amazonas_` | 8 | 390,954 | 2000-11-01 / 2026-11-01 | `[-62, -5, -58, -1]` |
 
-## 2. File Inventory & Sensor Breakdown
+The Amazonas package covers the Manaus area, not the entire Amazon basin and not the separate Cerrado/Pantanal demo preset. Each package contains archive and NRT files for MODIS (Terra/Aqua), VIIRS SNPP, NOAA-20 and NOAA-21. The pipeline reads only CSVs directly in this directory; nested notes and original copies do not create duplicate inputs.
 
-| Filename | Satellite / Instrument | Product Tier | Temporal Span | Hotspot Count |
-| :--- | :--- | :--- | :--- | :--- |
-| `chilecito_modis_archive_2000_2026.csv` | Terra & Aqua (MODIS) | Standard Quality (`MCD14ML`) | 2000-11-05 – 2026-07-31 | 23,133 |
-| `chilecito_modis_nrt_2026.csv` | Terra & Aqua (MODIS) | Near Real-Time (NRT) | 2026-08-01 – 2026-11-14 | 113 |
-| `chilecito_viirs_snpp_archive_2012_2026.csv` | Suomi-NPP (VIIRS 375m) | Standard Quality (`VNP14IMGML`) | 2012-01-21 – 2026-07-31 | 47,473 |
-| `chilecito_viirs_snpp_nrt_2026.csv` | Suomi-NPP (VIIRS 375m) | Near Real-Time (NRT) | 2026-08-01 – 2026-11-01 | 578 |
-| `chilecito_viirs_noaa20_archive_2018_2026.csv` | NOAA-20 / JPSS-1 (VIIRS 375m) | Standard Quality (`VJ114IMGML`) | 2018-04-03 – 2026-07-31 | 26,644 |
-| `chilecito_viirs_noaa20_nrt_2026.csv` | NOAA-20 / JPSS-1 (VIIRS 375m) | Near Real-Time (NRT) | 2026-08-01 – 2026-11-14 | 594 |
-| `chilecito_viirs_noaa21_archive_2023_2026.csv` | NOAA-21 / JPSS-2 (VIIRS 375m) | Standard Quality (`VJ214IMGML`) | 2023-01-01 – 2026-07-31 | 9,020 |
-| `chilecito_viirs_noaa21_nrt_2026.csv` | NOAA-21 / JPSS-2 (VIIRS 375m) | Near Real-Time (NRT) | 2026-08-01 – 2026-11-14 | 517 |
+## Orlando and Amazonas source provenance
 
-> [!NOTE]
-> **Suomi-NPP Mission Operational End Note:**
-> Suomi-NPP officially stopped transmitting science data on **November 2, 2026**. The NRT file `chilecito_viirs_snpp_nrt_2026.csv` captures observations up to `2026-11-01`. Continuity is seamlessly maintained through NOAA-20 and NOAA-21.
+The user supplied 16 FIRMS CSVs in `orlandoyamazonas/`. Verified copies retain their original names with an `orlando_` or `amazonas_` prefix. The original upload remains local outside the ingest directory. The manifest [orlando_amazonas_manifest.json](orlando_amazonas_manifest.json) records each original and canonical filename, request ID, byte size, SHA-256, row count, satellite names, and observed coordinate/date extrema. All copied CSVs match the original bytes.
 
----
+| Region | MODIS request | NOAA-20 request | NOAA-21 request | SNPP request |
+| --- | --- | --- | --- | --- |
+| Orlando | 848215 | 848216 | 848217 | 848218 |
+| Amazonas / Manaus | 848219 | 848220 | 848221 | 848222 |
 
-## 3. Raw Column Dictionary & Harmonization Mapping
+Eight original generic FIRMS download notes are preserved under `orlando_amazonas_download_notes/`. These notes do not include the request's original time interval or bounding box. New region bounds enclose the supplied coordinates, and configured date intervals use the package's observed first/last detection dates. Do not infer detection completeness from those intervals. Nominal IGBP class 8 for Orlando and class 2 for Amazonas are regional fallbacks, not measured cell-level MCD12Q1 classifications.
 
-| Raw CSV Column | Description & Units | MODIS Format | VIIRS 375m Format | Mapping in `scripts/01_ingest_firms.py` |
-| :--- | :--- | :--- | :--- | :--- |
-| `latitude`, `longitude` | Coordinates (WGS84) | Decimal degrees | Decimal degrees | Indexed to Uber H3 Res 4 and Res 7 |
-| `scan`, `track` | Pixel footprint size (km) | $1.0 \times 1.0$ (nadir) to $4.8 \times 2.0$ | $0.375 \times 0.375$ (nadir) to $0.75 \times 0.75$ | Along-track bow-tie overlap correction $\eta = \min(1, 1/\text{track})$ |
-| `acq_date`, `acq_time` | Acquisition date & UTC time | `YYYY-MM-DD`, `HHMM` | `YYYY-MM-DD`, `HHMM` | Mapped to `epoch_day` (days since 2000-01-01) |
-| `frp` | Fire Radiative Power (MW) | Float (MW) | Float (MW) | Calibrated via EQM lookup table (`03_train_eqm_lut.py`) |
-| `brightness` | Mid-Infrared brightness (K) | Channel 21/22 ($\sim 4\,\mu\text{m}$) | Channel I4 ($\sim 3.74\,\mu\text{m}$) | Brightness temperature $T_4$ |
-| `bright_t31` | Thermal-Infrared brightness (K) | Channel 31 ($\sim 11\,\mu\text{m}$) | Channel I5 ($\sim 11.45\,\mu\text{m}$) | Thermal contrast $\Delta T_{4/11} = T_4 - T_{11}$ |
-| `confidence` | Detection confidence | Integer `0..100` | Categorical `'l'`, `'n'`, `'h'` | Unified into `'low'`, `'nominal'`, `'high'` |
-| `daynight` | Solar illumination | `'D'` (Day), `'N'` (Night) | `'D'` (Day), `'N'` (Night) | Diurnal cycle weighting $\kappa(\tau_s)$ |
-| `type` | Presumed source type | `0` (veg), `1` (volcano), `2` (static), `3` (offshore) | `0` (veg), `1` (volcano), `2` (static), `3` (offshore) | Present in Archive SP; imputed as `0` in NRT |
+The 16 new CSVs are explicitly tracked in Git as requested (36,150,510 bytes in total; largest file 11,750,716 bytes). The general ignore rule for other raw downloads and generated Parquet files is unchanged. Existing Chilecito/Iberia CSVs remain local and are not added by this import. A clone therefore contains the two new packages; rebuilding all four regions also requires the earlier local downloads.
 
----
+## Existing source packages
 
-## 4. Pipeline Ingestion & Validation Gate
+Chilecito archive/NRT filenames retain the `chilecito_modis_` and `chilecito_viirs_` naming scheme. Original downloads are preserved locally under `chilecito_original_download/`.
 
-To ingest these raw CSVs into the physical pipeline:
+The Iberia package retains filenames prefixed `spain_fire_`, with FIRMS request IDs 847720 (MODIS), 847721 (NOAA-20), 847722 (NOAA-21) and 847723 (SNPP). Its geographic envelope includes areas outside Spain; country-only studies require an administrative polygon. Download notes remain under `spain_download_notes/`.
 
-```bash
-cd firms-harmonizer
-# 1. Ingest raw CSVs -> staged Parquet (calculates H3 Res 4/7 and bow-tie weights)
+## Columns and processing
+
+- `latitude`, `longitude`: WGS84 coordinates, indexed to unsigned H3 R4/R7/R10 keys internally.
+- `acq_date`, `acq_time`: UTC date and HHMM acquisition time. Cube `epoch_day` is days since **1970-01-01**.
+- `frp`: instantaneous power in MW. `scan` and `track` describe the footprint in kilometres; stage 01 applies the established MODIS bow-tie and spatial weights.
+- `satellite`: Terra/Aqua/SNPP/N20/N21 or supported aliases. Preserve the source's instrument labels.
+- `confidence`, `daynight`: normalized quality and day/night labels. Daytime coincident MODIS observations train the diurnal ratios.
+- MODIS `brightness` / `bright_t31` and VIIRS `bright_ti4` / `bright_ti5`: thermal channels used by the ingest filters.
+
+Archive/standard files take precedence over NRT for an identical normalized satellite, UTC date/time and five-decimal coordinate key. Distinct passes are retained. The cube uses the documented one-hour FRE proxy; see [ETL_SPEC.md](../ETL_SPEC.md) for units, caveats, outage/cloud masks and ancillary provenance.
+
+## Rebuild from local inputs
+
+Run from `firms-harmonizer/`:
+
+```powershell
 python scripts/01_ingest_firms.py
-
-# 2. Build or update the physical master cube
+python scripts/02_detect_outages_clouds.py
+python scripts/03_train_eqm_lut.py
 python scripts/04_build_master_cube.py
-
-# 3. Verify schema regression gate
-pytest backend/tests/test_cube_schema.py -v
+python -m pytest backend/tests/test_cube_schema.py -v
+python scripts/05_cli_benchmark.py
 ```
+
+The ETL stages make no network calls. Without a genuine global-count table, stage 02 publishes only the known Aqua outage. Missing cloud and burned-area inputs remain explicitly documented; they are not synthesized. Script 05 reports scientific/performance acceptance separately and can exit nonzero even when publication and schema checks pass. Generated cubes and lookup Parquet files remain local rebuildable artifacts.
