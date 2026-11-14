@@ -209,8 +209,11 @@ def _write_mock(table: pa.Table, dates: np.ndarray, truth: np.ndarray,
     mock.write_bytes(orjson.dumps(validated.model_dump(), option=orjson.OPT_APPEND_NEWLINE))
 
 
+SYNTHETIC_PATH = ROOT / "data/processed/fire_cube_synthetic.parquet"
+
+
 def generate_bootstrap_cube(
-    output_path: str = "data/processed/fire_cube.parquet", *, write_mock: bool = False,
+    output_path: str | Path = SYNTHETIC_PATH, *, write_mock: bool = False,
 ) -> str:
     """Write 40 cells × 9,496 days offline and return the absolute output path.
 
@@ -295,6 +298,8 @@ def generate_bootstrap_cube(
     path = Path(output_path)
     if not path.is_absolute():
         path = ROOT / path
+    if path.resolve() == (ROOT / "data/processed/fire_cube.parquet").resolve():
+        raise ValueError("The master cube path is reserved for real FIRMS data.")
     path.parent.mkdir(parents=True, exist_ok=True)
     # Publish atomically so readers never see a partially written Parquet file.
     # DuckDB propagates real table constraints to Parquet repetition types.

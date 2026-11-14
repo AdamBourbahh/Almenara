@@ -2,7 +2,7 @@
 
 ## Scope and acceptance
 
-Build a local FIRMS cube for Chilecito and retain deterministic fixture coverage for the four pilot regions until their observations arrive. Run the five scripts in numeric order from the project directory. The build uses no network or API credentials.
+Build a real-only local FIRMS cube for regions with staged observations and declared coverage. The deterministic pilot fixture is generated separately at `data/processed/fire_cube_synthetic.parquet` by script 00 or by script 04 with `--bootstrap`. Run the five scripts in numeric order from the project directory. The build uses no network or API credentials.
 
 ```powershell
 python scripts/01_ingest_firms.py
@@ -12,13 +12,13 @@ python scripts/04_build_master_cube.py
 python scripts/05_cli_benchmark.py
 ```
 
-The cube must contain the 18 Arrow fields defined by the executable bootstrap contract, with its original types and nullability. The physical key is `(h3_r4, epoch_day, h3_r7)` with ascending order, unique cell-days and ZSTD compression. The executable fixture and its tests use days since 2000-01-01, despite the 1970 date in the project spec. The builder follows the tested convention. NOAA-21 uses the fifth sensor bit. The synthetic fixture keeps its existing grouped VIIRS bit and percentage cloud convention. Real rows store cloud as a fraction.
+The cube must contain the 18 Arrow fields defined by the executable bootstrap contract, with its original types and nullability. The physical key is `(h3_r4, epoch_day, h3_r7)` with ascending order, unique cell-days and ZSTD compression. Both cubes store UTC days since 1970-01-01, as specified in `SPECS.md`. NOAA-21 uses the fifth sensor bit in real data. The fixture uses a grouped VIIRS bit. Both cubes store cloud cover as a fraction. Regenerate older cubes before adopting the 1970 epoch in the API.
 
 ## Inputs and new regions
 
 1. Add the new key to `data/regions.json` with `bounds` in west, south, east, north order, `nominal_biome` in 1–17 and inclusive `coverage` date intervals matching the FIRMS requests. Put specific regions before broader overlapping regions. Current contracts limit the cube to 2026.
 2. Place the downloaded MODIS and VIIRS CSVs directly under `data/raw/`. Preserve archive and NRT labels in the file names so standard detections win exact identity conflicts. Original Chilecito files and download notes are preserved in a nested directory outside the ingest glob.
-3. Run scripts 01–05. The four built-in regions use the project bootstrap's existing fixture centers. New regions become queryable from their ingested records. Adding a regional frontend preset is a separate team change.
+3. Run scripts 01–05. Regions with real observations become queryable from their ingested records. Adding a regional frontend preset is a separate team change.
 
 Use local auxiliary Parquet files when available.
 
@@ -30,15 +30,15 @@ Use local auxiliary Parquet files when available.
 
 ## Stage behavior
 
-- **01** uses DuckDB to read local CSVs. It normalizes sensors, UTC date and time, thermal channels and confidence. It deduplicates exact sensor/time/location matches, filters SAMA candidates, computes H3 resolutions 4, 7 and 10, and stages both center counts and Gaussian MODIS footprint contributions. The footprint weights sum to one per detection. Entropy is normalized over twelve calendar months and the industrial score includes a positional variance gate. The local SAMA rule runs while the backend module has no callable implementation.
+- **01** uses DuckDB to read local CSVs. It normalizes sensors, UTC date and time, thermal channels and confidence. It deduplicates exact sensor/time/location matches, filters SAMA candidates, computes H3 resolutions 4, 7 and 10, and stages both center counts and Gaussian MODIS footprint contributions. The footprint weights sum to one per detection. Entropy is normalized over twelve calendar months and the industrial score includes a positional variance gate. The ETL currently uses its local SAMA rule.
 - **02** records the Aqua safe-mode interval and optionally flags fourfold drops relative to the previous 15 complete days of global counts. Local detection counts cannot establish global outages. Diurnal ratios use coincident daytime Aqua and Terra FRP by H3 r4 and month.
 - **03** uses coincident daytime Aqua and SNPP r7 cell-days in 2012–2025. It fits empirical quantiles above 8 MW and fits a bounded sub-threshold contribution from VIIRS samples. Bins derive from footprint width, which is an angle proxy. Sparse strata fall back to biome then pooled fits. Unsupported models are omitted, with uncalibrated FRP as the build fallback.
-- **04** aggregates per cell-day, applies available lookup corrections, uses a one-hour FRP integration proxy for FRE density and computes prior-day neighbor energy. The bootstrap fixture fills uncovered days for its four original pilot regions. Coverage is declared independently of detection density. Real FIRMS rows are sparse detections, and days without detections have no real row. For real rows without auxiliary data, biome uses the configured nominal class and cloud and burned area use zero sentinels. Parquet metadata records these limitations. The final replacement is atomic.
+- **04** aggregates per cell-day, applies available lookup corrections, uses a one-hour FRP integration proxy for FRE density and computes prior-day neighbor energy. Only staged FIRMS detections contribute rows to the real master. Missing staging stops the build before replacement. Coverage is declared independently of detection density. Real FIRMS rows are sparse detections, and days without detections have no real row. For real rows without auxiliary data, biome uses the configured nominal class and cloud and burned area use zero sentinels. Parquet metadata records these limitations. The final replacement is atomic.
 - **05** measures warmed regional queries against the physical Parquet, reports Chow p-values and Wasserstein distance, computes leave-one-year-out burned-area R2 where defined, and exercises a seasonal-prior recovery baseline. A missing audit result fails the gate. Fixture metrics are diagnostics. Full Chaos Monkey validation depends on the backend RTS implementation.
 
 ## Verification
 
-Run `python scripts/00_bootstrap_synthetic_cube.py` followed by `python -m pytest backend/tests/test_cube_schema.py -q` for the original synthetic gate. Run script 04 again to publish the hybrid cube after that gate. For the hybrid output, check the 18 field types and nullability, ZSTD compression, ordering, unique keys, real row counts and footprint energy conservation. Script 05 exits nonzero when the measured project thresholds are unmet.
+Run `python scripts/00_bootstrap_synthetic_cube.py` followed by `python -m pytest backend/tests/test_cube_schema.py -q` for the synthetic gate. The schema suite generates its own temporary fixture. Run script 04 to publish the real cube. For the real output, check the 18 field types and nullability, ZSTD compression, ordering, unique keys, real row counts and footprint energy conservation. Script 05 exits nonzero when the measured project thresholds are unmet.
 
 ## Iberia FIRMS archive
 

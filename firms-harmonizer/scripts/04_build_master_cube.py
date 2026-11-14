@@ -17,7 +17,7 @@ ingest = import_module("01_ingest_firms")
 training = import_module("03_train_eqm_lut")
 bootstrap = import_module("00_bootstrap_synthetic_cube")
 ROOT = ingest.ROOT
-EPOCH = date(2000, 1, 1)
+EPOCH = date(1970, 1, 1)
 SORT = [(key, "ascending") for key in ("h3_r4", "epoch_day", "h3_r7")]
 OUT = ROOT / "data/processed/fire_cube.parquet"
 
@@ -132,41 +132,32 @@ def real_rows(con, staged, lookup, regions):
 
 def build_master_cube(staged_path=ingest.STAGED, output_path=OUT, force_bootstrap=False,
                       lookup_dir="data/lookup"):
-    output = ROOT / output_path
-    output.parent.mkdir(parents=True, exist_ok=True)
+    if force_bootstrap:
+        fixture_path = bootstrap.SYNTHETIC_PATH if Path(output_path) == OUT else ROOT / output_path
+        return Path(bootstrap.generate_bootstrap_cube(fixture_path))
+
     staged = ROOT / staged_path
+    if not staged.is_file():
+        raise FileNotFoundError(f"FIRMS staged detections not found at {staged}. Run script 01.")
+    output = ROOT / output_path
+    if output.resolve() == bootstrap.SYNTHETIC_PATH.resolve():
+        raise ValueError("The synthetic cube path is reserved for generated fixture data.")
+    output.parent.mkdir(parents=True, exist_ok=True)
     regions = ingest.load_regions()
     with TemporaryDirectory(dir=output.parent) as temp, duckdb.connect() as con:
         work = Path(temp)
-        fixture = pq.read_table(bootstrap.generate_bootstrap_cube(work / "fixture.parquet", write_mock=False))
-        if force_bootstrap or not staged.exists():
-            table = fixture
-        else:
-            daily = real_rows(con, staged, ROOT / lookup_dir, regions)
-            fixture_cells = {int(cell, 16): name for name, (lat, lon, _, _) in bootstrap.REGIONS.items()
-                             for cell in bootstrap.region_cells(lat, lon)}
-            covered = {name: [(date.fromisoformat(start) - EPOCH, date.fromisoformat(end) - EPOCH)
-                              for start, end in region.get("coverage", [])]
-                       for name, region in regions.items()}
-            dates = fixture["epoch_day"].to_numpy()
-            cells = fixture["h3_r7"].to_numpy()
-            keep = np.ones(len(fixture), dtype=bool)
-            for cell, name in fixture_cells.items():
-                for start, end in covered.get(name, []):
-                    keep &= ~((cells == cell) & (dates >= start.days) & (dates <= end.days))
-            # Keep only one record per cell-day, including observations at region edges.
-            keep &= np.fromiter(((int(c), int(d)) not in daily for c, d in zip(cells, dates)),
-                                dtype=bool, count=len(cells))
-            synthetic = fixture.filter(pa.array(keep))
-            metadata = dict(bootstrap.CUBE_SCHEMA.metadata)
-            metadata.update({b"source": b"HYBRID FIRMS detections and SYNTHETIC pilot fixture",
-                             b"synthetic_rows": str(len(synthetic)).encode(),
-                             b"real_rows": str(len(daily)).encode(),
-                             b"coverage": json.dumps(regions).encode(),
-                             b"real_cloud_and_burned_area": b"optional ancillary; zero sentinel for missing values",
-                             b"real_igbp": b"local IGBP lookup or nominal regional fallback",
-                             b"fre_method": b"one-hour FRP integration proxy"})
-            table = pa.concat_tables([synthetic, table_from_rows(daily.values())]).replace_schema_metadata(metadata)
+        daily = real_rows(con, staged, ROOT / lookup_dir, regions)
+        metadata = {
+            b"source": b"REAL FIRMS detections",
+            b"real_rows": str(len(daily)).encode(),
+            b"synthetic_rows": b"0",
+            b"epoch": EPOCH.isoformat().encode(),
+            b"coverage": json.dumps(regions).encode(),
+            b"real_cloud_and_burned_area": b"optional ancillary; zero sentinel for missing values",
+            b"real_igbp": b"local IGBP lookup or nominal regional fallback",
+            b"fre_method": b"one-hour FRP integration proxy",
+        }
+        table = table_from_rows(daily.values()).replace_schema_metadata(metadata)
         if not len(table):
             raise ValueError("Refusing to publish an empty cube.")
         physical = work / "cube.parquet"
