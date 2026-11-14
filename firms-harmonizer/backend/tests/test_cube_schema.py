@@ -72,6 +72,8 @@ def write_phase2_csv(path, records):
     ("iberia_med", 40.0, -4.0, 8),
     ("orlando_florida", 28.54, -81.38, 8),
     ("amazonas_manaus", -3.1, -60.02, 2),
+    ("cerrado_brazil", -16.9, -56.2, 9),
+    ("california_usa", 39.1, -120.4, 8),
 ])
 def test_registered_real_regions_ingest_and_publish(phase2_etl, tmp_path,
                                                   region, latitude, longitude, biome):
@@ -1179,3 +1181,219 @@ def test_stage04_eqm_gpd_parity_with_core_on_every_channel(phase2_etl, tmp_path,
     assert second["obs_viirs_fre"] == pytest.approx(float(core.harmonize_viirs_to_modis(3.0, chosen)) * scale)
     assert second["obs_viirs_fre"] != pytest.approx(3.0 * scale)
     assert first["raw_frp_mw"] == 70.0 and second["raw_frp_mw"] == 3.0
+
+
+@pytest.fixture
+def stage07(monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    return import_module("07_fetch_mcd64a1_ancillary")
+
+
+def test_stage07_burn_dates_follow_the_composite_year(stage07):
+    dates = stage07.burn_dates(2020, np.array([1, 60, 366]))
+    assert [str(d) for d in dates] == ["2020-01-01", "2020-02-29", "2020-12-31"]
+    for year, doy in ((2021, 366), (2021, 0), (2021, -1)):
+        with pytest.raises(ValueError):
+            stage07.burn_dates(year, np.array([doy]))
+
+
+def test_stage07_aggregates_burned_pixels_into_r7_cell_days(stage07):
+    assert stage07.PIXEL_HA == pytest.approx(463.3127165279167 ** 2 / 1e4)
+    a, b = (40.0, -4.0), (40.3, -4.3)
+    lat = np.array([a[0], a[0] + 1e-4, a[0] - 1e-4, a[0], b[0], a[0]])
+    lon = np.array([a[1], a[1] + 1e-4, a[1] - 1e-4, a[1], b[1], a[1]])
+    dates = np.array(["2022-08-01"] * 3 + ["2022-08-02", "2022-08-01", "2022-08-01"], dtype="datetime64[D]")
+    # The last pixel repeats the first (overlapping region boxes) and must not be double counted.
+    table = stage07.aggregate_burned_pixels(lat, lon, dates)
+    assert table.schema == stage07.SCHEMA
+    rows = table.to_pylist()
+    cell_a, cell_b = (int(h3.latlng_to_cell(*p, 7), 16) for p in (a, b))
+    expected = sorted([(cell_a, date(2022, 8, 1), 3), (cell_a, date(2022, 8, 2), 1), (cell_b, date(2022, 8, 1), 1)])
+    assert [(r["h3_r7"], r["acq_date"]) for r in rows] == [(c, d) for c, d, _ in expected]
+    for row, (_, _, pixels) in zip(rows, expected):
+        assert row["burned_area_ha_mcd64"] == pytest.approx(pixels * stage07.PIXEL_HA, rel=1e-6)
+        assert row["cloud_cover_pct"] is None
+    empty = stage07.aggregate_burned_pixels(np.array([]), np.array([]), np.array([], dtype="datetime64[D]"))
+    assert empty.num_rows == 0 and empty.schema == stage07.SCHEMA
+
+
+def test_stage07_extracts_pixel_centres_inside_the_region(stage07):
+    rasterio = pytest.importorskip("rasterio")
+    from rasterio.io import MemoryFile
+    from rasterio.transform import from_origin
+    from rasterio.warp import transform as warp
+    crs = rasterio.crs.CRS.from_proj4("+proj=sinu +lon_0=0 +x_0=0 +y_0=0 +R=6371007.181 +units=m +no_defs")
+    size = stage07.PIXEL_METRES
+    (x0,), (y0,) = warp("EPSG:4326", crs, [-4.0], [40.0])
+    data = np.zeros((40, 40), dtype=np.int16)
+    data[20, 20], data[11, 28], data[30, 2] = 214, 215, -1  # two burns (~4 km apart) and a fill value
+    data[0, 0] = 216  # outside the 0.1-degree region box below
+    profile = dict(driver="GTiff", width=40, height=40, count=1, dtype="int16", crs=crs, nodata=-1,
+                   transform=from_origin(x0 - 20 * size, y0 + 20 * size, size, size))
+    with MemoryFile() as memory, memory.open(**profile) as dataset:
+        dataset.write(data, 1)
+        lat, lon, dates = stage07.extract_burned_pixels(dataset, (-4.06, 39.94, -3.94, 40.06), 2022)
+    assert sorted(str(d) for d in dates) == ["2022-08-02", "2022-08-03"]
+    centre = int(np.argmin(np.abs(lat - 40.0) + np.abs(lon + 4.0)))
+    assert lat[centre] == pytest.approx(40.0 - 0.5 * size / 6371007.181 * 180 / np.pi, abs=1e-6)
+    assert np.all((lat >= 39.94) & (lat <= 40.06) & (lon >= -4.06) & (lon <= -3.94))
+
+
+def test_stage07_complete_years_require_every_tile_month(stage07):
+    months = ["001", "032", "060", "091", "121", "152", "182", "213", "244", "274", "305", "335"]
+    ids = [f"MCD64A1.A2021{m}.{t}.061.2022001000000" for m in months for t in ("h17v04", "h18v04")]
+    ids += [f"MCD64A1.A2022{m}.h17v04.061.2023001000000" for m in months]  # h18v04 missing all of 2022
+    ids += [f"MCD64A1.A2023{m}.{t}.061.2024001000000" for m in months[:-1] for t in ("h17v04", "h18v04")]
+    ids += ["MCD64A1.A2021001.h17v04.061.2025001000000"]  # reprocessed duplicate does not double count
+    assert stage07.complete_years(ids) == [2021]
+    assert stage07.complete_years([]) == []
+
+
+def test_stage04_and_stage05_turn_mcd64_ancillary_into_cross_validated_r2(phase2_etl, tmp_path, monkeypatch,
+                                                                          stage07, capsys):
+    ingest, _, builder = phase2_etl
+    benchmark = import_module("05_cli_benchmark")
+    monkeypatch.setattr(benchmark, "ROOT", tmp_path)
+    # A registered region without declared coverage has no real data: it is skipped, not failed.
+    regions = {"fixture": {"bounds": [-5, 39, -3, 41], "nominal_biome": 8,
+                            "coverage": [["2004-01-01", "2019-12-31"]]},
+               "uncovered": {"bounds": [5.6, 4.6, 7.2, 5.8], "nominal_biome": 12}}
+    (tmp_path / "data/regions.json").write_text(json.dumps(regions), encoding="utf-8")
+    records, burned = [], {}
+    for year in range(2004, 2020):
+        power = 10.0 + 7.0 * ((year * 37) % 11)
+        for day in ("06-10", "07-15", "08-20"):
+            records.append(dict(acq_date=f"{year}-{day}", frp=power, satellite="Aqua", acq_time="1330"))
+        burned[year] = power * 3
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", records)
+    pixels = [(40.0, -4.0, np.datetime64(f"{year}-07-15"), round(area)) for year, area in burned.items()]
+    lat = np.repeat([p[0] for p in pixels], [p[3] for p in pixels])
+    lon = np.repeat([p[1] for p in pixels], [p[3] for p in pixels])
+    dates = np.repeat(np.array([p[2] for p in pixels], dtype="datetime64[D]"), [p[3] for p in pixels])
+    # Distinct pixel centres (sub-metre offsets) inside one R7 cell; exact duplicates would be merged.
+    # 2019 is flagged incomplete (missing MCD64A1 months) and its corrupted total must be excluded from R2.
+    in_2019 = dates.astype("datetime64[Y]").astype(int) + 1970 == 2019
+    keep = ~in_2019 | (np.cumsum(in_2019) <= 3)  # only 3 pixels survive in the incomplete year
+    ancillary = stage07.aggregate_burned_pixels(lat[keep] + np.arange(keep.sum()) * 1e-9, lon[keep], dates[keep])
+    complete = {"fixture": list(range(2004, 2019))}
+    ancillary = ancillary.replace_schema_metadata({b"complete_years": json.dumps(complete).encode()})
+    pq.write_table(ancillary, tmp_path / "data/lookup/cell_day_ancillary.parquet")
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    cube = builder.build_master_cube(staged, tmp_path / "data/processed/fire_cube.parquet")
+    coverage = json.loads(pq.read_schema(cube).metadata[b"ancillary_coverage"])
+    assert coverage["input_present"] is True and coverage["burned_area_ha_mcd64"]["observed_rows"] == 16
+    benchmark.run_benchmark("data/processed/fire_cube.parquet")
+    output = capsys.readouterr().out.splitlines()
+    assert any(l.startswith("uncovered") and "no coverage declared" in l for l in output)
+    line = next(l for l in output if l.startswith("fixture"))
+    fields = line.split()  # name, P95, Chow, BA Chow, W1, CV R2, Fit R2, Recovery
+    assert len(fields) == 8
+    r2 = float(fields[5])
+    assert r2 > 0.99  # annual burned area is exactly proportional to annual harmonized energy
+
+
+@pytest.fixture
+def stage05(monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    return import_module("05_cli_benchmark")
+
+
+def test_stage05_chow_is_the_core_annual_test(stage05):
+    from backend.core.auditor_stats import compute_chow_structural_break_test
+    years = np.repeat(np.arange(2003, 2023), 30)
+    doy = np.tile(np.arange(1, 31), 20)
+    continuous = 100 + (years - 2003) * 2.0 + np.sin(doy)
+    jump = continuous * np.where(years >= 2012, 4.5, 1.0)
+    for series in (continuous, jump):
+        unique = np.unique(years)
+        annual = np.array([series[years == y].mean() for y in unique])
+        assert stage05.chow_p(series, years) == pytest.approx(compute_chow_structural_break_test(unique, annual)[1])
+    assert stage05.chow_p(continuous, years) > 0.10 > 1e-4 > stage05.chow_p(jump, years)
+    assert stage05.chow_p(continuous[years < 2012], years[years < 2012]) is None
+
+
+def test_stage05_recovery_is_the_core_chaos_monkey_on_api_daily_inputs(stage05):
+    from backend.core.chaos_monkey import run_chaos_monkey_simulation
+    rng = np.random.default_rng(5)
+    days = np.arange(np.datetime64("2019-01-01"), np.datetime64("2023-01-01"))
+    keep = rng.random(len(days)) < 0.6
+    season = 50 + 40 * np.sin(2 * np.pi * np.arange(len(days)) / 365.25)
+    epoch = (days - np.datetime64("1970-01-01")).astype(int)
+    rows = [(int(e), float(s), float(s * 1.1), float(s * .9), float(s / 2), 0.0)
+            for e, s, k in zip(epoch, season, keep) if k]
+    daily = stage05.dense_daily(rows)
+    assert len(daily["epoch_day"]) == len(days) and np.isnan(daily["obs_terra_fre"][~keep]).all()
+    assert daily["doy"][0] == 1 and daily["year"][-1] == 2022
+    result = stage05.chaos_recovery(daily, 2022)
+    selected = daily["year"] == 2022
+    obs = np.column_stack([daily[k] for k in ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre")])
+    expected = run_chaos_monkey_simulation(
+        [str(d) for d in days[selected]], daily["doy"][selected], obs[selected],
+        daily["neighbor_fre_lag1"][selected], daily["cloud_cover_pct"][selected],
+        full_doy_history=daily["doy"], full_y_obs_history=obs)
+    assert result == pytest.approx(expected.seasonal_energy_recovered_pct)
+    assert stage05.chaos_recovery(daily, 2030) is None
+
+
+def test_stage05_reports_in_sample_r2_beside_the_cross_validated_gate(stage05):
+    energy = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 50.0])
+    area = 3.0 * energy + np.array([0.1, -0.1, 0.2, -0.2, 0.1, -0.1, 0.0])
+    assert stage05.in_sample_r2(energy, area) == pytest.approx(np.corrcoef(energy, area)[0, 1] ** 2)
+    assert stage05.in_sample_r2(energy[:5], area[:5]) is None  # fewer than six years
+    assert stage05.in_sample_r2(energy, np.ones(7)) is None  # constant burned area
+
+
+def test_stage05_reference_series_counts_only_modis_detected_cell_days(stage05, tmp_path):
+    """Synchronized record on MODIS Terra + Aqua (every year 2000-2026): count, energy and MODIS-only spread."""
+    schema = pa.schema([(f.name, f.type) for f in bootstrap.CUBE_SCHEMA])
+    a = h3.latlng_to_cell(40.0, -4.0, 7)
+    a_nb = next(c for c in h3.grid_disk(a, 1) if c != a)
+    b = h3.latlng_to_cell(40.5, -4.5, 7)
+    b_nb = next(c for c in h3.grid_disk(b, 1) if c != b)
+    far = h3.latlng_to_cell(41.0, -5.0, 7)
+    def row(cell, day, terra=None, aqua=None, viirs=None):
+        d = date(1970, 1, 1) + timedelta(days=day)
+        return dict(h3_r4=int(h3.cell_to_parent(cell, 4), 16), h3_r7=int(cell, 16), epoch_day=day, year=d.year,
+                    doy=d.timetuple().tm_yday, igbp_biome=8, sensor_obs_mask=0, gap_status_mask=0,
+                    cloud_cover_pct=0.0, raw_modis_cnt=0, raw_viirs_cnt=0, raw_frp_mw=0.0, obs_terra_fre=terra,
+                    obs_aqua_fre=aqua, obs_viirs_fre=viirs, neighbor_fre_lag1=0.0, industrial_prob=0.0,
+                    burned_area_ha_mcd64=0.0)
+    day = (date(2019, 8, 2) - date(1970, 1, 1)).days
+    rows = [row(a_nb, day - 1, aqua=3.0),       # MODIS-detected neighbour of a on the previous day
+            row(b_nb, day - 1, viirs=9.0),      # VIIRS-only neighbour of b: does not make b a spreading fire
+            row(a, day, terra=10.0, viirs=4.0), # counted, harmonized mean (10 + 4) / 2, spreading
+            row(b, day, aqua=6.0),              # counted, not spreading
+            row(far, day, viirs=50.0),          # VIIRS only: excluded from the synchronized record
+            row(a, day + 1, viirs=8.0)]         # VIIRS-only day: absent
+    cube = tmp_path / "cube.parquet"
+    pq.write_table(pa.Table.from_pylist(rows, schema=schema), cube)
+    parents = ",".join(str(int(h3.cell_to_parent(c, 4), 16)) for c in {a, a_nb, b, b_nb, far})
+    with duckdb.connect() as con:
+        con.execute("CREATE TEMP TABLE region_cells AS SELECT unnest(?::UBIGINT[]) AS h3_r7",
+                    [[int(c, 16) for c in (a, a_nb, b, b_nb, far)]])
+        series = stage05.reference_daily(con, cube, parents)
+    assert series == [(day - 1, 1, pytest.approx(3.0), 0), (day, 2, pytest.approx(7.0 + 6.0), 1)]
+
+
+def test_stage05_cross_validated_r2_accepts_count_and_energy_predictors(stage05):
+    rng = np.random.default_rng(9)
+    count, energy, spread = rng.uniform(10, 100, 22), rng.uniform(1e3, 1e5, 22), rng.uniform(0, 40, 22)
+    predictors = np.column_stack([count, energy, spread])
+    area = 40.0 * count + 0.002 * energy + 15.0 * spread
+    assert stage05.cross_validated_r2(predictors, area) == pytest.approx(1.0)
+    assert stage05.in_sample_r2(predictors, area) == pytest.approx(1.0)
+    noisy = area + rng.normal(0, area.std(), 22)
+    assert stage05.cross_validated_r2(predictors, noisy) < stage05.in_sample_r2(predictors, noisy)
+
+
+def test_stage05_chow_uses_only_complete_covered_years(stage05):
+    years = np.repeat(np.arange(2000, 2027), 10).astype(int)
+    values = np.full(len(years), 50.0) + (years - 2000) * 0.1
+    padded = values.copy()
+    padded[years == 2000] = 0.0  # zero-padded partial first year (coverage starts in November)
+    coverage = [["2000-11-01", "2026-11-01"]]
+    assert stage05.complete_years(coverage) == list(range(2001, 2026))
+    complete = np.isin(years, stage05.complete_years(coverage))
+    assert stage05.chow_p(padded[complete], years[complete]) == pytest.approx(
+        stage05.chow_p(values[complete], years[complete]))
+    assert stage05.chow_p(padded, years) < stage05.chow_p(padded[complete], years[complete])
