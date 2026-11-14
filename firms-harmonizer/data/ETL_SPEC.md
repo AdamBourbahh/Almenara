@@ -36,6 +36,20 @@ Use local auxiliary Parquet files when available.
 - **04** aggregates per cell-day, applies available lookup corrections, uses a one-hour FRP integration proxy for FRE density and computes prior-day neighbor energy. Only staged FIRMS detections contribute rows to the real master. Missing staging stops the build before replacement. Coverage is declared independently of detection density. Real FIRMS rows are sparse detections, and days without detections have no real row. For real rows without auxiliary data, biome uses the configured nominal class and cloud and burned area use zero sentinels. Parquet metadata records these limitations. The final replacement is atomic.
 - **05** measures warmed regional queries against the physical Parquet, reports Chow p-values and Wasserstein distance, computes leave-one-year-out burned-area R2 where defined, and exercises a seasonal-prior recovery baseline. A missing audit result fails the gate. Fixture metrics are diagnostics. Full Chaos Monkey validation depends on the backend RTS implementation.
 
+### Stage 01 footprint geometry and bow-tie parity contract
+
+**Mathematical formulation.** As defined in `SPECS.md` §2(5) and `backend/core/footprint_h3.py`:
+- Detections with `scan * track <= 3.5 km²` (e.g., all nominal VIIRS at 0.375 km nadir and MODIS near nadir) are assigned wholly (`weight = 1.0`) to the containing H3 resolution 7 cell (`center = h3.latlng_to_cell(lat, lon, 7)`).
+- Deformed MODIS footprints with `scan * track > 3.5 km²` allocate energy across the 1-ring neighborhood (the center cell plus its 6 adjacent neighbors, or 5 for H3 pentagons) via a discrete bivariate Gaussian PSF aligned with scan and track axes rotated by the nominal orbit inclination azimuth ($\alpha = 98.2^\circ$).
+- Log-scale weight evaluation prevents numerical underflow for narrow ellipses:
+  $$xy = R_{\text{earth}} \cdot \text{deg2rad}([\Delta \text{lon} \cdot \cos(\text{lat}), \Delta \text{lat}])$$
+  $$\text{scaled} = (xy \cdot R(\alpha)) / ([\text{scan}, \text{track}] / 2.355)$$
+  $$w_i \propto \exp(-0.5 \sum \text{scaled}_k^2)$$
+- Energy conservation is strictly guaranteed by residual assignment: $w_{\text{largest}} = 1.0 - \sum_{i \neq \text{largest}} w_i$, ensuring $\sum_{i=1}^7 w_i = 1.0$ exactly down to floating-point precision ($\Delta < 10^{-12}$).
+- Along-track bow-tie overlap suppression: For MODIS observations with `track > 1.35 km`, the discount weight is $w_{\text{bowtie}} = 1.0 / \text{track}$. For `track <= 1.35 km` or VIIRS observations, $w_{\text{bowtie}} = 1.0$.
+
+**Parity verification.** `scripts/01_ingest_firms.py` delegates directly to `backend.core.footprint_h3` (`compute_elliptical_psf_weights` and `compute_modis_bowtie_overlap_weight`) and incorporates an identical mathematical fallback. Exact parity ($\Delta < 10^{-12}$) across all 4 production regions (Chilecito, Iberia, Orlando, Amazonas), polar and antimeridian extremes, boundary conditions, and staged Parquet output is verified by `backend/tests/test_cube_schema.py::test_phase1_*` (14 automated test cases).
+
 ### Stage 04 diurnal scaling and Eulerian integration contract
 
 **Architecture and scope.** `SPECS.md` §2(6) approves Eulerian aggregation on fixed H3 R7 cells and UTC calendar days. Stage 01 normalizes and deduplicates detections before footprint allocation. Stage 04 groups the staged contributions by `(h3_r4, h3_r7, acq_date, satellite, sensor_bit)`. Distinct acquisitions in the same cell-day add power within each instrument. The proposed spatio-temporal DAG event clustering (`ST-H3-DBSCAN`) and continuous trapezoidal integration are outside Phase 2: sparse polar-orbiting snapshots do not establish continuous event trajectories or burn duration.

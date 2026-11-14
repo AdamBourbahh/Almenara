@@ -21,8 +21,10 @@ import pytest
 from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0,str(ROOT))
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "scripts"))
 from backend.api.schemas import AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, GeoJSONPolygon
+from backend.core import footprint_h3
 
 spec = importlib.util.spec_from_file_location("bootstrap",ROOT/"scripts/00_bootstrap_synthetic_cube.py")
 bootstrap = importlib.util.module_from_spec(spec)
@@ -698,3 +700,136 @@ def test_h3_compatibility_adapters(monkeypatch, version):
     assert type(actual) is int and type(parent) is int
     assert actual == expected and parent == expected_parent
     assert 2**53 < actual < 2**64 and 0 <= parent < 2**64
+
+
+# =====================================================================
+# Phase 1: Numerical parity between ETL footprint / bow-tie and core
+# =====================================================================
+
+@pytest.mark.parametrize("label,latitude,longitude,scan,track,modis", [
+    ("viirs_nadir_chilecito", -29.16, -67.5, 0.375, 0.375, False),
+    ("viirs_nadir_iberia", 40.0, -4.0, 0.375, 0.375, False),
+    ("viirs_nadir_orlando", 28.54, -81.38, 0.375, 0.375, False),
+    ("viirs_nadir_amazonas", -3.10, -60.02, 0.375, 0.375, False),
+    ("modis_nadir", 40.0, -4.0, 1.0, 1.0, True),
+    ("modis_threshold_boundary", -29.16, -67.5, 3.5, 1.0, True),
+    ("modis_deformed_chilecito", -29.16, -67.5, 3.6, 1.8, True),
+    ("modis_deformed_iberia", 40.0, -4.0, 4.8, 2.0, True),
+    ("modis_deformed_orlando", 28.54, -81.38, 3.8, 1.9, True),
+    ("modis_deformed_amazonas", -3.10, -60.02, 4.8, 2.0, True),
+    ("modis_deformed_antimeridian", 0.0, 179.999, 4.2, 1.9, True),
+    ("modis_deformed_high_lat", 75.0, 25.0, 4.8, 2.0, True),
+    ("modis_deformed_pantanal", -16.9, -56.2, 4.5, 2.0, True),
+])
+def test_phase1_footprint_and_bowtie_parity_etl_vs_core(label, latitude, longitude,
+                                                         scan, track, modis):
+    """Verify bit-level / numerical parity between scripts/01_ingest_firms.py and backend/core/footprint_h3.py."""
+    ingest = import_module("01_ingest_firms")
+    cell = h3.latlng_to_cell(latitude, longitude, 7)
+
+    # 1. Direct ETL footprint vs Core footprint
+    etl_weights = dict(ingest.footprint(latitude, longitude, cell, scan, track, modis))
+    if not modis or scan * track <= 3.5:
+        expected_weights = {format(int(cell, 16), "015x"): 1.0}
+    else:
+        expected_weights = footprint_h3.compute_elliptical_psf_weights(latitude, longitude, scan, track)
+
+    assert set(etl_weights.keys()) == set(expected_weights.keys()), f"Cell mismatch for {label}"
+    for k in etl_weights:
+        assert etl_weights[k] == pytest.approx(expected_weights[k], abs=1e-12), f"Weight mismatch at {k} for {label}"
+    assert sum(etl_weights.values()) == pytest.approx(1.0, abs=1e-12), f"Energy conservation violated for {label}"
+
+    # 2. Bow-tie weight parity
+    expected_bw = float(footprint_h3.compute_modis_bowtie_overlap_weight(track)) if modis else 1.0
+    etl_bw = (1.0 / track if modis and track > 1.35 else 1.0)
+    assert etl_bw == pytest.approx(expected_bw, abs=1e-12), f"Bow-tie weight mismatch for {label}"
+
+    # 3. Fallback calculation parity (verify ETL fallback produces identical result without footprint_h3)
+    if modis and scan * track > 3.5:
+        orig = ingest.footprint_h3
+        try:
+            ingest.footprint_h3 = None
+            fallback_weights = dict(ingest.footprint(latitude, longitude, cell, scan, track, modis))
+        finally:
+            ingest.footprint_h3 = orig
+        assert set(fallback_weights.keys()) == set(expected_weights.keys())
+        for k in fallback_weights:
+            assert fallback_weights[k] == pytest.approx(expected_weights[k], abs=1e-12)
+        assert sum(fallback_weights.values()) == pytest.approx(1.0, abs=1e-12)
+
+
+def test_phase1_staged_parquet_preserves_footprint_and_bowtie_weights(phase2_etl, tmp_path):
+    """Verify that staged Parquet written by ingest_raw_firms adheres to footprint_h3 contracts."""
+    ingest, _, _ = phase2_etl
+    raw = tmp_path / "data/raw"
+
+    # Ensure real regions are present
+    (tmp_path / "data/regions.json").write_text((ROOT / "data/regions.json").read_text(encoding="utf-8"), encoding="utf-8")
+
+    # Write test CSV with deformed MODIS and small VIIRS detections across multiple regions
+    records = [
+        # Chilecito deformed MODIS (scan*track > 3.5, track > 1.35)
+        dict(latitude=-29.16, longitude=-67.5, acq_date="2024-06-15", acq_time="1430",
+             satellite="Terra", frp=100.0, scan=3.6, track=1.8, confidence=100, daynight="D"),
+        # Iberia nadir MODIS (scan*track <= 3.5, track <= 1.35)
+        dict(latitude=40.0, longitude=-4.0, acq_date="2024-06-15", acq_time="1030",
+             satellite="Terra", frp=50.0, scan=1.0, track=1.0, confidence=100, daynight="D"),
+        # Amazonas deformed MODIS (scan*track > 3.5, track > 1.35)
+        dict(latitude=-3.10, longitude=-60.02, acq_date="2024-06-15", acq_time="1330",
+             satellite="Aqua", frp=200.0, scan=4.8, track=2.0, confidence=100, daynight="D"),
+        # Orlando nadir VIIRS
+        dict(latitude=28.54, longitude=-81.38, acq_date="2024-06-15", acq_time="0730",
+             satellite="NOAA-20", frp=30.0, scan=0.375, track=0.375, confidence="nominal", daynight="D"),
+    ]
+    write_phase2_csv(raw / "test_phase1_detections.csv", records)
+
+    staged_path = ingest.ingest_raw_firms(output_path=tmp_path / "staged_phase1.parquet")
+    table = pq.read_table(staged_path)
+    rows = table.to_pylist()
+
+    # Deformed Terra in Chilecito: 7 rows
+    chilecito_rows = [r for r in rows if r["region"] == "chilecito_la_rioja" and r["satellite"] == "Terra"]
+    assert len(chilecito_rows) == 7
+    expected_c_weights = footprint_h3.compute_elliptical_psf_weights(-29.16, -67.5, 3.6, 1.8)
+    expected_c_bw = float(footprint_h3.compute_modis_bowtie_overlap_weight(1.8))
+    assert sum(r["footprint_weight"] for r in chilecito_rows) == pytest.approx(1.0, abs=1e-12)
+    center_count = 0
+    for r in chilecito_rows:
+        hex_id = format(r["h3_r7"], "015x")
+        assert hex_id in expected_c_weights
+        assert r["footprint_weight"] == pytest.approx(expected_c_weights[hex_id], abs=1e-12)
+        assert r["bowtie_weight"] == pytest.approx(expected_c_bw, abs=1e-12)
+        assert r["corrected_frp"] == pytest.approx(100.0 * expected_c_bw * expected_c_weights[hex_id], abs=1e-12)
+        if r["is_center"]:
+            center_count += 1
+            assert hex_id == format(int(h3.latlng_to_cell(-29.16, -67.5, 7), 16), "015x")
+    assert center_count == 1
+
+    # Iberia nadir MODIS: 1 row
+    iberia_rows = [r for r in rows if r["region"] == "iberia_med"]
+    assert len(iberia_rows) == 1
+    assert iberia_rows[0]["footprint_weight"] == 1.0
+    assert iberia_rows[0]["bowtie_weight"] == 1.0
+    assert iberia_rows[0]["corrected_frp"] == 50.0
+    assert iberia_rows[0]["is_center"] is True
+
+    # Amazonas deformed MODIS: 7 rows
+    amazonas_rows = [r for r in rows if r["region"] == "amazonas_manaus"]
+    assert len(amazonas_rows) == 7
+    expected_a_weights = footprint_h3.compute_elliptical_psf_weights(-3.10, -60.02, 4.8, 2.0)
+    expected_a_bw = float(footprint_h3.compute_modis_bowtie_overlap_weight(2.0))
+    assert sum(r["footprint_weight"] for r in amazonas_rows) == pytest.approx(1.0, abs=1e-12)
+    for r in amazonas_rows:
+        hex_id = format(r["h3_r7"], "015x")
+        assert hex_id in expected_a_weights
+        assert r["footprint_weight"] == pytest.approx(expected_a_weights[hex_id], abs=1e-12)
+        assert r["bowtie_weight"] == pytest.approx(expected_a_bw, abs=1e-12)
+        assert r["corrected_frp"] == pytest.approx(200.0 * expected_a_bw * expected_a_weights[hex_id], abs=1e-12)
+
+    # Orlando nadir VIIRS: 1 row
+    orlando_rows = [r for r in rows if r["region"] == "orlando_florida"]
+    assert len(orlando_rows) == 1
+    assert orlando_rows[0]["footprint_weight"] == 1.0
+    assert orlando_rows[0]["bowtie_weight"] == 1.0
+    assert orlando_rows[0]["corrected_frp"] == 30.0
+    assert orlando_rows[0]["is_center"] is True

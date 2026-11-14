@@ -17,7 +17,7 @@ import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from backend.core import industrial_filter
+from backend.core import footprint_h3, industrial_filter
 
 STAGED = ROOT / "data/processed/staged_firms.parquet"
 SENSORS = {"T": "Terra", "A": "Aqua", "N": "SNPP", "NPP": "SNPP",
@@ -67,16 +67,28 @@ def cell_center(cell):
 def footprint(lat, lon, cell, scan, track, modis):
     if not modis or scan * track <= 3.5:
         return [(cell, 1.0)]
-    cells = sorted(h3.grid_disk(cell, 1))
-    centers = np.asarray([cell_center(item) for item in cells])
-    north = (centers[:, 0] - lat) * 111.195
-    east = ((centers[:, 1] - lon + 180) % 360 - 180) * 111.195 * np.cos(np.radians(lat))
-    azimuth = np.radians(98.2)
-    along = north * np.cos(azimuth) + east * np.sin(azimuth)
-    across = -north * np.sin(azimuth) + east * np.cos(azimuth)
-    log_weights = -.5 * ((along * 2.355 / track)**2 + (across * 2.355 / scan)**2)
-    weights = np.exp(log_weights - log_weights.max())
-    return list(zip(cells, weights / weights.sum()))
+    psf_calc = getattr(footprint_h3, "compute_elliptical_psf_weights", None)
+    if callable(psf_calc):
+        return list(psf_calc(lat, lon, scan, track).items())
+    disk = getattr(h3, "grid_disk", getattr(h3, "k_ring", None))
+    cells = sorted(disk(cell, 1))
+    coordinates = np.array([cell_center(item) for item in cells], dtype=float)
+    delta_lon = (coordinates[:, 1] - lon + 180.0) % 360.0 - 180.0
+    xy = 6371.0088 * np.deg2rad(np.column_stack([
+        delta_lon * np.cos(np.deg2rad(lat)), coordinates[:, 0] - lat,
+    ]))
+    angle = np.deg2rad(98.2)
+    rotation = np.array([[np.cos(angle), -np.sin(angle)],
+                         [np.sin(angle), np.cos(angle)]])
+    scaled = (xy @ rotation) / (np.array([scan, track]) / 2.355)
+    log_weights = -0.5 * np.sum(scaled * scaled, axis=1)
+    weights = np.exp(log_weights - np.max(log_weights))
+    weights /= weights.sum()
+    largest = int(np.argmax(weights))
+    indices = [i for i in range(len(cells)) if i != largest]
+    result = {cells[i]: float(weights[i]) for i in indices}
+    result[cells[largest]] = 1.0 - sum(result.values())
+    return list(result.items())
 
 
 def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
@@ -171,7 +183,8 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
         records = []
         fields = [item[0] for item in con.execute("DESCRIBE detections").fetchall()]
         for row, cell, r10, region, filename, modis in rows:
-            weight = 1 / row["track"] if modis and row["track"] > 1.35 else 1.0
+            bowtie_calc = getattr(footprint_h3, "compute_modis_bowtie_overlap_weight", None)
+            weight = float(bowtie_calc(row["track"])) if callable(bowtie_calc) and modis else (1 / row["track"] if modis and row["track"] > 1.35 else 1.0)
             for target, fraction in footprint(row["latitude"], row["longitude"], cell,
                                               row["scan"], row["track"], modis):
                 record = dict(row)

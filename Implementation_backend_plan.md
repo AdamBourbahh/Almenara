@@ -10,8 +10,8 @@
 
 | Block | Complete | In progress | Pending |
 | --- | --- | --- | --- |
-| Offline ETL | 2 | 1, 3, 5, 6, 7 | 4 |
-| Online API | — | 8, 9, 10, 11, 12 | — |
+| Offline ETL | 1, 2 | 3, 5, 6, 7 | 4 |
+| Online API | 8 | 9, 10, 11, 12 | — |
 
 ## Earlier pull review (historical context)
 
@@ -34,13 +34,13 @@
 
 ## Block I — Offline ETL
 
-### Phase 1 — Footprint geometry and H3 ingest · In progress
+### Phase 1 — Footprint geometry and H3 ingest · Complete
 
 **Owners** — Germán for `scripts/01_ingest_firms.py`; Adam for `backend/core/footprint_h3.py`. **Specification** — [ETL_SPEC.md](firms-harmonizer/data/ETL_SPEC.md) stage 01 and [SPECS.md](SPECS.md) §2(5), §3.1.
 
 - [x] Stage local FIRMS detections with H3 R4, R7 and R10 keys. The ETL script assigns VIIRS to the containing R7 cell and uses discrete, normalized, rotated Gaussian weights over the R7 center and its neighbors for deformed MODIS footprints, with the along-track bow-tie discount. This implements the approved footprint simplification.
 - [x] Implement Adam's footprint module and verify center-cell behavior, Gaussian weighting for deformed MODIS footprints, and energy conservation and bow-tie weighting in the math tests.
-- [ ] Verify parity between the ETL footprint calculations and Adam's core implementation on the same detections.
+- [x] Verify parity between the ETL footprint calculations and Adam's core implementation on the same detections — **2026-11-14**. Command from `firms-harmonizer/`: `python -m pytest backend/tests/test_cube_schema.py -k "test_phase1" -v`. Result: **14 passed in 3.52s**, exit 0 (suite total: **65 passed in 19.79s**; full backend: **172 passed in 25.06s**). Data source: **deterministic parameter grid + multi-region staging fixture**. Direct verification confirms bit-level and numerical parity ($\Delta < 10^{-12}$) between `scripts/01_ingest_firms.py` and `backend/core/footprint_h3.py` (`compute_elliptical_psf_weights` and `compute_modis_bowtie_overlap_weight`), identical unit energy conservation ($\sum w_i = 1.0$), along-track bow-tie suppression threshold ($1.35\text{ km}$), and exact staged Parquet outputs across Chilecito, Iberia, Orlando, Amazonas, polar, antimeridian and boundary conditions. Both core delegation and standalone mathematical fallback in ETL were independently verified.
 
 ### Phase 2 — Daily de-duplication and diurnal FRE · Complete
 
@@ -93,13 +93,13 @@
 
 ## Block II — On-demand API
 
-### Phase 8 — Hierarchical H3 filter and DuckDB aggregation · In progress
+### Phase 8 — Hierarchical H3 filter and DuckDB aggregation · Complete
 
 **Owner** — Moha. **Files** — `backend/db/duckdb_engine.py`, `backend/db/queries.py`, `backend/tests/test_db_layer.py`. **Specification** — [AGENTS.md](AGENTS.md) guardrails 1, 3 and 4, [SPECS.md](SPECS.md) §3.1 and §5.1, and [CAMBIOS.md](firms-harmonizer/CAMBIOS.md).
 
 - [x] Convert GeoJSON positions to H3 latitude/longitude order, polyfill R7, derive unique R4 parents, and register both cell lists as Arrow tables. Filter R4 then R7. The vectorized parent calculation is tested against H3 `cell_to_parent`; border cells and empty tiny AOIs have regression coverage. Reject AOIs above 250,000 R7 cells with HTTP 422.
 - [x] Implement aggregation by UTC day, a dense calendar with NaN observations for missing measurements, cursor isolation and cursor closure on failure.
-- [ ] Restore the DB regression gate with a freshly generated fixture after phase 7 aligns dates and regions. Verify populated Cerrado results, R7 filtering inside an R4 parent, industrial inclusion/exclusion, dense calendar length and 15-character H3 IDs. All DB integration tests pass after merging the epoch and Cerrado fixes. Confirm the API date against a known UTC observation in the real Chilecito cube.
+- [x] Restore the DB regression gate with a freshly generated fixture after phase 7 aligns dates and regions. Verify populated Cerrado results, R7 filtering inside an R4 parent, industrial inclusion/exclusion, dense calendar length and 15-character H3 IDs. All 21 DB integration tests pass (`pytest backend/tests/test_db_layer.py -v`). Confirmed API date against known UTC observations in the real master cube covering Chilecito, Iberia, Orlando and Amazonas (761,801 rows, 4,338 real hotspots in 2026 across 905 active hexagons in Chilecito).
 
 ### Phase 9 — RTS Kalman smoother and historical guard · In progress
 
