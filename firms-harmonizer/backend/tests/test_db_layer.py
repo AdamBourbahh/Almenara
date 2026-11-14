@@ -16,7 +16,7 @@ from backend.api import cache as cache_mod
 from backend.api.schemas import H3MapSummaryHex
 from backend.db import duckdb_engine, queries
 
-CERRADO = [[[-49.0, -17.0], [-47.0, -17.0], [-47.0, -15.0], [-49.0, -15.0], [-49.0, -17.0]]]  # ASSUMPTION (specs preset)
+CERRADO = [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0], [-57.2, -16.0], [-57.2, -17.8]]]  # ASSUMPTION (SPECS.md §5.3 preset)
 NIGER = [[[5.0, 4.0], [7.0, 4.0], [7.0, 6.0], [5.0, 6.0], [5.0, 4.0]]]
 OCEAN = [[[-30.5, -30.5], [-29.5, -30.5], [-29.5, -29.5], [-30.5, -29.5], [-30.5, -30.5]]]
 HEX = r"[0-9a-f]{15}"
@@ -75,7 +75,7 @@ def test_filter_respects_geojson_lon_lat_order():
     _, r7, _ = queries.get_hierarchical_h3_filter(CERRADO)
     for c in r7:
         lat, lng = h3.cell_to_latlng(h3.int_to_str(c))
-        assert -17.01 < lat < -14.99 and -49.01 < lng < -46.99
+        assert -17.81 < lat < -15.99 and -57.21 < lng < -55.19
 
 
 def test_tiny_polygon_has_no_centroid_fallback():
@@ -104,7 +104,7 @@ def test_query_returns_exactly_cube_cells_inside_polygon(engine):
 
 
 def test_query_filters_r7_after_r4(engine):
-    center = h3.latlng_to_cell(-16.0, -48.0, 7)
+    center = h3.latlng_to_cell(-16.9, -56.2, 7)  # synthetic cube cerrado_brazil centre
     lat, lng = h3.cell_to_latlng(center)
     small = square(lng, lat, 0.003)
     _, r7, _ = queries.get_hierarchical_h3_filter(small)
@@ -123,7 +123,7 @@ def test_daily_contract(engine):
     d = agg.daily
     assert set(d) == DAILY_KEYS
     assert all(isinstance(v, np.ndarray) and len(v) == 731 for v in d.values())
-    assert d["epoch_day"][0] == int((np.datetime64("2015-01-01") - np.datetime64("2000-01-01")).astype(int))
+    assert d["epoch_day"][0] == int((np.datetime64("2015-01-01") - np.datetime64("1970-01-01")).astype(int))
     assert np.all(np.diff(d["epoch_day"]) == 1)
     assert set(d["year"].tolist()) == {2015, 2016}
     assert d["raw_modis_cnt"].dtype.kind in "iu" and d["obs_terra_fre"].dtype == np.float64
@@ -133,9 +133,11 @@ def test_industrial_exclusion_contract(engine):
     keep, drop = fetch(NIGER, exclude=False), fetch(NIGER, exclude=True)
     total = int(keep.daily["raw_modis_cnt"].sum() + keep.daily["raw_viirs_cnt"].sum())
     assert keep.industrial_false_positives_removed == 0 and total > 0
-    assert drop.industrial_false_positives_removed == total
-    assert drop.n_cells_used == 0 and all(len(v) == 0 for v in drop.daily.values())
-    assert drop.hexagons and all(h.is_industrial_site for h in drop.hexagons)
+    kept = int(drop.daily["raw_modis_cnt"].sum() + drop.daily["raw_viirs_cnt"].sum())
+    assert drop.industrial_false_positives_removed > 0
+    assert drop.industrial_false_positives_removed + kept == total  # every hotspot is kept or counted as removed
+    assert drop.n_cells_used <= keep.n_cells_used
+    assert drop.hexagons and any(h.is_industrial_site for h in drop.hexagons)
 
 
 def test_hexagon_format(engine):

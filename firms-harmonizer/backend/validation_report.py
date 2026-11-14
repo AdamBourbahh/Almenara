@@ -19,18 +19,18 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-PRESETS = {  # frontend/src/api/types.ts PRESET_REGIONS centres (±1° rectangles)
-    "cerrado_brazil": (-48.0, -16.0),
-    "california_usa": (-121.0, 39.0),
-    "iberia_med": (-5.0, 39.0),
-    "niger_delta_flaring": (6.0, 5.0),
+PRESETS = {  # SPECS.md §5.3 bounds (west, south, east, north) = types.ts PRESET_REGIONS
+    "cerrado_brazil": (-57.2, -17.8, -55.2, -16.0),
+    "california_usa": (-121.2, 38.0, -119.5, 40.2),
+    "iberia_med": (-6.5, 37.2, -3.2, 39.8),
+    "niger_delta_flaring": (5.6, 4.6, 7.2, 5.8),
 }
 TARGET_QUERY_MS = 12.0
 TARGET_ANALYZE_MS = 250.0
 
 
-def rectangle(lon: float, lat: float, d: float = 1.0) -> list:
-    return [[[lon - d, lat - d], [lon + d, lat - d], [lon + d, lat + d], [lon - d, lat + d], [lon - d, lat - d]]]
+def rectangle(west: float, south: float, east: float, north: float) -> list:
+    return [[[west, south], [east, south], [east, north], [west, north], [west, south]]]
 
 
 def timed(fn, repeats: int = 9) -> tuple[float, float]:
@@ -66,8 +66,8 @@ def main() -> int:
 
     print("\n== Latency (first call | median of next 9) ==")
     print(f"   reference targets: query <{TARGET_QUERY_MS} ms, analyze <{TARGET_ANALYZE_MS} ms (not gates)")
-    for name, (lon, lat) in PRESETS.items():
-        coords = rectangle(lon, lat)
+    for name, bounds in PRESETS.items():
+        coords = rectangle(*bounds)
         f_first, f_med = timed(lambda: queries.get_hierarchical_h3_filter(coords))
         r4, r7, _ = queries.get_hierarchical_h3_filter(coords)
 
@@ -90,8 +90,8 @@ def main() -> int:
 
     print("\n== Scientific diagnostics (printed as measured; real core) ==")
     with TestClient(app) as client:
-        for name, (lon, lat) in PRESETS.items():
-            body = {"aoi": {"type": "Polygon", "coordinates": rectangle(lon, lat)}}
+        for name, bounds in PRESETS.items():
+            body = {"aoi": {"type": "Polygon", "coordinates": rectangle(*bounds)}}
             ANALYZE_CACHE.clear()
             GEOMETRY_CACHE.clear()
             t0 = perf_counter()

@@ -26,7 +26,7 @@ def _naive(obs):
 
 def _fake_chaos(daily, target_year, drop_fraction, simulate_dual_blackout, random_seed):
     sel = daily["year"] == target_year
-    dates = [str(np.datetime64("2000-01-01") + int(d)) for d in daily["epoch_day"][sel]]
+    dates = [str(np.datetime64("1970-01-01") + int(d)) for d in daily["epoch_day"][sel]]
     zeros = [0.0] * len(dates)
     return dict(dropped_days_count=0, dropped_dates=[], dates=dates, true_harmonized_fre=zeros,
                 corrupted_naive_fre=zeros, historical_cross_guard_fre=zeros,

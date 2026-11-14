@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from backend.api import core_contract
 from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE, CachedJSON, geometry_key, make_cache_key
 from backend.api.schemas import AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse
-from backend.db import duckdb_engine
+from backend.db import duckdb_engine, queries
 from backend.db.queries import (OBS_COLUMNS, AoiAggregate, fetch_aoi_aggregated_data,
                                 get_hierarchical_h3_filter, validate_polygon_topology)
 
@@ -28,7 +28,6 @@ CHOW_P_GATE = 0.10                 # AGENTS.md acceptance gate
 W1_REDUCTION_GATE_PCT = 88.0       # AGENTS.md acceptance gate
 GAP_LABELS = ((1, "Sensor outage"), (2, "Cloud cover >80%"), (4, "Swath gap"), (8, "Dual-sensor blackout"))
 SENSOR_BITS = ((1, "Terra"), (2, "Aqua"), (4, "VIIRS"))
-EPOCH = np.datetime64("2000-01-01", "D")
 FULL_RANGE = (2001, 2026)
 JSON_MEDIA_TYPE = "application/json"
 
@@ -196,7 +195,7 @@ def analyze(req: AnalyzeRequest) -> Response:
         sensor_code = finite[:, 0] * 1 + finite[:, 1] * 2 + finite[:, 2] * 4
     else:
         sensor_code = daily["sensor_obs_mask"] & 7
-    dates = np.datetime_as_string(EPOCH + daily["epoch_day"].astype("timedelta64[D]")).tolist()
+    dates = np.datetime_as_string(queries.EPOCH + daily["epoch_day"].astype("timedelta64[D]")).tolist()
 
     calendar = [
         dict(date=date, year=yr, doy=d, raw_hotspot_count=cnt, raw_frp_mw=frp, harmonized_fre_mj_km2=xv,

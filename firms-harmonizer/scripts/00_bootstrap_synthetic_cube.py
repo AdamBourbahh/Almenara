@@ -5,27 +5,31 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 from time import perf_counter
 
+import duckdb
 import h3
 import numpy as np
-import orjson
 import pyarrow as pa
-import pyarrow.parquet as pq
-from scipy.ndimage import gaussian_filter1d
-from scipy.stats import f as f_distribution, kendalltau, theilslopes, wasserstein_distance
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.api.schemas import AnalyzeResponse
-
+# Centers are strictly inside the four bounding boxes in SPECS.md section 5.3.
+# Keep the tuple interface used by the downstream ETL and benchmark scripts.
 REGIONS = {
-    "cerrado_brazil": (-16.0, -48.0, 250.0, 9),
-    "california_usa": (39.0, -121.0, 220.0, 8),
-    "iberia_med": (39.0, -5.0, 205.0, 8),
-    "niger_delta_flaring": (5.0, 6.0, 180.0, 12),
+    "cerrado_brazil": (-16.9, -56.2, 220.0, 9),
+    "california_usa": (39.1, -120.35, 220.0, 8),
+    "iberia_med": (38.5, -4.85, 205.0, 8),
+    "niger_delta_flaring": (5.2, 6.4, 220.0, 12),
+}
+REGION_BOUNDS = {
+    "cerrado_brazil": (-57.2, -17.8, -55.2, -16.0),
+    "california_usa": (-121.2, 38.0, -119.5, 40.2),
+    "iberia_med": (-6.5, 37.2, -3.2, 39.8),
+    "niger_delta_flaring": (5.6, 4.6, 7.2, 5.8),
 }
 
 CUBE_SCHEMA = pa.schema([
@@ -45,20 +49,48 @@ CUBE_SCHEMA = pa.schema([
              b"sort_order": b"h3_r4,epoch_day,h3_r7", b"seed": b"42"})
 
 
-def region_cells(lat: float, lon: float) -> list[str]:
-    """Use public string-index APIs under both h3-py v4 and v3."""
+def _latlng_to_h3_int(lat: float, lon: float, res: int) -> int:
+    """Return a lossless unsigned H3 index with h3-py v3 or v4."""
     if hasattr(h3, "latlng_to_cell"):
-        return sorted(h3.grid_disk(h3.latlng_to_cell(lat, lon, 7), 1))
-    return sorted(h3.k_ring(h3.geo_to_h3(lat, lon, 7), 1))
+        cell = h3.latlng_to_cell(lat, lon, res)
+    else:
+        cell = h3.geo_to_h3(lat, lon, res)
+    return int(cell, 16) if isinstance(cell, str) else int(cell)
+
+
+def _h3_to_parent_int(h_int: int, res: int) -> int:
+    """Use string APIs for both versions, preserving all 64 index bits."""
+    cell = format(h_int, "x")
+    if hasattr(h3, "cell_to_parent"):
+        parent = h3.cell_to_parent(cell, res)
+    else:
+        parent = h3.h3_to_parent(cell, res)
+    return int(parent, 16) if isinstance(parent, str) else int(parent)
+
+
+def _disk(cell: str, radius: int) -> list[str]:
+    if hasattr(h3, "grid_disk"):
+        return sorted(h3.grid_disk(cell, radius))
+    return sorted(h3.k_ring(cell, radius))
+
+
+def region_cells(lat: float, lon: float) -> list[str]:
+    """Sample ten nearby R7 cells deterministically, with spatial neighbors."""
+    center = format(_latlng_to_h3_int(lat, lon, 7), "x")
+    inner = _disk(center, 1)
+    outer = sorted(set(_disk(center, 2)) - set(inner))
+    chosen = np.random.default_rng(42).choice(outer, size=10 - len(inner), replace=False)
+    return sorted(inner + chosen.tolist())
 
 
 def parent_r4(cell: str) -> str:
-    if hasattr(h3, "cell_to_parent"):
-        return h3.cell_to_parent(cell, 4)
-    return h3.h3_to_parent(cell, 4)
+    """Retain the string helper consumed by existing ETL callers."""
+    return format(_h3_to_parent_int(int(cell, 16), 4), "x")
 
 
 def _chow(values: np.ndarray, years: np.ndarray, doy: np.ndarray) -> tuple[float, float]:
+    from scipy.stats import f as f_distribution
+
     t = np.arange(len(values)) / 365.25
     angle = 2 * np.pi * (doy - 1) / 365.25
     design = np.column_stack([np.ones(len(t)), t, np.sin(angle), np.cos(angle)])
@@ -75,15 +107,20 @@ def _chow(values: np.ndarray, years: np.ndarray, doy: np.ndarray) -> tuple[float
 def _write_mock(table: pa.Table, dates: np.ndarray, truth: np.ndarray,
                 years: np.ndarray, doy: np.ndarray, elapsed_ms: float) -> None:
     """Complete bounded Cerrado response using explicit synthetic oracle truth."""
+    import orjson
+    from scipy.ndimage import gaussian_filter1d
+    from scipy.stats import kendalltau, theilslopes, wasserstein_distance
+    from backend.api.schemas import AnalyzeResponse
+
     count = len(dates)
-    # First region has seven equally weighted sample cells.
-    area = 7 * 5.161
-    latent = truth[:7].mean(axis=0)
+    region = region_cells(*REGIONS["cerrado_brazil"][:2])
+    area = len(region) * 5.161
+    latent = truth[:len(region)].mean(axis=0)
     data = table.filter(pa.compute.is_in(table["h3_r7"], value_set=pa.array([
-        int(c, 16) for c in region_cells(-16, -48)
+        int(c, 16) for c in region
     ], type=pa.uint64()))).to_pydict()
     epoch = np.asarray(data["epoch_day"])
-    day_index = epoch - int((dates[0] - np.datetime64("2000-01-01")).astype(int))
+    day_index = epoch - int((dates[0] - np.datetime64("1970-01-01")).astype(int))
     raw = np.bincount(day_index, weights=np.asarray(data["raw_modis_cnt"]) + np.asarray(data["raw_viirs_cnt"]), minlength=count)
     raw_frp = np.bincount(day_index, weights=data["raw_frp_mw"], minlength=count)
     biome_proxy = np.bincount(day_index, weights=data["burned_area_ha_mcd64"], minlength=count)
@@ -133,7 +170,7 @@ def _write_mock(table: pa.Table, dates: np.ndarray, truth: np.ndarray,
     harm_f, harm_p = _chow(latent, years, doy)
     before = years < 2012
     # Within-period raw vs calibrated proxy diagnostics, in the same FRE units.
-    raw_density = raw / 7 * 18
+    raw_density = raw / len(region) * 18
     w_raw = wasserstein_distance(raw_density[before], raw_density[~before])
     w_harm = wasserstein_distance(latent[before], latent[~before])
     peaks = np.asarray([p["peak_doy_mu"] for p in phenology])
@@ -151,12 +188,12 @@ def _write_mock(table: pa.Table, dates: np.ndarray, truth: np.ndarray,
                      + ("PASS" if harm_p > .10 else "FAIL")
                      + ". Chow and Wasserstein are simulated diagnostics; burned-area R² is squared proxy correlation, not independent validation. No production Kalman results are claimed."))
     response = dict(data_source="synthetic", query_hash=hashlib.sha256(b"synthetic-cerrado-2001-2026-v1").hexdigest(),
-                    execution_time_ms=elapsed_ms, aoi_area_km2=area, total_h3_cells=7,
+                    execution_time_ms=elapsed_ms, aoi_area_km2=area, total_h3_cells=len(region),
                     calendar_series=cells, forecast_series=forecasts, phenology_by_year=phenology,
                     audit_metrics=audit, map_hexagons=[])
     for h in sorted(set(data["h3_r7"])):
         selected = np.asarray(data["h3_r7"]) == h
-        cell_index = region_cells(-16, -48).index(f"{h:x}")
+        cell_index = region.index(f"{h:x}")
         cell_energy = truth[cell_index]
         annual = np.asarray([cell_energy[years == year].sum() for year in range(2001, 2027)])
         months = dates.astype("datetime64[M]").astype(int) % 12
@@ -166,76 +203,126 @@ def _write_mock(table: pa.Table, dates: np.ndarray, truth: np.ndarray,
         response["map_hexagons"].append(dict(h3_index=f"{h:x}", mean_annual_fre=float(annual.mean()),
             raw_pixel_count=int((np.asarray(data["raw_modis_cnt"])[selected]+np.asarray(data["raw_viirs_cnt"])[selected]).sum()),
             trend_slope=float(theilslopes(annual, np.arange(2001,2027)).slope),
-            is_industrial_site=False, shannon_entropy=entropy))
+            is_industrial_site=bool(data["industrial_prob"][np.flatnonzero(selected)[0]] > .75), shannon_entropy=entropy))
     validated = AnalyzeResponse.model_validate(response)
     mock = ROOT / "data/mock/mock_analyze_response.json"
     mock.write_bytes(orjson.dumps(validated.model_dump(), option=orjson.OPT_APPEND_NEWLINE))
 
 
-def generate_bootstrap_cube(output_path="data/processed/fire_cube.parquet", *, write_mock=True) -> Path:
-    """Generate 28 R7 cells × 9496 days, sorted, ZSTD-compressed and reproducible."""
+def generate_bootstrap_cube(
+    output_path: str = "data/processed/fire_cube.parquet", *, write_mock: bool = False,
+) -> str:
+    """Write 40 cells × 9,496 days offline and return the absolute output path.
+
+    All day/sensor arrays are vectorized. The optional legacy mock export is
+    excluded from the fast cube path; existing ETL callers can pass write_mock=False.
+    Seasonal width grows 30% over 25 year intervals, while the peak moves
+    0.75 days per interval (18.75 days from 2001 to 2026).
+    """
     started = perf_counter()
     rng = np.random.default_rng(42)
     dates = np.arange(np.datetime64("2001-01-01"), np.datetime64("2027-01-01"))
-    years = dates.astype("datetime64[Y]").astype(int)+1970
-    doy = (dates-dates.astype("datetime64[Y]")).astype(int)+1
-    epoch = (dates-np.datetime64("2000-01-01")).astype(int)
-    blocks, truths = [], []
-    for name, (lat,lon,peak,biome) in REGIONS.items():
-        for index, h in enumerate(region_cells(lat,lon)):
-            phase = 2*np.pi*(doy-peak-.75*(years-2001))/365.25
-            physical = (10+650*np.exp(4*(np.cos(phase)-1))) * (1+.035*index)
-            if name == "niger_delta_flaring":
-                physical = np.full(len(dates), 140.+index*3)
-            truths.append(physical)
-            observations = np.maximum(0, physical[:,None]*(1+rng.normal(0,.035,(len(dates),3))))
-            observations[dates < np.datetime64("2002-07-04"),1] = np.nan
-            observations[years < 2012,2] = np.nan
-            outage = (dates >= np.datetime64("2022-07-31")) & (dates <= np.datetime64("2022-08-16"))
-            blackout = (dates >= np.datetime64("2022-08-22")) & (dates <= np.datetime64("2022-08-26"))
-            observations[outage,1] = np.nan
-            observations[blackout,:] = np.nan
-            mask = np.sum(np.isfinite(observations)*[1,2,4],axis=1).astype(np.uint8)
-            modis = np.rint(physical/18).astype(np.uint16)
-            modis[blackout] = 0
-            viirs = np.where(years >= 2012,np.rint(modis*5.2),0).astype(np.uint16)
-            cloud = rng.uniform(0,65,len(dates)).astype(np.float32)
-            cloud[blackout] = 100
-            # Each sample is the center or a ring neighbor; average other regional
-            # cells sharing its first ring to obtain a genuinely spatial lag.
-            region = region_cells(lat,lon)
-            neighbors = (set(h3.grid_disk(h,1)) if hasattr(h3,"grid_disk") else set(h3.k_ring(h,1))) - {h}
-            neighbor_indices = [j for j,c in enumerate(region) if c in neighbors]
-            if name == "niger_delta_flaring":
-                neighbor_energy = np.full(len(dates), np.mean([140.+j*3 for j in neighbor_indices]))
-                initial_neighbor = neighbor_energy[0]
-            else:
-                neighbor_energy = (10+650*np.exp(4*(np.cos(phase)-1))) * np.mean([1+.035*j for j in neighbor_indices])
-                # The day before the fixture starts is 2000-12-31, DOY 366.
-                initial_phase = 2*np.pi*(366-peak+.75)/365.25
-                initial_neighbor = (10+650*np.exp(4*(np.cos(initial_phase)-1))) * np.mean([1+.035*j for j in neighbor_indices])
-            values = [np.full(len(dates),int(parent_r4(h),16),dtype=np.uint64),
-                      np.full(len(dates),int(h,16),dtype=np.uint64), epoch,years,doy,
-                      np.full(len(dates),biome),mask,np.where(blackout,8,np.where(outage,1,0)),cloud,
-                      modis,viirs,(modis+viirs)*4.0,observations[:,0],observations[:,1],observations[:,2],
-                      np.r_[initial_neighbor,neighbor_energy[:-1]],
-                      np.full(len(dates),.92 if name=="niger_delta_flaring" else .08),
-                      physical*.035*(1+rng.normal(0,.04,len(dates)))]
-            arrays = [pa.array(v,type=field.type,mask=np.isnan(v) if field.nullable else None)
-                      for field,v in zip(CUBE_SCHEMA,values)]
-            blocks.append(pa.Table.from_arrays(arrays,schema=CUBE_SCHEMA))
-    table = pa.concat_tables(blocks).sort_by([("h3_r4","ascending"),("epoch_day","ascending"),("h3_r7","ascending")])
+    years = dates.astype("datetime64[Y]").astype(int) + 1970
+    doy = (dates - dates.astype("datetime64[Y]")).astype(int) + 1
+    epoch = (dates - np.datetime64("1970-01-01")).astype(np.uint16)
+    cell_groups = [region_cells(lat, lon) for lat, lon, _, _ in REGIONS.values()]
+    cells = [cell for group in cell_groups for cell in group]
+    cell_ids = np.array([int(cell, 16) for cell in cells], dtype=np.uint64)
+    parents = np.array([_h3_to_parent_int(int(cell), 4) for cell in cell_ids], dtype=np.uint64)
+    industrial = np.zeros(40, dtype=bool)
+    industrial[np.r_[0:2, 10:12, 20:22, 30:36]] = True
+
+    # A wrapped Gaussian represents seasonal vegetation energy. Dividing by
+    # width keeps annual energy stable as the season broadens, avoiding a
+    # spurious harmonized level shift across the 2012 instrument transition.
+    peaks = np.repeat([r[2] for r in REGIONS.values()], 10)[:, None]
+    width = 25.0 * (1.0 + 0.30 * (years - 2001) / 25.0)
+    phase = (doy[None, :] - peaks - 0.75 * (years - 2001) + 182.625) % 365.25 - 182.625
+    scale = rng.uniform(0.9, 1.1, (40, 1))
+    truth = (10.0 + 650.0 * 25.0 / width * np.exp(-0.5 * (phase / width) ** 2)) * scale
+    truth[industrial] = np.broadcast_to(140.0 * scale[industrial], truth[industrial].shape)
+    observations = (truth[:, :, None] * (1.0 + rng.normal(0.0, 0.025, (40, len(dates), 3)))).astype(np.float32)
+    viirs_active = dates >= np.datetime64("2012-01-20")
+    observations[:, ~viirs_active, 2] = np.nan
+    observations[:, dates < np.datetime64("2002-07-04"), 1] = np.nan
+    outage = (dates >= np.datetime64("2022-07-31")) & (dates <= np.datetime64("2022-08-16"))
+    blackout = (dates >= np.datetime64("2022-08-22")) & (dates <= np.datetime64("2022-08-26"))
+    observations[:, outage, 1] = np.nan
+    observations[:, blackout, :] = np.nan
+    sensor_mask = np.sum(np.isfinite(observations) * [1, 2, 4], axis=2, dtype=np.uint8)
+    gap = np.where(blackout, 8, np.where(outage, 1, 0)).astype(np.uint8)
+    cloud = rng.uniform(0.0, 0.65, truth.shape).astype(np.float32)
+    cloud[:, blackout] = 0.95
+
+    modis = np.rint(truth / 18.0).astype(np.uint16)
+    # VIIRS adds 3.5 times MODIS counts, yielding about 4.5 times total raw
+    # detections without changing the calibrated FRE observations.
+    viirs = np.where(viirs_active, np.rint(modis * 3.5), 0).astype(np.uint16)
+    modis[:, blackout] = 0
+    viirs[:, blackout] = 0
+
+    # Mean true energy of sampled first-ring neighbors at t-1. Every sampled
+    # cell has a first-ring neighbor because the sample includes the inner disk.
+    neighborhoods = [set(_disk(cell, 1)) - {cell} for cell in cells]
+    weights = np.array([[other in neighbors for other in cells]
+                        for neighbors in neighborhoods], dtype=np.float64)
+    weights /= weights.sum(axis=1, keepdims=True)
+    # Einsum avoids multithreaded BLAS startup for this small sparse product.
+    neighbor = np.einsum("ij,jt->it", weights, truth, optimize=False)
+    lag = np.empty_like(neighbor)
+    lag[:, 1:] = neighbor[:, :-1]
+    initial_phase = (366.0 - peaks[:, 0] + 0.75 + 182.625) % 365.25 - 182.625
+    initial_width = 25.0 * (1.0 - 0.30 / 25.0)
+    initial = (10.0 + 650.0 * 25.0 / initial_width * np.exp(-0.5 * (initial_phase / initial_width) ** 2)) * scale[:, 0]
+    initial[industrial] = 140.0 * scale[industrial, 0]
+    lag[:, 0] = weights @ initial
+    burned = truth * 0.035 * (1.0 + rng.normal(0.0, 0.035, truth.shape))
+    burned[industrial] = 0.0
+
+    n = len(dates)
+    values = [
+        np.repeat(parents, n), np.repeat(cell_ids, n), np.tile(epoch, 40),
+        np.tile(years, 40), np.tile(doy, 40),
+        np.repeat([r[3] for r in REGIONS.values()], 10 * n),
+        sensor_mask.ravel(), np.tile(gap, 40), cloud.ravel(),
+        modis.ravel(), viirs.ravel(), ((modis.astype(np.float32) + viirs) * 4.0).ravel(),
+        observations[:, :, 0].ravel(), observations[:, :, 1].ravel(), observations[:, :, 2].ravel(),
+        lag.ravel(), np.repeat(np.where(industrial, 0.92, 0.04), n), burned.ravel(),
+    ]
+    arrays = [pa.array(v, type=field.type, mask=np.isnan(v) if field.nullable else None)
+              for field, v in zip(CUBE_SCHEMA, values)]
+    table = pa.Table.from_arrays(arrays, schema=CUBE_SCHEMA)
     path = Path(output_path)
     if not path.is_absolute():
-        path = ROOT/path
-    path.parent.mkdir(parents=True,exist_ok=True)
-    pq.write_table(table,path,compression="zstd",row_group_size=32768,write_statistics=True)
+        path = ROOT / path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Publish atomically so readers never see a partially written Parquet file.
+    # DuckDB propagates real table constraints to Parquet repetition types.
+    sql_types = {pa.uint64(): "UBIGINT", pa.uint16(): "USMALLINT",
+                 pa.uint8(): "UTINYINT", pa.float32(): "FLOAT"}
+    columns = ", ".join(f"{f.name} {sql_types[f.type]}" + ("" if f.nullable else " NOT NULL")
+                        for f in CUBE_SCHEMA)
+    with TemporaryDirectory(prefix=".bootstrap-", dir=path.parent) as temp:
+        staged = Path(temp) / "fire_cube.parquet"
+        with duckdb.connect(config={"threads": 2}) as con:
+            con.register("synthetic_cube", table)
+            con.execute("CREATE TEMP TABLE cube (" + columns + ")")
+            con.execute("INSERT INTO cube SELECT * FROM synthetic_cube")
+            con.execute(
+                "COPY (SELECT * FROM cube "
+                "ORDER BY h3_r4 ASC, epoch_day ASC, h3_r7 ASC) TO ? "
+                "(FORMAT PARQUET, CODEC 'ZSTD', COMPRESSION_LEVEL 1, ROW_GROUP_SIZE 32768, "
+                "KV_METADATA {source: 'SYNTHETIC integration fixture; not NASA observations', "
+                "sort_order: 'h3_r4,epoch_day,h3_r7', seed: '42'})",
+                [str(staged)],
+            )
+        staged.replace(path)
     if write_mock:
-        _write_mock(table,dates,np.asarray(truths),years,doy,(perf_counter()-started)*1000)
-    return path
+        _write_mock(table, dates, truth, years, doy, (perf_counter() - started) * 1000)
+    return str(path)
 
 
 if __name__ == "__main__":
     start = perf_counter()
     output = generate_bootstrap_cube()
-    print(f"Synthetic cube: {output} ({perf_counter()-start:.3f}s)")
+    print(f"Synthetic cube: {output} ({perf_counter() - start:.3f}s)")

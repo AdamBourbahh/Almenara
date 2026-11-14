@@ -12,8 +12,8 @@ from backend.api import cache as cache_mod
 from backend.api import core_contract
 from backend.api.main import app
 
-CERRADO = {"type": "Polygon", "coordinates": [[[-49.0, -17.0], [-47.0, -17.0], [-47.0, -15.0],
-                                               [-49.0, -15.0], [-49.0, -17.0]]]}  # ASSUMPTION (specs preset)
+CERRADO = {"type": "Polygon", "coordinates": [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0],
+                                               [-57.2, -16.0], [-57.2, -17.8]]]}  # ASSUMPTION (SPECS.md §5.3 preset)
 STAGES = {"h3", "db", "core", "build", "validate", "serialize"}
 
 

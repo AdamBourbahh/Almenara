@@ -114,33 +114,34 @@ export interface ChaosMonkeyResponse {
   seasonal_energy_recovered_pct: number;
 }
 
+/** Pilot regions = SPECS.md §5.3 bounds (the synthetic cube places its cells inside them). */
 export const PRESET_REGIONS = {
   cerrado_brazil: {
-    name: "Brazilian Cerrado",
-    center: [-48, -16],
+    name: "Cerrado & Pantanal, Brazil",
+    center: [-56.2, -16.9],
     aoi: { type: "Polygon", coordinates: [[
-      [-49, -17], [-47, -17], [-47, -15], [-49, -15], [-49, -17],
+      [-57.2, -17.8], [-55.2, -17.8], [-55.2, -16], [-57.2, -16], [-57.2, -17.8],
     ]] },
   },
   california_usa: {
-    name: "California, USA",
-    center: [-121, 39],
+    name: "Sierra Nevada, California",
+    center: [-120.35, 39.1],
     aoi: { type: "Polygon", coordinates: [[
-      [-122, 38], [-120, 38], [-120, 40], [-122, 40], [-122, 38],
+      [-121.2, 38], [-119.5, 38], [-119.5, 40.2], [-121.2, 40.2], [-121.2, 38],
     ]] },
   },
   iberia_med: {
     name: "Mediterranean Iberia",
-    center: [-5, 39],
+    center: [-4.85, 38.5],
     aoi: { type: "Polygon", coordinates: [[
-      [-6, 38], [-4, 38], [-4, 40], [-6, 40], [-6, 38],
+      [-6.5, 37.2], [-3.2, 37.2], [-3.2, 39.8], [-6.5, 39.8], [-6.5, 37.2],
     ]] },
   },
   niger_delta_flaring: {
-    name: "Niger Delta flaring",
-    center: [6, 5],
+    name: "Niger Delta gas flaring",
+    center: [6.4, 5.2],
     aoi: { type: "Polygon", coordinates: [[
-      [5, 4], [7, 4], [7, 6], [5, 6], [5, 4],
+      [5.6, 4.6], [7.2, 4.6], [7.2, 5.8], [5.6, 5.8], [5.6, 4.6],
     ]] },
   },
 } as const satisfies Record<string, {

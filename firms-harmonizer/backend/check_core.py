@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-CERRADO = [[[-49.0, -17.0], [-47.0, -17.0], [-47.0, -15.0], [-49.0, -15.0], [-49.0, -17.0]]]  # specs preset
+CERRADO = [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0], [-57.2, -16.0], [-57.2, -17.8]]]  # SPECS.md §5.3 preset
 TARGET_YEAR = 2022
 
 
