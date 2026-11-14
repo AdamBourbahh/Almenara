@@ -81,7 +81,7 @@
      $$\hat{x}_{t|T} = \max\left(0,\, x_{t|t} + G_t(\hat{x}_{t+1|T} - x_{t+1|t})\right)$$
      $$P_{t|T} = \max\left(10^{-4},\, P_{t|t} + G_t^2(P_{t+1|T} - P_{t+1|t})\right)$$
      $$\text{CI}_{95\%}(t) = \left[\max\left(0, \hat{x}_{t|T} - 1.96\sqrt{P_{t|T}}\right),\, \hat{x}_{t|T} + 1.96\sqrt{P_{t|T}}\right]$$
-  5. **14-Day Operational Forecast Guard:** Appending $H = 14$ future days with `y_obs = NaN` projects a 2-week probabilistic burning forecast anchored by $\mu_{\text{cross}}(d_{T+k})$ and $\pm 1.96\sqrt{P_{T+k|T}}$.
+  5. **14-Day Operational Forecast Guard** *(out of the current MVP: the API returns `forecast_series: null` until it is implemented)*: Appending $H = 14$ future days with `y_obs = NaN` projects a 2-week probabilistic burning forecast anchored by $\mu_{\text{cross}}(d_{T+k})$ and $\pm 1.96\sqrt{P_{T+k|T}}$.
   6. **Interactive "Chaos Monkey" Stress Test (`POST /api/chaos-monkey`):** Randomly drops $25\%$ of VIIRS observations in the target year (e.g., 2022) and enforces a 10-day simultaneous blackout of all satellites at peak fire season, computing `naive_rmse`, `kalman_rmse`, and `seasonal_energy_recovered_pct` ($> 90\%$).
 
 ### 3.5 Module 5: Physical Conversion to Consumed Biomass & Smoke Emissions (`auditor_stats.py`)
@@ -148,24 +148,55 @@ Sorted physically by `ORDER BY h3_r4 ASC, epoch_day ASC, h3_r7 ASC` with `ZSTD` 
 
 ### 5.2 Pydantic v2 Contract (`backend/api/schemas.py`)
 
+**Authoritative source: `firms-harmonizer/backend/api/schemas.py`** (mirrored by `frontend/src/api/types.ts`). The block below is a verbatim copy as of 2026-11-14; changes are logged in `firms-harmonizer/CAMBIOS.md`. Nullable fields are `null` when out of MVP scope (14-day forecast, PM2.5, tooltips) or when the source column / core output is unavailable.
+
 ```python
-from typing import List, Literal, Optional
-from pydantic import BaseModel, Field
+"""Frozen, JSON-safe public API contracts; mirrored in frontend/src/api/types.ts."""
 
-class GeoJSONPolygon(BaseModel):
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+class ContractModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+
+class GeoJSONPolygon(ContractModel):
     type: Literal["Polygon"] = "Polygon"
-    coordinates: List[List[List[float]]] = Field(..., description="Exterior ring [[lon, lat], ...]")
+    coordinates: list[list[list[float]]]
 
-class AnalyzeRequest(BaseModel):
+    @field_validator("coordinates")
+    @classmethod
+    def validate_rings(cls, rings: list[list[list[float]]]) -> list[list[list[float]]]:
+        if not rings:
+            raise ValueError("A polygon requires an exterior ring.")
+        for ring in rings:
+            if len(ring) < 4 or ring[0] != ring[-1]:
+                raise ValueError("Polygon rings must be closed with at least four positions.")
+            for point in ring:
+                if len(point) != 2 or not (-180 <= point[0] <= 180 and -90 <= point[1] <= 90):
+                    raise ValueError("Positions must contain valid longitude and latitude.")
+        return rings
+
+
+class AnalyzeRequest(ContractModel):
     aoi: GeoJSONPolygon
-    start_year: int = Field(2001, ge=2000, le=2026)
-    end_year: int = Field(2026, ge=2000, le=2026)
-    exclude_industrial_flaring: bool = Field(True, description="Filter cells with H_temp > 0.75")
-    enable_kalman_gap_filling: bool = Field(True, description="Enable RTS Smoother + Cross-Sensor Guard")
-    forecast_days: int = Field(14, ge=0, le=30, description="Future days predicted via Kalman + Cross Prior")
+    start_year: int = Field(default=2001, ge=2001, le=2026)
+    end_year: int = Field(default=2026, ge=2001, le=2026)
+    exclude_industrial_flaring: bool = True
+    enable_kalman_gap_filling: bool = True
+    forecast_days: int = Field(default=14, ge=0, le=14)
     confidence_level: Literal["low", "nominal", "high"] = "nominal"
 
-class DailyCalendarCell(BaseModel):
+    @model_validator(mode="after")
+    def validate_year_order(self) -> "AnalyzeRequest":
+        if self.start_year > self.end_year:
+            raise ValueError("start_year must not exceed end_year.")
+        return self
+
+
+class DailyCalendarCell(ContractModel):
     date: str
     year: int
     doy: int
@@ -177,22 +208,16 @@ class DailyCalendarCell(BaseModel):
     ci_95_upper: float
     uncertainty_pct: float
     biomass_burned_tonnes: float
-    pm25_emitted_kg: float
+    pm25_emitted_kg: float | None
     z_score_anomaly: float
     is_gap_filled: bool
-    is_forecast: bool = False
-    gap_reason: Literal[
-        "NONE",
-        "SENSOR_OUTAGE",
-        "CLOUD_OCCLUSION",
-        "SWATH_GAP",
-        "DUAL_SENSOR_BLACKOUT",
-        "FORECAST_GUARD",
-    ]
-    active_sensors: List[str]
-    tooltip_narrative: str
+    is_forecast: bool
+    gap_reason: str | None
+    active_sensors: list[str]
+    tooltip_narrative: str | None
 
-class VonMisesPhenologyYear(BaseModel):
+
+class VonMisesPhenologyYear(ContractModel):
     year: int
     peak_doy_mu: float
     peak_date_label: str
@@ -200,58 +225,65 @@ class VonMisesPhenologyYear(BaseModel):
     season_width_days: float
     total_annual_fre_gj: float
 
-class ScientificAuditMetrics(BaseModel):
+
+class ScientificAuditMetrics(ContractModel):
     chow_test_f_stat_raw: float
     chow_test_p_val_raw: float
     chow_test_f_stat_harm: float
     chow_test_p_val_harm: float
     wasserstein_w1_raw: float
     wasserstein_w1_harm: float
-    burned_area_r2_raw: float
-    burned_area_r2_harm: float
+    burned_area_r2_raw: float | None
+    burned_area_r2_harm: float | None
     phenology_shift_days_per_decade: float
     mann_kendall_p_value: float
     industrial_false_positives_removed: int
     total_biomass_burned_kt: float
-    total_pm25_emitted_tonnes: float
+    total_pm25_emitted_tonnes: float | None
     executive_verdict_en: str
 
-class H3MapSummaryHex(BaseModel):
-    h3_index: str  # MUST be 15-char lowercase hex string ("872830828ffffff")
+
+class H3MapSummaryHex(ContractModel):
+    h3_index: str = Field(pattern=r"^[0-9a-f]{15}$")
     mean_annual_fre: float
     raw_pixel_count: int
     trend_slope: float
     is_industrial_site: bool
     shannon_entropy: float
 
-class AnalyzeResponse(BaseModel):
+
+class AnalyzeResponse(ContractModel):
+    data_source: Literal["real", "synthetic"]
     query_hash: str
     execution_time_ms: float
     aoi_area_km2: float
     total_h3_cells: int
-    calendar_series: List[DailyCalendarCell]
-    forecast_series: List[DailyCalendarCell]
-    phenology_by_year: List[VonMisesPhenologyYear]
-    audit_metrics: ScientificAuditMetrics
-    map_hexagons: List[H3MapSummaryHex]
+    calendar_series: list[DailyCalendarCell]
+    forecast_series: list[DailyCalendarCell] | None
+    phenology_by_year: list[VonMisesPhenologyYear]
+    audit_metrics: ScientificAuditMetrics | None
+    map_hexagons: list[H3MapSummaryHex]
 
-class ChaosMonkeyRequest(BaseModel):
+
+class ChaosMonkeyRequest(ContractModel):
     aoi: GeoJSONPolygon
-    target_year: int = 2022
-    drop_fraction: float = Field(0.25, ge=0.05, le=0.80)
+    target_year: int = Field(default=2022, ge=2001, le=2026)
+    drop_fraction: float = Field(default=0.25, ge=0, le=1)
     simulate_dual_blackout: bool = True
-    random_seed: int = 42
+    random_seed: int = Field(default=42, ge=0)
 
-class ChaosMonkeyResponse(BaseModel):
+
+class ChaosMonkeyResponse(ContractModel):
+    data_source: Literal["real", "synthetic"]
     dropped_days_count: int
-    dropped_dates: List[str]
-    dates: List[str]
-    true_harmonized_fre: List[float]
-    corrupted_naive_fre: List[float]
-    historical_cross_guard_fre: List[float]
-    kalman_reconstructed_fre: List[float]
-    reconstructed_ci_lower: List[float]
-    reconstructed_ci_upper: List[float]
+    dropped_dates: list[str]
+    dates: list[str]
+    true_harmonized_fre: list[float]
+    corrupted_naive_fre: list[float]
+    historical_cross_guard_fre: list[float]
+    kalman_reconstructed_fre: list[float]
+    reconstructed_ci_lower: list[float]
+    reconstructed_ci_upper: list[float]
     naive_rmse: float
     kalman_rmse: float
     seasonal_energy_recovered_pct: float
