@@ -29,6 +29,7 @@ from backend.api.cache import LRUCache
 from backend.api.copilot_metrics import energy_answer, retrieve_energy
 from backend.api import copilot_research as research
 from backend.api.copilot_answers import causal_answer, is_causal
+from backend.api.copilot_guidance import guidance
 from backend.db import duckdb_engine, queries
 
 log = logging.getLogger(__name__)
@@ -251,9 +252,9 @@ def resolve_scope(req: ExplainSpikeRequest) -> Scope:
 def quantitative_intent(question: str) -> tuple[bool, bool]:
     """Route database questions before model planning or scientific explanation."""
     q = normalized(question)
-    definition = bool(re.search(r"\b(what (?:is|are)|que (?:es|son)|why|por que|explain|explica|difference|diferencia|can .*tell)\b", q))
+    definition = bool(re.search(r"\b(what (?:is|are)|que (?:es|son|significa)|define|meaning|why|por que|explain|explica|difference|diferencia|can .*tell)\b", q))
     units = bool(re.search(r"\b(gj|gigajoules?|mj|fre|energy|energia|biomass|biomasa|frp|mw)\b", q))
-    numeric = bool(re.search(r"how (?:many|much)|which days|most detections|highest|busiest|strongest|peak|count|cuant[oa]s?|mayor|mas detecciones|quant[oa]s?|numero|total|sum|suma|compare|compara|by year|por ano|give me|show me|dame|muestra", q))
+    numeric = bool(re.search(r"how (?:many|much)|which days|most detections|highest|busiest|strongest|peak|count|number|cuant[oa]s?|mayor|mas detecciones|quant[oa]s?|numero|total|sum|suma|compare|compara|by year|por ano|give me|show me|dame|muestra", q))
     if definition and not re.search(r"how (?:many|much)|cuant[oa]s?|quant[oa]s?|total|highest|numero|compare|compara", q):
         numeric = False
     energy = units and (numeric or not definition)
@@ -334,8 +335,8 @@ def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
         return cached[1], cached[2]
     location = scope.locality or scope.label.split(" study envelope")[0]
     period = scope.start if scope.start == scope.end else f"{scope.start or ''} {scope.end or ''}"
-    official = f"{location} incendio wildfire {period} (site:comunidad.madrid OR site:112.es OR site:gob.es OR site:gov OR site:gov.br OR site:gov.ar OR site:copernicus.eu)"
-    news = f"{location} incendio wildfire {period} causa investigacion"
+    official = f"{location} incendio {period} site:comunidad.madrid/noticias"
+    news = f"{location} incendio {period}"
 
     def query_provider(query: str) -> list[dict]:
         key = os.getenv("TAVILY_API_KEY")
@@ -351,7 +352,7 @@ def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
             except (httpx.HTTPError, ValueError):
                 log.info("Copilot search provider unavailable; trying public search")
         try:
-            return list(DDGS(timeout=4).text(query, max_results=8, backend="google"))
+            return list(DDGS(timeout=4).text(query, max_results=8, backend="auto"))
         except Exception:
             log.info("Copilot public search unavailable")
             return []
@@ -359,7 +360,18 @@ def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
     with ThreadPoolExecutor(max_workers=2) as executor:
         batches = list(executor.map(query_provider, [official, news]))
     results = [r for batch in batches for r in batch]
-    citations = research.enrich_official_reports(filter_reports(scope, results))
+    if len(filter_reports(scope, results)) < 2 and scope.start:
+        day = date.fromisoformat(scope.start)
+        spanish_months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+        fallback = f"{location} incendio {day.day} {spanish_months[day.month-1]} {day.year}"
+        results.extend(query_provider(fallback))
+        news += " | " + fallback
+    candidates = research.indexed_sources(scope) + filter_reports(scope, results)
+    unique = {}
+    for candidate in candidates:
+        unique.setdefault(candidate.url, candidate)
+    candidates = [c.model_copy(update={"id": f"[W{i+1}]"}) for i,c in enumerate(list(unique.values())[:8])]
+    citations = research.enrich_official_reports(candidates)
     executed = official + " | " + news
     if citations:
         SEARCH_CACHE.put(cache_key, (monotonic(), citations, executed))
@@ -371,11 +383,14 @@ def filter_reports(scope: Scope, results: list[dict]) -> list[CitationReference]
     citations = []
     seen = set()
     per_host = {}
+    results = [r for r in results if isinstance(r, dict) and all(isinstance(r.get(k, ""), str) for k in ("url", "href", "title", "content", "body", "published_date", "date"))]
     for item in sorted(results, key=lambda r: -research.source_tier(r.get("url") or r.get("href") or "")):
         url = item.get("url") or item.get("href") or ""
         title = item.get("title") or ""
         snippet = item.get("content") or item.get("body") or ""
-        host = urlparse(url).hostname or ""
+        host = (urlparse(url).hostname or "").removeprefix("www.")
+        if host.endswith("comunidad.madrid"):
+            host = "comunidad.madrid"
         tier = research.source_tier(url)
         if not safe_url(url) or not tier or per_host.get(host, 0) >= 2 or url in seen or not title or not snippet:
             continue
@@ -439,7 +454,7 @@ def complete(messages: list[dict], *, structured: bool = False, timeout: float =
         remaining = deadline - monotonic()
         if remaining < 1:
             break
-        body = {"model": model, "messages": messages, "temperature": 0.15, "max_completion_tokens": 2200}
+        body = {"model": model, "messages": messages, "temperature": 0.15, "max_completion_tokens": 5000}
         if "gpt-oss" in model:
             body["reasoning_effort"] = "low"
         if schema:
@@ -457,6 +472,7 @@ def complete(messages: list[dict], *, structured: bool = False, timeout: float =
             res.raise_for_status()
             choice = res.json()["choices"][0]
             content = choice["message"].get("content")
+            log.info("Copilot model finish=%s, content_chars=%s", choice.get("finish_reason"), len(content or ""))
             if choice.get("finish_reason") == "stop" and isinstance(content, str) and content.strip():
                 return content.strip(), f"groq/{model}"
         except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError):
@@ -604,6 +620,12 @@ If evidence is insufficient, give a short useful limitation and one concrete nex
 
 def answer(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
     source = duckdb_engine.data_source()
+    quick = guidance(req.user_question)
+    if quick and (quick[0] == "DATA_NOT_AVAILABLE" or not quantitative_intent(req.user_question)[0]):
+        classification, explanation, ids = quick
+        return ExplainSpikeResponse(physical_classification=classification, explanation_markdown=explanation,
+            citations=[c for c in [FIRMS, CUBE] + METHOD_SOURCES if c.id in ids],
+            model_used="deterministic-local-science", data_source=source)
     scope = resolve_scope(req)
     quantitative, wants_energy = quantitative_intent(req.user_question)
     causal = is_causal(req.user_question)
@@ -679,6 +701,7 @@ def answer(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
         try:
             result = json.loads(raw)
             candidate = normalize_links(result["answer"].strip(), citations)
+            candidate = re.sub(r"【(W?\d+)】", r"[\1]", candidate)
             used = {"[" + str(marker).strip("[]") + "]" for marker in result["citation_ids"]}
             known = {c.id for c in citations}
             mentioned = set(re.findall(r"\[(?:W)?\d+\]", candidate))

@@ -140,14 +140,17 @@ Open **Fire Copilot** and ask about a place and date, in English, Spanish or Por
 
 Selecting an area, hexagon or timeline day attaches it as context above the input; removing the context prevents leaks into the next question. Numerical answers come from the same full-history calculation as the dashboard, with reconstructed and industrial flags. A whole-year selection is never treated as a single incident, and ignition causes are never inferred from detection counts.
 
-For prose and live grounding, configure `GROQ_API_KEY` (and optionally `TAVILY_API_KEY`) in a local `.env`. Without credentials, set `COPILOT_OFFLINE=1` for deterministic archive-only answers. Search results are leads; only a causal excerpt in retrieved official text, with a matching date and locality, supports a cause. Missing evidence is stated explicitly; synthetic answers are labelled and never silently substituted.
+For prose and live grounding, configure `GROQ_API_KEY` (and optionally `TAVILY_API_KEY`) in a local `.env`. Without credentials, set `COPILOT_OFFLINE=1` for deterministic archive-only answers. Search results are leads; only evidence grounded in retrieved official or reputable-news text, with a matching date and locality, supports a reported cause. Missing evidence is stated explicitly; synthetic answers are labelled and never silently substituted.
 
 Copilot checks:
 
 ```bash
-python -m pytest backend/tests/test_explain_spike.py backend/tests/test_copilot_metrics.py backend/tests/test_copilot_research.py -q
+python -m pytest backend/tests/test_explain_spike.py backend/tests/test_copilot_metrics.py backend/tests/test_copilot_research.py backend/tests/test_copilot_acceptance.py -q
 python scripts/06_validate_copilot.py --output data/processed/copilot_validation_offline.json
-cd frontend && node --test tests/*.test.mjs
+python scripts/06_validate_copilot.py --live --output data/processed/copilot_validation_live.json
+python scripts/08_validate_copilot_acceptance.py
+python scripts/08_validate_copilot_acceptance.py --live
+cd frontend && node --test tests/*.test.mjs && npm run build
 ```
 
 The validation script cross-checks numerical answers against separate SQL aggregates. It checks accuracy and contracts, not whether a detection matches a news-reported incident.

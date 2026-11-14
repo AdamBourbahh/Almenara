@@ -1,0 +1,407 @@
+{
+  "created_at": "2026-11-14T22:06:38.261376+00:00",
+  "mode": "offline",
+  "cases": [
+    {
+      "id": "madrid_2026",
+      "question": "¿Qué pasó en el incendio de Madrid del 24 de julio de 2026?",
+      "elapsed_ms": 84.6,
+      "expected_detections": 1384,
+      "expected_summed_frp_mw": 87121.19,
+      "checks": {
+        "real_provenance": true,
+        "count_matches_archive": true,
+        "power_matches_archive": true,
+        "requested_date_present": true,
+        "no_stale_chilecito_scope": true,
+        "not_labeled_extreme_from_counts": true,
+        "sources_linked": true
+      },
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "### Answer\n\nThe available evidence does not establish which named incident these detections belong to or its ignition cause. A matching incident report or fire perimeter would be needed to link them.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,384 satellite detections** in the **Madrid study envelope, Spain** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **87,121.19 MW**.\n- Strongest individual detection: **1,237.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-offline-science",
+        "data_source": "real",
+        "map_context": {
+          "label": "Madrid study envelope, Spain",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.6,
+                  40.0
+                ],
+                [
+                  -3.05,
+                  40.0
+                ],
+                [
+                  -3.05,
+                  41.17
+                ],
+                [
+                  -4.6,
+                  41.17
+                ],
+                [
+                  -4.6,
+                  40.0
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-24",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        }
+      }
+    },
+    {
+      "id": "sierra_oeste_2026",
+      "question": "What happened near San Martín de Valdeiglesias on 24 July 2026?",
+      "elapsed_ms": 74.6,
+      "expected_detections": 1626,
+      "expected_summed_frp_mw": 103052.76,
+      "checks": {
+        "real_provenance": true,
+        "count_matches_archive": true,
+        "power_matches_archive": true,
+        "requested_date_present": true,
+        "no_stale_chilecito_scope": true,
+        "not_labeled_extreme_from_counts": true,
+        "sources_linked": true
+      },
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "### Answer\n\nThe available evidence does not establish which named incident these detections belong to or its ignition cause. A matching incident report or fire perimeter would be needed to link them.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,626 satellite detections** in the **Sierra Oeste study envelope, Spain** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **103,052.76 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-offline-science",
+        "data_source": "real",
+        "map_context": {
+          "label": "Sierra Oeste study envelope, Spain",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.65,
+                  40.15
+                ],
+                [
+                  -4.0,
+                  40.15
+                ],
+                [
+                  -4.0,
+                  40.65
+                ],
+                [
+                  -4.65,
+                  40.65
+                ],
+                [
+                  -4.65,
+                  40.15
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-24",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        }
+      }
+    },
+    {
+      "id": "careiro_2024",
+      "question": "Investigate the fires near Careiro, Amazonas on 13 September 2024.",
+      "elapsed_ms": 70.7,
+      "expected_detections": 834,
+      "expected_summed_frp_mw": 10189.18,
+      "checks": {
+        "real_provenance": true,
+        "count_matches_archive": true,
+        "power_matches_archive": true,
+        "requested_date_present": true,
+        "no_stale_chilecito_scope": true,
+        "not_labeled_extreme_from_counts": true,
+        "sources_linked": true
+      },
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "### Answer\n\nThe available evidence does not establish which named incident these detections belong to or its ignition cause. A matching incident report or fire perimeter would be needed to link them.\n\n### Satellite observations\n\nThe local FIRMS archive contains **834 satellite detections** in the **Careiro study envelope, Amazonas, Brazil** for **2024-09-13** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **10,189.18 MW**.\n- Strongest individual detection: **182.02 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-offline-science",
+        "data_source": "real",
+        "map_context": {
+          "label": "Careiro study envelope, Amazonas, Brazil",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -60.6,
+                  -4.4
+                ],
+                [
+                  -59.2,
+                  -4.4
+                ],
+                [
+                  -59.2,
+                  -3.2
+                ],
+                [
+                  -60.6,
+                  -3.2
+                ],
+                [
+                  -60.6,
+                  -4.4
+                ]
+              ]
+            ]
+          },
+          "period_start": "2024-09-13",
+          "period_end": "2024-09-13",
+          "h3_index": null
+        }
+      }
+    },
+    {
+      "id": "autazes_2023",
+      "question": "What happened near Autazes, Amazonas on 9 October 2023?",
+      "elapsed_ms": 70.8,
+      "expected_detections": 1115,
+      "expected_summed_frp_mw": 12381.62,
+      "checks": {
+        "real_provenance": true,
+        "count_matches_archive": true,
+        "power_matches_archive": true,
+        "requested_date_present": true,
+        "no_stale_chilecito_scope": true,
+        "not_labeled_extreme_from_counts": true,
+        "sources_linked": true
+      },
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "### Answer\n\nThe available evidence does not establish which named incident these detections belong to or its ignition cause. A matching incident report or fire perimeter would be needed to link them.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,115 satellite detections** in the **Autazes study envelope, Amazonas, Brazil** for **2023-10-09** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **12,381.62 MW**.\n- Strongest individual detection: **361.60 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-offline-science",
+        "data_source": "real",
+        "map_context": {
+          "label": "Autazes study envelope, Amazonas, Brazil",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -59.6,
+                  -3.9
+                ],
+                [
+                  -58.8,
+                  -3.9
+                ],
+                [
+                  -58.8,
+                  -3.3
+                ],
+                [
+                  -59.6,
+                  -3.3
+                ],
+                [
+                  -59.6,
+                  -3.9
+                ]
+              ]
+            ]
+          },
+          "period_start": "2023-10-09",
+          "period_end": "2023-10-09",
+          "h3_index": null
+        }
+      }
+    },
+    {
+      "id": "manaus_month",
+      "question": "Which days had the most detections near Manaus in September 2024?",
+      "elapsed_ms": 171.2,
+      "expected_detections": 19123,
+      "expected_summed_frp_mw": 265757.4,
+      "checks": {
+        "real_provenance": true,
+        "count_matches_archive": true,
+        "power_matches_archive": true,
+        "requested_date_present": true,
+        "no_stale_chilecito_scope": true,
+        "not_labeled_extreme_from_counts": true,
+        "sources_linked": true
+      },
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **19,123 satellite detections** in the **Amazonas / Manaus study envelope, Brazil** for **2024-09-01 to 2024-09-30** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **265,757.40 MW**.\n- Strongest individual detection: **6,548.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe busiest day by detection count was **2024-09-12** with **2,659 detections**. First/last detections in this query: 2024-09-01 / 2024-09-29.\n\nDays with the most detections:\n\n| Date (UTC) | Detections | Summed FRP (MW) |\n| --- | ---: | ---: |\n| 2024-09-12 | 2,659 | 50,918.97 |\n| 2024-09-13 | 2,163 | 27,023.25 |\n| 2024-09-21 | 1,382 | 12,281.32 |\n| 2024-09-22 | 1,336 | 13,742.46 |\n| 2024-09-23 | 1,161 | 13,505.72 |\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-local-observations",
+        "data_source": "real",
+        "map_context": {
+          "label": "Amazonas / Manaus study envelope, Brazil",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -62.0,
+                  -5.0
+                ],
+                [
+                  -58.0,
+                  -5.0
+                ],
+                [
+                  -58.0,
+                  -1.0
+                ],
+                [
+                  -62.0,
+                  -1.0
+                ],
+                [
+                  -62.0,
+                  -5.0
+                ]
+              ]
+            ]
+          },
+          "period_start": "2024-09-01",
+          "period_end": "2024-09-30",
+          "h3_index": null
+        }
+      }
+    }
+  ],
+  "limits": "Numerical and contract checks are automated. Event narrative quality and source correspondence require human review. Study envelopes are not municipalities, incident perimeters or proof that a detection belongs to a reported fire.",
+  "followup": {
+    "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+    "explanation_markdown": "### Answer\n\nThe available evidence does not establish which named incident these detections belong to or its ignition cause. A matching incident report or fire perimeter would be needed to link them.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,283 satellite detections** in the **Madrid study envelope, Spain** for **2026-07-25** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **36,223.87 MW**.\n- Strongest individual detection: **1,898.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+    "citations": [
+      {
+        "id": "[5]",
+        "source_type": "NASA_DATASET",
+        "title": "NASA FIRMS active fire observations",
+        "authors_or_agency": "NASA EOSDIS LANCE",
+        "year": 2026,
+        "dataset_or_doi": "NASA Earthdata / FIRMS",
+        "url": "https://firms.modaps.eosdis.nasa.gov/",
+        "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+      }
+    ],
+    "web_search_used": false,
+    "search_query_executed": null,
+    "model_used": "deterministic-offline-science",
+    "data_source": "real",
+    "map_context": {
+      "label": "Madrid study envelope, Spain",
+      "aoi": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -4.6,
+              40.0
+            ],
+            [
+              -3.05,
+              40.0
+            ],
+            [
+              -3.05,
+              41.17
+            ],
+            [
+              -4.6,
+              41.17
+            ],
+            [
+              -4.6,
+              40.0
+            ]
+          ]
+        ]
+      },
+      "period_start": "2026-07-25",
+      "period_end": "2026-07-25",
+      "h3_index": null
+    }
+  },
+  "followup_correct_date": true,
+  "passed": true
+}
