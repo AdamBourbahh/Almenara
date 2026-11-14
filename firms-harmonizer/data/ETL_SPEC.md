@@ -370,3 +370,19 @@ These date spans are the first/last detections in the supplied packages. The gen
 Each package includes archive and NRT observations from Terra/Aqua MODIS, SNPP, NOAA-20 and NOAA-21. FIRMS request IDs 848215–848218 identify Orlando and 848219–848222 identify Amazonas. Original `archive` and `nrt` labels are retained, so stage 01's deduplication priority is unchanged. Four temporary-fixture integration cases verify ingest and publication for Chilecito, Iberia, Orlando and Amazonas.
 
 The 16 new CSVs are tracked explicitly in Git at the user's request; generated Parquet remains excluded and can be rebuilt with stages 01–04. Earlier Chilecito/Iberia raw packages remain local and are required to reproduce a four-region cube. The incoming frontend merge is retained; this ETL import does not change its preset list or API contracts.
+
+## Four-region real cube publication — 2026-11-14
+
+Stages 01–04 were run in order from `firms-harmonizer/` on the local FIRMS CSVs of `amazonas_manaus`, `chilecito_la_rioja`, `iberia_med` and `orlando_florida`, without network access or credentials. Staging held 1,574,092 deduplicated detections and 1,870,624 footprint contributions. The cube includes the Phase 4 orbital revisit weight.
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `staged_firms.parquet` | 52,291,869 | `436bc71c1b1bc89b30741faf61add63c1a001b0b4c9ee6a48fad79082233be99` |
+| `fire_cube.parquet` | 10,900,199 | `1ed635f787564376470c284c834bf4512e090c1a2b212c4c70542f9a31dd6f3a` |
+| `sensor_outages.parquet` | 737 | `6ac6b1bec13f35cac06a39135b7386fa69367c788dbcd2faf1bea2038feb9d98` |
+| `diurnal_ratios.parquet` | 27,558 | `2a66f7251cc170f11a66a25b26d5b8991602b18500becf567d989b0a25ac6656` |
+| `eqm_gpd_lut.json` | 13,918 | `8ede60e41ca06a62f441d34e0f7339a82c53d0b449e32f2abcd69d5cc34a019c` |
+
+The cube has 761,801 unique cell-days from 2000-11-01 to 2026-11-01 (center cell-days: Manaus 191,509; Chilecito 37,955; Iberia 384,226; Orlando 24,752). The publication checks above pass: 18-field schema and nullability, ZSTD, real-only provenance, unique ascending keys, 1970 UTC calendar consistency, raw FRP (34,804,483 MW) and detection-count conservation, unit footprint weights, NOAA-21 bit 16 on 86,348 rows, sensor bits matching non-null channels, no Aqua values in the 2022 Safe Mode interval, and finite non-negative FRE. No ancillary file was present, so metadata records all rows as missing cloud and burned-area input rather than observed zero.
+
+Script 05 exits 1 on this cube. Warmed P95 is 17.92–60.10 ms against the 15 ms target, Chow p ≤ 0.010, burned-area R² is undefined without MCD64A1 input, recovery is 71.8–95.5%, and the `cerrado_brazil`, `california_usa` and `niger_delta_flaring` presets have no real rows. These are open acceptance results, not build failures.
