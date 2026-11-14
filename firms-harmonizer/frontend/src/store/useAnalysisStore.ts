@@ -1,6 +1,8 @@
 import { create } from "zustand";
-import type { AnalyzeRequest, AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, ViewMode } from "../api/types";
-import { analyzeAoi, runChaosMonkey } from "../api/client";
+import regions from "../../../data/regions.json";
+import type { Observations } from "../api/client";
+import type { AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, ViewMode } from "../api/types";
+import { fetchObservations, runChaosMonkey } from "../api/client";
 
 // ============================================================================
 // Official pilot regions for the jury demo
@@ -12,32 +14,20 @@ export interface PresetRegion {
   coordinates: number[][][];
 }
 
-export const PRESET_REGIONS = {
-  CERRADO: {
-    label: "Cerrado & Pantanal",
-    context: "Brazil: the 2012 sensor jump",
-    coordinates: [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0], [-57.2, -16.0], [-57.2, -17.8]]]
-  },
-  SIERRA_NEVADA: {
-    label: "Sierra Nevada",
-    context: "California: when the season starts earlier",
-    coordinates: [[[-121.2, 38.0], [-119.5, 38.0], [-119.5, 40.2], [-121.2, 40.2], [-121.2, 38.0]]]
-  },
-  IBERIA: {
-    label: "Iberian Peninsula",
-    context: "Spain and Portugal: coast and mountain detail",
-    coordinates: [[[-6.5, 37.2], [-3.2, 37.2], [-3.2, 39.8], [-6.5, 39.8], [-6.5, 37.2]]]
-  },
-  NIGER_DELTA: {
-    label: "Niger Delta",
-    context: "Nigeria: oil flares versus wildfires",
-    coordinates: [[[5.6, 4.6], [7.2, 4.6], [7.2, 5.8], [5.6, 5.8], [5.6, 4.6]]]
-  }
-} satisfies Record<string, PresetRegion>;
-
-export type PresetKey = keyof typeof PRESET_REGIONS;
-export type RegionSelection = PresetKey | "CUSTOM";
-export const PRESET_ORDER: PresetKey[] = ["CERRADO", "SIERRA_NEVADA", "IBERIA", "NIGER_DELTA"];
+const labels: Record<string, string> = {
+  orlando_florida: "Orlando, Florida", amazonas_manaus: "Manaus, Amazonas",
+  chilecito_la_rioja: "Chilecito, La Rioja", iberia_med: "Iberia study area"
+};
+export const PRESET_REGIONS: Record<string, PresetRegion> = Object.fromEntries(
+  Object.entries(regions).filter(([, value]) => "coverage" in value).map(([key, value]) => {
+    const [w, s, e, n] = value.bounds;
+    return [key, { label: labels[key] ?? key.replaceAll("_", " "), context: "NASA FIRMS observations",
+      coordinates: [[[w,s],[e,s],[e,n],[w,n],[w,s]]] }];
+  })
+);
+export type PresetKey = string;
+export type RegionSelection = string;
+export const PRESET_ORDER = Object.keys(PRESET_REGIONS);
 
 /** Minimum side of a custom bounding box (degrees) to avoid accidental click-sized AOIs. */
 export const MIN_BBOX_SIDE_DEG = 0.02;
@@ -53,16 +43,6 @@ export interface HoveredDay {
 /** O(1) key for calendar lookups: 2022 / 226 -> 2022226. */
 export const calendarKey = (year: number, doy: number) => year * 1000 + doy;
 
-function buildCalendarIndex(data: AnalyzeResponse): Map<number, DailyCalendarCell> {
-  const index = new Map<number, DailyCalendarCell>();
-  for (const cell of data.calendar_series) index.set(calendarKey(cell.year, cell.doy), cell);
-  for (const cell of data.forecast_series ?? []) {
-    const key = calendarKey(cell.year, cell.doy);
-    if (!index.has(key)) index.set(key, { ...cell, is_forecast: true });
-  }
-  return index;
-}
-
 const polygonFromPreset = (key: PresetKey): GeoJSONPolygon => ({ type: "Polygon", coordinates: PRESET_REGIONS[key].coordinates });
 
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === "AbortError";
@@ -72,6 +52,7 @@ const isAbortError = (error: unknown) => error instanceof DOMException && error.
 // ============================================================================
 
 interface AnalysisState {
+  observationData: Observations | null;
   // Parameters & selection
   viewMode: ViewMode;
   selectedPreset: RegionSelection;
@@ -127,13 +108,14 @@ let chaosController: AbortController | null = null;
 let chaosSeq = 0;
 
 export const useAnalysisStore = create<AnalysisState>((set, get) => ({
-  viewMode: "HARMONIZED",
-  selectedPreset: "CERRADO",
-  currentAoi: polygonFromPreset("CERRADO"),
-  startYear: 2001,
+  observationData: null,
+  viewMode: "RAW",
+  selectedPreset: "orlando_florida",
+  currentAoi: polygonFromPreset("orlando_florida"),
+  startYear: 2000,
   endYear: 2026,
-  excludeIndustrial: true,
-  enableKalman: true,
+  excludeIndustrial: false,
+  enableKalman: false,
   highlightIndustrialOnMap: false,
   isDrawingAoi: false,
 
@@ -224,21 +206,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const seq = ++analysisSeq;
 
     const state = get();
-    set({ loading: true, error: null });
-
-    const requestPayload: AnalyzeRequest = {
-      aoi: state.currentAoi,
-      start_year: state.startYear,
-      end_year: state.endYear,
-      exclude_industrial_flaring: state.excludeIndustrial,
-      enable_kalman_gap_filling: state.enableKalman,
-      confidence_level: "nominal"
-    };
+    set({ loading: true, error: null, observationData: null, analysisData: null, calendarIndex: new Map() });
 
     try {
-      const { data, isSynthetic } = await analyzeAoi(requestPayload, controller.signal);
-      if (seq !== analysisSeq) return; // a newer request superseded this one
-      set({ analysisData: data, calendarIndex: buildCalendarIndex(data), isSynthetic, loading: false, hoveredDay: null });
+      const data = await fetchObservations(state.currentAoi, controller.signal);
+      if (seq !== analysisSeq) return;
+      set({ observationData: data, isSynthetic: false, loading: false, hoveredDay: null });
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
       set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false });

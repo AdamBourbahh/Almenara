@@ -1,0 +1,238 @@
+{
+  "source_manifest_hashes": "PASS (16 files)",
+  "raw_inventory": {
+    "orlando_florida": {
+      "files": 8,
+      "rows": 52943,
+      "duplicates": 0,
+      "distinct_acquisition_times_at_same_position": 0,
+      "sensors": [
+        "Aqua",
+        "N20",
+        "N21",
+        "SNPP",
+        "Terra"
+      ],
+      "first": "2000-11-01",
+      "last": "2026-10-30"
+    },
+    "amazonas_manaus": {
+      "files": 8,
+      "rows": 390954,
+      "duplicates": 0,
+      "distinct_acquisition_times_at_same_position": 0,
+      "sensors": [
+        "Aqua",
+        "N20",
+        "N21",
+        "SNPP",
+        "Terra"
+      ],
+      "first": "2000-11-01",
+      "last": "2026-11-01"
+    }
+  },
+  "unique_detection_keys": 443897,
+  "checks": {
+    "real_provenance": true,
+    "exact_cube_schema": true,
+    "all_input_detections_preserved": true,
+    "staged_detection_keys_unique": true,
+    "expected_regions_only": true,
+    "orlando_florida_input_coordinates_in_bounds": true,
+    "amazonas_manaus_input_coordinates_in_bounds": true,
+    "staged_dates_and_utc_times": true,
+    "cube_dates_match_epoch_year_doy": true,
+    "cube_unique_cell_days": true,
+    "cube_sorted": true,
+    "valid_h3_r7_and_parents": true,
+    "five_sensor_bits_preserved": true,
+    "finite_nonnegative_energy": true,
+    "source_counts_and_raw_power_preserved": true,
+    "outage_masks_aqua": true,
+    "missing_ancillary_explicit": true,
+    "nominal_biomes_explicit": true,
+    "eqm_models_finite_and_monotone": true,
+    "gpd_means_match_analytic_supported_tails": true,
+    "sample_fre_units_and_calibration_unambiguous_scan_bins": true
+  },
+  "fre_samples_verified": 2621,
+  "gpd_max_absolute_mean_error_mw": 6.84905429046978e-05,
+  "cube_metadata": {
+    "source": "REAL FIRMS detections",
+    "real_rows": "251272",
+    "synthetic_rows": "0",
+    "epoch": "1970-01-01",
+    "coverage": "{\"chilecito_la_rioja\": {\"bounds\": [-69.5, -31, -65.5, -27.5], \"nominal_biome\": 16, \"coverage\": [[\"2000-11-01\", \"2026-11-01\"]]}, \"orlando_florida\": {\"bounds\": [-82.0, 28.0, -80.7, 29.3], \"nominal_biome\": 8, \"coverage\": [[\"2000-11-01\", \"2026-10-30\"]]}, \"amazonas_manaus\": {\"bounds\": [-62.0, -5.0, -58.0, -1.0], \"nominal_biome\": 2, \"coverage\": [[\"2000-11-01\", \"2026-11-01\"]]}, \"cerrado_brazil\": {\"bounds\": [-57.2, -17.8, -55.2, -16], \"nominal_biome\": 9}, \"california_usa\": {\"bounds\": [-121.2, 38, -119.5, 40.2], \"nominal_biome\": 8}, \"iberia_med\": {\"bounds\": [-9.5, 36, 4, 44], \"nominal_biome\": 8, \"coverage\": [[\"2000-11-01\", \"2026-11-01\"]]}, \"niger_delta_flaring\": {\"bounds\": [5.6, 4.6, 7.2, 5.8], \"nominal_biome\": 12}}",
+    "real_cloud_and_burned_area": "optional ancillary; zero sentinel for missing values",
+    "ancillary_coverage": "{\"burned_area_ha_mcd64\": {\"missing_rows\": 251272, \"observed_rows\": 0, \"observed_zero_rows\": 0}, \"cloud_cover_pct\": {\"missing_rows\": 251272, \"observed_rows\": 0, \"observed_zero_rows\": 0}, \"input_present\": false}",
+    "real_igbp": "local IGBP lookup or nominal regional fallback",
+    "fre_method": "one-hour FRP integration proxy"
+  },
+  "cube_rows": 251272,
+  "cube_cells": 16437,
+  "cube_bytes": 3566526,
+  "cube_sha256": "f199669b33d7822a940d39d84643f00b948e5fb4c5710e46d1ea0970de700eaa",
+  "staging_by_region": [
+    [
+      "amazonas_manaus",
+      439230,
+      390954,
+      13176,
+      "2000-11-01",
+      "2026-11-01"
+    ],
+    [
+      "orlando_florida",
+      63263,
+      52943,
+      3261,
+      "2000-11-01",
+      "2026-10-30"
+    ]
+  ],
+  "sensor_inventory": [
+    [
+      "amazonas_manaus",
+      "Aqua",
+      51534
+    ],
+    [
+      "amazonas_manaus",
+      "N20",
+      100907
+    ],
+    [
+      "amazonas_manaus",
+      "N21",
+      62651
+    ],
+    [
+      "amazonas_manaus",
+      "SNPP",
+      164505
+    ],
+    [
+      "amazonas_manaus",
+      "Terra",
+      11357
+    ],
+    [
+      "orlando_florida",
+      "Aqua",
+      5768
+    ],
+    [
+      "orlando_florida",
+      "N20",
+      13288
+    ],
+    [
+      "orlando_florida",
+      "N21",
+      5378
+    ],
+    [
+      "orlando_florida",
+      "SNPP",
+      21519
+    ],
+    [
+      "orlando_florida",
+      "Terra",
+      6990
+    ]
+  ],
+  "eqm_supported_models": 18,
+  "diurnal_ratio_rows": 421,
+  "limitations": [
+    "Cloud reanalysis and independent burned area are absent; zero sentinels are not observations.",
+    "IGBP classes are nominal regional fallbacks, not measured MCD12Q1.",
+    "Only known Aqua outage evidence is available; global counts and swath evidence are absent.",
+    "Coverage intervals are based on detections and do not establish daily completeness.",
+    "Stage 04 uses mode(scan_bin) without a tie-breaker; tied scan bins can select different calibrations between builds. Unit samples use unambiguous scan bins.",
+    "FRE uses a one-hour FRP integration proxy, not measured fire duration.",
+    "SciPy issued an IntegrationWarning fitting GPD tails; published means match analytic finite-support means within 1e-4 MW.",
+    "The API currently fills the full requested calendar through 2026-12-31, beyond the last input detection; these filled dates are not future observations.",
+    "The API currently groups active sensors using mask & 7, omitting NOAA-20/21 labels although the cube retains their bits.",
+    "AOI density aggregation and area scaling remain subject to scientific review; successful HTTP operation does not establish physical or independent validation.",
+    "Real Chow p-values fail the p>0.10 target in both regions. W1 reduction passes >88% only for Manaus. Scientific targets and latency targets are not established by successful cube publication."
+  ],
+  "http_health": {
+    "status": "ok",
+    "duckdb": "ok",
+    "row_count": 251272,
+    "data_source": "real",
+    "cube_path": "/home/adam-bourbahh/Documents/Almenara/firms-harmonizer/data/processed/fire_cube.parquet",
+    "missing_columns": [],
+    "core": {
+      "compute_cross_prior": true,
+      "kalman_rts_smooth": true,
+      "fit_von_mises_year": true,
+      "phenology_trend": true,
+      "chow_test": true,
+      "wasserstein_w1_normalized": true,
+      "descriptive_r2": true,
+      "run_chaos_monkey_simulation": true
+    },
+    "core_signatures": {
+      "compute_cross_prior": null,
+      "kalman_rts_smooth": null,
+      "fit_von_mises_year": null,
+      "phenology_trend": null,
+      "chow_test": null,
+      "wasserstein_w1_normalized": null,
+      "descriptive_r2": null,
+      "run_chaos_monkey_simulation": null
+    }
+  },
+  "real_http_smoke": {
+    "orlando_florida": {
+      "analysis_http_status": 200,
+      "source": "real",
+      "cells": 3123,
+      "calendar_days": 9496,
+      "cold_http_ms": 252.0,
+      "server_timing": "h3;dur=8.08, db;dur=59.14, build;dur=26.01, core;dur=71.55, validate;dur=28.12, serialize;dur=17.15",
+      "cache_hit": "HIT",
+      "burned_area_r2": null,
+      "forecast": null,
+      "audit_verdict": "Chow break test at 2012-01-01: raw p=0.00134, harmonized p=0.000394 (FAIL against the p>0.1 gate). Wasserstein-1 1.294 -> 0.3041 (76.5% reduction; FAIL against the >88% gate). Burned-area R\u00b2 values are descriptive squared correlations, not out-of-sample validation. PM2.5, tooltips and the 14-day forecast are not computed in this MVP.",
+      "chaos_http_status": 200,
+      "chaos_naive_rmse": 15621.931283314232,
+      "chaos_kalman_rmse": 8355.80294686001,
+      "chaos_energy_recovered_pct": 99.7082452028885
+    },
+    "amazonas_manaus": {
+      "analysis_http_status": 200,
+      "source": "real",
+      "cells": 13104,
+      "calendar_days": 9496,
+      "cold_http_ms": 659.99,
+      "server_timing": "h3;dur=70.28, db;dur=297.34, build;dur=104.70, core;dur=64.89, validate;dur=41.38, serialize;dur=22.17",
+      "cache_hit": "HIT",
+      "burned_area_r2": null,
+      "forecast": null,
+      "audit_verdict": "Chow break test at 2012-01-01: raw p=0.185, harmonized p=0.0241 (FAIL against the p>0.1 gate). Wasserstein-1 1.484 -> 0.1411 (90.5% reduction; PASS against the >88% gate). Burned-area R\u00b2 values are descriptive squared correlations, not out-of-sample validation. PM2.5, tooltips and the 14-day forecast are not computed in this MVP.",
+      "chaos_http_status": 200,
+      "chaos_naive_rmse": 16224.097956387084,
+      "chaos_kalman_rmse": 11283.699372036584,
+      "chaos_energy_recovered_pct": 93.3788451533474
+    }
+  },
+  "verified_on": "2026-11-14",
+  "etl_test_gate": {
+    "command": "python -m pytest backend/tests/test_cube_schema.py -q --tb=short",
+    "passed": 79,
+    "seconds": 6.58,
+    "scope": "Temporary fixtures and synthetic cube; separate real-data checks are recorded in this report."
+  },
+  "reproduction_commands": [
+    "python scripts/01_ingest_firms.py",
+    "python scripts/02_detect_outages_clouds.py",
+    "python scripts/03_train_eqm_lut.py",
+    "python scripts/04_build_master_cube.py"
+  ],
+  "backend_start_command": "env -u USE_SYNTHETIC_CUBE python -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000",
+  "backend_lifecycle": "Real FastAPI startup, health, analysis, cache and Chaos Monkey verified with TestClient; no persistent server was left running."
+}

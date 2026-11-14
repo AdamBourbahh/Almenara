@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from backend.api.science_adapter import KalmanInput
 from backend.api import core_contract
 from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE, CachedJSON, geometry_key, make_cache_key
-from backend.api.schemas import AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse
+from backend.api.schemas import AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse, GeoJSONPolygon
 from backend.db import duckdb_engine, queries
 from backend.db.queries import (OBS_COLUMNS, AoiAggregate, fetch_aoi_aggregated_data,
                                 get_hierarchical_h3_filter, validate_polygon_topology)
@@ -285,3 +285,19 @@ def health():
                 "core_signatures": core_contract.signature_issues()}
     except Exception as exc:  # report, never hide, engine failures
         return JSONResponse(status_code=503, content={"status": "degraded", "duckdb": str(exc)})
+
+
+@router.post('/observations')
+def observations(aoi: GeoJSONPolygon):
+    """Observed detections only; no Kalman, climatology, forecast or emissions."""
+    t0 = perf_counter()
+    r4, r7, _ = _filter_or_422(aoi.coordinates)
+    try:
+        data = queries.fetch_observed_detections(r4, r7, 2000, 2026)
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {**data, 'data_source': 'real', 'execution_time_ms': (perf_counter()-t0)*1000,
+            'total_detections': sum(d['detection_count'] for d in data['daily']),
+            'first_observed_date': data['daily'][0]['date'] if data['daily'] else None,
+            'last_observed_date': data['daily'][-1]['date'] if data['daily'] else None,
+            'method': 'Accepted, deduplicated FIRMS detection centers. FRP is instantaneous MW summed across detections; it is not energy. Missing days have no reported detections and do not establish zero fire activity. No gap filling or prediction.'}

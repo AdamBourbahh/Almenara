@@ -15,10 +15,10 @@ import type {
 // Configuration
 // ============================================================================
 
-const API_BASE_URL: string = (import.meta.env.VITE_API_URL ?? "http://localhost:8000/api").replace(/\/+$/, "");
+const API_BASE_URL: string = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/+$/, "");
 const REQUEST_TIMEOUT_MS = 15_000;
 /** Gateway statuses that mean "backend not up yet" (e.g. behind a reverse proxy). */
-const BACKEND_DOWN_STATUSES = new Set([502, 503, 504]);
+
 
 export interface ApiResult<T> {
   data: T;
@@ -75,34 +75,29 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
   }
 }
 
-/** Only connectivity problems trigger the fallback. Validation (4xx) or server bugs (500) must surface. */
-function isBackendUnavailable(error: unknown): boolean {
-  if (error instanceof ApiError) return BACKEND_DOWN_STATUSES.has(error.status);
-  if (error instanceof DOMException) return error.name === "TimeoutError";
-  return error instanceof TypeError; // fetch network failure: connection refused, DNS, CORS
-}
-
 export async function analyzeAoi(request: AnalyzeRequest, signal?: AbortSignal): Promise<ApiResult<AnalyzeResponse>> {
-  try {
-    return { data: await postJson<AnalyzeResponse>("/analyze", request, signal), isSynthetic: false };
-  } catch (error) {
-    if (!isBackendUnavailable(error)) throw error;
-    console.warn("[firms-harmonizer] Backend unreachable. Using deterministic offline fallback for /analyze.", error);
-    return { data: generateSyntheticAnalyzeResponse(request), isSynthetic: true };
-  }
+  const data = await postJson<AnalyzeResponse>("/analyze", request, signal);
+  return { data, isSynthetic: data.data_source === "synthetic" };
 }
 
-export async function runChaosMonkey(
-  request: ChaosMonkeyRequest,
-  signal?: AbortSignal
-): Promise<ApiResult<ChaosMonkeyResponse>> {
-  try {
-    return { data: await postJson<ChaosMonkeyResponse>("/chaos-monkey", request, signal), isSynthetic: false };
-  } catch (error) {
-    if (!isBackendUnavailable(error)) throw error;
-    console.warn("[firms-harmonizer] Backend unreachable. Using deterministic offline fallback for /chaos-monkey.", error);
-    return { data: generateSyntheticChaosResponse(request), isSynthetic: true };
-  }
+export async function runChaosMonkey(request: ChaosMonkeyRequest, signal?: AbortSignal): Promise<ApiResult<ChaosMonkeyResponse>> {
+  const data = await postJson<ChaosMonkeyResponse>("/chaos-monkey", request, signal);
+  return { data, isSynthetic: data.data_source === "synthetic" };
+}
+
+export interface ObservedDay {
+  date: string; year: number; doy: number; detection_count: number; raw_frp_mw: number; sensors: string[];
+}
+export interface ObservedHex { h3_index: string; detection_count: number; raw_frp_mw: number; }
+export interface Observations {
+  data_source: "real"; daily: ObservedDay[]; map_hexagons: ObservedHex[];
+  total_detections: number; first_observed_date: string | null; last_observed_date: string | null;
+  execution_time_ms: number; method: string;
+}
+export async function fetchObservations(aoi: import("./types").GeoJSONPolygon, signal?: AbortSignal): Promise<Observations> {
+  const data = await postJson<Observations>("/observations", aoi, signal);
+  if (data.data_source !== "real") throw new Error("Real observations are required.");
+  return data;
 }
 
 // ============================================================================

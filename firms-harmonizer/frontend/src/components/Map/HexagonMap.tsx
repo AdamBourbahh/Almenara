@@ -9,7 +9,8 @@ import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useShallow } from "zustand/react/shallow";
 import { Box, ChartColumn, Eye, EyeOff, Square } from "lucide-react";
-import type { GeoJSONPolygon, H3MapSummaryHex } from "../../api/types";
+import type { ObservedHex } from "../../api/client";
+import type { GeoJSONPolygon } from "../../api/types";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
 import { HeatHistoryCard } from "./HeatHistoryCard";
 import { useTheme } from "../../lib/theme";
@@ -85,7 +86,6 @@ const BASEMAPS: Record<BasemapKey, { label: string; style: unknown }> = {
   streets: { label: "Streets", style: CARTO_LIGHT }
 };
 
-const INDUSTRIAL_PURPLE: [number, number, number, number] = [106, 61, 154, 235];
 const MAX_ELEVATION_M = 1250;
 const PITCH_3D = 35;
 
@@ -170,7 +170,7 @@ export function HexagonMap() {
   }, []);
 
   const {
-    analysisData,
+    observationData,
     viewMode,
     highlightIndustrialOnMap,
     excludeIndustrial,
@@ -181,7 +181,7 @@ export function HexagonMap() {
     isSynthetic
   } = useAnalysisStore(
     useShallow((s) => ({
-      analysisData: s.analysisData,
+      observationData: s.observationData,
       viewMode: s.viewMode,
       highlightIndustrialOnMap: s.highlightIndustrialOnMap,
       excludeIndustrial: s.excludeIndustrial,
@@ -297,9 +297,9 @@ export function HexagonMap() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const hexagons = analysisData?.map_hexagons ?? [];
+  const hexagons = useMemo(() => observationData?.map_hexagons ?? [], [observationData]);
   const maxFre = useMemo(
-    () => hexagons.reduce((m, h) => (h.is_industrial_site ? m : Math.max(m, h.mean_annual_fre)), 1),
+    () => hexagons.reduce((m, h) => Math.max(m, h.detection_count), 1),
     [hexagons]
   );
 
@@ -361,7 +361,7 @@ export function HexagonMap() {
         widthUnits: "pixels",
         getWidth: 1
       }),
-      new H3HexagonLayer<H3MapSummaryHex>({
+      new H3HexagonLayer<ObservedHex>({
         id: "h3-hexagon-layer",
         data: hexagons,
         visible: showHeat,
@@ -378,13 +378,12 @@ export function HexagonMap() {
         highlightColor: [255, 255, 255, 110],
         getHexagon: (d) => d.h3_index,
         getFillColor: (d) => {
-          if (highlightIndustrialOnMap && d.is_industrial_site) return INDUSTRIAL_PURPLE;
-          const t = Math.sqrt(Math.min(1, d.mean_annual_fre / maxFre));
+          const t = Math.sqrt(Math.min(1, d.detection_count / maxFre));
           const alpha = 120 + 130 * t;
           if (viewMode === "RAW") return rampColor(theme === "dark" ? RAW_DARK : RAW_LIGHT, t, alpha);
           return rampColor(THERMAL_LIGHT, t, alpha);
         },
-        getElevation: (d) => Math.sqrt(Math.min(1, d.mean_annual_fre / maxFre)) * MAX_ELEVATION_M,
+        getElevation: (d) => Math.sqrt(Math.min(1, d.detection_count / maxFre)) * MAX_ELEVATION_M,
         elevationScale: 1,
         updateTriggers: {
           getFillColor: [viewMode, highlightIndustrialOnMap, maxFre, theme],
@@ -416,16 +415,13 @@ export function HexagonMap() {
   }, [hexagons, maxFre, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable]);
 
   const getTooltip = useCallback(
-    ({ object }: PickingInfo<H3MapSummaryHex>) => {
+    ({ object }: PickingInfo<ObservedHex>) => {
       if (!object) return null;
       const lines = [
         `H3 ${object.h3_index}`,
-        `Mean fire energy: ${object.mean_annual_fre.toFixed(1)} MJ/km²`,
-        `Trend: ${object.trend_slope >= 0 ? "+" : ""}${object.trend_slope.toFixed(2)} %/yr`
+        `Satellite detections: ${object.detection_count.toLocaleString("en-US")}`,
+        `Summed instantaneous FRP: ${object.raw_frp_mw.toFixed(1)} MW`
       ];
-      if (object.is_industrial_site) {
-        lines.push(excludeIndustrial ? "Industrial gas flare (excluded)" : "Industrial gas flare");
-      }
       return { text: lines.join("\n") };
     },
     [excludeIndustrial]
@@ -566,11 +562,11 @@ export function HexagonMap() {
           <div className="mb-2 space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="inline-block h-2.5 w-24" style={{ background: "linear-gradient(90deg, #FEF0D9, #FDBE85, #E6550D, #B30000)" }} />
-              <span className="text-[10px] text-muted">Fire energy (MJ/km²)</span>
+              <span className="text-[10px] text-muted">Satellite detections · full period</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="inline-block h-3 w-3" style={{ background: "#6A3D9A" }} />
-              <span className="text-[10px] text-muted">Industrial gas flares</span>
+              <span className="text-[10px] text-muted">Observed detection centers</span>
             </div>
           </div>
         )}
