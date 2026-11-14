@@ -31,7 +31,8 @@
       -55.2,
       -16
     ],
-    "nominal_biome": 9
+    "nominal_biome": 9,
+    "coverage": [["2000-11-01", "2026-11-01"]]
   },
   "california_usa": {
     "bounds": [
@@ -40,7 +41,8 @@
       -119.5,
       40.2
     ],
-    "nominal_biome": 8
+    "nominal_biome": 8,
+    "coverage": [["2000-11-01", "2026-11-01"]]
   },
   "iberia_med": {
     "bounds": [

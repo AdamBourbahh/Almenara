@@ -9,7 +9,8 @@ from backend.api import schemas
 
 def test_validation_regions_follow_explicit_source(monkeypatch):
     monkeypatch.delenv('USE_SYNTHETIC_CUBE', raising=False)
-    assert set(check_core.validation_regions()) == {'chilecito_la_rioja','iberia_med','orlando_florida','amazonas_manaus'}
+    assert set(check_core.validation_regions()) == {'chilecito_la_rioja','iberia_med','orlando_florida','amazonas_manaus',
+                                                    'cerrado_brazil','california_usa'}
     monkeypatch.setenv('USE_SYNTHETIC_CUBE', '1')
     assert set(check_core.validation_regions()) == {'cerrado_brazil','iberia_med','california_usa','niger_delta_flaring'}
 
