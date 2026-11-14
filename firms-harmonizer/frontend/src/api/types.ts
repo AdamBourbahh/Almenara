@@ -1,6 +1,8 @@
 // ============================================================================
-// Tipos e Interfaces TypeScript - firms-harmonizer
-// Espejo exacto de backend/api/schemas.py
+// TypeScript types & interfaces - firms-harmonizer
+// Mirror of backend/api/schemas.py (Pydantic v2).
+// Fields marked "optional" are extensions agreed for the UI (forecast band,
+// cross-guard prior, Wooster accounting). Keep them in sync with the backend.
 // ============================================================================
 
 export type ViewMode = "RAW" | "HARMONIZED";
@@ -11,7 +13,7 @@ export type GapReason = "NONE" | "SENSOR_OUTAGE" | "CLOUD_OCCLUSION" | "SWATH_GA
 
 export interface GeoJSONPolygon {
   type: "Polygon";
-  coordinates: number[][][]; // Anillo exterior [[lon, lat], ...]
+  coordinates: number[][][]; // Exterior ring [[lon, lat], ...]
 }
 
 export interface AnalyzeRequest {
@@ -24,7 +26,7 @@ export interface AnalyzeRequest {
 }
 
 export interface DailyCalendarCell {
-  date: str; // "2022-08-14"
+  date: string; // "2022-08-14"
   year: number; // 2022
   doy: number; // 226
   raw_hotspot_count: number;
@@ -38,15 +40,20 @@ export interface DailyCalendarCell {
   gap_reason: GapReason;
   active_sensors: string[];
   tooltip_narrative?: string;
-  // Métricas de biomasa y humo Wooster
+  // 14-day operational forecast cells (forecast_series) -> golden hatch
+  is_forecast?: boolean;
+  // Historical cross-guard prior (climatology for this DOY), MJ/km²
+  historical_cross_prior_fre?: number;
+  // Wooster biomass (0.368 kg/MJ) & smoke accounting
   total_biomass_burned_kt?: number;
+  pm25_emitted_kg?: number;
   total_pm25_emitted_tonnes?: number;
 }
 
 export interface VonMisesPhenologyYear {
   year: number;
-  peak_doy_mu: number; // Día pico del año [1, 365.25]
-  peak_date_label: string; // Ej: "19 Ago"
+  peak_doy_mu: number; // Peak day of year [1, 365.25]
+  peak_date_label: string; // e.g. "Aug 19"
   concentration_kappa: number;
   season_width_days: number;
   total_annual_fre_gj: number;
@@ -70,7 +77,7 @@ export interface ScientificAuditMetrics {
 }
 
 export interface H3MapSummaryHex {
-  h3_index: string; // Hexadecimal string (ej: "872830828ffffff")
+  h3_index: string; // Hex string (e.g. "872830828ffffff"), never an integer (uint64 precision loss in JS)
   mean_annual_fre: number;
   trend_slope: number;
   is_industrial_site: boolean;
@@ -106,4 +113,5 @@ export interface ChaosMonkeyResponse {
   naive_rmse: number;
   kalman_rmse: number;
   seasonal_energy_recovered_pct: number;
+  historical_cross_guard_fre?: number[];
 }
