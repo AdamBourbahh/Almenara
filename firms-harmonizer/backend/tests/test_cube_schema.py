@@ -392,9 +392,9 @@ def test_stage02_known_snpp_interval_is_exact_and_reproducible(tmp_path):
     assert result.returncode == 0, result.stderr
     paths = [output / name for name in ("sensor_outages.parquet", "diurnal_ratios.parquet")]
     first = [path.read_bytes() for path in paths]
-    # No --global-counts: the tracked lookup is used, so both evidence kinds cover the same days.
-    expected = [dict(acq_date=day, satellite="SNPP", evidence=evidence)
-                for day in SNPP_OUTAGE for evidence in ("global_count_drop", "known_outage")]
+    # No --global-counts: the tracked lookup is used, so all three evidence kinds cover the same days.
+    expected = [dict(acq_date=day, satellite="SNPP", evidence=evidence) for day in SNPP_OUTAGE
+                for evidence in ("global_count_drop", "known_outage", "zero_global_count")]
     actual = pq.read_table(paths[0])
     assert [(field.name, field.type) for field in actual.schema] == [
         ("acq_date", pa.date32()), ("satellite", pa.string()), ("evidence", pa.string())]
@@ -491,6 +491,69 @@ def test_stage02_global_counts_accept_csv_and_parquet(tmp_path, suffix):
     dynamic = [row for row in pq.read_table(tmp_path / "sensor_outages.parquet").to_pylist()
                if row["evidence"] == "global_count_drop"]
     assert dynamic == [dict(acq_date=target, satellite="N20", evidence="global_count_drop")]
+
+
+def outage_rows(tmp_path, records, evidence=None):
+    counts = tmp_path / "global.parquet"
+    pq.write_table(pa.Table.from_pylist(
+        records, schema=pa.schema([("satellite", pa.string()), ("acq_date", pa.date32()),
+                                   ("detection_count", pa.int64())])), counts)
+    result = run_outage_cli(tmp_path / "missing.parquet", tmp_path, counts)
+    assert result.returncode == 0, result.stderr
+    rows = pq.read_table(tmp_path / "sensor_outages.parquet").to_pylist()
+    return [row for row in rows if evidence is None or row["evidence"] == evidence]
+
+
+def count_series(satellite, start, values):
+    return [dict(satellite=satellite, acq_date=start + timedelta(days=i), detection_count=value)
+            for i, value in enumerate(values)]
+
+
+def test_stage02_zero_count_run_longer_than_window_is_fully_flagged(tmp_path):
+    start = date(2021, 1, 1)
+    records = count_series("Terra", start, [100] * 20 + [0] * 20 + [100])
+    zero_days = [start + timedelta(days=20 + i) for i in range(20)]
+    rows = outage_rows(tmp_path, records)
+    by_evidence = {}
+    for row in rows:
+        if row["evidence"] != "known_outage":
+            assert row["satellite"] == "Terra"
+            by_evidence.setdefault(row["evidence"], []).append(row["acq_date"])
+    # The 15-day mean reaches zero on day 16 of the run; only the new evidence covers days 16-20.
+    assert by_evidence["global_count_drop"] == zero_days[:15]
+    assert by_evidence["zero_global_count"] == zero_days
+    assert set(zero_days[15:]).isdisjoint(by_evidence["global_count_drop"])
+
+
+def test_stage02_leading_and_trailing_zero_counts_are_not_flagged(tmp_path):
+    start = date(2021, 1, 1)
+    records = (count_series("Aqua", start, [0] * 5 + [100] * 3 + [0] + [100] * 3 + [0] * 5)
+               + count_series("N20", start, [0] * 10))
+    rows = outage_rows(tmp_path, records, "zero_global_count")
+    # Only the interior zero lies strictly between Aqua's first and last positive days.
+    assert rows == [dict(acq_date=start + timedelta(days=8), satellite="Aqua",
+                         evidence="zero_global_count")]
+
+
+def test_stage02_missing_and_null_counts_are_not_zero_evidence(tmp_path):
+    start = date(2021, 1, 1)
+    records = count_series("SNPP", start, [100, None, None, 100, 0, 100])
+    del records[2]  # day 3 is absent from the counts table, day 2 is an explicit NULL
+    rows = outage_rows(tmp_path, records, "zero_global_count")
+    assert rows == [dict(acq_date=start + timedelta(days=4), satellite="SNPP",
+                         evidence="zero_global_count")]
+
+
+def test_stage02_zero_count_evidence_coexists_and_is_deterministic(tmp_path):
+    first = SNPP_OUTAGE[0] - timedelta(days=15)
+    records = count_series("SNPP", first, [1000] * 15 + [0] * 15 + [1000])
+    records += count_series("N20", first, [500] * 31)
+    expected = [dict(acq_date=day, satellite="SNPP", evidence=evidence) for day in SNPP_OUTAGE
+                for evidence in ("global_count_drop", "known_outage", "zero_global_count")]
+    assert outage_rows(tmp_path, records) == expected
+    published = (tmp_path / "sensor_outages.parquet").read_bytes()
+    assert outage_rows(tmp_path, records) == expected
+    assert (tmp_path / "sensor_outages.parquet").read_bytes() == published
 
 
 def test_stage02_defaults_to_tracked_global_counts(tmp_path, monkeypatch):

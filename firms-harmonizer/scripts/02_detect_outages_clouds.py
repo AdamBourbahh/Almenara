@@ -20,7 +20,10 @@ def read_counts_sql(path):
 
 
 def build_outages_table(staged=STAGED, output_dir="data/lookup", global_counts=None):
-    """Record documented outages and flag drops in global daily counts (tracked lookup by default)."""
+    """Record documented outages, drops and interior zero days in global daily counts.
+
+    Uses the tracked lookup by default.
+    """
     if global_counts is None and (ROOT / GLOBAL_COUNTS).is_file():
         global_counts = GLOBAL_COUNTS
     output = ROOT / output_dir
@@ -53,6 +56,17 @@ def build_outages_table(staged=STAGED, output_dir="data/lookup", global_counts=N
                 )
                 SELECT acq_date, satellite, 'global_count_drop'
                 FROM baseline WHERE days = 15 AND baseline > 0 AND n * 4 < baseline
+            """)
+            # The 15-day mean is all zeros after 15 zero days; an observed zero strictly inside the
+            # instrument's positive-count record stays outage evidence for the whole run.
+            con.execute("""INSERT INTO outages
+                WITH life AS (
+                    SELECT satellite, min(acq_date) AS first_day, max(acq_date) AS last_day
+                    FROM counts WHERE n > 0 GROUP BY satellite
+                )
+                SELECT acq_date, satellite, 'zero_global_count'
+                FROM counts JOIN life USING (satellite)
+                WHERE n = 0 AND acq_date > first_day AND acq_date < last_day
             """)
         con.table("outages").distinct().order("acq_date, satellite, evidence").write_parquet(
             str(output / "sensor_outages.parquet"))
