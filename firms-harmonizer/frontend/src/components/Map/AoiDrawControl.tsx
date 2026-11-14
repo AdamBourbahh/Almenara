@@ -159,7 +159,7 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-faint">Pilot regions</p>
         <span className="font-mono text-[10px] text-faint tnum">
-          {analysisData ? analysisData.total_h3_cells.toLocaleString("en-US") : "—"} cells
+          {analysisData ? analysisData.total_h3_cells.toLocaleString("en-US") : "—"} record cells
         </span>
       </div>
 

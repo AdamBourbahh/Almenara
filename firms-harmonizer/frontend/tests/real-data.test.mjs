@@ -49,3 +49,66 @@ test('network and gateway failures surface unless fallback explicitly enabled',a
  const aoi={type:'Polygon',coordinates:[[[-67.6,-29.3],[-67.5,-29.3],[-67.5,-29.2],[-67.6,-29.3]]]};
  assert.equal((await opted.analyzeAoi({aoi,start_year:2022,end_year:2022})).data.data_source,'synthetic');
 });
+
+test('selected year loads distinct annual hexagons, caches them, and keeps full history',async()=>{
+ const state=store.useAnalysisStore;
+ const history={data_source:'real',calendar_series:[],forecast_series:null,map_hexagons:[]};
+ state.setState({analysisData:history,loading:false,selectedYear:2022});
+ const requested=[];
+ globalThis.fetch=async(_url,options)=>{
+  const body=JSON.parse(options.body);requested.push(body);
+  return new Response(JSON.stringify({...history,map_hexagons:[{h3_index:'872830828ffffff',mean_annual_fre:body.start_year,raw_pixel_count:body.start_year}]}));
+ };
+ state.getState().setSelectedYear(2005);
+ await new Promise(resolve=>setTimeout(resolve,350));
+ assert.equal(state.getState().mapYear,2005);
+ assert.equal(state.getState().mapHexagons[0].mean_annual_fre,2005);
+ assert.equal(requested[0].start_year,requested[0].end_year);
+ assert.equal(state.getState().analysisData,history);
+ state.getState().setSelectedYear(2023);
+ await new Promise(resolve=>setTimeout(resolve,350));
+ assert.equal(state.getState().mapHexagons[0].mean_annual_fre,2023);
+ state.getState().setSelectedYear(2005);
+ await new Promise(resolve=>setTimeout(resolve,350));
+ assert.equal(state.getState().mapYear,2005);
+ assert.equal(requested.length,2);
+});
+
+test('late annual responses cannot overwrite the newly selected year and errors remain visible',async()=>{
+ const state=store.useAnalysisStore;
+ state.setState({loading:false,selectedYear:2007});
+ let resolveOld;
+ globalThis.fetch=()=>new Promise(resolve=>{resolveOld=resolve;});
+ const old=state.getState().loadMapYear();
+ state.setState({selectedYear:2008});
+ globalThis.fetch=async()=>new Response(JSON.stringify({data_source:'real',map_hexagons:[{mean_annual_fre:800}]}));
+ await state.getState().loadMapYear();
+ resolveOld(new Response(JSON.stringify({data_source:'real',map_hexagons:[{mean_annual_fre:700}]})));
+ await old;
+ assert.equal(state.getState().mapYear,2008);
+ assert.equal(state.getState().mapHexagons[0].mean_annual_fre,800);
+ state.setState({selectedYear:2009});
+ globalThis.fetch=async()=>{throw new TypeError('offline');};
+ await state.getState().loadMapYear();
+ assert.equal(state.getState().mapYear,null);
+ assert.deepEqual(state.getState().mapHexagons,[]);
+ assert.equal(state.getState().mapLoading,false);
+ assert.equal(state.getState().mapError,'offline');
+});
+
+test('mapped energy integrates exact cell areas and applies the same visible-cell filter',async()=>{
+ const {summarizeMappedYear,colorIntensity}=await compile('mapMetrics','src/components/Map/mapMetrics.ts');
+ const {cellArea,UNITS}=await import('h3-js');
+ const a={h3_index:'87390c014ffffff',mean_annual_fre:1000,raw_pixel_count:3,is_industrial_site:false};
+ const b={h3_index:'872830828ffffff',mean_annual_fre:2000,raw_pixel_count:7,is_industrial_site:true};
+ const result=summarizeMappedYear([a,b],true);
+ assert.deepEqual(result.hexagons,[a]);
+ assert.equal(result.detections,3);
+ assert.ok(Math.abs(result.energyGJ-cellArea(a.h3_index,UNITS.km2))<1e-9);
+ const all=summarizeMappedYear([a,b],false);
+ assert.equal(all.detections,10);
+ assert.ok(Math.abs(all.energyGJ-(cellArea(a.h3_index,UNITS.km2)+2*cellArea(b.h3_index,UNITS.km2)))<1e-9);
+ assert.deepEqual(summarizeMappedYear([],true),{hexagons:[],detections:0,energyGJ:0,footprintKm2:0});
+ assert.ok(colorIntensity(100,1000)<colorIntensity(900,1000));
+ assert.ok(colorIntensity(10000,26000)<colorIntensity(20000,26000));
+});

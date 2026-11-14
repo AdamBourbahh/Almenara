@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AnalyzeRequest, AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, ViewMode } from "../api/types";
+import type { AnalyzeRequest, AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, H3MapSummaryHex, ViewMode } from "../api/types";
 import { analyzeAoi, runChaosMonkey } from "../api/client";
 
 // ============================================================================
@@ -76,6 +76,11 @@ interface AnalysisState {
   loading: boolean;
   error: string | null;
   analysisData: AnalyzeResponse | null;
+  mapHexagons: H3MapSummaryHex[];
+  mapYear: number | null;
+  mapLoading: boolean;
+  mapError: string | null;
+  loadMapYear: () => Promise<void>;
   /** year/doy -> cell (observed + forecast). Rebuilt once per response; used for O(1) hover. */
   calendarIndex: Map<number, DailyCalendarCell>;
   isSynthetic: boolean;
@@ -107,6 +112,10 @@ interface AnalysisState {
 // Request bookkeeping lives outside the state: it never drives rendering.
 let analysisController: AbortController | null = null;
 let analysisSeq = 0;
+let mapController: AbortController | null = null;
+let mapSeq = 0;
+let mapTimer: ReturnType<typeof setTimeout> | undefined;
+const annualMapCache = new Map<string, H3MapSummaryHex[]>();
 let chaosController: AbortController | null = null;
 let chaosSeq = 0;
 
@@ -128,6 +137,10 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   loading: false,
   error: null,
   analysisData: null,
+  mapHexagons: [],
+  mapYear: null,
+  mapLoading: false,
+  mapError: null,
   calendarIndex: new Map(),
   isSynthetic: false,
 
@@ -145,7 +158,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setSelectedYear: (year) => {
     const { startYear, endYear, selectedYear } = get();
     const clamped = Math.min(endYear, Math.max(startYear, Math.round(year)));
-    if (clamped !== selectedYear) set({ selectedYear: clamped, chaosData: null });
+    if (clamped === selectedYear) return;
+    mapController?.abort();
+    mapSeq++;
+    clearTimeout(mapTimer);
+    set({ selectedYear: clamped, chaosData: null, mapHexagons: [], mapYear: null, mapLoading: true, mapError: null });
+    mapTimer = setTimeout(() => { void get().loadMapYear(); }, 120);
   },
 
   // Called on every pointer move: only notify subscribers when the hovered cell actually changes.
@@ -201,7 +219,47 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     await get().setCustomAoi([[[w, s], [e, s], [e, n], [w, n], [w, s]]]);
   },
 
+  loadMapYear: async () => {
+    const state = get();
+    if (state.loading || !state.analysisData) return;
+    mapController?.abort();
+    const controller = new AbortController();
+    mapController = controller;
+    const seq = ++mapSeq;
+    const year = state.selectedYear;
+    const request: AnalyzeRequest = {
+      aoi: state.currentAoi, start_year: year, end_year: year,
+      exclude_industrial_flaring: state.excludeIndustrial,
+      enable_kalman_gap_filling: state.enableKalman, confidence_level: "nominal"
+    };
+    const key = JSON.stringify(request);
+    const cached = annualMapCache.get(key);
+    if (cached) {
+      set({ mapHexagons: cached, mapYear: year, mapLoading: false, mapError: null });
+      return;
+    }
+    set({ mapLoading: true, mapError: null });
+    try {
+      const { data } = await analyzeAoi(request, controller.signal);
+      if (seq !== mapSeq) return;
+      const hexagons = data.map_hexagons ?? [];
+      if (annualMapCache.size >= 32) annualMapCache.delete(annualMapCache.keys().next().value!);
+      annualMapCache.set(key, hexagons);
+      set({ mapHexagons: hexagons, mapYear: year, mapLoading: false,
+        isSynthetic: data.data_source === "synthetic" });
+    } catch (err: unknown) {
+      if (seq !== mapSeq || isAbortError(err)) return;
+      set({ mapHexagons: [], mapYear: null, mapLoading: false,
+        mapError: err instanceof Error ? err.message : "Annual map unavailable" });
+    }
+  },
+
   executeAnalysis: async () => {
+    mapController?.abort();
+    mapSeq++;
+    clearTimeout(mapTimer);
+    annualMapCache.clear();
+    set({ mapHexagons: [], mapYear: null, mapLoading: true, mapError: null });
     analysisController?.abort();
     const controller = new AbortController();
     analysisController = controller;
@@ -223,9 +281,10 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       const { data } = await analyzeAoi(requestPayload, controller.signal);
       if (seq !== analysisSeq) return; // a newer request superseded this one
       set({ analysisData: data, calendarIndex: buildCalendarIndex(data), isSynthetic: data.data_source === "synthetic", loading: false, hoveredDay: null });
+      await get().loadMapYear();
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
-      set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false });
+      set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false, mapLoading: false });
     } finally {
       if (analysisController === controller) analysisController = null;
     }
