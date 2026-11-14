@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { Loader2, Play, RotateCcw } from "lucide-react";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
@@ -46,8 +46,8 @@ interface NormalPoint {
   isGap: boolean;
 }
 
-function buildNormal(data: AnalyzeResponse, year: number): { points: NormalPoint[]; historical: number } | null {
-  const cells = data.calendar_series.filter((c) => c.year === year);
+function buildNormal(data: AnalyzeResponse, year: number, month: number | null): { points: NormalPoint[]; historical: number } | null {
+  const cells = data.calendar_series.filter((c) => c.year === year && (month === null || Number(c.date.slice(5, 7)) === month));
   if (cells.length === 0) return null;
   const points: NormalPoint[] = cells.map((c: DailyCalendarCell) => ({
     date: c.date,
@@ -59,6 +59,7 @@ function buildNormal(data: AnalyzeResponse, year: number): { points: NormalPoint
     isGap: c.is_gap_filled
   }));
   for (const c of data.forecast_series ?? []) {
+    if (c.year !== year || month !== null && Number(c.date.slice(5, 7)) !== month) continue;
     points.push({
       date: c.date,
       fre: c.harmonized_fre_mj_km2,
@@ -95,16 +96,24 @@ function ticks(count: number, n = 6): number[] {
 
 export function KalmanUncertaintyBandChart() {
   const analysisData = useAnalysisStore((s) => s.analysisData);
-  const selectedYear = useAnalysisStore((s) => s.selectedYear);
-  const setSelectedYear = useAnalysisStore((s) => s.setSelectedYear);
+  const lockedYear = useAnalysisStore((s) => s.selectedYear);
+  const lockedMonth = useAnalysisStore((s) => s.selectedMonth);
+  const selectedDate = useAnalysisStore((s) => s.selectedDate);
+  const pinned = useAnalysisStore((s) => s.isDatePinned);
+  const hoveredCell = useAnalysisStore((s) => s.hoveredCell);
+  const dateIndex = useAnalysisStore((s) => s.dateIndex);
+  const setHoveredCell = useAnalysisStore((s) => s.setHoveredCell);
+  const setSelectedDate = useAnalysisStore((s) => s.setSelectedDate);
+  const active = pinned && selectedDate ? dateIndex.get(selectedDate) : hoveredCell ?? (selectedDate ? dateIndex.get(selectedDate) : null);
+  const selectedYear = active?.year ?? lockedYear;
+  const selectedMonth = lockedMonth !== null && active ? Number(active.date.slice(5, 7)) : lockedMonth;
   const chaosData = useAnalysisStore((s) => s.chaosData);
   const chaosLoading = useAnalysisStore((s) => s.chaosLoading);
   const chaosError = useAnalysisStore((s) => s.chaosError);
   const triggerChaosMonkey = useAnalysisStore((s) => s.triggerChaosMonkey);
   const resetChaosMonkey = useAnalysisStore((s) => s.resetChaosMonkey);
-  const [hover, setHover] = useState<number | null>(null);
 
-  const normal = useMemo(() => (analysisData ? buildNormal(analysisData, selectedYear) : null), [analysisData, selectedYear]);
+  const normal = useMemo(() => (analysisData ? buildNormal(analysisData, selectedYear, selectedMonth) : null), [analysisData, selectedYear, selectedMonth]);
 
   const normalView = useMemo(() => {
     if (!normal) return null;
@@ -141,7 +150,7 @@ export function KalmanUncertaintyBandChart() {
       up: scaleY(chaosData.reconstructed_ci_upper[i] ?? 0, yMax),
       lo: scaleY(chaosData.reconstructed_ci_lower[i] ?? 0, yMax)
     }));
-    const dateFor = (i: number) => new Date(Date.UTC(selectedYear, 0, i + 1)).toISOString().slice(0, 10);
+    const dateFor = (i: number) => chaosData.dates[i];
     return { count, yMax, pts, dateFor };
   }, [chaosData, selectedYear]);
 
@@ -154,18 +163,17 @@ export function KalmanUncertaintyBandChart() {
       : []
     : normal?.points.map((p) => p.date) ?? [];
 
-  const availableYears = useMemo(() => {
-    const years = analysisData?.phenology_by_year.map((p) => p.year) ?? [];
-    return years.length ? [...years].sort((a, b) => a - b) : Array.from({ length: 26 }, (_, i) => 2001 + i);
-  }, [analysisData]);
-
   const handleMove = (e: ReactMouseEvent<SVGRectElement>) => {
     if (count <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
-    setHover(Math.max(0, Math.min(count - 1, Math.round(ratio * (count - 1)))));
+    if (pinned) return;
+    const index = Math.max(0, Math.min(count - 1, Math.round(ratio * (count - 1))));
+    setHoveredCell(dateIndex.get(dates[index]) ?? null);
   };
 
+  const datePositions = useMemo(() => new Map(dates.map((date, i) => [date, i])), [dates]);
+  const hover = active ? datePositions.get(active.date) ?? null : null;
   const yTicks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax];
   const xTicks = ticks(count);
   const hoverX = hover !== null ? scaleX(hover, count) : null;
@@ -221,23 +229,12 @@ export function KalmanUncertaintyBandChart() {
       <header className="mb-1 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-faint">Satellite gaps</p>
-          <h3 className="mt-1 font-serif text-xl text-ink">When a satellite drops out, and the next 14 days</h3>
+          <h3 className="mt-1 font-serif text-xl text-ink">Daily fire energy and uncertainty</h3>
         </div>
-        <label className="flex items-center gap-2 text-xs text-muted">
-          Year
-          <select
-            value={selectedYear}
-            disabled={isChaos}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="border border-rule bg-panel px-2 py-1 text-ink disabled:opacity-50 tnum"
-          >
-            {availableYears.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </label>
+
       </header>
 
+      {active && <p aria-label="Chart active day" className="mb-3 text-xs text-ink tnum">{active.date} · DOY {active.doy} · FRE {active.harmonized_fre_mj_km2.toFixed(1)} MJ/km² · 95% CI [{active.ci_95_lower.toFixed(1)}, {active.ci_95_upper.toFixed(1)}] · Prior {active.historical_cross_prior_fre.toFixed(1)} · Raw {active.raw_hotspot_count}</p>}
       <p className="mb-4 max-w-2xl text-sm leading-relaxed text-muted">
         The model fills the days without a satellite pass instead of letting them fall to zero. The
         stress test wipes 25% of the data and simulates ten days of total cloud cover, then shows the
@@ -276,7 +273,7 @@ export function KalmanUncertaintyBandChart() {
         <>
           <div className="relative">
             {tooltip()}
-            <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-auto w-full" role="img" aria-label="Banda de incertidumbre Kalman">
+            <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-auto w-full" role="img" aria-label="Kalman uncertainty band" tabIndex={0}>
               {yTicks.map((t) => (
                 <g key={t}>
                   <line x1={M.left} x2={WIDTH - M.right} y1={scaleY(t, yMax)} y2={scaleY(t, yMax)} stroke={GRID} />
@@ -314,8 +311,17 @@ export function KalmanUncertaintyBandChart() {
                 )
               )}
 
-              {hoverX !== null && <line x1={hoverX} x2={hoverX} y1={M.top} y2={M.top + PH} stroke="#9ca3af" strokeDasharray="3 3" />}
-              <rect x={M.left} y={M.top} width={PW} height={PH} fill="transparent" onMouseMove={handleMove} onMouseLeave={() => setHover(null)} />
+              {isChaos && selectedMonth !== null && (() => {
+                const indices = dates.map((date, i) => Number(date.slice(5, 7)) === selectedMonth ? i : -1).filter((i) => i >= 0);
+                return indices.length ? <rect x={scaleX(indices[0], count)} y={M.top} width={Math.max(1, scaleX(indices[indices.length - 1], count) - scaleX(indices[0], count))} height={PH} fill="rgba(29,78,216,0.08)" /> : null;
+              })()}
+              {hoverX !== null && <g aria-label="Active day marker"><line x1={hoverX} x2={hoverX} y1={M.top} y2={M.top + PH} stroke="var(--color-reference)" strokeDasharray="3 3" />
+                {active && <circle cx={hoverX} cy={scaleY(active.harmonized_fre_mj_km2, yMax)} r={4} fill={MAIN} stroke="var(--color-panel)" strokeWidth={2} />}</g>}
+              <rect x={M.left} y={M.top} width={PW} height={PH} fill="transparent" onMouseMove={handleMove} onMouseLeave={() => setHoveredCell(null)} onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const index = Math.max(0, Math.min(count - 1, Math.round((e.clientX - rect.left) / rect.width * (count - 1))));
+                if (dates[index]) setSelectedDate(pinned && selectedDate === dates[index] ? null : dates[index], true);
+              }} />
             </svg>
           </div>
 

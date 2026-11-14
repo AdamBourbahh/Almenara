@@ -6,17 +6,20 @@ All calls into Adam's core go through core_contract.call (resolution + output va
 
 from __future__ import annotations
 
+from datetime import date
 from time import perf_counter
+from typing import Literal
 
 import h3.api.basic_int as h3i
 import numpy as np
 from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from backend.api.science_adapter import KalmanInput
 from backend.api import core_contract
 from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE, CachedJSON, geometry_key, make_cache_key
-from backend.api.schemas import AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse
+from backend.api.schemas import AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse, H3MapSummaryHex
 from backend.db import duckdb_engine, queries
 from backend.db.queries import (OBS_COLUMNS, AoiAggregate, fetch_aoi_aggregated_data,
                                 get_hierarchical_h3_filter, validate_polygon_topology)
@@ -143,6 +146,44 @@ def _empty_payload(key: str, agg: AoiAggregate) -> dict:
 
 
 # ---------------------------------------------------------------- routes
+
+class MapPeriodResponse(BaseModel):
+    """Spatial observations only; legacy hex energy field is summed over these dates."""
+
+    data_source: Literal["real", "synthetic"]
+    start_date: date
+    end_date: date
+    map_hexagons: list[H3MapSummaryHex]
+    execution_time_ms: float
+
+
+@router.post("/map-period", response_model=MapPeriodResponse)
+def map_period(req: AnalyzeRequest, start_date: date, end_date: date) -> Response:
+    """Return actual cube rows for a day, month or other inclusive single-year range."""
+    if (start_date > end_date or start_date.year != end_date.year
+            or not req.start_year <= start_date.year <= req.end_year):
+        raise HTTPException(status_code=422, detail="Dates must be ordered, within one year and inside the requested years.")
+    t0 = perf_counter()
+    timer = StageTimer()
+    r4, r7, _ = _filter_or_422(req.aoi.coordinates)
+    key = make_cache_key(r7, {"endpoint": "map-period", "start_date": start_date.isoformat(),
+                             "end_date": end_date.isoformat(),
+                             "exclude_industrial": req.exclude_industrial_flaring},
+                         duckdb_engine.cube_path().stat().st_mtime_ns)
+    timer.lap("h3")
+    cached = ANALYZE_CACHE.get(key)
+    if cached is not None:
+        return _json_response(cached.render((perf_counter() - t0) * 1000), "HIT", timer)
+    epoch = date(1970, 1, 1)
+    hexagons = queries.fetch_map_period(r4, r7, start_date.year,
+        ((start_date - epoch).days, (end_date - epoch).days), req.exclude_industrial_flaring)
+    timer.lap("db")
+    payload = MapPeriodResponse(data_source=duckdb_engine.data_source(), start_date=start_date,
+        end_date=end_date, map_hexagons=hexagons, execution_time_ms=(perf_counter() - t0) * 1000)
+    body = payload.model_dump_json().encode()
+    ANALYZE_CACHE.put(key, CachedJSON(body))
+    return _json_response(body, "MISS", timer)
+
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest) -> Response:

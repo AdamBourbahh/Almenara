@@ -94,6 +94,23 @@ export async function analyzeAoi(request: AnalyzeRequest, signal?: AbortSignal):
   }
 }
 
+export interface MapPeriodResponse {
+  data_source: "real" | "synthetic";
+  start_date: string;
+  end_date: string;
+  /** mean_annual_fre is the integrated density for this period, using the legacy hex shape. */
+  map_hexagons: H3MapSummaryHex[];
+  execution_time_ms: number;
+}
+
+/** Exact spatial observations; never substitute an annual map or regional synthetic series. */
+export async function fetchMapPeriod(request: AnalyzeRequest, startDate: string, endDate: string,
+  signal?: AbortSignal): Promise<ApiResult<MapPeriodResponse>> {
+  const query = new URLSearchParams({ start_date: startDate, end_date: endDate });
+  const data = await postJson<MapPeriodResponse>(`/map-period?${query}`, request, signal);
+  return { data, isSynthetic: data.data_source === "synthetic" };
+}
+
 export async function runChaosMonkey(
   request: ChaosMonkeyRequest,
   signal?: AbortSignal

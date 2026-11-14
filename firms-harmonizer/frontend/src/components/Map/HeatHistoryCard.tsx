@@ -1,52 +1,138 @@
-import { useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent, PointerEvent } from "react";
+import { LayoutGrid, Minus } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { summarizeMappedYear } from "./mapMetrics";
-import { useAnalysisStore } from "../../store/useAnalysisStore";
+import { selectedMapPeriod, useAnalysisStore } from "../../store/useAnalysisStore";
 
-/** Single-row annual record docked across the bottom of the map workspace. */
-export function HeatHistoryCard({ onClose }: { onClose: () => void }) {
-  const { analysisData, selectedYear, setSelectedYear, loading, error, mapHexagons, mapYear, mapLoading, mapError, excludeIndustrial } = useAnalysisStore(
-    useShallow((s) => ({ analysisData: s.analysisData, selectedYear: s.selectedYear,
-      setSelectedYear: s.setSelectedYear, loading: s.loading, error: s.error, mapHexagons: s.mapHexagons, mapYear: s.mapYear, mapLoading: s.mapLoading, mapError: s.mapError, excludeIndustrial: s.excludeIndustrial }))
-  );
-  const [hovered, setHovered] = useState<number | null>(null);
-  const annual = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const day of analysisData?.calendar_series ?? []) counts.set(day.year, (counts.get(day.year) ?? 0) + day.raw_hotspot_count);
-    return Array.from(counts, ([year, detections]) => ({ year, detections }));
-  }, [analysisData]);
-  const mapped = useMemo(() => summarizeMappedYear(mapHexagons, excludeIndustrial), [mapHexagons, excludeIndustrial]);
-  const max = Math.max(1, ...annual.map((year) => year.detections));
-  const inspected = annual.find((year) => year.year === (hovered ?? selectedYear)) ?? annual[annual.length - 1];
-  const format = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+type Precision = "day" | "month" | "year";
+type Period = { key: string; detections: number };
+const KEY_LENGTH = { day: 10, month: 7, year: 4 };
+
+/** One chronology dock for every view, including exact spatial map periods. */
+export function HeatHistoryCard() {
+  const state = useAnalysisStore(useShallow((s) => ({
+    data: s.analysisData, year: s.selectedYear, month: s.selectedMonth, date: s.selectedDate,
+    loading: s.loading, error: s.error, setYear: s.setSelectedYear,
+    setMonth: s.setSelectedMonth, setDate: s.setSelectedDate, min: s.minDate, max: s.maxDate,
+    mapPeriod: selectedMapPeriod(s)
+  })));
+  const [view, setView] = useState<"blocks" | "slider">("blocks");
+  const [precision, setPrecision] = useState<Precision>(state.date ? "day" : "year");
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(400);
+  useEffect(() => {
+    const node = trackRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(1, entry.contentRect.width)));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const periods = useMemo(() => {
+    const grouped = new Map<string, Period>();
+    for (const cell of state.data?.calendar_series ?? []) {
+      const key = cell.date.slice(0, KEY_LENGTH[precision]);
+      const entry = grouped.get(key);
+      if (entry) entry.detections += cell.raw_hotspot_count;
+      else grouped.set(key, { key, detections: cell.raw_hotspot_count });
+    }
+    return [...grouped.values()].sort((a, b) => a.key.localeCompare(b.key));
+  }, [state.data, precision]);
+  const anchor = state.date ?? `${state.year}-${String(state.month ?? 1).padStart(2, "0")}-01`;
+  const key = anchor.slice(0, KEY_LENGTH[precision]);
+  const positionByKey = useMemo(() => new Map(periods.map((p, i) => [p.key, i])), [periods]);
+  const position = positionByKey.get(key) ?? 0;
+  const selected = periods[position];
+  const unavailable = state.loading || Boolean(state.error) || !periods.length;
+  const label = selected ? precision === "day"
+    ? new Date(`${selected.key}T00:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })
+    : precision === "month" ? new Date(`${selected.key}-01T00:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "long", timeZone: "UTC" }) : selected.key : "No dates";
+
+  function selectKey(value: string, unit: Precision, pin = true) {
+    if (!value) return;
+    const length = KEY_LENGTH[unit];
+    if (value.length !== length) return;
+    const lower = state.min?.slice(0, length);
+    const upper = state.max?.slice(0, length);
+    if (lower && value < lower || upper && value > upper) return;
+    useAnalysisStore.getState().setHoveredDay(null);
+    if (unit === "day") state.setDate(value, pin);
+    else {
+      state.setDate(null);
+      state.setMonth(null);
+      state.setYear(Number(value.slice(0, 4)));
+      if (unit === "month") state.setMonth(Number(value.slice(5, 7)));
+    }
+  }
+  function selectPosition(index: number, pin = true) {
+    const period = periods[Math.max(0, Math.min(periods.length - 1, index))];
+    if (period && (period.key !== state.mapPeriod || pin && !useAnalysisStore.getState().isDatePinned && precision === "day")) selectKey(period.key, precision, pin);
+  }
+  function changePrecision(unit: Precision) {
+    setPrecision(unit);
+  }
+  function point(e: PointerEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return Math.min(periods.length - 1, Math.max(0, Math.floor((e.clientX - rect.left) / rect.width * periods.length)));
+  }
+  function onKey(e: KeyboardEvent<SVGSVGElement>) {
+    if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
+      e.preventDefault();
+      selectPosition(e.key === "Home" ? 0 : e.key === "End" ? periods.length - 1 : position + (e.key === "ArrowLeft" ? -1 : 1));
+    }
+  }
+  const bins = useMemo(() => {
+    const count = Math.min(periods.length, Math.max(1, Math.floor(width / 10)));
+    return Array.from({ length: count }, (_, i) => {
+      const start = Math.floor(i * periods.length / count);
+      const end = Math.floor((i + 1) * periods.length / count);
+      let detections = 0;
+      for (let j = start; j < end; j++) detections += periods[j].detections;
+      return { start, end, detections };
+    });
+  }, [periods, width]);
+  const maximum = bins.reduce((m, bin) => Math.max(m, bin.detections), 1);
+  const inputClass = "h-8 min-w-0 rounded-md border border-rule bg-paper px-2 text-xs text-ink focus-visible:outline-2 focus-visible:outline-reference [color-scheme:light_dark]";
 
   return (
-    <section aria-label="Heat history for selected area" className="flex h-16 w-full items-center gap-2 border-t border-rule bg-panel px-3 text-ink sm:gap-4 sm:px-4">
-      <h2 className="shrink-0 font-serif text-sm font-semibold" title="Bars show annual satellite detections. The number is the mapped annual energy proxy.">Heat History</h2>
-      {error || loading || !inspected ? (
-        <p role="status" className="min-w-0 flex-1 text-[11px] text-muted">{error ? "History unavailable" : loading ? "Loading…" : "No fire history"}</p>
-      ) : <>
-        <span className="shrink-0 font-mono text-xs text-terracotta tnum" aria-label="Inspected year">{inspected.year}</span>
-        <div className="hidden min-w-0 flex-[2] min-[540px]:block">
-          <svg viewBox={`0 0 ${annual.length * 10} 32`} preserveAspectRatio="none" className="h-7 w-full overflow-visible" role="group" aria-label="Satellite detections by year" onPointerLeave={() => setHovered(null)}>
-            {annual.map((year, index) => {
-              const height = Math.max(2, year.detections / max * 28);
-              return <rect key={year.year} x={index * 10 + 1} y={30 - height} width={8} height={height} rx={1}
-                fill={year.year === inspected.year ? "var(--color-thermal-4)" : "var(--color-rule-strong)"}
-                className="cursor-pointer outline-offset-2" tabIndex={0} role="button"
-                aria-label={`${year.year}: ${format(year.detections)} detections`} aria-pressed={year.year === selectedYear}
-                onPointerEnter={() => { setHovered(year.year); setSelectedYear(year.year); }} onFocus={() => { setHovered(year.year); setSelectedYear(year.year); }} onBlur={() => setHovered(null)}
-                onClick={() => setSelectedYear(year.year)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedYear(year.year); } }} />;
+    <section aria-label="Chronology timeline" className="relative z-30 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-rule bg-panel px-3 py-2 text-ink sm:px-4">
+      <button type="button" aria-label={view === "blocks" ? "Switch to slider timeline" : "Switch to blocks timeline"} title={view === "blocks" ? "Use a continuous slider" : "Use blocks"} onClick={() => setView(view === "blocks" ? "slider" : "blocks")} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-rule text-muted hover:bg-paper focus-visible:outline-2 focus-visible:outline-reference">
+        {view === "blocks" ? <LayoutGrid className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+      </button>
+      <div ref={trackRef} className="min-w-24 flex-1">
+        {unavailable ? <p role="status" className="h-7 text-xs text-muted">{state.loading ? "Loading history…" : state.error ? "History unavailable" : "No daily data"}</p> : view === "slider" ? (
+          <input type="range" aria-label="Chronology slider" aria-valuetext={label} min={0} max={Math.max(0, periods.length - 1)} step={1} value={position} onChange={(e) => selectPosition(Number(e.target.value))} className="h-7 w-full cursor-pointer accent-[#b30000]" />
+        ) : (
+          <svg role="slider" aria-label="Chronology blocks" aria-valuemin={0} aria-valuemax={periods.length - 1} aria-valuenow={position} aria-valuetext={label} tabIndex={0} viewBox={`0 0 ${Math.max(1, bins.length) * 10} 28`} preserveAspectRatio="none" className="h-7 w-full cursor-crosshair touch-none rounded-sm focus-visible:outline-2 focus-visible:outline-reference" onKeyDown={onKey} onPointerMove={(e) => selectPosition(point(e), e.buttons === 1)} onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); selectPosition(point(e)); }}>
+            <title>Bar height shows satellite detections. Taller and warmer bars mean more detections. The underline marks selection. Dates are grouped when space is limited; arrow keys select each {precision}.</title>
+            {bins.map((bin, i) => {
+              const ratio = bin.detections / maximum;
+              const height = Math.max(2, ratio * 22);
+              const warmth = Math.sqrt(ratio);
+              const low = [109, 124, 142], high = [179, 0, 0];
+              const color = low.map((value, channel) => Math.round(value + (high[channel] - value) * warmth));
+              const active = position >= bin.start && position < bin.end;
+              return <g key={i}>
+                <rect data-detections={bin.detections} x={i * 10 + 1} y={24 - height} width={8} height={height} rx={1} fill={`rgb(${color.join(",")})`} opacity={.55 + ratio * .45}>
+                  <title>{periods[bin.start]?.key}{bin.end - bin.start > 1 ? ` to ${periods[bin.end - 1]?.key}` : ""}: {bin.detections.toLocaleString("en-US")} detections</title>
+                </rect>
+                {active && <rect x={i * 10 + 1} y={26} width={8} height={2} rx={1} fill="var(--color-reference)" />}
+              </g>;
             })}
           </svg>
-        </div>
-        <input aria-label="Inspect heat history year" type="range" min={annual[0]?.year} max={annual[annual.length - 1]?.year} value={selectedYear} onChange={(e) => { setHovered(null); setSelectedYear(Number(e.target.value)); }} className="h-3 min-w-10 flex-1 accent-[#b30000]" />
-        <p className="w-40 shrink-0 whitespace-nowrap text-right font-serif text-base tnum" aria-label="Mapped annual energy" title="Sum of visible cell energy density times exact cell area. Calibrated one-hour observation proxy, without regional Kalman gap filling.">
-          {mapError ? "Unavailable" : mapLoading || mapYear !== inspected.year ? "Loading…" : format(mapped.energyGJ)} <span className="font-sans text-[10px] text-muted">GJ</span>
-        </p>
-      </>}
-      <button type="button" onClick={onClose} aria-label="Hide heat history" className="ml-auto shrink-0 rounded-full p-1.5 text-muted hover:bg-paper"><X className="h-4 w-4" /></button>
+        )}
+        <p aria-live="polite" aria-label="Timeline selection" className="flex h-4 justify-between gap-2 truncate text-[10px] text-muted tnum"><span>{label}</span><span className="hidden sm:inline">{selected?.detections.toLocaleString("en-US") ?? "—"} detections · Height: detections · Map: {state.mapPeriod}</span></p>
+      </div>
+      <div className="ml-auto flex w-full items-center justify-end gap-1.5 sm:w-auto">
+        <select aria-label="Timeline precision" value={precision} disabled={unavailable} onChange={(e) => changePrecision(e.target.value as Precision)} className={inputClass}>
+          <option value="year">Year</option><option value="month">Month</option><option value="day">Day</option>
+        </select>
+        <input type="date" lang="en-US" aria-label="Go to date" title="Inspect an exact day without changing the timeline scale" value={state.date ?? anchor} min={state.min ?? undefined} max={state.max ?? undefined} disabled={unavailable} onChange={(e) => {
+          if (e.target.value) {
+            useAnalysisStore.getState().setHoveredDay(null);
+            state.setDate(e.target.value, true);
+          }
+        }} className={inputClass + " w-40"} />
+      </div>
     </section>
   );
 }

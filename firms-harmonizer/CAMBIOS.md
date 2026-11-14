@@ -1,5 +1,22 @@
 # CAMBIOS — registro de cambios que afectan a otros integrantes
 
+## 2026-11-14 — Exact daily and monthly map observations
+
+User-authorized integration across API, DuckDB and frontend: added synchronous
+`POST /api/map-period` with inclusive date bounds, source provenance, bounded caching,
+industrial filtering and per-cell energy/count aggregation from the local cube.
+The frozen `schemas.py` and `types.ts` contracts are unchanged. The new endpoint reuses
+the existing hexagon shape: its legacy `mean_annual_fre` field contains the selected
+period's integrated energy density, without annual extrapolation or regional gap filling.
+See root `SPECS.md` §5.4 for the additional endpoint contract.
+
+Day/month selection now reloads map cells with cancellation, stale-response protection
+and period-aware caching. Map tooltips, the chronology dock and the right panel identify
+the same period. Colors retain a shared reference; empty dates show no observations.
+The first satellite detection must not be described as an exact ignition time.
+Regression coverage includes leap days, month totals, empty periods, industrial filtering,
+date validation, cache isolation and late responses.
+
 Cada fila es un cambio hecho por Moha (dueño de `backend/db/` y `backend/api/`) sobre un archivo compartido o de otra persona. Motivo general: implementar la API sin datos falsos ni sustitutos silenciosos (plan v2).
 
 | Fecha | Archivo | Dueño original | Cambio | Motivo | Afecta a |

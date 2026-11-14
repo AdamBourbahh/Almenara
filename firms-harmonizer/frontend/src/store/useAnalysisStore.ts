@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { AnalyzeRequest, AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, H3MapSummaryHex, ViewMode } from "../api/types";
-import { analyzeAoi, runChaosMonkey } from "../api/client";
+import { analyzeAoi, fetchMapPeriod, runChaosMonkey } from "../api/client";
 
 // ============================================================================
 // Official pilot regions for the jury demo
@@ -47,6 +47,35 @@ function buildCalendarIndex(data: AnalyzeResponse): Map<number, DailyCalendarCel
   return index;
 }
 
+export const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export function isoDate(year: number, month: number, day: number): string {
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(day, last)).padStart(2, "0")}`;
+}
+export function dateSelection(iso: string) {
+  const date = new Date(`${iso}T00:00:00Z`);
+  return { selectedDate: iso, selectedYear: date.getUTCFullYear(), selectedMonth: date.getUTCMonth() + 1,
+    selectedDay: date.getUTCDate(), selectedDoy: Math.round((date.getTime() - Date.UTC(date.getUTCFullYear(), 0, 1)) / 86400000) + 1 };
+}
+export function selectedMapPeriod(state: { selectedYear: number; selectedMonth: number | null; selectedDate: string | null }): string {
+  return state.selectedDate ?? (state.selectedMonth === null ? String(state.selectedYear)
+    : `${state.selectedYear}-${String(state.selectedMonth).padStart(2, "0")}`);
+}
+function chronologyIndexes(data: AnalyzeResponse) {
+  const dateIndex = new Map<string, DailyCalendarCell>();
+  const yearDoyIndex = new Map<string, DailyCalendarCell>();
+  for (const cell of data.calendar_series) {
+    dateIndex.set(cell.date, cell);
+    yearDoyIndex.set(`${cell.year}-${cell.doy}`, cell);
+  }
+  const dates = [...dateIndex.keys()].sort();
+  for (const cell of data.forecast_series ?? []) {
+    if (!dateIndex.has(cell.date)) dateIndex.set(cell.date, cell);
+    if (!yearDoyIndex.has(`${cell.year}-${cell.doy}`)) yearDoyIndex.set(`${cell.year}-${cell.doy}`, cell);
+  }
+  return { dateIndex, yearDoyIndex, minDate: dates[0] ?? null, maxDate: dates[dates.length - 1] ?? null };
+}
+
 const polygonFromPreset = (key: PresetKey): GeoJSONPolygon => ({ type: "Polygon", coordinates: PRESET_REGIONS[key].coordinates });
 
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === "AbortError";
@@ -71,6 +100,21 @@ interface AnalysisState {
   splitCurtainPct: number; // 0..100, "2012 Time-Machine" curtain
   selectedYear: number;
   hoveredDay: HoveredDay | null;
+  selectedMonth: number | null;
+  selectedDay: number | null;
+  selectedDoy: number | null;
+  selectedDate: string | null;
+  hoveredDate: string | null;
+  hoveredCell: DailyCalendarCell | null;
+  isDatePinned: boolean;
+  dateIndex: Map<string, DailyCalendarCell>;
+  yearDoyIndex: Map<string, DailyCalendarCell>;
+  minDate: string | null;
+  maxDate: string | null;
+  setSelectedMonth: (month: number | null) => void;
+  setSelectedDate: (date: string | null, pin?: boolean) => void;
+  setHoveredCell: (cell: DailyCalendarCell | null) => void;
+  stepChronology: (unit: "day" | "month" | "year", delta: -1 | 1) => void;
 
   // API data
   loading: boolean;
@@ -78,6 +122,7 @@ interface AnalysisState {
   analysisData: AnalyzeResponse | null;
   mapHexagons: H3MapSummaryHex[];
   mapYear: number | null;
+  mapPeriod: string | null;
   mapLoading: boolean;
   mapError: string | null;
   loadMapYear: () => Promise<void>;
@@ -119,6 +164,14 @@ const annualMapCache = new Map<string, H3MapSummaryHex[]>();
 let chaosController: AbortController | null = null;
 let chaosSeq = 0;
 
+function scheduleMapLoad() {
+  mapController?.abort();
+  mapSeq++;
+  clearTimeout(mapTimer);
+  useAnalysisStore.setState({ mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null });
+  mapTimer = setTimeout(() => { void useAnalysisStore.getState().loadMapYear(); }, 120);
+}
+
 export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   viewMode: "HARMONIZED",
   selectedPreset: "chilecito_la_rioja",
@@ -133,12 +186,16 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   splitCurtainPct: 50,
   selectedYear: 2022, // Critical year by default (MODIS Aqua safe mode)
   hoveredDay: null,
+  selectedMonth: null, selectedDay: null, selectedDoy: null, selectedDate: null,
+  hoveredDate: null, hoveredCell: null, isDatePinned: false,
+  dateIndex: new Map(), yearDoyIndex: new Map(), minDate: null, maxDate: null,
 
   loading: false,
   error: null,
   analysisData: null,
   mapHexagons: [],
   mapYear: null,
+  mapPeriod: null,
   mapLoading: false,
   mapError: null,
   calendarIndex: new Map(),
@@ -156,22 +213,66 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setSplitCurtainPct: (pct) => set({ splitCurtainPct: Math.min(100, Math.max(0, Math.round(pct))) }),
 
   setSelectedYear: (year) => {
-    const { startYear, endYear, selectedYear } = get();
-    const clamped = Math.min(endYear, Math.max(startYear, Math.round(year)));
+    const { startYear, endYear, selectedYear, minDate, maxDate } = get();
+    const lo = Math.max(startYear, Number(minDate?.slice(0, 4) ?? startYear));
+    const hi = Math.min(endYear, Number(maxDate?.slice(0, 4) ?? endYear));
+    const clamped = Math.min(hi, Math.max(lo, Math.round(year)));
+    if (!Number.isFinite(clamped)) return;
     if (clamped === selectedYear) return;
-    mapController?.abort();
-    mapSeq++;
-    clearTimeout(mapTimer);
-    set({ selectedYear: clamped, chaosData: null, mapHexagons: [], mapYear: null, mapLoading: true, mapError: null });
-    mapTimer = setTimeout(() => { void get().loadMapYear(); }, 120);
+    const previous = get().selectedDate;
+    const candidate = isoDate(clamped, get().selectedMonth ?? 1, get().selectedDay ?? 1);
+    const bounded = candidate < (minDate ?? candidate) ? minDate! : candidate > (maxDate ?? candidate) ? maxDate! : candidate;
+    const selection = previous ? dateSelection(bounded) : {};
+    set({ ...selection, hoveredDate: null, hoveredCell: null, hoveredDay: null, selectedYear: clamped, chaosData: null });
+    scheduleMapLoad();
   },
 
-  // Called on every pointer move: only notify subscribers when the hovered cell actually changes.
+  setSelectedMonth: (month) => {
+    if (month !== null && (!Number.isInteger(month) || month < 1 || month > 12)) return;
+    if (month === get().selectedMonth && !get().selectedDate) return;
+    set({ selectedMonth: month, selectedDay: null, selectedDoy: null, selectedDate: null,
+      isDatePinned: false, hoveredCell: null, hoveredDate: null, hoveredDay: null });
+    scheduleMapLoad();
+  },
+  setSelectedDate: (iso, pin = true) => {
+    if (iso === null) {
+      if (!get().selectedDate) return;
+      set({ selectedDate: null, selectedDay: null, selectedDoy: null, isDatePinned: false, hoveredDay: null, hoveredCell: null, hoveredDate: null });
+      scheduleMapLoad();
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
+    const parsed = new Date(`${iso}T00:00:00Z`);
+    if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== iso) return;
+    const { minDate, maxDate, startYear, endYear } = get();
+    const bounded = [iso, minDate ?? `${startYear}-01-01`].sort()[1];
+    const date = [bounded, maxDate ?? `${endYear}-12-31`].sort()[0];
+    const changed = get().selectedDate !== date;
+    set({ ...dateSelection(date), isDatePinned: pin, hoveredDay: null, hoveredCell: null, hoveredDate: null, chaosData: null });
+    if (changed) scheduleMapLoad();
+  },
+  stepChronology: (unit, delta) => {
+    const state = get();
+    const base = state.selectedDate ?? state.hoveredDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 1, 1);
+    const date = new Date(`${base}T00:00:00Z`);
+    let next: string;
+    if (unit === "day") {
+      date.setUTCDate(date.getUTCDate() + delta);
+      next = date.toISOString().slice(0, 10);
+    } else {
+      const first = new Date(Date.UTC(date.getUTCFullYear() + (unit === "year" ? delta : 0), date.getUTCMonth() + (unit === "month" ? delta : 0), 1));
+      next = isoDate(first.getUTCFullYear(), first.getUTCMonth() + 1, date.getUTCDate());
+    }
+    get().setSelectedDate(next, true);
+  },
+  setHoveredCell: (cell) => {
+    if (get().isDatePinned || get().hoveredCell === cell) return;
+    set({ hoveredCell: cell, hoveredDate: cell?.date ?? null });
+  },
   setHoveredDay: (day) => {
-    const prev = get().hoveredDay;
-    if (prev === day) return;
-    if (prev && day && prev.year === day.year && prev.doy === day.doy) return;
-    set({ hoveredDay: day });
+    if (get().isDatePinned) return;
+    const cell = day ? get().yearDoyIndex.get(`${day.year}-${day.doy}`) ?? null : null;
+    set({ hoveredDay: day, hoveredCell: cell, hoveredDate: cell?.date ?? null });
   },
 
   setExcludeIndustrial: async (exclude) => {
@@ -220,6 +321,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   },
 
   loadMapYear: async () => {
+    clearTimeout(mapTimer);
     const state = get();
     if (state.loading || !state.analysisData) return;
     mapController?.abort();
@@ -227,30 +329,34 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     mapController = controller;
     const seq = ++mapSeq;
     const year = state.selectedYear;
+    const period = selectedMapPeriod(state);
     const request: AnalyzeRequest = {
       aoi: state.currentAoi, start_year: year, end_year: year,
       exclude_industrial_flaring: state.excludeIndustrial,
       enable_kalman_gap_filling: state.enableKalman, confidence_level: "nominal"
     };
-    const key = JSON.stringify(request);
+    const key = JSON.stringify({ ...request, period });
     const cached = annualMapCache.get(key);
     if (cached) {
-      set({ mapHexagons: cached, mapYear: year, mapLoading: false, mapError: null });
+      set({ mapHexagons: cached, mapYear: year, mapPeriod: period, mapLoading: false, mapError: null });
       return;
     }
     set({ mapLoading: true, mapError: null });
     try {
-      const { data } = await analyzeAoi(request, controller.signal);
+      const start = period.length === 10 ? period : `${period}-01`;
+      const end = period.length === 10 ? period : isoDate(year, state.selectedMonth!, 31);
+      const { data } = period.length === 4 ? await analyzeAoi(request, controller.signal)
+        : await fetchMapPeriod(request, start, end, controller.signal);
       if (seq !== mapSeq) return;
       const hexagons = data.map_hexagons ?? [];
       if (annualMapCache.size >= 32) annualMapCache.delete(annualMapCache.keys().next().value!);
       annualMapCache.set(key, hexagons);
-      set({ mapHexagons: hexagons, mapYear: year, mapLoading: false,
+      set({ mapHexagons: hexagons, mapYear: year, mapPeriod: period, mapLoading: false,
         isSynthetic: data.data_source === "synthetic" });
     } catch (err: unknown) {
       if (seq !== mapSeq || isAbortError(err)) return;
-      set({ mapHexagons: [], mapYear: null, mapLoading: false,
-        mapError: err instanceof Error ? err.message : "Annual map unavailable" });
+      set({ mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: false,
+        mapError: err instanceof Error ? err.message : "Map period unavailable" });
     }
   },
 
@@ -259,7 +365,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     mapSeq++;
     clearTimeout(mapTimer);
     annualMapCache.clear();
-    set({ mapHexagons: [], mapYear: null, mapLoading: true, mapError: null });
+    set({ mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null, hoveredDay: null, hoveredDate: null, hoveredCell: null, isDatePinned: false, selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null });
     analysisController?.abort();
     const controller = new AbortController();
     analysisController = controller;
@@ -280,7 +386,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     try {
       const { data } = await analyzeAoi(requestPayload, controller.signal);
       if (seq !== analysisSeq) return; // a newer request superseded this one
-      set({ analysisData: data, calendarIndex: buildCalendarIndex(data), isSynthetic: data.data_source === "synthetic", loading: false, hoveredDay: null });
+      set({ ...chronologyIndexes(data), analysisData: data, calendarIndex: buildCalendarIndex(data), isSynthetic: data.data_source === "synthetic", loading: false, hoveredDay: null });
       await get().loadMapYear();
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
