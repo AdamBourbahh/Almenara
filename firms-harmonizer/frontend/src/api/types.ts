@@ -27,13 +27,13 @@ export interface DailyCalendarCell {
   ci_95_upper: number;
   uncertainty_pct: number;
   biomass_burned_tonnes: number;
-  pm25_emitted_kg: number;
+  pm25_emitted_kg: number | null;
   z_score_anomaly: number;
   is_gap_filled: boolean;
   is_forecast: boolean;
   gap_reason: string | null;
   active_sensors: Array<string>;
-  tooltip_narrative: string;
+  tooltip_narrative: string | null;
 }
 
 export interface VonMisesPhenologyYear {
@@ -52,13 +52,13 @@ export interface ScientificAuditMetrics {
   chow_test_p_val_harm: number;
   wasserstein_w1_raw: number;
   wasserstein_w1_harm: number;
-  burned_area_r2_raw: number;
-  burned_area_r2_harm: number;
+  burned_area_r2_raw: number | null;
+  burned_area_r2_harm: number | null;
   phenology_shift_days_per_decade: number;
   mann_kendall_p_value: number;
   industrial_false_positives_removed: number;
   total_biomass_burned_kt: number;
-  total_pm25_emitted_tonnes: number;
+  total_pm25_emitted_tonnes: number | null;
   executive_verdict_en: string;
 }
 
@@ -72,14 +72,15 @@ export interface H3MapSummaryHex {
 }
 
 export interface AnalyzeResponse {
+  data_source: "real" | "synthetic";
   query_hash: string;
   execution_time_ms: number;
   aoi_area_km2: number;
   total_h3_cells: number;
   calendar_series: Array<DailyCalendarCell>;
-  forecast_series: Array<DailyCalendarCell>;
+  forecast_series: Array<DailyCalendarCell> | null;
   phenology_by_year: Array<VonMisesPhenologyYear>;
-  audit_metrics: ScientificAuditMetrics;
+  audit_metrics: ScientificAuditMetrics | null;
   map_hexagons: Array<H3MapSummaryHex>;
 }
 
@@ -92,6 +93,7 @@ export interface ChaosMonkeyRequest {
 }
 
 export interface ChaosMonkeyResponse {
+  data_source: "real" | "synthetic";
   dropped_days_count: number;
   dropped_dates: Array<string>;
   dates: Array<string>;

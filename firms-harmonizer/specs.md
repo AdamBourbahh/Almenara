@@ -59,7 +59,7 @@ Chow at 2012-01-01 compares pooled regression RSS_p to separate RSS_1+RSS_2 with
 W1(P,Q)=∫|F_P(x)−F_Q(x)|dx on consistent units and matched seasons; improvement=100(1−W1_harm/W1_raw), target >88%. Burned-area predictive R²=1−Σ(y−ŷ)²/Σ(y−ȳ)² must be evaluated out of sample against independent MCD64A1 (target >0.85); squared Pearson correlation is only a descriptive association and must be labeled as such. Bootstrap proxy correlation is not independent validation. All verdicts and tooltips are English. No module is scientifically complete until audited on real data.
 
 ## Frozen API and frontend conventions
-Pydantic v2 models forbid unknown fields and NaN/Infinity in JSON. All listed fields are required unless an input default appears below. TypeScript `number` mirrors Python int/float; `Array<T>` mirrors list[T]. Defaulted input fields are optional in TypeScript and normalized by Pydantic. All response fields are required. Dates are ISO YYYY-MM-DD strings; `gap_reason` is string or null; `active_sensors` is a string array (Terra, Aqua, VIIRS). Empty arrays are valid. H3 indices are lowercase hexadecimal strings of exactly 15 characters. Confidence is `low | nominal | high`. Request years are 2001..2026 with start≤end, forecast_days 0..14, drop_fraction 0..1 and random_seed≥0. Polygon positions are finite [longitude,latitude] pairs with closed rings of at least four positions. Full topology validation belongs to the spatial API layer.
+Pydantic v2 models forbid unknown fields and NaN/Infinity in JSON. All listed fields are required unless an input default appears below. TypeScript `number` mirrors Python int/float; `Array<T>` mirrors list[T]. Defaulted input fields are optional in TypeScript and normalized by Pydantic. All response fields are required except those marked nullable (`| null`); nullable fields are null when out of MVP scope or when the source column/core output is unavailable. Every AnalyzeResponse and ChaosMonkeyResponse carries `data_source` (`real | synthetic`). The API uses the synthetic cube only when `USE_SYNTHETIC_CUBE=1` (file `data/processed/fire_cube_synthetic.parquet`); otherwise it refuses to start without a real cube. Dates are ISO YYYY-MM-DD strings; `gap_reason` is string or null; `active_sensors` is a string array (Terra, Aqua, VIIRS). Empty arrays are valid. H3 indices are lowercase hexadecimal strings of exactly 15 characters. Confidence is `low | nominal | high`. Request years are 2001..2026 with start≤end, forecast_days 0..14, drop_fraction 0..1 and random_seed≥0. Polygon positions are finite [longitude,latitude] pairs with closed rings of at least four positions. Full topology validation belongs to the spatial API layer.
 
 `PRESET_REGIONS` is a keyed object with exactly cerrado_brazil, california_usa, iberia_med and niger_delta_flaring. Values contain `name` (English), `center` ([longitude,latitude]) and `aoi` (GeoJSONPolygon). Pilot centers are (−48,−16), (−121,39), (−5,39), (6,5), each with a closed ±1-degree rectangle. Synthetic cube samples an R7 center and its six neighbors in each polygon, rather than densely filling the entire region. R4 is derived from each R7, never guessed from the pilot center.
 
@@ -106,13 +106,13 @@ The fixture audit reports harmonized Chow p≈1.07×10⁻²³ under the document
 | `ci_95_upper` | `number` | `required` |
 | `uncertainty_pct` | `number` | `required` |
 | `biomass_burned_tonnes` | `number` | `required` |
-| `pm25_emitted_kg` | `number` | `required` |
+| `pm25_emitted_kg` | `number \| null` | `required, nullable (null in MVP)` |
 | `z_score_anomaly` | `number` | `required` |
 | `is_gap_filled` | `boolean` | `required` |
 | `is_forecast` | `boolean` | `required` |
 | `gap_reason` | `string | null` | `required` |
 | `active_sensors` | `Array<string>` | `required` |
-| `tooltip_narrative` | `string` | `required` |
+| `tooltip_narrative` | `string \| null` | `required, nullable (null in MVP)` |
 
 ### VonMisesPhenologyYear
 
@@ -135,13 +135,13 @@ The fixture audit reports harmonized Chow p≈1.07×10⁻²³ under the document
 | `chow_test_p_val_harm` | `number` | `required` |
 | `wasserstein_w1_raw` | `number` | `required` |
 | `wasserstein_w1_harm` | `number` | `required` |
-| `burned_area_r2_raw` | `number` | `required` |
-| `burned_area_r2_harm` | `number` | `required` |
+| `burned_area_r2_raw` | `number \| null` | `required, nullable` |
+| `burned_area_r2_harm` | `number \| null` | `required, nullable` |
 | `phenology_shift_days_per_decade` | `number` | `required` |
 | `mann_kendall_p_value` | `number` | `required` |
 | `industrial_false_positives_removed` | `number` | `required` |
 | `total_biomass_burned_kt` | `number` | `required` |
-| `total_pm25_emitted_tonnes` | `number` | `required` |
+| `total_pm25_emitted_tonnes` | `number \| null` | `required, nullable (null in MVP)` |
 | `executive_verdict_en` | `string` | `required` |
 
 ### H3MapSummaryHex
@@ -159,14 +159,15 @@ The fixture audit reports harmonized Chow p≈1.07×10⁻²³ under the document
 
 | Field | TypeScript type | Default / constraints |
 |---|---|---|
+| `data_source` | `"real" \| "synthetic"` | `required` |
 | `query_hash` | `string` | `required` |
 | `execution_time_ms` | `number` | `required` |
 | `aoi_area_km2` | `number` | `required` |
 | `total_h3_cells` | `number` | `required` |
 | `calendar_series` | `Array<DailyCalendarCell>` | `required` |
-| `forecast_series` | `Array<DailyCalendarCell>` | `required` |
+| `forecast_series` | `Array<DailyCalendarCell> \| null` | `required, nullable (null in MVP)` |
 | `phenology_by_year` | `Array<VonMisesPhenologyYear>` | `required` |
-| `audit_metrics` | `ScientificAuditMetrics` | `required` |
+| `audit_metrics` | `ScientificAuditMetrics \| null` | `required, nullable (null when the AOI has no data)` |
 | `map_hexagons` | `Array<H3MapSummaryHex>` | `required` |
 
 ### ChaosMonkeyRequest
@@ -183,6 +184,7 @@ The fixture audit reports harmonized Chow p≈1.07×10⁻²³ under the document
 
 | Field | TypeScript type | Default / constraints |
 |---|---|---|
+| `data_source` | `"real" \| "synthetic"` | `required` |
 | `dropped_days_count` | `number` | `required` |
 | `dropped_dates` | `Array<string>` | `required` |
 | `dates` | `Array<string>` | `required` |
