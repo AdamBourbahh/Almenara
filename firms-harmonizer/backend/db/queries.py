@@ -19,7 +19,7 @@ from backend.db import duckdb_engine
 
 MAX_R7_CELLS = 250_000
 INDUSTRIAL_THRESHOLD = 0.75
-EPOCH = np.datetime64("2000-01-01", "D")
+EPOCH = np.datetime64("1970-01-01", "D")  # epoch_day = days since 1970-01-01 (SPECS.md §5.1)
 OBS_COLUMNS = ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre")
 MASK_COLUMNS = ("gap_status_mask", "sensor_obs_mask")
 DAILY_KEYS = ("epoch_day", "year", "doy", "raw_modis_cnt", "raw_viirs_cnt", "raw_frp_mw", "obs_terra_fre",

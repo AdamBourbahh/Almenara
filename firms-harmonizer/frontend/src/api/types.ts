@@ -1,59 +1,51 @@
-// ============================================================================
-// TypeScript types & interfaces - firms-harmonizer
-// Mirror of backend/api/schemas.py (Pydantic v2).
-// Fields marked "optional" are extensions agreed for the UI (forecast band,
-// cross-guard prior, Wooster accounting). Keep them in sync with the backend.
-// ============================================================================
+/** Frozen API contracts. Dates are ISO YYYY-MM-DD; H3 indices are hex strings. */
 
+/** UI-only helpers (not part of the wire contract). */
 export type ViewMode = "RAW" | "HARMONIZED";
-
 export type ConfidenceLevel = "low" | "nominal" | "high";
-
+/** Codes used by the frontend's offline generator. The API itself sends `gap_reason` as free text or null. */
 export type GapReason = "NONE" | "SENSOR_OUTAGE" | "CLOUD_OCCLUSION" | "SWATH_GAP" | "MULTI_FACTOR";
 
 export interface GeoJSONPolygon {
-  type: "Polygon";
-  coordinates: number[][][]; // Exterior ring [[lon, lat], ...]
+  type?: "Polygon";
+  coordinates: Array<Array<Array<number>>>;
 }
 
 export interface AnalyzeRequest {
   aoi: GeoJSONPolygon;
-  start_year: number;
-  end_year: number;
-  exclude_industrial_flaring: boolean;
-  enable_kalman_gap_filling: boolean;
-  confidence_level: ConfidenceLevel;
+  start_year?: number;
+  end_year?: number;
+  exclude_industrial_flaring?: boolean;
+  enable_kalman_gap_filling?: boolean;
+  forecast_days?: number;
+  confidence_level?: ConfidenceLevel;
 }
 
 export interface DailyCalendarCell {
-  date: string; // "2022-08-14"
-  year: number; // 2022
-  doy: number; // 226
+  date: string;
+  year: number;
+  doy: number;
   raw_hotspot_count: number;
   raw_frp_mw: number;
   harmonized_fre_mj_km2: number;
+  historical_cross_prior_fre: number;
   ci_95_lower: number;
   ci_95_upper: number;
   uncertainty_pct: number;
+  biomass_burned_tonnes: number;
+  pm25_emitted_kg: number | null;
   z_score_anomaly: number;
   is_gap_filled: boolean;
-  gap_reason: GapReason;
-  active_sensors: string[];
-  tooltip_narrative?: string;
-  // 14-day operational forecast cells (forecast_series) -> golden hatch
-  is_forecast?: boolean;
-  // Historical cross-guard prior (climatology for this DOY), MJ/km²
-  historical_cross_prior_fre?: number;
-  // Wooster biomass (0.368 kg/MJ) & smoke accounting
-  total_biomass_burned_kt?: number;
-  pm25_emitted_kg?: number;
-  total_pm25_emitted_tonnes?: number;
+  is_forecast: boolean;
+  gap_reason: string | null;
+  active_sensors: Array<string>;
+  tooltip_narrative: string | null;
 }
 
 export interface VonMisesPhenologyYear {
   year: number;
-  peak_doy_mu: number; // Peak day of year [1, 365.25]
-  peak_date_label: string; // e.g. "Aug 19"
+  peak_doy_mu: number;
+  peak_date_label: string;
   concentration_kappa: number;
   season_width_days: number;
   total_annual_fre_gj: number;
@@ -66,52 +58,94 @@ export interface ScientificAuditMetrics {
   chow_test_p_val_harm: number;
   wasserstein_w1_raw: number;
   wasserstein_w1_harm: number;
-  burned_area_r2_raw: number;
-  burned_area_r2_harm: number;
+  burned_area_r2_raw: number | null;
+  burned_area_r2_harm: number | null;
   phenology_shift_days_per_decade: number;
   mann_kendall_p_value: number;
   industrial_false_positives_removed: number;
-  executive_verdict_en?: string;
-  total_biomass_burned_kt?: number;
-  total_pm25_emitted_tonnes?: number;
+  total_biomass_burned_kt: number;
+  total_pm25_emitted_tonnes: number | null;
+  executive_verdict_en: string;
 }
 
 export interface H3MapSummaryHex {
-  h3_index: string; // Hex string (e.g. "872830828ffffff"), never an integer (uint64 precision loss in JS)
+  h3_index: string;
   mean_annual_fre: number;
+  raw_pixel_count: number;
   trend_slope: number;
   is_industrial_site: boolean;
+  shannon_entropy: number;
 }
 
 export interface AnalyzeResponse {
+  data_source: "real" | "synthetic";
   query_hash: string;
   execution_time_ms: number;
   aoi_area_km2: number;
   total_h3_cells: number;
-  calendar_series: DailyCalendarCell[];
-  phenology_by_year: VonMisesPhenologyYear[];
-  audit_metrics: ScientificAuditMetrics;
-  map_hexagons: H3MapSummaryHex[];
-  forecast_series?: DailyCalendarCell[];
+  calendar_series: Array<DailyCalendarCell>;
+  forecast_series: Array<DailyCalendarCell> | null;
+  phenology_by_year: Array<VonMisesPhenologyYear>;
+  audit_metrics: ScientificAuditMetrics | null;
+  map_hexagons: Array<H3MapSummaryHex>;
 }
 
 export interface ChaosMonkeyRequest {
   aoi: GeoJSONPolygon;
-  target_year: number;
-  drop_fraction: number;
-  random_seed: number;
+  target_year?: number;
+  drop_fraction?: number;
+  simulate_dual_blackout?: boolean;
+  random_seed?: number;
 }
 
 export interface ChaosMonkeyResponse {
+  data_source: "real" | "synthetic";
   dropped_days_count: number;
-  dropped_dates: string[];
-  true_harmonized_fre: number[];
-  corrupted_naive_fre: number[];
-  kalman_reconstructed_fre: number[];
-  reconstructed_ci_lower: number[];
-  reconstructed_ci_upper: number[];
+  dropped_dates: Array<string>;
+  dates: Array<string>;
+  true_harmonized_fre: Array<number>;
+  corrupted_naive_fre: Array<number>;
+  historical_cross_guard_fre: Array<number>;
+  kalman_reconstructed_fre: Array<number>;
+  reconstructed_ci_lower: Array<number>;
+  reconstructed_ci_upper: Array<number>;
   naive_rmse: number;
   kalman_rmse: number;
   seasonal_energy_recovered_pct: number;
-  historical_cross_guard_fre?: number[];
 }
+
+/** Pilot regions = SPECS.md §5.3 bounds (the synthetic cube places its cells inside them). */
+export const PRESET_REGIONS = {
+  cerrado_brazil: {
+    name: "Cerrado & Pantanal, Brazil",
+    center: [-56.2, -16.9],
+    aoi: { type: "Polygon", coordinates: [[
+      [-57.2, -17.8], [-55.2, -17.8], [-55.2, -16], [-57.2, -16], [-57.2, -17.8],
+    ]] },
+  },
+  california_usa: {
+    name: "Sierra Nevada, California",
+    center: [-120.35, 39.1],
+    aoi: { type: "Polygon", coordinates: [[
+      [-121.2, 38], [-119.5, 38], [-119.5, 40.2], [-121.2, 40.2], [-121.2, 38],
+    ]] },
+  },
+  iberia_med: {
+    name: "Mediterranean Iberia",
+    center: [-4.85, 38.5],
+    aoi: { type: "Polygon", coordinates: [[
+      [-6.5, 37.2], [-3.2, 37.2], [-3.2, 39.8], [-6.5, 39.8], [-6.5, 37.2],
+    ]] },
+  },
+  niger_delta_flaring: {
+    name: "Niger Delta gas flaring",
+    center: [6.4, 5.2],
+    aoi: { type: "Polygon", coordinates: [[
+      [5.6, 4.6], [7.2, 4.6], [7.2, 5.8], [5.6, 5.8], [5.6, 4.6],
+    ]] },
+  },
+} as const satisfies Record<string, {
+  name: string;
+  center: [number, number];
+  aoi: GeoJSONPolygon;
+}>;

@@ -20,8 +20,8 @@ from backend.api.schemas import AnalyzeResponse, ChaosMonkeyResponse
 
 ROOT = Path(__file__).resolve().parents[2]
 HEX = re.compile(r"[0-9a-f]{15}")
-CERRADO = {"type": "Polygon", "coordinates": [[[-49.0, -17.0], [-47.0, -17.0], [-47.0, -15.0],
-                                               [-49.0, -15.0], [-49.0, -17.0]]]}  # ASSUMPTION (specs preset)
+CERRADO = {"type": "Polygon", "coordinates": [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0],
+                                               [-57.2, -16.0], [-57.2, -17.8]]]}  # ASSUMPTION (SPECS.md §5.3 preset)
 OCEAN = {"type": "Polygon", "coordinates": [[[-30.5, -30.5], [-29.5, -30.5], [-29.5, -29.5],
                                              [-30.5, -29.5], [-30.5, -30.5]]]}
 BRAZIL_LAT, BRAZIL_LNG = (-34.0, 6.0), (-74.0, -34.0)

@@ -152,7 +152,7 @@ export function exportToIpccCsv(data: AnalyzeResponse): void {
       cell.is_gap_filled,
       cell.gap_reason,
       cell.active_sensors.join("|"),
-      cell.total_biomass_burned_kt,
+      cell.biomass_burned_tonnes / 1000,
       cell.pm25_emitted_kg,
       cell.is_forecast ?? false,
       cell.tooltip_narrative
@@ -507,14 +507,16 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
   const tropical = Math.abs(lat) < 25;
   const peakFre = 380 * (0.6 + 0.8 * rng());
   const countScale = request.confidence_level === "low" ? 1.15 : request.confidence_level === "high" ? 0.8 : 1;
-  const cutoff = observationCutoff(request.end_year);
+  const startYear = request.start_year ?? 2001; // schema defaults
+  const endYear = request.end_year ?? 2026;
+  const cutoff = observationCutoff(endYear);
 
   const calendar_series: DailyCalendarCell[] = [];
   const trueAnnualFre = new Map<number, number>();
   let lastAmplitude = 1;
   let falsePositivesRemoved = 0;
 
-  for (let year = Math.max(request.start_year, TERRA_START.year); year <= Math.min(request.end_year, cutoff.year); year++) {
+  for (let year = Math.max(startYear, TERRA_START.year); year <= Math.min(endYear, cutoff.year); year++) {
     const yearLength = daysInYear(year);
     const amplitude = Math.exp(0.28 * gaussian(rng));
     const climatologyPeak = basePeakDoy + PHENOLOGY_SHIFT_DAYS_PER_YEAR * (year - 2001);
@@ -591,7 +593,8 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
         active_sensors: sensors,
         tooltip_narrative: narrativeFor(year, doy, round(harmonized), uncertainty, gapReason, isGapFilled, sensors),
         historical_cross_prior_fre: round(prior),
-        total_biomass_burned_kt: round(biomassKg / 1e6, 4),
+        is_forecast: false,
+        biomass_burned_tonnes: round(biomassKg / 1000, 1),
         pm25_emitted_kg: round((biomassKg * PM25_EMISSION_FACTOR_G_PER_KG) / 1000, 1)
       });
     }
@@ -624,7 +627,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
       active_sensors: [],
       is_forecast: true,
       historical_cross_prior_fre: round(prior),
-      total_biomass_burned_kt: round(biomassKg / 1e6, 4),
+      biomass_burned_tonnes: round(biomassKg / 1000, 1),
       pm25_emitted_kg: round((biomassKg * PM25_EMISSION_FACTOR_G_PER_KG) / 1000, 1),
       tooltip_narrative: `${dayLabel(year, doy)}: operational forecast day ${k}/${FORECAST_DAYS} from the Kalman state transition. Expected FRE ${fre.toFixed(1)} MJ/km² (±${uncertainty.toFixed(1)}%); CI widens with horizon.`
     });
@@ -708,7 +711,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
   const varS = (nMk * (nMk - 1) * (2 * nMk + 5)) / 18;
   const zMk = varS > 0 ? (mannKendallS - Math.sign(mannKendallS)) / Math.sqrt(varS) : 0;
 
-  const totalBiomassKt = calendar_series.reduce((sum, c) => sum + (c.total_biomass_burned_kt ?? 0), 0);
+  const totalBiomassKt = calendar_series.reduce((sum, c) => sum + c.biomass_burned_tonnes, 0) / 1000;
   const totalPm25Tonnes = calendar_series.reduce((sum, c) => sum + (c.pm25_emitted_kg ?? 0), 0) / 1000;
   const shiftPerDecade = slopes.length ? median(slopes) * 10 : 0;
   const w1Reduction = w1Raw > 0 ? (1 - w1Harm / w1Raw) * 100 : 0;
@@ -739,11 +742,14 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
   const map_hexagons: H3MapSummaryHex[] = hexes.map((h) => ({
     h3_index: h.h3,
     mean_annual_fre: round((meanAnnualTrue * h.relativeEnergy) / meanRelative, 1),
+    raw_pixel_count: Math.round(h.relativeEnergy * 40),
     trend_slope: round(h.trend, 2),
-    is_industrial_site: h.industrial
+    is_industrial_site: h.industrial,
+    shannon_entropy: h.industrial ? 0.2 : 1.5 // synthetic placeholder: industrial sites are temporally regular
   }));
 
   return {
+    data_source: "synthetic",
     query_hash: `synthetic_${seed.toString(16).padStart(8, "0")}`,
     execution_time_ms: round(performance.now() - t0, 1),
     aoi_area_km2: round(areaKm2, 1),
@@ -761,7 +767,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
 export function generateSyntheticChaosResponse(request: ChaosMonkeyRequest): ChaosMonkeyResponse {
   const rng = mulberry32(hashString(JSON.stringify(request)));
   const [, lat] = ringCentroid(request.aoi.coordinates[0] ?? []);
-  const year = clamp(Math.round(request.target_year), 2001, 2026);
+  const year = clamp(Math.round(request.target_year ?? 2022), 2001, 2026); // schema defaults
   const n = daysInYear(year);
   const peakDoy = (lat < 0 ? 245 : 212) + PHENOLOGY_SHIFT_DAYS_PER_YEAR * (year - 2001);
   const peakFre = 380 * (0.6 + 0.8 * rng());
@@ -778,7 +784,7 @@ export function generateSyntheticChaosResponse(request: ChaosMonkeyRequest): Cha
     const j = Math.floor(rng() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-  const extra = Math.round(clamp(request.drop_fraction, 0, 0.9) * n);
+  const extra = Math.round(clamp(request.drop_fraction ?? 0.25, 0, 0.9) * n);
   pool.slice(0, extra).forEach((i) => dropped.add(i));
 
   const naive = truth.map((v, i) => (dropped.has(i) ? 0 : v));
@@ -811,8 +817,10 @@ export function generateSyntheticChaosResponse(request: ChaosMonkeyRequest): Cha
   const totalRecon = reconstructed.reduce((a, b) => a + b, 0);
 
   return {
+    data_source: "synthetic",
     dropped_days_count: droppedIdx.length,
     dropped_dates: droppedIdx.map((i) => isoDate(year, i + 1)),
+    dates: Array.from({ length: n }, (_, i) => isoDate(year, i + 1)),
     true_harmonized_fre: truth.map((v) => round(v)),
     corrupted_naive_fre: naive.map((v) => round(v)),
     kalman_reconstructed_fre: reconstructed.map((v) => round(v)),

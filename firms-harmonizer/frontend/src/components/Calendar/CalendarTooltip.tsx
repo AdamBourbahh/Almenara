@@ -2,7 +2,6 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
 import { CloudOff, Satellite, ShieldCheck, TrendingUp, Wrench } from "lucide-react";
-import type { GapReason } from "../../api/types";
 import { calendarKey, useAnalysisStore } from "../../store/useAnalysisStore";
 
 const TOOLTIP_WIDTH = 320;
@@ -10,7 +9,7 @@ const TOOLTIP_EST_HEIGHT = 300;
 const OFFSET = 16;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const GAP_REASON_LABEL: Record<GapReason, string> = {
+const GAP_REASON_LABEL: Record<string, string> = {
   NONE: "None",
   SENSOR_OUTAGE: "Sensor outage",
   CLOUD_OCCLUSION: "Cloud cover",
@@ -18,13 +17,18 @@ const GAP_REASON_LABEL: Record<GapReason, string> = {
   MULTI_FACTOR: "Multiple causes"
 };
 
+function gapLabel(reason: string | null): string {
+  if (!reason) return "Unknown";
+  return GAP_REASON_LABEL[reason] ?? reason;
+}
+
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return Number.isFinite(y) && m >= 1 && m <= 12 ? `${MONTHS[m - 1]} ${d}, ${y}` : iso;
 }
 
-const fmt = (value: number | undefined, digits = 1) =>
-  value === undefined || !Number.isFinite(value) ? "—" : value.toFixed(digits);
+const fmt = (value: number | null | undefined, digits = 1) =>
+  value == null || !Number.isFinite(value) ? "—" : value.toFixed(digits);
 
 /**
  * Cell detail card for the burning calendar, rendered in a portal so transformed
@@ -104,11 +108,11 @@ export const CalendarTooltip: React.FC = () => {
             <span className="text-ink">{fmt(cell.historical_cross_prior_fre)} MJ/km²</span>
           </div>
         )}
-        {(cell.total_biomass_burned_kt !== undefined || cell.pm25_emitted_kg !== undefined) && (
+        {(cell.biomass_burned_tonnes > 0 || cell.pm25_emitted_kg != null) && (
           <div className="flex justify-between text-muted">
             <span>Biomass · PM2.5</span>
             <span className="text-ink">
-              {fmt(cell.total_biomass_burned_kt, 2)} kt · {fmt(cell.pm25_emitted_kg, 0)} kg
+              {fmt(cell.biomass_burned_tonnes, 1)} t · {fmt(cell.pm25_emitted_kg, 0)} kg
             </span>
           </div>
         )}
@@ -123,12 +127,12 @@ export const CalendarTooltip: React.FC = () => {
         ) : cell.is_gap_filled ? (
           <span className="inline-flex items-center gap-1 border border-reference/40 bg-reference/10 px-2 py-0.5 text-[10px] text-reference">
             <Wrench className="h-3 w-3" />
-            Repaired · {GAP_REASON_LABEL[cell.gap_reason]}
+            Repaired · {gapLabel(cell.gap_reason)}
           </span>
-        ) : cell.gap_reason !== "NONE" ? (
+        ) : cell.gap_reason && cell.gap_reason !== "NONE" ? (
           <span className="inline-flex items-center gap-1 border border-bias/40 bg-bias/10 px-2 py-0.5 text-[10px] text-bias">
             <CloudOff className="h-3 w-3" />
-            Unfilled gap · {GAP_REASON_LABEL[cell.gap_reason]}
+            Unfilled gap · {gapLabel(cell.gap_reason)}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 border border-validated/40 bg-validated/10 px-2 py-0.5 text-[10px] text-validated">

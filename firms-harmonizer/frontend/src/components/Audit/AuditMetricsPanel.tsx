@@ -2,8 +2,8 @@ import { Download } from "lucide-react";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
 import { exportToIpccCsv } from "../../api/client";
 
-function fmt(value: number, digits = 1): string {
-  if (!Number.isFinite(value)) return "—";
+function fmt(value: number | null | undefined, digits = 1): string {
+  if (value == null || !Number.isFinite(value)) return "—";
   return value.toLocaleString("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
@@ -56,7 +56,7 @@ export function AuditMetricsPanel() {
   const w1Reduction =
     audit.wasserstein_w1_raw > 0 ? (1 - audit.wasserstein_w1_harm / audit.wasserstein_w1_raw) * 100 : 0;
   const chowPass = audit.chow_test_p_val_harm > 0.1;
-  const r2Pass = audit.burned_area_r2_harm >= 0.7;
+  const r2Pass = (audit.burned_area_r2_harm ?? 0) >= 0.7;
 
   const verdict =
     `The harmonized series smooths the artificial 2012 jump (the Chow test ${chowPass ? "passes" : "does not pass"}) ` +
