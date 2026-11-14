@@ -1,5 +1,5 @@
 import { create } from "zustand";
-<<<<<<< HEAD
+import { cellToLatLng } from "h3-js";
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
@@ -23,11 +23,6 @@ import {
   triggerCubeSync,
   fetchCubeSyncStatus
 } from "../api/client";
-=======
-import { cellToLatLng } from "h3-js";
-import type { AnalyzeRequest, AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, H3MapSummaryHex, ViewMode, ExplainSpikeResponse } from "../api/types";
-import { analyzeAoi, fetchMapPeriod, explainSpike, runChaosMonkey } from "../api/client";
->>>>>>> 79dca5d (hola)
 
 // ============================================================================
 // Official pilot regions for the jury demo
@@ -438,13 +433,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   loadPresetRegion: async (presetKey, point) => {
     if (!(presetKey in PRESET_REGIONS)) return;
-<<<<<<< HEAD
     set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null,
       aoiPromptPopup: point ? { ...point, aoiLabel: PRESET_REGIONS[presetKey].label } : null });
-=======
-    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
->>>>>>> 79dca5d (hola)
     await get().executeAnalysis();
   },
 
@@ -454,13 +445,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
-<<<<<<< HEAD
     set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null,
       aoiPromptPopup: point ? { ...point, aoiLabel: "Custom area" } : null });
-=======
-    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
->>>>>>> 79dca5d (hola)
     await get().executeAnalysis();
   },
 
@@ -517,21 +504,17 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }
   },
 
-  executeAnalysis: async (preserveSelection = false) => {
+  executeAnalysis: async (preserveSelection = true) => {
     get().clearRiskPrediction();
     mapController?.abort();
     mapSeq++;
     clearTimeout(mapTimer);
     annualMapCache.clear();
-<<<<<<< HEAD
     set({
       mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null,
       hoveredDay: null, hoveredDate: null, hoveredCell: null,
       ...(preserveSelection ? {} : { isDatePinned: false, selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null })
     });
-=======
-    set({ mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null, hoveredDay: null, hoveredDate: null, hoveredCell: null });
->>>>>>> 79dca5d (hola)
     analysisController?.abort();
     const controller = new AbortController();
     analysisController = controller;
@@ -684,8 +667,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   clearCopilotMessages: () => {
     copilotController?.abort();
     copilotSeq++;
-<<<<<<< HEAD
-    set({ copilotMessages: [], copilotError: null, copilotLoading: false, activeSpikeDay: null, activeSpikeHex: null });
+    set({ copilotMessages: [], copilotError: null, copilotLoading: false,
+      activeSpikeDay: null, activeSpikeHex: null, copilotContext: null, copilotContextKey: null, copilotContextStart: 0 });
   },
 
   fetchSyncStatus: async () => {
@@ -786,10 +769,6 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     } finally {
       if (riskController === controller) riskController = null;
     }
-=======
-    set({ copilotMessages: [], copilotError: null, copilotLoading: false,
-      activeSpikeDay: null, activeSpikeHex: null, copilotContext: null, copilotContextKey: null, copilotContextStart: 0 });
->>>>>>> 79dca5d (hola)
   }
 
 }));

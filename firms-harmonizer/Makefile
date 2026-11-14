@@ -1,7 +1,15 @@
 PYTHON ?= python3
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: bootstrap test api frontend sync-rules check-all
+.PHONY: install check-deps bootstrap test api frontend sync-rules check-all
+install:
+	$(PYTHON) -m pip install -r backend/requirements.txt -r scripts/requirements-acquisition.txt
+	cd frontend && npm ci
+
+check-deps:
+	$(PYTHON) -m pip check
+	cd frontend && npm ls --all && npm audit
+
 bootstrap:
 	$(PYTHON) scripts/00_bootstrap_synthetic_cube.py
 

@@ -2,15 +2,26 @@
 
 The default UI visualizes accepted observations from Orlando, Manaus, Chilecito and the Iberia study area. It shows satellite detection counts and summed instantaneous FRP (MW). It does not apply gap filling or prediction. Missing dates are not assumed to be observed zero-fire days. Study rectangles are not country boundaries.
 
-From `firms-harmonizer/`, install `backend/requirements.txt` in your Python environment and run:
+Use Node.js 20.19+ within the 20.x series, or Node.js 22.12+, and an activated Python
+virtual environment. From `firms-harmonizer/`, install both the backend and acquisition
+dependencies (including Rasterio/STAC support), then rebuild local data:
 
 ```bash
+python3 -m venv .venv
+. .venv/bin/activate
+make install PYTHON=python
 python scripts/01_ingest_firms.py
 python scripts/02_detect_outages_clouds.py
 python scripts/03_train_eqm_lut.py
 python scripts/04_build_master_cube.py
 env -u USE_SYNTHETIC_CUBE python -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000
 ```
+
+`make check-deps PYTHON=python` checks Python requirements, the full npm dependency tree
+and npm security advisories. Commit `frontend/package-lock.json` with dependency changes;
+use `npm ci` to reproduce that resolution. Loader overrides keep glTF/texture packages
+on the same compatible 4.5.4 release and compression on patched fflate 0.7.5. The unused
+`deck.gl` umbrella package is omitted; the application imports scoped Deck.gl packages.
 
 In a second terminal, run `cd firms-harmonizer/frontend && npm ci && npm run dev` and open the displayed local URL. Vite proxies `/api` to port 8000; `VITE_API_URL` can override the API base URL. Preview uses the same proxy. Hosting a production build requires a reverse proxy for `/api` to the backend. The viewer requires the real master and `data/processed/staged_firms.parquet`, both rebuilt from the 32 tracked CSVs. No network is needed for the data API after installation; online basemap tiles have a local coordinate-grid fallback. API failures are shown explicitly and never produce simulated results.
 

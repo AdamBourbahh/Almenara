@@ -1,5 +1,17 @@
 # Change log — integration changes
 
+## 2026-11-14 — Dependency repair and synchronized integration
+
+Completed the pending main rebase and resolved five accidentally committed conflict
+blocks in the analysis store. Retained risk predictions, AOI prompts and live sync,
+restored H3 coordinate imports, and preserved copilot attachments and selected dates.
+Removed the unused deck.gl umbrella dependency. Aligned loaders.gl core/glTF/textures
+on 4.5.4 and patched compression's fflate dependency to 0.7.5, removing the obsolete
+texture-compressor/image-size chain without forcing a breaking image-size override.
+Regenerated the npm lockfile from a clean dependency tree and corrected the Node engine
+range to match Vite. Added npm test and make install/check-deps entry points; local
+installation includes the optional Rasterio/STAC acquisition dependencies.
+
 ## 2026-11-14 — Automatic removable context and causal evidence
 
 Replaces the earlier pin/follow-map panel with one automatic location/date attachment
