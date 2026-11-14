@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { AnalyzeRequest, AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, H3MapSummaryHex, ViewMode } from "../api/types";
-import { analyzeAoi, fetchMapPeriod, runChaosMonkey } from "../api/client";
+import type { AnalyzeRequest, AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, H3MapSummaryHex, ViewMode, ExplainSpikeResponse } from "../api/types";
+import { analyzeAoi, fetchMapPeriod, explainSpike, runChaosMonkey } from "../api/client";
 
 // ============================================================================
 // Official pilot regions for the jury demo
@@ -84,6 +84,14 @@ const isAbortError = (error: unknown) => error instanceof DOMException && error.
 // State
 // ============================================================================
 
+export interface CopilotMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+  response?: ExplainSpikeResponse;
+}
+
 interface AnalysisState {
   // Parameters & selection
   viewMode: ViewMode;
@@ -135,6 +143,20 @@ interface AnalysisState {
   chaosError: string | null;
   chaosData: ChaosMonkeyResponse | null;
   chaosIsSynthetic: boolean;
+
+  // Fire Copilot (Physics-First Web Grounding)
+  isCopilotOpen: boolean;
+  copilotLoading: boolean;
+  copilotError: string | null;
+  copilotMessages: CopilotMessage[];
+  activeSpikeDay: DailyCalendarCell | null;
+  activeSpikeHex: H3MapSummaryHex | null;
+
+  openCopilot: (spike?: { day?: DailyCalendarCell | null; hex?: H3MapSummaryHex | null }) => void;
+  closeCopilot: () => void;
+  toggleCopilot: () => void;
+  askCopilot: (question: string) => Promise<void>;
+  clearCopilotMessages: () => void;
 
   // Actions
   setViewMode: (mode: ViewMode) => void;
@@ -205,6 +227,13 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   chaosError: null,
   chaosData: null,
   chaosIsSynthetic: false,
+
+  isCopilotOpen: false,
+  copilotLoading: false,
+  copilotError: null,
+  copilotMessages: [],
+  activeSpikeDay: null,
+  activeSpikeHex: null,
 
   setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -424,5 +453,123 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     chaosController?.abort();
     chaosSeq++;
     set({ chaosData: null, chaosLoading: false, chaosError: null });
-  }
+  } ,
+  openCopilot: (spike) => {
+    const state = get();
+    const day = spike?.day !== undefined ? spike.day : state.activeSpikeDay;
+    const hex = spike?.hex !== undefined ? spike.hex : state.activeSpikeHex;
+    set({
+      isCopilotOpen: true,
+      activeSpikeDay: day,
+      activeSpikeHex: hex,
+      copilotError: null
+    });
+
+    if (spike && (spike.day || spike.hex)) {
+      const regionName =
+        state.selectedPreset !== "CUSTOM" && state.selectedPreset in PRESET_REGIONS
+          ? PRESET_REGIONS[state.selectedPreset as PresetKey].label
+          : "Analyzed Area of Interest";
+
+      const promptLabel = spike.day
+        ? `Explain thermal spike on ${spike.day.date} (${spike.day.harmonized_fre_mj_km2.toFixed(1)} MJ/km²)`
+        : `Explain thermal characteristics of selected H3 hex`;
+
+      const userMsg: CopilotMessage = {
+        id: `user-${Date.now()}`,
+        role: "user",
+        content: promptLabel,
+        timestamp: Date.now()
+      };
+
+      set((s) => ({
+        copilotMessages: [...s.copilotMessages, userMsg],
+        copilotLoading: true,
+        copilotError: null
+      }));
+
+      explainSpike({
+        region_name: regionName,
+        selected_day: day,
+        selected_hex: hex,
+        user_question: promptLabel
+      })
+        .then((res) => {
+          const assistantMsg: CopilotMessage = {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: res.data.explanation_markdown,
+            timestamp: Date.now(),
+            response: res.data
+          };
+          set((s) => ({
+            copilotMessages: [...s.copilotMessages, assistantMsg],
+            copilotLoading: false
+          }));
+        })
+        .catch((err: unknown) => {
+          set({
+            copilotLoading: false,
+            copilotError: err instanceof Error ? err.message : "Failed to explain thermal spike."
+          });
+        });
+    }
+  },
+
+  closeCopilot: () => set({ isCopilotOpen: false }),
+
+  toggleCopilot: () => set((s) => ({ isCopilotOpen: !s.isCopilotOpen })),
+
+  askCopilot: async (question: string) => {
+    const trimmed = question.trim();
+    if (!trimmed) return;
+    const state = get();
+    const regionName =
+      state.selectedPreset !== "CUSTOM" && state.selectedPreset in PRESET_REGIONS
+        ? PRESET_REGIONS[state.selectedPreset as PresetKey].label
+        : "Analyzed Area of Interest";
+
+    const userMsg: CopilotMessage = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: trimmed,
+      timestamp: Date.now()
+    };
+
+    set((s) => ({
+      copilotMessages: [...s.copilotMessages, userMsg],
+      copilotLoading: true,
+      copilotError: null
+    }));
+
+    try {
+      const res = await explainSpike({
+        region_name: regionName,
+        selected_day: state.activeSpikeDay,
+        selected_hex: state.activeSpikeHex,
+        user_question: trimmed
+      });
+
+      const assistantMsg: CopilotMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: res.data.explanation_markdown,
+        timestamp: Date.now(),
+        response: res.data
+      };
+
+      set((s) => ({
+        copilotMessages: [...s.copilotMessages, assistantMsg],
+        copilotLoading: false
+      }));
+    } catch (err: unknown) {
+      set({
+        copilotLoading: false,
+        copilotError: err instanceof Error ? err.message : "Failed to obtain AI explanation."
+      });
+    }
+  },
+
+  clearCopilotMessages: () => set({ copilotMessages: [], copilotError: null })
+
 }));

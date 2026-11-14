@@ -20,7 +20,7 @@ test('day/month selection loads exact spatial periods, reuses cache and keeps fu
  state.setState({analysisData:history,loading:false,selectedYear:2020,selectedDate:null,selectedMonth:null});
  const calls=[];
  globalThis.fetch=async(url,options)=>{
-  const u=new URL(url);calls.push({u,body:JSON.parse(options.body)});
+  const u=new URL(url, "http://localhost");calls.push({u,body:JSON.parse(options.body)});
   return new Response(JSON.stringify({data_source:'real',map_hexagons:[{mean_annual_fre:calls.length}]}));
  };
  state.getState().setSelectedMonth(2);

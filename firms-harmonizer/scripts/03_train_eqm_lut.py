@@ -1,45 +1,33 @@
-"""Fit empirical Aqua/VIIRS quantiles and a bounded sub-threshold GPD model."""
+"""Train the censor-aware EQM/GPD lookup with the core RadiometricHarmonizer (SPECS.md §3.3)."""
 
 import argparse
 import json
 from pathlib import Path
+import sys
 
 import duckdb
 import numpy as np
-from scipy.stats import genpareto
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from backend.core.eqm_harmonizer import RadiometricHarmonizer  # noqa: E402
+
 STAGED = ROOT / "data/processed/staged_firms.parquet"
 THRESHOLD = 8.0
-MIN_FRP = .5
 MIN_SAMPLES = 20
-QUANTILES = np.linspace(0, 1, 21)
+METHOD = ("backend.core.eqm_harmonizer.RadiometricHarmonizer: 101-knot EQM of every VIIRS cell-day onto "
+          "Aqua; delta_e_sub = pi_sub * truncated-GPD mean over [0.5, 8) MW, added to VIIRS and MODIS")
 
 
-def fit(samples):
-    aqua = samples[(samples[:, 0] >= THRESHOLD), 0]
-    viirs = samples[:, 1]
-    above = viirs[viirs >= THRESHOLD]
-    below = viirs[(viirs >= MIN_FRP) & (viirs < THRESHOLD)]
-    if min(len(aqua), len(above)) < MIN_SAMPLES:
+def fit(samples, biome_id=None):
+    """Fit one stratum from matched (Aqua, SNPP) daily MW sums; None when the stratum is too sparse."""
+    samples = np.asarray(samples, dtype=float)
+    if len(samples) < MIN_SAMPLES or not (samples[:, 0] > 0).any() or not (samples[:, 1] > 0).any():
         return None
-    bins = np.quantile(above, QUANTILES).round(5)
-    x, indices = np.unique(bins, return_index=True)
-    tail = None
-    if len(below) >= MIN_SAMPLES and np.ptp(below) > 0:
-        shape, _, scale = genpareto.fit(below - MIN_FRP, floc=0)
-        distribution = genpareto(shape, loc=0, scale=scale)
-        span = THRESHOLD - MIN_FRP
-        probability_mass = distribution.cdf(span)
-        if probability_mass > 0 and np.isfinite([shape, scale]).all():
-            mean = distribution.expect(lambda value: value + MIN_FRP, lb=0, ub=span,
-                                       conditional=True)
-            if np.isfinite(mean):
-                tail = {"shape": shape, "scale": scale, "lower_mw": MIN_FRP,
-                        "upper_mw": THRESHOLD, "fraction": len(below) / len(viirs),
-                        "mean_mw": float(np.clip(mean, MIN_FRP, THRESHOLD))}
-    return {"aqua_quantiles": np.quantile(aqua, QUANTILES)[indices].round(5).tolist(),
-            "viirs_quantiles": x.tolist(), "gpd": tail, "matched_days": len(samples)}
+    model = RadiometricHarmonizer().fit_biome_eqm_gpd(samples[:, 0], samples[:, 1], biome_id=biome_id or 1)
+    model["biome_id"] = biome_id
+    model["matched_days"] = len(samples)
+    return model
 
 
 def generate_eqm_gpd_lut(output_path="data/lookup/eqm_gpd_lut.json", staged=STAGED):
@@ -63,17 +51,18 @@ def generate_eqm_gpd_lut(output_path="data/lookup/eqm_gpd_lut.json", staged=STAG
             ORDER BY biome, angle, acq_date, h3_r7
             """, [str(ROOT / staged)]).fetchall()
         if rows:
-            data = np.asarray(rows)
+            strata = np.asarray([row[:2] for row in rows], dtype=float)
+            values = np.asarray([row[2:] for row in rows], dtype=float)
             for biome in ("all", *range(1, 18)):
-                subset = data if biome == "all" else data[data[:, 0] == biome]
+                in_biome = np.ones(len(rows), bool) if biome == "all" else strata[:, 0] == biome
                 for angle in ("all", *range(10)):
                     if biome == "all" and angle != "all":
                         continue
-                    selected = subset if angle == "all" else subset[subset[:, 1] == angle]
-                    result = fit(selected[:, 2:])
+                    selected = in_biome if angle == "all" else in_biome & (strata[:, 1] == angle)
+                    result = fit(values[selected], None if biome == "all" else biome)
                     if result:
                         models[f"{biome}:{angle}"] = result
-    lut = {"reference": "Matched daytime Aqua and SNPP cell-days, 2012-2025",
+    lut = {"reference": "Matched daytime Aqua and SNPP cell-days, 2012-2025", "method": METHOD,
            "threshold_mw": THRESHOLD, "biomes": list(range(1, 18)),
            "angle_edges_degrees": np.linspace(0, 65, 11).tolist(), "models": models}
     path = ROOT / output_path

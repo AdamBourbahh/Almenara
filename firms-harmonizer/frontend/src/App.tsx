@@ -1,5 +1,7 @@
+import { FireCopilotDrawer } from "./components/Audit/FireCopilotDrawer";
+import { ObservationsPage } from "./views/ObservationsPage";
 import { useEffect, useRef, useState } from "react";
-import { Flame } from "lucide-react";
+import { Flame, Sparkles } from "lucide-react";
 import { useAnalysisStore } from "./store/useAnalysisStore";
 import { HeatHistoryCard } from "./components/Map/HeatHistoryCard";
 import { MapPage } from "./views/MapPage";
@@ -11,7 +13,8 @@ const SECTIONS = [
   { key: "map", label: "Map" },
   { key: "calendar", label: "Calendar" },
   { key: "trends", label: "Trends" },
-  { key: "impact", label: "Impact" }
+  { key: "impact", label: "Impact" },
+  { key: "observations", label: "Observations" }
 ] as const;
 
 type SectionKey = (typeof SECTIONS)[number]["key"];
@@ -57,6 +60,7 @@ export default function App() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+<button type="button" onClick={() => useAnalysisStore.getState().toggleCopilot()} className="flex items-center gap-1 border border-rule px-2 py-1.5 text-xs"><Sparkles className="h-4 w-4" />Fire Copilot</button>
             <div className="inline-flex border border-rule text-xs">
               <button
                 type="button"
@@ -95,8 +99,10 @@ export default function App() {
         {section === "calendar" && <CalendarPage />}
         {section === "trends" && <TrendsPage />}
         {section === "impact" && <ImpactPage />}
+        {section === "observations" && <ObservationsPage />}
       </main>
       <HeatHistoryCard />
+      <FireCopilotDrawer />
     </div>
   );
 }
