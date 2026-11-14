@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+
+  --bg: #0a0d13;
+  --surface: #11151c;
+  --surface-2: #171c25;
+  --line: rgba(255, 255, 255, 0.08);
+  --ink: #e8ebf0;
+  --dim: #98a1b0;
+  --ember: #ff6b3d;
+  --heat: #ffb454;
+  --info: #5aa7e0;
+  --danger: #e5484d;
+  --success: #2fa97a;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(255, 107, 61, 0.28);
+}
+
+/* Minimal dark scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+  background-clip: padding-box;
+}
+
+/* Focus treatment */
+:focus-visible {
+  outline: 2px solid var(--ember);
+  outline-offset: 2px;
+}
+
+/* Numeric readouts stay tabular for stable alignment */
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Translucent chrome for floating panels over the map */
+.glass {
+  background: rgba(17, 21, 28, 0.74);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+/* Soft ember glow used sparingly for the active view/CTA */
+.ember-glow {
+  box-shadow: 0 12px 40px -16px rgba(255, 107, 61, 0.65);
+}
+
+/* MapLibre dark chrome so the basemap controls match the app */
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib a {
+  background: rgba(10, 13, 19, 0.8) !important;
+  color: #98a1b0 !important;
+  font-size: 10px !important;
+}
+.maplibregl-ctrl-group {
+  background: rgba(17, 21, 28, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
