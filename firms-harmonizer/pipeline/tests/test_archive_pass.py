@@ -250,3 +250,45 @@ def test_run_cli_forwards_archive_pass_and_merge(env, con, fake_download, monkey
     assert merged_rows(config.ARCHIVE_COUNTS) == [("Terra", "2005-03-01", 1)]
     with pytest.raises(SystemExit):
         run.main(["--archive-pass", "--merge-counts"])
+
+
+def _reference_clip(con, files, region_bounds):
+    """Single-shot reference: originals carried for every row, exact box applied after de-duplication."""
+    n_groups = ingest.prepare_kept(con, files, keep_original=True)
+    try:
+        west, south, east, north = region_bounds
+        return con.execute("SELECT orig.* EXCLUDE (filename) FROM dedup WHERE lon BETWEEN ? AND ? AND "
+                           "lat BETWEEN ? AND ? ORDER BY acq_date, acq_time_int, lat, lon, sensor, frp, "
+                           "source_file", [west, east, south, north]).fetchall()
+    finally:
+        ingest.drop_prepared(con, n_groups)
+
+
+def test_two_pass_clip_equals_the_single_shot_path_and_never_materialises_outside_rows(env, con, monkeypatch):
+    west, south, east, north = CERRADO
+    # Duplicates across members, one straddling the west edge by less than the rounding (-57.2 vs -57.200004),
+    # plus many rows far outside every box.
+    inside = [row(latitude="-16.9", longitude="-56.2", frp="3.30"),
+              row(latitude="-17.8", longitude="-57.2", frp="1.10", version="6.1"),
+              row(latitude="-17.8", longitude="-57.200004", frp="1.10", version="6.1NRT")]
+    far = [row(latitude=f"{40 + i / 100}", longitude="20.0", acq_time=f"{i % 24:02d}30") for i in range(60)]
+    members = {"modis_2005_A.csv": inside[:2] + far, "modis_2005_B.csv": inside + far[:5]}
+    archive = make_zip(env / "z.zip", members)
+    spy = []
+    original = ingest.prepare_kept
+
+    def watching(con_, files, keep_original=False, boxes=None):
+        n = original(con_, files, keep_original, boxes)
+        if keep_original:
+            spy.append(con_.execute("SELECT count(*) FROM norm").fetchone()[0])
+        return n
+    monkeypatch.setattr(ingest, "prepare_kept", watching)
+    stats = process(con, archive)
+    assert spy == [5] and stats["rows_read"] == 70   # only candidates inside the widened box carry originals
+    produced = archive_pass.clip_path("cerrado_brazil", "modis", 2005)
+    with produced.open(newline="", encoding="utf-8") as fh:
+        got = [tuple(r) for r in list(csv.reader(fh))[1:]]
+    files = ingest.extract_csvs(archive, env / "ref")
+    expected = _reference_clip(con, files, CERRADO)
+    assert got == [tuple("" if v is None else str(v) for v in r) for r in expected]
+    assert stats["regions"]["cerrado_brazil"] == len(expected) == 2

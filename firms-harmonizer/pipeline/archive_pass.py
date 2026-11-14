@@ -32,6 +32,7 @@ import httpx
 from pipeline import config, download, ingest
 
 CLIP_DIR = "archive_csv"
+CANDIDATE_MARGIN = 1e-4     # degrees; far above the 1e-5 de-duplication rounding
 COUNTS_NAME, STATS_NAME, SUCCESS_NAME = "counts.csv", "stats.json", "_SUCCESS"
 
 
@@ -85,45 +86,65 @@ def process_archive(con: duckdb.DuckDBPyConnection, archive: Path, product: str,
     folder.mkdir(parents=True, exist_ok=True)
     (folder / SUCCESS_NAME).unlink(missing_ok=True)
     extract = config.TMP / f"archive_{product}_{year}"
-    n_groups = 0
     try:
         files = ingest.extract_csvs(archive, extract)
         extracted_bytes = sum(f.stat().st_size for f in files)
+        headers = set()
+        for f in files:
+            with f.open(encoding="utf-8", errors="replace") as handle:
+                headers.add(tuple(h.strip().lower() for h in handle.readline().strip().split(",")))
+        if len(headers) != 1:
+            raise ValueError(f"FIRMS inputs have {len(headers)} different headers; the original rows cannot be kept")
         with files[0].open(encoding="utf-8", errors="replace") as handle:
             header = handle.readline().strip()
-        n_groups = ingest.prepare_kept(con, files, keep_original=True)
 
-        counts_tmp = folder / (COUNTS_NAME + ".tmp")
-        con.execute("COPY (SELECT sensor AS satellite, acq_date, count(*)::BIGINT AS detection_count "
-                    "FROM kept WHERE NOT is_sama GROUP BY ALL ORDER BY 1, 2) TO ? (FORMAT csv, HEADER)",
-                    [str(counts_tmp)])
-        satellites = {row[0]: {"detections": row[1], "first_day": str(row[2]), "last_day": str(row[3]),
-                               "days": row[4]}
-                      for row in con.execute("SELECT sensor, count(*) FILTER (WHERE NOT is_sama), "
-                                             "min(acq_date) FILTER (WHERE NOT is_sama), "
-                                             "max(acq_date) FILTER (WHERE NOT is_sama), "
-                                             "count(DISTINCT acq_date) FILTER (WHERE NOT is_sama) "
-                                             "FROM kept GROUP BY 1 ORDER BY 1").fetchall()}
-        rows_read, rows_valid = (con.execute("SELECT count(*) FROM norm").fetchone()[0],
-                                 con.execute("SELECT count(*) FROM valid").fetchone()[0])
-        rows_dedup, rows_sama = con.execute("SELECT count(*), count(*) FILTER (WHERE is_sama) FROM kept").fetchone()
+        # Pass 1 (counting): the original rows are never carried, only the normalized dedup columns.
+        n_groups = ingest.prepare_kept(con, files)
+        try:
+            counts_tmp = folder / (COUNTS_NAME + ".tmp")
+            con.execute("COPY (SELECT sensor AS satellite, acq_date, count(*)::BIGINT AS detection_count "
+                        "FROM kept WHERE NOT is_sama GROUP BY ALL ORDER BY 1, 2) TO ? (FORMAT csv, HEADER)",
+                        [str(counts_tmp)])
+            satellites = {row[0]: {"detections": row[1], "first_day": str(row[2]), "last_day": str(row[3]),
+                                   "days": row[4]}
+                          for row in con.execute("SELECT sensor, count(*) FILTER (WHERE NOT is_sama), "
+                                                 "min(acq_date) FILTER (WHERE NOT is_sama), "
+                                                 "max(acq_date) FILTER (WHERE NOT is_sama), "
+                                                 "count(DISTINCT acq_date) FILTER (WHERE NOT is_sama) "
+                                                 "FROM kept GROUP BY 1 ORDER BY 1").fetchall()}
+            rows_read, rows_valid = (con.execute("SELECT count(*) FROM norm").fetchone()[0],
+                                     con.execute("SELECT count(*) FROM valid").fetchone()[0])
+            rows_dedup, rows_sama = con.execute(
+                "SELECT count(*), count(*) FILTER (WHERE is_sama) FROM kept").fetchone()
+        finally:
+            ingest.drop_prepared(con, n_groups)
 
+        # Pass 2 (clipping): the original rows are kept only for candidates inside a widened region box.
+        # Exact duplicates differ by < 1e-5 degrees (round(., 5) identity), so they are all candidates and the
+        # de-duplication winner equals the one of a full pass; the exact box is applied to the winners.
+        wide = [(w - CANDIDATE_MARGIN, s_ - CANDIDATE_MARGIN, e + CANDIDATE_MARGIN, n_ + CANDIDATE_MARGIN)
+                for w, s_, e, n_ in bounds.values()]
+        n_groups = ingest.prepare_kept(con, files, keep_original=True, boxes=wide)
         clipped, outputs = {}, {}
-        for region, (west, south, east, north) in bounds.items():
-            target = clip_path(region, product, year)
-            where, params = "lon BETWEEN ? AND ? AND lat BETWEEN ? AND ?", [west, east, south, north]
-            n = con.execute("SELECT count(*) FROM dedup WHERE " + where, params).fetchone()[0]
-            clipped[region] = n
-            target.parent.mkdir(parents=True, exist_ok=True)
-            if n == 0:
-                target.unlink(missing_ok=True)
-                continue
-            tmp = target.with_name(target.name + ".tmp")
-            con.execute("COPY (SELECT orig.* EXCLUDE (filename) FROM dedup WHERE " + where +
-                        " ORDER BY acq_date, acq_time_int, lat, lon, sensor, frp, source_file) "
-                        "TO ? (FORMAT csv, HEADER)", params + [str(tmp)])
-            tmp.replace(target)
-            outputs[region] = str(target.relative_to(config.ROOT) if target.is_relative_to(config.ROOT) else target)
+        try:
+            for region, (west, south, east, north) in bounds.items():
+                target = clip_path(region, product, year)
+                where, params = "lon BETWEEN ? AND ? AND lat BETWEEN ? AND ?", [west, east, south, north]
+                n = con.execute("SELECT count(*) FROM dedup WHERE " + where, params).fetchone()[0]
+                clipped[region] = n
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if n == 0:
+                    target.unlink(missing_ok=True)
+                    continue
+                tmp = target.with_name(target.name + ".tmp")
+                con.execute("COPY (SELECT orig.* EXCLUDE (filename) FROM dedup WHERE " + where +
+                            " ORDER BY acq_date, acq_time_int, lat, lon, sensor, frp, source_file) "
+                            "TO ? (FORMAT csv, HEADER)", params + [str(tmp)])
+                tmp.replace(target)
+                outputs[region] = str(target.relative_to(config.ROOT) if target.is_relative_to(config.ROOT)
+                                      else target)
+        finally:
+            ingest.drop_prepared(con, n_groups)
         counts_tmp.replace(folder / COUNTS_NAME)
         stats = {"product": product, "year": year, "zip_bytes": archive.stat().st_size,
                  "members": len(files), "extracted_bytes": extracted_bytes, "header": header,
@@ -134,8 +155,6 @@ def process_archive(con: duckdb.DuckDBPyConnection, archive: Path, product: str,
         _atomic_text(folder / SUCCESS_NAME, "ok\n")
         return stats
     finally:
-        if n_groups:
-            ingest.drop_prepared(con, n_groups)
         shutil.rmtree(extract, ignore_errors=True)
 
 
@@ -238,6 +257,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--regions", nargs="*", default=list(config.PRESET_REGIONS),
                         help="regions of data/regions.json to clip (default: the three presets)")
     parser.add_argument("--keep-zips", action="store_true", help="keep each zip after its chunk succeeded")
+    parser.add_argument("--memory-limit", default=config.DUCKDB_MEMORY_LIMIT,
+                        help="DuckDB memory limit, e.g. 3GB (default %(default)s; it spills to data/real/.tmp)")
+    parser.add_argument("--threads", type=int, default=config.DUCKDB_THREADS)
     parser.add_argument("--force", action="store_true", help="redo chunks that already have _SUCCESS")
     return parser
 
@@ -251,7 +273,8 @@ def main(argv=None) -> int:
                   f"{s['zero_days']:5d} zero  {s['detections']:,} detections")
         print(f"Wrote {result['output']} from {result['chunks']} chunks")
         return 0
-    run_pass(args.products, args.years, args.regions, args.keep_zips, args.force)
+    run_pass(args.products, args.years, args.regions, args.keep_zips, args.force,
+             con=config.connect(args.memory_limit, args.threads))
     return 0
 
 

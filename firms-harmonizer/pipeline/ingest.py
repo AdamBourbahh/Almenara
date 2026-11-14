@@ -78,11 +78,21 @@ def sama_params() -> list:
     return [lat_lo, lat_hi, lon_lo, lon_hi, config.SAMA_MAX_CONTRAST_K]
 
 
-def prepare_kept(con: duckdb.DuckDBPyConnection, files: list[Path], keep_original: bool = False) -> int:
+def box_filter(column_lat: str, column_lon: str, boxes: list[tuple[float, float, float, float]]) -> tuple[str, list]:
+    """OR of inclusive (west, south, east, north) boxes as SQL text with bound parameters."""
+    terms = " OR ".join(f"({column_lon} BETWEEN ? AND ? AND {column_lat} BETWEEN ? AND ?)" for _ in boxes)
+    return "(" + terms + ")", [v for west, south, east, north in boxes for v in (west, east, south, north)]
+
+
+def prepare_kept(con: duckdb.DuckDBPyConnection, files: list[Path], keep_original: bool = False,
+                 boxes: list[tuple[float, float, float, float]] | None = None) -> int:
     """Build the temp tables ``norm`` -> ``valid`` -> ``dedup`` -> ``kept`` (``is_sama`` flag) from FIRMS CSVs.
 
     Unknown satellite codes and invalid UTC times raise. With ``keep_original`` every input must share one
     header and ``norm``/``valid``/``dedup`` carry the untouched CSV row in the struct column ``orig``.
+    ``boxes`` keeps only rows inside one of the (west, south, east, north) boxes, applied while scanning so
+    nothing else is materialised; callers must widen the boxes by more than the 1e-5 de-duplication rounding
+    so every exact duplicate of a candidate is also a candidate (the winner is then identical).
     Returns the number of header groups (``src_<i>`` views to drop afterwards).
     """
     files = sorted((Path(f) for f in files), key=lambda p: ("nrt" in p.name.lower(), p.name))
@@ -114,7 +124,12 @@ def prepare_kept(con: duckdb.DuckDBPyConnection, files: list[Path], keep_origina
     con.register("sensor_bits", pa.table({"sensor": list(config.SENSOR_BITS),
                                           "bit": pa.array(list(config.SENSOR_BITS.values()), pa.uint8())}))
     orig = ", orig" if keep_original else ""
-    con.execute("CREATE OR REPLACE TEMP TABLE norm AS SELECT " + NORM_COLUMNS + orig + " FROM src_named")
+    where, params = "", []
+    if boxes is not None:
+        clause, params = box_filter("TRY_CAST(latitude AS DOUBLE)", "TRY_CAST(longitude AS DOUBLE)", boxes)
+        where = " WHERE " + clause
+    con.execute("CREATE OR REPLACE TEMP TABLE norm AS SELECT " + NORM_COLUMNS + orig + " FROM src_named" + where,
+                params)
     con.execute("CREATE OR REPLACE TEMP TABLE valid AS SELECT n.*, m.sensor FROM norm n "
                 "LEFT JOIN sensor_map m ON m.code = n.sat_code WHERE " + VALID_WHERE,
                 [config.FIRST_DAY, config.LAST_DAY])
