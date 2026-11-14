@@ -10,12 +10,12 @@ building live only in `scripts/01–04` and `backend/core/`.
 
 | Step | Module | What it does |
 | --- | --- | --- |
-| Download | `download.py` | Resumable download of `{modis, viirs-snpp, viirs-jpss1}` yearly `*_all_countries.zip` archives to `data/real/raw/` (size and zip integrity checked). The only module that uses the network. |
+| Download | `download.py` | Resumable download of `{modis, viirs-snpp, viirs-jpss1}` yearly `*_all_countries.zip` archives to `data/real/raw/` (size and zip integrity checked). Network is used only by this module, `archive_pass.py`, `cloud_power.py` and `swath_cmr.py`. |
 | Global ingest | `ingest.py` | Vectorized DuckDB normalization of every archive row: validity window, sensor canon (including the numeric NOAA-20/21 codes of the archives), confidence, exact-identity de-duplication (standard beats NRT) and the SAMA rule, with H3 r4/r7/r10 keys. Detections outside every `data/regions.json` box are kept with `region = NULL`. Output: `data/real/staged/detections/product=*/year=*/part.parquet`. |
 | Global counts | `lookups.py` | `data/real/global_daily_counts.parquet`: `satellite, acq_date, detection_count` for every day of each sensor's record, explicit zeros included. |
 | Canonical staging | `cube.stage_region` | Writes the region's detections back as FIRMS-format CSVs (original file names, fixed row order) and calls `scripts/01_ingest_firms.ingest_raw_firms`. The global-ingest filters equal those of `scripts/01`, so re-applying them is a no-op; a parity test proves the staging is identical to `scripts/01` on the original CSVs. |
 | Lookups | `cube.build_lookups` | `scripts/02_detect_outages_clouds.build_outages_table` with the global counts (`KNOWN_OUTAGES`, `global_count_drop`, `zero_global_count`, diurnal ratios), then `scripts/03_train_eqm_lut.generate_eqm_gpd_lut` on the regional staging. |
-| Cube | `cube.publish_cube` | `scripts/04_build_master_cube.build_master_cube`: orbital weight, core `RadiometricHarmonizer`, optional cloud/burned-area ancillary, outage and blackout bits, atomic publication. |
+| Cube | `cube.publish_cube` | `scripts/04_build_master_cube.build_master_cube`: orbital weight, core `RadiometricHarmonizer`, optional cloud/burned-area ancillary, optional MODIS swath-gap table (bit `4`), outage and blackout bits, atomic publication. |
 | Pairs | `pairs.py` | Diagnostic Aqua–SNPP coincidences per `(h3_r7, day, pass)` read from the canonical staging. Not used for training. |
 | Report | `quality.py` | `data/real/quality_report.{md,json}`: stage counts per year and satellite, counts and outage evidence, cube contract checks and column provenance, pairs. |
 
@@ -83,7 +83,7 @@ the Niger Delta), end in 2025, and every member of a zip must share one CSV head
 
 `cloud_power.py` supplies the local cloud reanalysis that `scripts/04` reads from
 `data/lookup/cell_day_ancillary.parquet` (strictly above 0.80 sets gap bit `2` and nulls the observations;
-the rule is unchanged). It is the second module that uses the network. Probed on 2026-11-14: the POWER daily
+the rule is unchanged). It uses the network (as do `download.py`, `archive_pass.py` and `swath_cmr.py`). Probed on 2026-11-14: the POWER daily
 point API needs no key; its source is CERES SYN1deg, a **1 x 1 degree grid with integer-degree cell edges**
 (identical series for every point sharing `floor(lat), floor(lon)`; an exact edge belongs to the north/east
 cell). One request per cell at its centre returns 2000-11-01..2026-11-01 in percent; the fill value `-999`
@@ -105,6 +105,39 @@ Cells are enumerated from the boxes of **all** regions in `data/regions.json`. R
 retries and exponential backoff. Stage 02 builds the ancillary only when the grid table sits next to its
 outputs; each H3 R7 cell takes the value of the grid cell that contains its centroid. This is a daily mean
 cloud amount on a coarse grid, not cloud at the satellite overpass time (see `data/ETL_SPEC.md`).
+
+## MODIS swath gaps (NASA CMR granule footprints)
+
+`swath_cmr.py` supplies the coverage evidence for gap-status bit `4` that `scripts/04` reads from
+`data/lookup/modis_swath_gaps.parquet`. It uses the network (as do `download.py`, `archive_pass.py` and `cloud_power.py`). MODIS (2,330 km swath)
+leaves gaps between adjacent orbits at low latitudes; the evidence is the footprint polygon of every 5-minute
+geolocation granule (`MOD03` Terra, `MYD03` Aqua, version `6.1`) listed by the CMR granule search (no key).
+Probed on 2026-11-14: versions 6.1 and 7 both cover 2000–2026 and an unpinned search lists each granule once
+per version, so the search pins 6.1 and still merges listings that share `time_start`; `page_size` is at most
+2000 and pages follow the `CMR-Search-After` header; rings are lat-first, closed, with great-circle edges.
+
+```bash
+python -m pipeline.run --swath-cmr                    # fetch missing chunks (sequential, about 1 request/s) and build the table
+python -m pipeline.run --swath-build-only             # rebuild the table from the cache, no network
+```
+
+| Output | Path |
+| --- | --- |
+| Per-chunk JSON cache: time_start, time_end, day/night flag and ring per granule (resumable, git-ignored) | `data/real/swath_cmr/<satellite>/<region>/<year>.json` |
+| Gap table `satellite, h3_r4, acq_date` (ZSTD, key-value metadata `modis_swath_gaps`) | `data/lookup/modis_swath_gaps.parquet` |
+
+One chunk per (satellite, region, calendar year), for **all** regions in `data/regions.json`; a chunk is
+written only when its entries add up to `CMR-Hits`, with retries and exponential backoff. The table covers
+every H3 R4 cell that can parent a staged R7 cell. A cell is **covered** on a UTC day when any granule ring of
+that satellite on that day contains its centre or any of its boundary vertices (conservative: partial overlap
+is coverage). A row is written only on days the satellite was **acquiring** (at least one granule over any
+region box that day), never before its first granule, never on a stage 02 outage day of that satellite
+(`--outages`, default `data/lookup/sensor_outages.parquet`; outages are bit `1`) and never on a day with a
+footprint-less granule. `scripts/04` sets bit `4` only when the staging has no contribution of that satellite
+in the cell-day and records conflicts in the cube metadata `swath_evidence` (see `data/ETL_SPEC.md`).
+VIIRS swaths are not modelled. Day and night granules both count, and together they close the inter-orbit
+gaps on almost every UTC day, so the rows mostly mark partial-day acquisition dropouts; the measured numbers
+are in `data/ETL_SPEC.md`.
 
 ## One-time setup
 

@@ -1,6 +1,7 @@
 """Offline ETL evidence, cube schema, storage and physical scenario regression gates."""
 
 import csv
+import hashlib
 import importlib.util
 from datetime import date, timedelta
 from importlib import import_module
@@ -902,6 +903,151 @@ def test_stage02_cli_builds_the_ancillary_next_to_its_outputs(stage04_inputs, tm
     assert result.returncode == 0, result.stderr
     assert (lookup / "cell_day_ancillary.parquet").is_file()
     assert "cell_day_ancillary.parquet" in result.stdout
+
+
+SWATH_SCHEMA = pa.schema([("satellite", pa.string()), ("h3_r4", pa.uint64()), ("acq_date", pa.date32())])
+
+
+def write_swath_gaps(lookup, rows):
+    """Write a fixture MODIS swath-gap table: rows of (satellite, h3_r4, acq_date)."""
+    path = lookup / "modis_swath_gaps.parquet"
+    pq.write_table(pa.Table.from_pylist([dict(satellite=s, h3_r4=c, acq_date=d) for s, c, d in rows],
+                                        schema=SWATH_SCHEMA), path, compression="zstd")
+    return path
+
+
+def drop_staged(staged, drop):
+    """Remove the staged contributions of the given (h3_r7, acq_date, satellite) triples."""
+    records = [r for r in pq.read_table(staged).to_pylist()
+               if (r["h3_r7"], r["acq_date"], r["satellite"]) not in drop]
+    pq.write_table(pa.Table.from_pylist(records), staged)
+
+
+def block_of(cell):
+    return int(h3.cell_to_parent(format(cell, "x"), 4), 16)
+
+
+def cube_rows(path):
+    return {(r["h3_r7"], date(1970, 1, 1) + timedelta(days=r["epoch_day"])): r
+            for r in pq.read_table(path).to_pylist()}
+
+
+def swath_meta(path):
+    return json.loads(pq.read_schema(path).metadata[b"swath_evidence"])
+
+
+def test_stage04_swath_gap_sets_bit4_only_where_the_satellite_has_no_detection(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    day = date(2022, 8, 14)                                   # after the SNPP outage
+    baseline = cube_rows(builder.build_master_cube(staged, tmp_path / "base.parquet", lookup_dir=lookup))
+    drop_staged(staged, {(center, day, "Terra")})
+    plain = cube_rows(builder.build_master_cube(staged, tmp_path / "plain.parquet", lookup_dir=lookup))
+    table = write_swath_gaps(lookup, sorted({("Terra", block_of(cell), day) for cell in (center, neighbor)}))
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+    rows = cube_rows(path)
+    flagged = rows[center, day]
+    assert flagged["gap_status_mask"] == 4
+    # Observations and sensor bits are exactly those of the same staging without swath evidence.
+    assert {k: v for k, v in flagged.items() if k != "gap_status_mask"} == {
+        k: v for k, v in plain[center, day].items() if k != "gap_status_mask"}
+    assert flagged["sensor_obs_mask"] == 30 and flagged["obs_terra_fre"] is None
+    assert flagged["obs_aqua_fre"] > 0 and flagged["obs_viirs_fre"] > 0 and flagged["raw_modis_cnt"] == 1
+    # The neighbour has a Terra detection that day: the evidence is contradicted, bit 4 stays off.
+    assert rows[neighbor, day]["gap_status_mask"] == 0 == baseline[neighbor, day]["gap_status_mask"]
+    assert all(r["gap_status_mask"] == plain[key]["gap_status_mask"] for key, r in rows.items()
+               if key != (center, day))
+    meta = swath_meta(path)
+    assert meta["input_present"] is True and meta["table"] == "modis_swath_gaps.parquet"
+    assert meta["table_sha256"] == hashlib.sha256(table.read_bytes()).hexdigest()
+    assert meta["rows_flagged"] == 1
+    assert meta["flagged"] == {"Terra": 1, "Aqua": 0} and meta["conflicts"] == {"Terra": 1, "Aqua": 0}
+    assert meta["outage_ignored"] == {"Terra": 0, "Aqua": 0}
+
+
+def test_stage04_swath_gap_elsewhere_or_on_unstaged_days_sets_nothing(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    day = date(2022, 8, 14)
+    drop_staged(staged, {(center, day, "Terra"), (center, day, "Aqua")})
+    far_block = block_of(int(h3.latlng_to_cell(-3.0, -60.0, 7), 16))
+    write_swath_gaps(lookup, [("Aqua", block_of(center), date(2022, 9, 30)),     # no staged cell-day
+                              ("Terra", far_block, day), ("Aqua", far_block, day)])
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+    assert not any(r["gap_status_mask"] & 4 for r in cube_rows(path).values())
+    meta = swath_meta(path)
+    assert meta["rows_flagged"] == 0 and meta["conflicts"] == {"Terra": 0, "Aqua": 0}
+
+
+def test_stage04_absent_aqua_before_mission_start_is_not_a_swath_gap(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    day = date(2001, 6, 1)                                     # Terra only: Aqua MODIS starts 2002-07-04
+    record = dict(h3_r4=block_of(center), h3_r7=center, acq_date=day, satellite="Terra", sensor_bit=1,
+                  igbp_biome=8, scan_bin=0, corrected_frp=10.0, is_center=True, frp=10.0,
+                  industrial_prob=0.0, region="iberia_med", daynight="D")
+    pq.write_table(pa.Table.from_pylist([record]), staged)
+    write_swath_gaps(lookup, [])
+    rows = cube_rows(builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup))
+    assert rows[center, day]["gap_status_mask"] == 0 and rows[center, day]["sensor_obs_mask"] == 1
+    write_swath_gaps(lookup, [("Aqua", block_of(center), day)])
+    with pytest.raises(ValueError, match="before Aqua"):
+        builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+
+
+def test_stage04_swath_bit_combines_with_outage_cloud_and_blackout_bits(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    snpp_out, blackout, terra_out, cloudy = (date(2022, 8, 5), date(2022, 8, 6), date(2022, 8, 15),
+                                             date(2022, 8, 16))
+    drop_staged(staged, {(center, snpp_out, "Terra"), (center, terra_out, "Terra"),
+                         (center, cloudy, "Aqua")}
+                | {(center, blackout, sensor) for sensor in ("Terra", "Aqua", "N20", "N21")})
+    outages = lookup / "sensor_outages.parquet"
+    records = pq.read_table(outages).to_pylist()
+    records.append(dict(acq_date=terra_out, satellite="Terra", evidence="global_count_drop"))
+    pq.write_table(pa.Table.from_pylist(records), outages)
+    pq.write_table(pa.Table.from_pylist([
+        dict(h3_r7=center, acq_date=cloudy, cloud_cover_pct=0.9, burned_area_ha_mcd64=0.0)]),
+        lookup / "cell_day_ancillary.parquet")
+    block = block_of(center)
+    write_swath_gaps(lookup, [("Terra", block, snpp_out), ("Terra", block, blackout), ("Aqua", block, blackout),
+                              ("Terra", block, terra_out), ("Aqua", block, cloudy)])
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+    rows = cube_rows(path)
+    assert rows[center, snpp_out]["gap_status_mask"] == 1 | 4
+    assert rows[center, snpp_out]["sensor_obs_mask"] == 2 | 8 | 16
+    assert rows[center, blackout]["gap_status_mask"] == 1 | 4 | 8
+    assert rows[center, blackout]["sensor_obs_mask"] == 0
+    assert all(rows[center, blackout][f] is None for f in ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre"))
+    # A Terra outage day is bit 1 evidence; the swath row for Terra is ignored there.
+    assert rows[center, terra_out]["gap_status_mask"] == 1
+    assert rows[center, cloudy]["gap_status_mask"] == 2 | 4 | 8
+    meta = swath_meta(path)
+    assert meta["outage_ignored"]["Terra"] >= 1
+    assert meta["flagged"] == {"Terra": 2, "Aqua": 2}
+
+
+def test_stage04_without_swath_table_is_unchanged(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    absent = builder.build_master_cube(staged, tmp_path / "absent.parquet", lookup_dir=lookup)
+    far_block = block_of(int(h3.latlng_to_cell(-3.0, -60.0, 7), 16))
+    write_swath_gaps(lookup, [("Terra", far_block, date(2022, 8, 14))])
+    present = builder.build_master_cube(staged, tmp_path / "present.parquet", lookup_dir=lookup)
+    first, second = pq.read_table(absent), pq.read_table(present)
+    assert first.replace_schema_metadata(None).equals(second.replace_schema_metadata(None))
+    assert not any(mask & 4 for mask in first["gap_status_mask"].to_pylist())
+    meta_a, meta_b = dict(first.schema.metadata), dict(second.schema.metadata)
+    assert json.loads(meta_a.pop(b"swath_evidence")) == {"input_present": False}
+    meta_b.pop(b"swath_evidence")
+    assert meta_a == meta_b
+
+
+@pytest.mark.parametrize("rows,message", [
+    ([("SNPP", 1, date(2022, 8, 14))], "satellite"),
+    ([("Terra", 1, date(2022, 8, 14)), ("Terra", 1, date(2022, 8, 14))], "Duplicate"),
+])
+def test_stage04_rejects_invalid_swath_tables(stage04_inputs, tmp_path, rows, message):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    write_swath_gaps(lookup, rows)
+    with pytest.raises(ValueError, match=message):
+        builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
 
 
 def test_missing_staging_preserves_existing_master(tmp_path, monkeypatch):

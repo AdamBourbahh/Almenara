@@ -2,6 +2,7 @@
 
 import argparse
 from datetime import date
+import hashlib
 from importlib import import_module
 import json
 from pathlib import Path
@@ -28,6 +29,12 @@ ORBITAL_WEIGHTING = ("w_orb = clip(cos(centroid_lat_h3_r7), cos(80 deg), 1.0); "
 RADIOMETRIC_HARMONIZATION = ("core RadiometricHarmonizer on daily MW sums before FRE scaling: VIIRS = "
                              "EQM + delta_e_sub; Terra/Aqua = MW + delta_e_sub; stratum biome:angle > "
                              "biome:all > all:all; untrained strata stay raw")
+SWATH_GAPS = "modis_swath_gaps.parquet"
+# First science day of each MODIS geolocation record (CMR MOD03/MYD03 collection start).
+MODIS_FIRST_DAY = {"Terra": date(2000, 2, 24), "Aqua": date(2002, 7, 4)}
+SWATH_RULE = ("bit 4 when the R4 parent is in a MODIS swath gap for Terra or Aqua that UTC day, unless the "
+              "staging holds a contribution of that satellite in the cell-day (conflict) or that "
+              "satellite has an outage lookup entry that day (bit 1 evidence)")
 
 
 def orbital_weight(h3_r7):
@@ -58,7 +65,37 @@ def table_from_rows(rows):
     return pa.Table.from_pylist(list(rows), schema=bootstrap.CUBE_SCHEMA)
 
 
-def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
+def swath_gaps(con, path, staged):
+    """``{(h3_r4, acq_date): {satellite}}`` of the swath-gap table on the staged R4 blocks and days.
+
+    The whole table is validated: only Terra/Aqua, unique keys, nothing before the satellite's first day.
+    """
+    invalid, duplicates, early_terra, early_aqua = con.execute("""SELECT
+        count(*) FILTER (WHERE satellite IS NULL OR satellite NOT IN ('Terra', 'Aqua')
+                         OR h3_r4 IS NULL OR acq_date IS NULL),
+        count(*) - count(DISTINCT (satellite, h3_r4, acq_date)),
+        count(*) FILTER (WHERE satellite = 'Terra' AND acq_date::DATE < ?),
+        count(*) FILTER (WHERE satellite = 'Aqua' AND acq_date::DATE < ?)
+        FROM read_parquet(?)""", [MODIS_FIRST_DAY["Terra"], MODIS_FIRST_DAY["Aqua"], str(path)]).fetchone()
+    if invalid:
+        raise ValueError(f"{path.name}: {invalid} rows with a satellite other than Terra/Aqua or a null key")
+    if duplicates:
+        raise ValueError(f"{path.name}: Duplicate swath-gap rows: {duplicates}")
+    for sensor, early in (("Terra", early_terra), ("Aqua", early_aqua)):
+        if early:
+            raise ValueError(f"{path.name}: {early} rows before {sensor} MODIS first day "
+                             f"{MODIS_FIRST_DAY[sensor]}")
+    gaps = {}
+    for block, day, sensor in con.execute("""SELECT g.h3_r4, g.acq_date::DATE, g.satellite
+            FROM read_parquet(?) g
+            SEMI JOIN (SELECT DISTINCT h3_r4, acq_date FROM read_parquet(?)) s
+            ON g.h3_r4 = s.h3_r4 AND g.acq_date::DATE = s.acq_date
+            ORDER BY 1, 2, 3""", [str(path), str(staged)]).fetchall():
+        gaps.setdefault((block, day), set()).add(sensor)
+    return gaps
+
+
+def real_rows(con, staged, lookup, regions, ancillary_coverage=None, swath_evidence=None):
     lut = json.loads((lookup / "eqm_gpd_lut.json").read_text())["models"]
     outages = set(con.execute("SELECT acq_date, satellite FROM read_parquet(?)",
                               [str(lookup / "sensor_outages.parquet")]).fetchall())
@@ -72,6 +109,9 @@ def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
         max(industrial_prob) AS industrial, mode(region) AS region
         FROM read_parquet(?) GROUP BY h3_r4, h3_r7, acq_date, satellite, sensor_bit
         ORDER BY h3_r7, acq_date, satellite""", [str(staged)]).fetchall()
+    swath_table = lookup / SWATH_GAPS
+    gaps = swath_gaps(con, swath_table, staged) if swath_table.exists() else {}
+    present = {}
     daily, viirs, scales, pending = {}, {}, {}, []
     for h4, h7, day, sensor, bit, biome, angle, mw, n, raw, industrial, region in rows:
         ranges = regions[region].get("coverage", [])
@@ -90,6 +130,8 @@ def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
         row["raw_modis_cnt" if modis else "raw_viirs_cnt"] += n
         row["raw_frp_mw"] += raw
         row["industrial_prob"] = max(row["industrial_prob"], industrial)
+        if (h4, day) in gaps:
+            present.setdefault(key, set()).add(sensor)
         if (day, sensor) in outages:
             continue
         if h7 not in scales:
@@ -116,6 +158,29 @@ def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
             viirs.setdefault(key, []).append(value)
     for key, values in viirs.items():
         daily[key]["obs_viirs_fre"] = float(np.mean(values))
+    # Swath evidence: a satellite with a staged contribution in the cell-day contradicts the gap row.
+    evidence = {"input_present": swath_table.exists()}
+    if swath_table.exists():
+        counts = {name: {"Terra": 0, "Aqua": 0} for name in ("flagged", "conflicts", "outage_ignored")}
+        flagged_rows = 0
+        for key, row in daily.items():
+            day = date.fromordinal(EPOCH.toordinal() + key[1])
+            hit = False
+            for sensor in sorted(gaps.get((row["h3_r4"], day), ())):
+                if (day, sensor) in outages:
+                    counts["outage_ignored"][sensor] += 1
+                elif sensor in present.get(key, ()):
+                    counts["conflicts"][sensor] += 1
+                else:
+                    counts["flagged"][sensor] += 1
+                    hit = True
+            if hit:
+                row["gap_status_mask"] |= 4
+                flagged_rows += 1
+        evidence |= {"table": SWATH_GAPS, "table_sha256": hashlib.sha256(swath_table.read_bytes()).hexdigest(),
+                     "rule": SWATH_RULE, "rows_flagged": flagged_rows} | counts
+    if swath_evidence is not None:
+        swath_evidence.update(evidence)
     ancillary = lookup / "cell_day_ancillary.parquet"
     coverage = {
         "input_present": ancillary.exists(),
@@ -196,8 +261,8 @@ def build_master_cube(staged_path=ingest.STAGED, output_path=OUT, force_bootstra
     regions = ingest.load_regions()
     with TemporaryDirectory(dir=output.parent) as temp, duckdb.connect() as con:
         work = Path(temp)
-        ancillary_coverage = {}
-        daily = real_rows(con, staged, ROOT / lookup_dir, regions, ancillary_coverage)
+        ancillary_coverage, swath_evidence = {}, {}
+        daily = real_rows(con, staged, ROOT / lookup_dir, regions, ancillary_coverage, swath_evidence)
         metadata = {
             b"source": b"REAL FIRMS detections",
             b"real_rows": str(len(daily)).encode(),
@@ -206,6 +271,7 @@ def build_master_cube(staged_path=ingest.STAGED, output_path=OUT, force_bootstra
             b"coverage": json.dumps(regions).encode(),
             b"real_cloud_and_burned_area": b"optional ancillary; zero sentinel for missing values",
             b"ancillary_coverage": json.dumps(ancillary_coverage, sort_keys=True).encode(),
+            b"swath_evidence": json.dumps(swath_evidence, sort_keys=True).encode(),
             b"real_igbp": b"local IGBP lookup or nominal regional fallback",
             b"fre_method": b"one-hour FRP integration proxy",
             b"orbital_weighting": ORBITAL_WEIGHTING.encode(),
