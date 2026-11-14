@@ -448,6 +448,14 @@ class CopilotTurn(ContractModel):
     content: str = Field(max_length=6000)
 
 
+class CopilotMapContext(ContractModel):
+    label: str
+    aoi: GeoJSONPolygon
+    period_start: str
+    period_end: str
+    h3_index: str | None = None
+
+
 class ExplainSpikeRequest(ContractModel):
     region_name: str = "Unknown Region"
     selected_day: DailyCalendarCell | None = None
@@ -458,6 +466,10 @@ class ExplainSpikeRequest(ContractModel):
     conversation: list[CopilotTurn] = Field(default_factory=list, max_length=12)
     period_start: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     period_end: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    prefer_map_context: bool = False
+    exclude_industrial_flaring: bool = True
+    enable_kalman_gap_filling: bool = True
+    previous_context: CopilotMapContext | None = None
 
 
 class ExplainSpikeResponse(ContractModel):
@@ -468,6 +480,7 @@ class ExplainSpikeResponse(ContractModel):
     search_query_executed: str | None = None
     model_used: str = "deterministic-fallback"
     data_source: Literal["real", "synthetic"] = "synthetic"
+    map_context: CopilotMapContext | None = None
 ```
 
 ### 5.3 Preset Pilot Regions (`frontend/src/api/types.ts`)
@@ -567,8 +580,9 @@ characters each), `period_start` and `period_end` (ISO date strings or null) car
 follow-up context and the selected map period. Existing clients remain compatible.
 The Python/TypeScript contracts and CAMBIOS.md record these additions together.
 
-Question place/date override UI context. Supported names resolve to documented study
-envelopes; arbitrary AOIs preserve their geometry. Madrid, Sierra Oeste, Careiro and
+Explicit dates override the selected period. Compatible place names describe the
+attached AOI without expanding it; disjoint named places resolve to documented study
+envelopes. Arbitrary AOIs preserve their geometry. Madrid, Sierra Oeste, Careiro and
 Autazes are geographic envelopes, not administrative polygons or known fire perimeters.
 Unknown places can use web evidence but never model-generated coordinates or SQL.
 Exact-day/date-range/year filtering of accepted staging detection centers uses R7
@@ -591,3 +605,60 @@ date alone cannot confirm gas flaring, an actual fire or a fixed sensor artifact
 `--live` additionally exercises configured model and search providers and saves full
 answers for narrative/source review. Regression tests mock network services and cover
 scope precedence, follow-ups, exact dates, provenance, concurrency and provider failures.
+
+### 5.6 Automatic map context and question-led answers (2026-11-14)
+
+An explicit area, hexagon or chronology selection automatically attaches location and
+its exact day/month/year to Fire Copilot. The composer shows one removable “Area and
+day/period added as context” notice, with location and date. It has only an X action;
+there are no pin/follow-map controls or separate date inputs. Removing the attachment
+clears geometry, dates and prior-scope inference from subsequent requests. Hovering
+alone does not replace an attachment. Drawing a new area preserves the selected day.
+Changing timeline precision actually selects the displayed day/month/year.
+
+An attached polygon is retained when a user names a compatible containing locality
+(e.g. “that fire in Madrid”). An explicitly different place can change geography;
+explicit dates can change the period. Known study envelopes provide geographic search
+labels, never invented incident names or fire perimeters. A full-year selection never
+silently becomes the busiest day or a particular incident.
+
+Existing optional request booleans `prefer_map_context`,
+`exclude_industrial_flaring`, `enable_kalman_gap_filling` and nullable
+`previous_context` remain compatible with existing clients. Nullable response
+`map_context` records the geometry/dates actually queried. Structured prior scope
+supports follow-ups after older conversation turns leave the bounded history.
+
+Quantitative requests calculate accepted staging detection-center counts and FRP
+locally. Energy requests reuse the dashboard's 2001–2026 `/api/analyze` series with
+attached scientific filters and inclusive requested dates. GJ = sum of daily FRE
+(MJ/km²) × represented H3 area / 1,000. Reconstruction is explicitly identified and
+can differ from the map's observed-only energy. Missing data never become estimated
+GJ from summed instantaneous MW, and synthetic data remain labeled.
+
+Causal responses lead with an answer or explicit uncertainty, then concise local
+evidence, incident-source status and separate scientific context. They do not dump
+power statistics or busiest-day tables. Month/year selections cannot identify one
+incident and request a precise day or incident name. Statistics and energy answers
+use named sections; rankings and detailed tables appear when requested.
+
+Research uses bounded parallel searches for official records and reputable news,
+with exact host checks, deduplication, source diversity and location/date filtering.
+Up to eight useful incident reports may be retained; source counts are never padded.
+At most three official HTML pages are read without redirects or arbitrary hosts,
+with time/body limits. A model may extract only complete, verbatim 5–25-word official
+sentences about ignition or investigation. The server rejects excerpts absent from
+retrieved text, stripped of a preceding negation, or lacking an explicit matching
+event date and nearby locality. A source quote does not confirm that its incident
+is identical to a selected satellite cluster; provisional status stays explicit.
+
+Crossref supplies up to three related journal-article metadata records with valid
+DOIs; obvious correction, retraction and withdrawn records are excluded. Registry
+metadata identify publications, not the truth of every finding or an investigation
+of this selected incident. Scientific background remains separate from event evidence.
+Source cards distinguish official reports, news and scientific literature, and are
+collapsed by default. The model is configured for grounded retrieval and extraction;
+no model training or automatic confirmation of ignition causes is performed.
+
+Offline mode skips all external providers while retaining local data and curated
+scientific references. Source failures and insufficient context produce explicit,
+useful limitations. The single DeckGL mount and calendar canvas are preserved.

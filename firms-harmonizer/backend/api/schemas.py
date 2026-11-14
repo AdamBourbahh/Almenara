@@ -235,6 +235,14 @@ class CopilotTurn(ContractModel):
     content: str = Field(max_length=6000)
 
 
+class CopilotMapContext(ContractModel):
+    label: str
+    aoi: GeoJSONPolygon
+    period_start: str
+    period_end: str
+    h3_index: str | None = None
+
+
 class ExplainSpikeRequest(ContractModel):
     region_name: str = "Unknown Region"
     selected_day: DailyCalendarCell | None = None
@@ -245,6 +253,10 @@ class ExplainSpikeRequest(ContractModel):
     conversation: list[CopilotTurn] = Field(default_factory=list, max_length=12)
     period_start: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     period_end: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    prefer_map_context: bool = False
+    exclude_industrial_flaring: bool = True
+    enable_kalman_gap_filling: bool = True
+    previous_context: CopilotMapContext | None = None
 
 
 class ExplainSpikeResponse(ContractModel):
@@ -255,6 +267,7 @@ class ExplainSpikeResponse(ContractModel):
     search_query_executed: str | None = None
     model_used: str = "deterministic-fallback"
     data_source: Literal["real", "synthetic"] = "synthetic"
+    map_context: CopilotMapContext | None = None
 
 
 class CubeSyncRequest(ContractModel):

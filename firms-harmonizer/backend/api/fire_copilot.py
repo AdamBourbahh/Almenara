@@ -6,6 +6,7 @@ study envelope and executes parameterized SQL; the model never supplies SQL or g
 from __future__ import annotations
 
 import calendar
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, timedelta
 import ipaddress
@@ -23,8 +24,11 @@ import h3
 import httpx
 import pyarrow as pa
 
-from backend.api.schemas import CitationReference, ExplainSpikeRequest, ExplainSpikeResponse
+from backend.api.schemas import CitationReference, CopilotMapContext, ExplainSpikeRequest, ExplainSpikeResponse
 from backend.api.cache import LRUCache
+from backend.api.copilot_metrics import energy_answer, retrieve_energy
+from backend.api import copilot_research as research
+from backend.api.copilot_answers import causal_answer, is_causal
 from backend.db import duckdb_engine, queries
 
 log = logging.getLogger(__name__)
@@ -53,6 +57,10 @@ REGION_LABELS = {"amazonas_manaus": "Amazonas / Manaus study envelope, Brazil",
 FIRMS = CitationReference(id="[5]", source_type="NASA_DATASET", title="NASA FIRMS active fire observations",
     authors_or_agency="NASA EOSDIS LANCE", year=2026, dataset_or_doi="NASA Earthdata / FIRMS",
     url="https://firms.modaps.eosdis.nasa.gov/", relevance_note="Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area.")
+CUBE = CitationReference(id="[6]", source_type="NASA_DATASET", title="Local FIRMS-Harmonizer scientific cube",
+    authors_or_agency="FIRMS-Harmonizer / NASA FIRMS inputs", year=2026,
+    dataset_or_doi="Local fire_cube.parquet via /api/analyze",
+    relevance_note="Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, represented H3 area and inclusive dates; they are not direct satellite measurements.")
 METHOD_SOURCES = [
     CitationReference(id="[1]", title="Retrieval of biomass combustion rates and totals from fire radiative power observations",
         authors_or_agency="Wooster et al.", year=2005, dataset_or_doi="10.1029/2005JD006318",
@@ -118,9 +126,11 @@ def question_period(text: str) -> tuple[str, str] | None:
     years = re.findall(r"\b20\d{2}\b", text)
     if years:
         first, last = min(map(int, years)), max(map(int, years))
-        month = next((n for name, n in MONTHS.items() if re.search(r"\b" + name + r"\b", text)), None)
-        return (date(first, month or 1, 1).isoformat(),
-                date(last, month or 12, calendar.monthrange(last, month or 12)[1]).isoformat())
+        months = sorted((m.start(), n) for name, n in MONTHS.items()
+                        for m in re.finditer(r"\b" + name + r"\b", text))
+        start_month, end_month = (months[0][1], months[-1][1]) if months else (1, 12)
+        return (date(first, start_month, 1).isoformat(),
+                date(last, end_month, calendar.monthrange(last, end_month)[1]).isoformat())
     return None
 
 
@@ -133,6 +143,30 @@ class Scope:
     search_query: str
     error: str | None = None
     changed: bool = False
+    h3_index: str | None = None
+    locality: str | None = None
+
+
+def polygon_bounds(coordinates: list) -> tuple[float, float, float, float]:
+    ring = coordinates[0]
+    return min(p[0] for p in ring), min(p[1] for p in ring), max(p[0] for p in ring), max(p[1] for p in ring)
+
+
+def compatible_selection(coordinates: list, bounds: list) -> bool:
+    """A city name can describe an attached nearby AOI without replacing its geometry."""
+    w, s, e, n = polygon_bounds(coordinates)
+    a, b, c, d = bounds
+    return w <= c and e >= a and s <= d and n >= b and (e - w) * (n - s) <= (c - a) * (d - b)
+
+
+def locality_for(coordinates: list | None) -> str | None:
+    if not coordinates:
+        return None
+    w, s, e, n = polygon_bounds(coordinates)
+    lng, lat = (w + e) / 2, (s + n) / 2
+    candidates = [(abs((c - a) * (d - b)), label.split(" study envelope")[0])
+                  for label, (a, b, c, d), _ in places().values() if a <= lng <= c and b <= lat <= d]
+    return min(candidates)[1] if candidates else None
 
 
 def relative_period(period: tuple[str, str] | None, question: str) -> tuple[str, str] | None:
@@ -146,23 +180,51 @@ def relative_period(period: tuple[str, str] | None, question: str) -> tuple[str,
 
 def resolve_scope(req: ExplainSpikeRequest) -> Scope:
     current_place = mentioned_place(req.user_question)
+    location = re.search(r"\b(?:in|near|around|en|em|cerca de)\s+(?:(?:the|la|el|a|o)\s+)?([a-z]+)", normalized(req.user_question))
+    context_words = {"this", "that", "selected", "current", "my", "our", "your", "all", "each", "total", "esta", "este",
+                     "esa", "ese", "mi", "nuestra", "nuestro", "la", "el", "a", "o", "data", "database", "local", "gj", "mj", "mw",
+                     "tonnes", "tons", "toneladas", "kg", "kilograms", "gigajoules", "megajoules",
+                     "area", "zona", "region", "cell", "hexagon", "hexagono", "map", "mapa", "year", "month", "day",
+                     "period", "periodo", "english", "ingles", "spanish", "espanol", "portuguese", "portugues"} | set(MONTHS)
+    unknown_location = bool(location and location[1] not in context_words and not current_place)
     previous_questions = [m.content for m in req.conversation if m.role == "user"]
-    if re.search(r"this (area|region|cell)|selected (area|region|h3|cell|map)|esta (zona|area|region)", normalized(req.user_question)):
+    use_map = req.prefer_map_context or bool(re.search(r"this (area|region|cell|period)|selected (area|region|h3|cell|map|period)|est[ae] (zona|area|region|periodo|hexagono)", normalized(req.user_question)))
+    previous = req.previous_context if not use_map else None
+    if use_map or previous:
         previous_questions = []
     place = current_place or next((p for q in reversed(previous_questions) if (p := mentioned_place(q))), None)
-    place = place or (mentioned_place(req.region_name) if not req.aoi else None)
-    coords = req.aoi.coordinates if req.aoi else None
-    label = req.region_name
+    place = place or (mentioned_place(req.region_name) if not req.aoi and not previous else None)
+    coords = previous.aoi.coordinates if previous else req.aoi.coordinates if req.aoi else None
+    label = previous.label if previous else req.region_name
+    retained_aoi = False
     if place:
-        label, bounds, _ = places()[place]
-        west, south, east, north = bounds
-        coords = [[[west, south], [east, south], [east, north], [west, north], [west, south]]]
-    if req.selected_hex and not current_place and not any(mentioned_place(q) for q in previous_questions) and h3.is_valid_cell(req.selected_hex.h3_index):
-        ring = [[lng, lat] for lat, lng in h3.cell_to_boundary(req.selected_hex.h3_index)]
+        place_label, bounds, _ = places()[place]
+        retained_aoi = bool(coords and compatible_selection(coords, bounds))
+        if retained_aoi:
+            label = f"Selected area near {place_label.split(' study envelope')[0]}"
+        else:
+            label = place_label
+            west, south, east, north = bounds
+            coords = [[[west, south], [east, south], [east, north], [west, north], [west, south]]]
+    explicit_hex = re.search(r"\b(87[0-9a-f]{13})\b", normalized(req.user_question))
+    selected_hex = (explicit_hex[1] if explicit_hex else previous.h3_index if previous
+                    else req.selected_hex.h3_index if req.selected_hex else None)
+    if selected_hex and (not h3.is_valid_cell(selected_hex) or h3.get_resolution(selected_hex) != 7):
+        return Scope(label, None, None, None, "", "Select a valid H3 resolution 7 cell.")
+    if selected_hex and (explicit_hex or ((not current_place or retained_aoi) and not any(mentioned_place(q) for q in previous_questions))):
+        ring = [[lng, lat] for lat, lng in h3.cell_to_boundary(selected_hex)]
         coords = [ring + [ring[0]]]
-        label = f"Selected H3 cell {req.selected_hex.h3_index} in {req.region_name}"
+        label = f"Selected H3 cell {selected_hex}"
+    else:
+        selected_hex = None
+    if unknown_location:
+        coords = None
+        label = "Unresolved requested location"
     try:
         period = question_period(req.user_question)
+        if not period and previous:
+            period = relative_period((date.fromisoformat(previous.period_start).isoformat(),
+                                      date.fromisoformat(previous.period_end).isoformat()), req.user_question)
         # A new place keeps the explicitly selected period; anaphoric follow-ups use history.
         if not period:
             for previous in previous_questions:
@@ -178,11 +240,33 @@ def resolve_scope(req: ExplainSpikeRequest) -> Scope:
     except ValueError:
         return Scope(label, coords, None, None, "", "The date is invalid. Use a real calendar date, such as 2026-07-24.")
     start, end = period or (None, None)
-    query = " ".join(filter(None, [req.user_question[:400], label, start if start == end else f"{start or ''} {end or ''}", "wildfire incendio queimadas"]))
-    changed = bool(current_place)
+    locality = locality_for(coords) or (places()[place][0].split(" study envelope")[0] if place else None)
+    query = " ".join(filter(None, [req.user_question[:400], locality or label, start if start == end else f"{start or ''} {end or ''}", "wildfire incendio queimadas"]))
+    changed = bool(current_place or previous)
     if req.selected_day and start and start != req.selected_day.date:
         changed = True
-    return Scope(label, coords, start, end, query, changed=changed)
+    return Scope(label, coords, start, end, query, changed=changed, h3_index=selected_hex, locality=locality)
+
+
+def quantitative_intent(question: str) -> tuple[bool, bool]:
+    """Route database questions before model planning or scientific explanation."""
+    q = normalized(question)
+    definition = bool(re.search(r"\b(what (?:is|are)|que (?:es|son)|why|por que|explain|explica|difference|diferencia|can .*tell)\b", q))
+    units = bool(re.search(r"\b(gj|gigajoules?|mj|fre|energy|energia|biomass|biomasa|frp|mw)\b", q))
+    numeric = bool(re.search(r"how (?:many|much)|which days|most detections|highest|busiest|strongest|peak|count|cuant[oa]s?|mayor|mas detecciones|quant[oa]s?|numero|total|sum|suma|compare|compara|by year|por ano|give me|show me|dame|muestra", q))
+    if definition and not re.search(r"how (?:many|much)|cuant[oa]s?|quant[oa]s?|total|highest|numero|compare|compara", q):
+        numeric = False
+    energy = units and (numeric or not definition)
+    # Raw FRP queries remain power queries; never synthesize GJ from raw samples.
+    energy = energy and bool(re.search(r"\b(gj|gigajoules?|mj|fre|energy|energia|biomass|biomasa)\b", q))
+    return numeric or energy, energy
+
+
+def map_context(scope: Scope) -> CopilotMapContext | None:
+    if scope.error or not scope.coordinates or not scope.start or not scope.end:
+        return None
+    return CopilotMapContext(label=scope.label, aoi={"coordinates": scope.coordinates},
+        period_start=scope.start, period_end=scope.end, h3_index=scope.h3_index)
 
 
 def retrieve_observations(scope: Scope) -> dict:
@@ -241,42 +325,42 @@ def safe_url(url: str) -> bool:
 
 
 def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
-    """Search snippets are candidate reports, never automatic event confirmation."""
+    """Search independent official and news lanes without broadening attached dates."""
     if os.getenv("COPILOT_OFFLINE") == "1":
         return [], ""
     cache_key = json.dumps([scope.label, scope.start, scope.end, scope.search_query])
     cached = SEARCH_CACHE.get(cache_key)
     if cached and monotonic() - cached[0] < 600:
         return cached[1], cached[2]
-    results = []
-    key = os.getenv("TAVILY_API_KEY")
-    if key:
+    location = scope.locality or scope.label.split(" study envelope")[0]
+    period = scope.start if scope.start == scope.end else f"{scope.start or ''} {scope.end or ''}"
+    official = f"{location} incendio wildfire {period} (site:comunidad.madrid OR site:112.es OR site:gob.es OR site:gov OR site:gov.br OR site:gov.ar OR site:copernicus.eu)"
+    news = f"{location} incendio wildfire {period} causa investigacion"
+
+    def query_provider(query: str) -> list[dict]:
+        key = os.getenv("TAVILY_API_KEY")
+        if key:
+            try:
+                with httpx.Client(timeout=5.0) as client:
+                    response = client.post("https://api.tavily.com/search", json={"api_key": key,
+                        "query": query, "max_results": 8, "search_depth": "basic"})
+                    response.raise_for_status()
+                    results = response.json().get("results", [])
+                    if results:
+                        return results
+            except (httpx.HTTPError, ValueError):
+                log.info("Copilot search provider unavailable; trying public search")
         try:
-            with httpx.Client(timeout=6.0) as client:
-                response = client.post("https://api.tavily.com/search", json={"api_key": key,
-                    "query": scope.search_query, "max_results": 6, "search_depth": "basic"})
-                response.raise_for_status()
-                results = response.json().get("results", [])
-        except (httpx.HTTPError, ValueError):
-            log.info("Copilot search provider unavailable; trying public search")
-    if not results:
-        try:
-            results = DDGS(timeout=5).text(scope.search_query, max_results=6, backend="google")
+            return list(DDGS(timeout=4).text(query, max_results=8, backend="google"))
         except Exception:
             log.info("Copilot public search unavailable")
-    executed = scope.search_query
-    citations = filter_reports(scope, results)
-    if not citations and executed == scope.search_query:
-        location = scope.label.split(" study envelope")[0]
-        year = scope.start[:4] if scope.start else ""
-        month = calendar.month_name[int(scope.start[5:7])] if scope.start else ""
-        broad_query = f'{location} incendio {month} {year}'.strip()
-        try:
-            results = DDGS(timeout=4).text(broad_query, max_results=6, backend="google")
-            citations = filter_reports(scope, results)
-            executed += " | fallback: " + broad_query
-        except Exception:
-            log.info("Copilot broader search unavailable")
+            return []
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        batches = list(executor.map(query_provider, [official, news]))
+    results = [r for batch in batches for r in batch]
+    citations = research.enrich_official_reports(filter_reports(scope, results))
+    executed = official + " | " + news
     if citations:
         SEARCH_CACHE.put(cache_key, (monotonic(), citations, executed))
     return citations, executed
@@ -286,17 +370,20 @@ def filter_reports(scope: Scope, results: list[dict]) -> list[CitationReference]
     """Reject unsafe, duplicate and clearly unrelated search results."""
     citations = []
     seen = set()
-    for item in results:
+    per_host = {}
+    for item in sorted(results, key=lambda r: -research.source_tier(r.get("url") or r.get("href") or "")):
         url = item.get("url") or item.get("href") or ""
         title = item.get("title") or ""
         snippet = item.get("content") or item.get("body") or ""
-        if not safe_url(url) or url in seen or not title or not snippet:
+        host = urlparse(url).hostname or ""
+        tier = research.source_tier(url)
+        if not safe_url(url) or not tier or per_host.get(host, 0) >= 2 or url in seen or not title or not snippet:
             continue
         text = normalized(title + " " + snippet + " " + url)
         if not any(w in text for w in ("fire", "incendi", "queimad", "fogo", "burn")):
             continue
-        location_words = set(re.findall(r"[a-z]{4,}", normalized(scope.label))) - {
-            "study", "envelope", "spain", "brazil", "selected", "cell", "unknown", "region", "unresolved", "location"}
+        location_words = set(re.findall(r"[a-z]{4,}", normalized(scope.locality or scope.label))) - {
+            "study", "envelope", "spain", "brazil", "selected", "cell", "unknown", "region", "unresolved", "location", "area", "near"}
         if location_words and not any(w in text for w in location_words):
             continue
         # Reject reports explicitly dated in another year, but retain undated evidence
@@ -329,9 +416,10 @@ def filter_reports(scope: Scope, results: list[dict]) -> list[CitationReference]
         citations.append(CitationReference(id=f"[W{len(citations)+1}]", source_type="WEB_NEWS_REPORT",
             title=title[:250], authors_or_agency=urlparse(url).hostname or "Web source",
             year=int(published_year[0]) if published_year else reported_date.year if reported_date else date.today().year,
-            dataset_or_doi="Search result; publication date unverified" if not published_year else "Web report",
+            dataset_or_doi=("Official report" if tier == 2 else "News report") + "; search snippet only; " + ("publication date unverified" if not published_year else "publication date supplied by search"),
             url=url, relevance_note=snippet[:1000]))
-        if len(citations) == 4:
+        per_host[host] = per_host.get(host, 0) + 1
+        if len(citations) == 8:
             break
     return citations
 
@@ -379,6 +467,8 @@ def complete(messages: list[dict], *, structured: bool = False, timeout: float =
 def refine_scope(req: ExplainSpikeRequest, scope: Scope) -> Scope:
     """Resolve unfamiliar place/date phrasing without accepting invented coordinates."""
     if not req.user_question or scope.error:
+        return scope
+    if scope.h3_index or req.prefer_map_context or (req.aoi and scope.coordinates):
         return scope
     if mentioned_place(req.user_question) and question_period(req.user_question):
         return scope
@@ -464,9 +554,9 @@ def local_answer(scope: Scope, observed: dict, question: str = "") -> str:
                 "This does not establish that no fire occurred: clouds, overpass timing, detection thresholds and archive coverage can hide activity. [5]")
     sensors = ", ".join(observed["sensors"])
     noun = "detection" if count == 1 else "detections"
-    lines = [f"The local FIRMS archive contains **{count:,} satellite {noun}** in the **{scope.label}** for **{period}** ({sensors}). [5]",
-             f"Summed instantaneous FRP across those detections: **{observed['summed_frp_mw']:,.2f} MW**; strongest individual detection: **{observed['max_detection_frp_mw']:,.2f} MW**. This sum is not energy, burned area or the number of fires."]
-    if scope.start != scope.end:
+    lines = [f"### Satellite observations\n\nThe local FIRMS archive contains **{count:,} satellite {noun}** in the **{scope.label}** for **{period}** ({sensors}). [5]",
+             f"### Power measurements\n\n- Summed instantaneous FRP: **{observed['summed_frp_mw']:,.2f} MW**.\n- Strongest individual detection: **{observed['max_detection_frp_mw']:,.2f} MW**.\n\nThis sum is not energy, burned area or the number of fires."]
+    if scope.start != scope.end and re.search(r"which days|busiest|most detections|peak|highest|strongest|mayor|mas detecciones", normalized(question)):
         busiest = observed["busiest_days"][0]
         lines.append(f"The busiest day by detection count was **{busiest['date']}** with **{busiest['detections']:,} detections**. First/last detections in this query: {observed['first_detection']} / {observed['last_detection']}.")
         if len(observed['busiest_days']) > 1:
@@ -508,20 +598,46 @@ The verified local satellite summary is ALREADY displayed above your answer. Do 
 Describe the requested date as a date of reported activity, never as the ignition date. Do not write 'broke out', 'ignited', 'started on' or 'began on': the supplied evidence may describe an already active fire. Say 'was active' or 'was reported' instead. Do not call a thermal detection confirmation of a wildfire.
 Synthetic telemetry cannot verify real events. Client telemetry is not authenticated satellite evidence and applies only to its selected place/date. Gap-filled values and forecasts are estimates; entropy alone cannot identify gas flaring. Never assert a universal +420% sensor jump, guaranteed Chow p-value or validation score. The UI's selected context can be stale; the resolved question scope takes precedence.
 Methodology: MODIS/VIIRS have different resolutions and sensitivities; introducing VIIRS can change counts but does not prove that any specific 2012 event is an artifact. Kalman smoothing estimates missing observations with uncertainty. Biomass requires time-integrated energy and a conversion factor, not just FRP. If asked to compare events, only compare evidence actually provided; ask for the missing place/date if needed.
+Ignition causes are handled by a separate evidence-checked official-excerpt path. Do not introduce an ignition cause in this general event summary, including an alleged cause from a search snippet.
 If evidence is insufficient, give a short useful limitation and one concrete next step. Never fill space with generic physics or an irrelevant citation list."""
 
 
 def answer(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
     source = duckdb_engine.data_source()
     scope = resolve_scope(req)
-    scope = refine_scope(req, scope)
-    initial_classification = classify(req, scope, {})
+    quantitative, wants_energy = quantitative_intent(req.user_question)
+    causal = is_causal(req.user_question)
+    if not quantitative and not (causal and scope.coordinates and scope.start):
+        scope = refine_scope(req, scope)
+    initial_classification = classify(req, scope, {}) if not quantitative else "LOCAL_METRICS"
     try:
         observed = ({"status": "methodology"} if initial_classification == "SCIENTIFIC_EXPLANATION"
                     else retrieve_observations(scope) if not scope.error else {"status": "invalid"})
     except ValueError as exc:
         scope.error = str(exc)
         observed = {"status": "invalid"}
+    if quantitative:
+        parts = [local_answer(scope, observed, req.user_question)]
+        citations = [FIRMS]
+        energy = {"status": "not_requested"}
+        if wants_energy and not scope.error:
+            try:
+                energy = retrieve_energy(scope, req)
+                parts.insert(0, energy_answer(scope, energy, req))
+            except ValueError as exc:
+                scope.error = str(exc)
+                parts = [scope.error]
+            citations += [CUBE, METHOD_SOURCES[0]]
+        text = "\n\n".join(parts)
+        if source == "synthetic":
+            text = "**Synthetic demo mode — cannot verify real fire events.**\n\n" + text
+        return ExplainSpikeResponse(physical_classification=("LOCAL_ENERGY_SUMMARY" if energy["status"] == "ok"
+            else classify(req, scope, observed)), explanation_markdown=text,
+            citations=[c for c in citations if c.id in text], model_used="deterministic-local-observations",
+            data_source=source, map_context=map_context(scope))
+    if causal and initial_classification != "SCIENTIFIC_EXPLANATION":
+        return causal_answer(req, scope, observed, source, search=search_reports, complete=complete,
+            firms=FIRMS, methods=METHOD_SOURCES, context=map_context(scope))
     classification = classify(req, scope, observed)
     method_question = classification in ("SCIENTIFIC_EXPLANATION", "KALMAN_GAP_FILLED", "MODEL_FORECAST", "POSSIBLE_INDUSTRIAL_HEAT_SOURCE")
     metrics_question = not method_question and bool(re.search(
@@ -567,7 +683,8 @@ def answer(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
             known = {c.id for c in citations}
             mentioned = set(re.findall(r"\[(?:W)?\d+\]", candidate))
             asserts_ignition = not method_question and re.search(r"\b(broke out|ignited|started on|began on)\b", candidate, re.I)
-            if candidate and used <= known and mentioned <= known and not asserts_ignition:
+            asserts_cause = not method_question and re.search(r"\b(caused by|due to|triggered by|attributed to|ignition was|arson|lightning|negligence)\b", candidate, re.I)
+            if candidate and used <= known and mentioned <= known and not asserts_ignition and not asserts_cause:
                 prose = candidate
                 # IDs returned separately are attached when the model omits inline
                 # markers, so source links never disappear from an otherwise valid answer.
@@ -596,8 +713,8 @@ def answer(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
             prose += "\n\nCandidate reports to check for a matching location and date:\n" + "\n".join(f"- {r.title} {r.id}" for r in reports)
     if metrics_question and observed.get("status") == "ok":
         model = "deterministic-local-observations"
-    text = (evidence + ("\n\n" + prose if prose else "")).strip()
+    text = (("### Answer\n\n" + prose + "\n\n" if prose else "") + evidence).strip()
     cited = set(re.findall(r"\[(?:W)?\d+\]", text))
     return ExplainSpikeResponse(physical_classification=classification, explanation_markdown=text,
         citations=[c for c in citations if c.id in cited], web_search_used=bool(reports),
-        search_query_executed=query or None, model_used=model, data_source=source)
+        search_query_executed=query or None, model_used=model, data_source=source, map_context=map_context(scope))

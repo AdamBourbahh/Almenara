@@ -365,6 +365,11 @@ export function HexagonMap() {
         data: hexagons,
         visible: showHeat,
         pickable: true,
+        onClick: ({ object }, event) => {
+          const state = useAnalysisStore.getState();
+          if (event.srcEvent instanceof MouseEvent && event.srcEvent.button !== 0) return;
+          if (object && !state.isDrawingAoi) state.openCopilot({ hex: object });
+        },
         wireframe: false,
         filled: true,
         extruded: is3D,
@@ -412,7 +417,7 @@ export function HexagonMap() {
         getLineWidth: 2
       })
     ];
-  }, [hexagons, maxFre, maxRaw, mapPeriod, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable]);
+  }, [hexagons, maxFre, maxRaw, mapPeriod, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable, isDrawingAoi]);
 
   const getTooltip = useCallback(
     ({ object }: PickingInfo<H3MapSummaryHex>) => {
@@ -422,6 +427,7 @@ export function HexagonMap() {
         `Period: ${mapPeriod}`,
         `Period fire energy: ${object.mean_annual_fre.toFixed(1)} MJ/km²`,
         `Period detections: ${object.raw_pixel_count.toLocaleString("en-US")}`,
+        "Click to attach this hexagon to Fire Copilot.",
         "Color: logarithmic scale, fixed across dates",
         "Satellite observations do not establish the exact ignition time."
       ];

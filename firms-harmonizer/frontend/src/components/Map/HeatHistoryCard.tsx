@@ -59,10 +59,10 @@ export function HeatHistoryCard() {
     useAnalysisStore.getState().setHoveredDay(null);
     if (unit === "day") state.setDate(value, pin);
     else {
-      state.setDate(null);
-      state.setMonth(null);
-      state.setYear(Number(value.slice(0, 4)));
-      if (unit === "month") state.setMonth(Number(value.slice(5, 7)));
+      state.setDate(null, pin);
+      state.setMonth(null, pin);
+      state.setYear(Number(value.slice(0, 4)), pin);
+      if (unit === "month") state.setMonth(Number(value.slice(5, 7)), pin);
     }
   }
   function selectPosition(index: number, pin = true) {
@@ -71,6 +71,7 @@ export function HeatHistoryCard() {
   }
   function changePrecision(unit: Precision) {
     setPrecision(unit);
+    selectKey(anchor.slice(0, KEY_LENGTH[unit]), unit);
   }
   function stepDate(delta: -1 | 1) {
     if (!(delta === -1 ? canStepBack : canStepForward)) return;

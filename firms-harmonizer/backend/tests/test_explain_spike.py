@@ -242,10 +242,10 @@ def test_search_filters_bad_urls_wrong_years_and_nonfire_results(monkeypatch):
     monkeypatch.delenv('TAVILY_API_KEY', raising=False)
     results = [
         {'title':'Madrid fire 2026', 'href':'javascript:alert(1)', 'body':'fire Madrid'},
-        {'title':'Madrid fire 2025', 'href':'https://example.org/2025', 'body':'Madrid fire 2025'},
-        {'title':'Madrid restaurants', 'href':'https://example.org/food', 'body':'Where to eat'},
-        {'title':'Madrid fire 2026', 'href':'https://example.org/report', 'body':'Report of fires in Madrid in July 2026.'},
-        {'title':'Madrid fire 2026', 'href':'https://example.org/report', 'body':'Duplicate'},
+        {'title':'Madrid fire 2025', 'href':'https://rtve.es/2025', 'body':'Madrid fire 2025'},
+        {'title':'Madrid restaurants', 'href':'https://rtve.es/food', 'body':'Where to eat'},
+        {'title':'Madrid fire 2026', 'href':'https://rtve.es/report', 'body':'Report of fires in Madrid in July 2026.'},
+        {'title':'Madrid fire 2026', 'href':'https://rtve.es/report', 'body':'Duplicate'},
     ]
     class Search:
         def __init__(self, **kwargs):
@@ -256,7 +256,7 @@ def test_search_filters_bad_urls_wrong_years_and_nonfire_results(monkeypatch):
     scope = copilot.resolve_scope(ExplainSpikeRequest(user_question='Madrid 24 July 2026'))
     citations, query = copilot.search_reports(scope)
     assert len(citations) == 1
-    assert citations[0].id == '[W1]' and citations[0].url == 'https://example.org/report'
+    assert citations[0].id == '[W1]' and citations[0].url == 'https://rtve.es/report'
     assert '2026-07-24' in query
     assert 'unverified' in citations[0].dataset_or_doi
 
@@ -332,7 +332,7 @@ def test_location_question_shows_observation_centers_without_calling_them_igniti
 
 def test_search_publication_year_in_url_wins_over_incidental_historical_year():
     scope = copilot.resolve_scope(ExplainSpikeRequest(user_question='Careiro on 13 September 2024'))
-    results = [{'title':'Careiro fire prevention 2024 history', 'href':'https://example.org/2025/07/15/careiro-fire',
+    results = [{'title':'Careiro fire prevention 2024 history', 'href':'https://rtve.es/2025/07/15/careiro-fire',
                 'body':'In 2025, new precautions were adopted after the fires in 2024.'}]
     assert copilot.filter_reports(scope, results) == []
 
@@ -340,9 +340,9 @@ def test_search_publication_year_in_url_wins_over_incidental_historical_year():
 def test_unrelated_month_is_rejected_but_a_retrospective_report_can_match():
     scope = copilot.resolve_scope(ExplainSpikeRequest(user_question='Careiro on 13 September 2024'))
     results = [
-        {'title':'Careiro lodge fire', 'href':'https://example.org/april-fire',
+        {'title':'Careiro lodge fire', 'href':'https://rtve.es/april-fire',
          'body':'Apr 26, 2024 · A lodge fire occurred in Careiro.'},
-        {'title':'Careiro September fires', 'href':'https://example.org/retrospective',
+        {'title':'Careiro September fires', 'href':'https://rtve.es/retrospective',
          'body':'Oct 30, 2024 · Careiro experienced fires during September 2024.'},
     ]
     citations = copilot.filter_reports(scope, results)
@@ -356,3 +356,12 @@ def test_model_cannot_infer_ignition_date_from_a_day_of_observations(real_archiv
     result = copilot.answer(ExplainSpikeRequest(user_question='Madrid 24 July 2026'))
     assert result.model_used == 'deterministic-offline-science'
     assert 'broke out' not in result.explanation_markdown
+
+
+def test_general_event_summary_cannot_smuggle_an_unchecked_cause(real_archive, monkeypatch):
+    mock_report(monkeypatch)
+    raw = json.dumps({'answer': 'The fire was caused by arson. [W1]', 'citation_ids': ['W1']})
+    monkeypatch.setattr(copilot, 'complete', lambda *a, **k: (raw, 'test-model'))
+    result = copilot.answer(ExplainSpikeRequest(user_question='Madrid 24 July 2026'))
+    assert result.model_used == 'deterministic-offline-science'
+    assert 'arson' not in result.explanation_markdown

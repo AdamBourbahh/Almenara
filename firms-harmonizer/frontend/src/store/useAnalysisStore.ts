@@ -1,4 +1,5 @@
 import { create } from "zustand";
+<<<<<<< HEAD
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
@@ -22,6 +23,11 @@ import {
   triggerCubeSync,
   fetchCubeSyncStatus
 } from "../api/client";
+=======
+import { cellToLatLng } from "h3-js";
+import type { AnalyzeRequest, AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, H3MapSummaryHex, ViewMode, ExplainSpikeResponse } from "../api/types";
+import { analyzeAoi, fetchMapPeriod, explainSpike, runChaosMonkey } from "../api/client";
+>>>>>>> 79dca5d (hola)
 
 // ============================================================================
 // Official pilot regions for the jury demo
@@ -111,6 +117,38 @@ export interface CopilotMessage {
   content: string;
   timestamp: number;
   response?: ExplainSpikeResponse;
+  context?: CopilotSelection;
+}
+
+export interface CopilotSelection {
+  label: string;
+  aoi: GeoJSONPolygon;
+  start: string;
+  end: string;
+  day: DailyCalendarCell | null;
+  hex: H3MapSummaryHex | null;
+  excludeIndustrial: boolean;
+  enableKalman: boolean;
+}
+
+function areaLocationLabel(aoi: GeoJSONPolygon): string {
+  const ring = aoi.coordinates[0];
+  const lng = (Math.min(...ring.map((p) => p[0])) + Math.max(...ring.map((p) => p[0]))) / 2;
+  const lat = (Math.min(...ring.map((p) => p[1])) + Math.max(...ring.map((p) => p[1]))) / 2;
+  return `Selected area at ${lat.toFixed(3)}°, ${lng.toFixed(3)}°`;
+}
+
+export function liveCopilotSelection(state: AnalysisState): CopilotSelection {
+  return {
+    label: state.selectedPreset === "CUSTOM" ? areaLocationLabel(state.currentAoi) : PRESET_REGIONS[state.selectedPreset].label,
+    aoi: state.currentAoi,
+    start: state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 1, 1),
+    end: state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 12, 31),
+    day: state.selectedDate ? state.dateIndex.get(state.selectedDate) ?? null : null,
+    hex: null,
+    excludeIndustrial: state.excludeIndustrial,
+    enableKalman: state.enableKalman
+  };
 }
 
 export interface SelectionPoint { x: number; y: number }
@@ -142,7 +180,7 @@ interface AnalysisState {
   yearDoyIndex: Map<string, DailyCalendarCell>;
   minDate: string | null;
   maxDate: string | null;
-  setSelectedMonth: (month: number | null) => void;
+  setSelectedMonth: (month: number | null, pin?: boolean) => void;
   setSelectedDate: (date: string | null, pin?: boolean) => void;
   setHoveredCell: (cell: DailyCalendarCell | null) => void;
   stepChronology: (unit: "day" | "month" | "year", delta: -1 | 1) => void;
@@ -174,6 +212,11 @@ interface AnalysisState {
   copilotMessages: CopilotMessage[];
   activeSpikeDay: DailyCalendarCell | null;
   activeSpikeHex: H3MapSummaryHex | null;
+  copilotContext: CopilotSelection | null;
+  copilotContextKey: string | null;
+  copilotContextStart: number;
+  attachCopilotContext: (selection?: { day?: DailyCalendarCell | null; hex?: H3MapSummaryHex | null }) => void;
+  removeCopilotContext: () => void;
 
   openCopilot: (spike?: { day?: DailyCalendarCell | null; hex?: H3MapSummaryHex | null }) => void;
   closeCopilot: () => void;
@@ -185,7 +228,7 @@ interface AnalysisState {
   setViewMode: (mode: ViewMode) => void;
   toggleViewMode: () => void;
   setSplitCurtainPct: (pct: number) => void;
-  setSelectedYear: (year: number) => void;
+  setSelectedYear: (year: number, pin?: boolean) => void;
   setHoveredDay: (day: HoveredDay | null) => void;
   setExcludeIndustrial: (exclude: boolean) => Promise<void>;
   setEnableKalman: (enable: boolean) => Promise<void>;
@@ -283,6 +326,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   copilotMessages: [],
   activeSpikeDay: null,
   activeSpikeHex: null,
+  copilotContext: null,
+  copilotContextKey: null,
+  copilotContextStart: 0,
 
   // Cube Live Sync
   syncStatus: "idle",
@@ -305,32 +351,35 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   setSplitCurtainPct: (pct) => set({ splitCurtainPct: Math.min(100, Math.max(0, Math.round(pct))) }),
 
-  setSelectedYear: (year) => {
+  setSelectedYear: (year, pin = true) => {
     const { startYear, endYear, selectedYear, minDate, maxDate } = get();
     const lo = Math.max(startYear, Number(minDate?.slice(0, 4) ?? startYear));
     const hi = Math.min(endYear, Number(maxDate?.slice(0, 4) ?? endYear));
     const clamped = Math.min(hi, Math.max(lo, Math.round(year)));
     if (!Number.isFinite(clamped)) return;
-    if (clamped === selectedYear) return;
+    if (clamped === selectedYear) { if (pin) get().attachCopilotContext(); return; }
     const previous = get().selectedDate;
     const candidate = isoDate(clamped, get().selectedMonth ?? 1, get().selectedDay ?? 1);
     const bounded = candidate < (minDate ?? candidate) ? minDate! : candidate > (maxDate ?? candidate) ? maxDate! : candidate;
     const selection = previous ? dateSelection(bounded) : {};
     set({ ...selection, hoveredDate: null, hoveredCell: null, hoveredDay: null, selectedYear: clamped, chaosData: null });
+    if (pin) get().attachCopilotContext();
     scheduleMapLoad();
   },
 
-  setSelectedMonth: (month) => {
+  setSelectedMonth: (month, pin = true) => {
     if (month !== null && (!Number.isInteger(month) || month < 1 || month > 12)) return;
-    if (month === get().selectedMonth && !get().selectedDate) return;
+    if (month === get().selectedMonth && !get().selectedDate) { if (pin) get().attachCopilotContext(); return; }
     set({ selectedMonth: month, selectedDay: null, selectedDoy: null, selectedDate: null,
       isDatePinned: false, hoveredCell: null, hoveredDate: null, hoveredDay: null });
+    if (pin) get().attachCopilotContext();
     scheduleMapLoad();
   },
   setSelectedDate: (iso, pin = true) => {
     if (iso === null) {
       if (!get().selectedDate) return;
       set({ selectedDate: null, selectedDay: null, selectedDoy: null, isDatePinned: false, hoveredDay: null, hoveredCell: null, hoveredDate: null });
+      if (pin) get().attachCopilotContext();
       scheduleMapLoad();
       return;
     }
@@ -342,6 +391,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const date = [bounded, maxDate ?? `${endYear}-12-31`].sort()[0];
     const changed = get().selectedDate !== date;
     set({ ...dateSelection(date), isDatePinned: pin, hoveredDay: null, hoveredCell: null, hoveredDate: null, chaosData: null });
+    if (pin) get().attachCopilotContext();
     if (changed) scheduleMapLoad();
   },
   stepChronology: (unit, delta) => {
@@ -371,12 +421,14 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setExcludeIndustrial: async (exclude) => {
     if (get().excludeIndustrial === exclude) return;
     set({ excludeIndustrial: exclude });
+    if (get().copilotContext) get().attachCopilotContext();
     await get().executeAnalysis();
   },
 
   setEnableKalman: async (enable) => {
     if (get().enableKalman === enable) return;
     set({ enableKalman: enable });
+    if (get().copilotContext) get().attachCopilotContext();
     await get().executeAnalysis();
   },
 
@@ -386,8 +438,13 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   loadPresetRegion: async (presetKey, point) => {
     if (!(presetKey in PRESET_REGIONS)) return;
+<<<<<<< HEAD
     set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null,
       aoiPromptPopup: point ? { ...point, aoiLabel: PRESET_REGIONS[presetKey].label } : null });
+=======
+    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null });
+    get().attachCopilotContext({ day: null, hex: null });
+>>>>>>> 79dca5d (hola)
     await get().executeAnalysis();
   },
 
@@ -397,8 +454,13 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
+<<<<<<< HEAD
     set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null,
       aoiPromptPopup: point ? { ...point, aoiLabel: "Custom area" } : null });
+=======
+    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null });
+    get().attachCopilotContext({ day: null, hex: null });
+>>>>>>> 79dca5d (hola)
     await get().executeAnalysis();
   },
 
@@ -461,11 +523,15 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     mapSeq++;
     clearTimeout(mapTimer);
     annualMapCache.clear();
+<<<<<<< HEAD
     set({
       mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null,
       hoveredDay: null, hoveredDate: null, hoveredCell: null,
       ...(preserveSelection ? {} : { isDatePinned: false, selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null })
     });
+=======
+    set({ mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null, hoveredDay: null, hoveredDate: null, hoveredCell: null });
+>>>>>>> 79dca5d (hola)
     analysisController?.abort();
     const controller = new AbortController();
     analysisController = controller;
@@ -525,20 +591,27 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     chaosSeq++;
     set({ chaosData: null, chaosLoading: false, chaosError: null });
   } ,
-  openCopilot: (spike) => {
-    if (spike?.day || spike?.hex) {
-      get().clearCopilotMessages();
-      set({ isCopilotOpen: true, activeSpikeDay: spike.day ?? null, activeSpikeHex: spike.hex ?? null });
-      void get().askCopilot(spike.day
-        ? `Explain the selected satellite data on ${spike.day.date}. What can we verify?`
-        : "Explain the selected H3 cell for the selected period. What can we verify?");
-    } else {
-      set({ isCopilotOpen: true, copilotError: null });
+  attachCopilotContext: (selection) => {
+    const state = get();
+    const context = structuredClone(liveCopilotSelection(state));
+    const sameArea = JSON.stringify(state.copilotContext?.aoi) === JSON.stringify(context.aoi);
+    context.hex = selection?.hex !== undefined ? selection.hex : sameArea ? state.copilotContext?.hex ?? null : null;
+    context.day = selection?.day !== undefined ? selection.day : state.loading ? null : context.day;
+    if (selection?.day) context.start = context.end = selection.day.date;
+    if (context.hex) {
+      const [lat, lng] = cellToLatLng(context.hex.h3_index);
+      context.label = `Map cell at ${lat.toFixed(3)}°, ${lng.toFixed(3)}°`;
     }
+    set({ copilotContext: context, activeSpikeDay: context.day, activeSpikeHex: context.hex,
+      copilotContextKey: null, copilotError: null });
   },
-
+  removeCopilotContext: () => set({ copilotContext: null, activeSpikeDay: null, activeSpikeHex: null,
+    copilotContextKey: null, copilotContextStart: get().copilotMessages.length }),
+  openCopilot: (selection) => {
+    if (selection?.day || selection?.hex) get().attachCopilotContext(selection);
+    set({ isCopilotOpen: true, copilotError: null });
+  },
   closeCopilot: () => set({ isCopilotOpen: false }),
-
   toggleCopilot: () => set((s) => ({ isCopilotOpen: !s.isCopilotOpen })),
 
   askCopilot: async (question: string) => {
@@ -549,33 +622,40 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     copilotController?.abort();
     copilotController = new AbortController();
     const signal = copilotController.signal;
-    const regionName =
-      state.selectedPreset !== "CUSTOM" && state.selectedPreset in PRESET_REGIONS
-        ? PRESET_REGIONS[state.selectedPreset as PresetKey].label
-        : "Analyzed Area of Interest";
+    const context = state.copilotContext ? structuredClone(state.copilotContext) : null;
+    const key = JSON.stringify(context);
+    const contextChanged = key !== state.copilotContextKey;
+    const historyStart = contextChanged ? state.copilotMessages.length : state.copilotContextStart;
 
     const userMsg: CopilotMessage = {
       id: `user-${Date.now()}`,
       role: "user",
       content: trimmed,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      context: context ?? undefined
     };
 
     set((s) => ({
       copilotMessages: [...s.copilotMessages, userMsg],
       copilotLoading: true,
-      copilotError: null
+      copilotError: null,
+      copilotContextKey: key,
+      copilotContextStart: historyStart
     }));
 
     try {
       const res = await explainSpike({
-        region_name: regionName,
-        selected_day: state.activeSpikeDay ?? (state.selectedDate ? state.dateIndex.get(state.selectedDate) ?? null : null),
-        selected_hex: state.activeSpikeHex,
-        aoi: state.currentAoi,
-        period_start: state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 1, 1),
-        period_end: state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 12, 31),
-        conversation: state.copilotMessages.slice(-10).map(({ role, content }) => ({ role, content: content.slice(0, 6000) })),
+        region_name: context?.label ?? "No attached location",
+        selected_day: context?.day ?? null,
+        selected_hex: context?.hex ?? null,
+        aoi: context?.aoi ?? null,
+        period_start: context?.start ?? null,
+        period_end: context?.end ?? null,
+        prefer_map_context: contextChanged,
+        exclude_industrial_flaring: context?.excludeIndustrial ?? state.excludeIndustrial,
+        enable_kalman_gap_filling: context?.enableKalman ?? state.enableKalman,
+        previous_context: contextChanged ? null : [...state.copilotMessages].reverse().find((m) => m.role === "assistant")?.response?.map_context ?? null,
+        conversation: state.copilotMessages.slice(historyStart).slice(-10).map(({ role, content }) => ({ role, content: content.slice(0, 6000) })),
         user_question: trimmed
       }, signal);
       if (sequence !== copilotSeq) return;
@@ -604,6 +684,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   clearCopilotMessages: () => {
     copilotController?.abort();
     copilotSeq++;
+<<<<<<< HEAD
     set({ copilotMessages: [], copilotError: null, copilotLoading: false, activeSpikeDay: null, activeSpikeHex: null });
   },
 
@@ -705,6 +786,10 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     } finally {
       if (riskController === controller) riskController = null;
     }
+=======
+    set({ copilotMessages: [], copilotError: null, copilotLoading: false,
+      activeSpikeDay: null, activeSpikeHex: null, copilotContext: null, copilotContextKey: null, copilotContextStart: 0 });
+>>>>>>> 79dca5d (hola)
   }
 
 }));

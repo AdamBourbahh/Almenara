@@ -1,4 +1,36 @@
-# CAMBIOS — registro de cambios que afectan a otros integrantes
+# Change log — integration changes
+
+## 2026-11-14 — Automatic removable context and causal evidence
+
+Replaces the earlier pin/follow-map panel with one automatic location/date attachment
+above the composer and a single remove X. Explicit AOI, hexagon and chronology
+selections attach immediately; hover alone does not replace context. Area analysis
+preserves the selected day, and timeline precision changes select the displayed unit.
+Removal clears attached request geometry, dates and previous-scope inference while
+retaining visible chat. Compatible locality names preserve the actual selected polygon.
+
+Answers now use question-specific sections. Causal questions lead with the documented
+status or uncertainty and concise local evidence, with no irrelevant FRP/ranking dump.
+Annual selections request an incident day rather than guessing the busiest day.
+Scientific mechanisms are distinguished from incident-specific ignition evidence.
+
+Official and reputable-news searches run in parallel with domain, location/date and
+source-diversity checks. Selected official articles are retrieved without redirects,
+with bounded bodies/timeouts. Causal extraction accepts complete verbatim sentences
+only, validates source text and nearby event date/locality, and rejects invented quotes
+or excerpts that strip preceding negations. Crossref adds relevant DOI publication
+metadata while excluding obvious retractions/corrections. Metadata and background
+papers are not represented as verified incident causes. The model is not retrained.
+All existing API contract fields remain compatible. Source cards are collapsed by
+default and identify official reports, news and scientific literature.
+
+Validation: 306 backend tests and 18 frontend tests pass, the production build passes,
+and all frozen test hashes match. Chromium checks exercise an actual right-button AOI
+drag, preservation of the selected 2026-07-24 date, the Madrid causal question without
+polygon/date expansion, X removal with no stale context in the next request, and mobile
+layout with no horizontal overflow or JavaScript errors. A live real-data research
+check retrieves six references, including three DOI metadata records, while explicitly
+leaving the selected incident's ignition cause unverified.
 
 ## 2026-11-14 — Exact daily and monthly map observations
 
@@ -140,6 +172,42 @@ Verification: 148 backend tests passed (including four new actual-core HTTP inte
 The default frontend now uses additive `POST /api/observations` with a GeoJSON polygon body. Responses contain `data_source: "real"`, `daily` (UTC date/year/DOY, detection_count, raw_frp_mw, sensors), `map_hexagons` (15-character H3 hex, detection_count, raw_frp_mw), total detections, first/last observed dates, execution time and a method description. Values come exclusively from accepted staging detection centers, without calibration or imputation. Missing staging or synthetic backend mode returns 503. The endpoint uses hierarchical R4/R7 filtering, request-local cursors, Arrow cell tables and bound SQL parameters. Counts and FRP are additive across map cells and days; no scientific validation or energy interpretation is implied.
 
 The UI reads its four study envelopes from data/regions.json, displays observed counts, raw FRP, all five instruments and explicit missing-day semantics, and exports an observations CSV. It has no automatic synthetic fallback, gap-filling control, forecast or emissions/audit claims. Calendar gaps remain blank. Map colors summarize the full observed period; the history year control only selects the inspected annual count. The map stays mounted across tabs. Legacy scientific API contracts and their TypeScript mirror are unchanged.
+
+## 2026-11-14 — Database metrics and pinned map context
+
+Fire Copilot now answers quantitative energy, biomass and detection questions directly
+from server data. `copilot_metrics.py` reuses the dashboard's `/api/analyze` calculation
+over the 2001–2026 history and selects inclusive query dates. It preserves reconstruction
+and industrial-source filters, reports GJ integration, reconstructed days, biomass,
+peak-energy day and per-year totals, and identifies the derived local cube separately
+from accepted raw detection counts. It does not interpret detections as unique fires.
+Local metric requests call neither model nor search providers. Missing cube columns,
+unsupported dates and absent spatial data return explicit limitations.
+
+The user-requested chatbot/map integration coordinates changes across the backend and
+frontend ownership tracks. Existing contract fields are retained. Optional request
+booleans `prefer_map_context=false`, `exclude_industrial_flaring=true` and
+`enable_kalman_gap_filling=true`, nullable request `previous_context=null`, and
+nullable response `map_context=null` are mirrored
+in `backend/api/schemas.py`, `frontend/src/api/types.ts` and root `SPECS.md`.
+`CopilotMapContext` carries the resolved label, polygon, dates and optional R7 cell ID.
+
+Follow-ups echo the structured resolved scope so dates, custom AOIs and hexagons
+survive bounded history; new attachments discard that prior scope.
+
+The drawer follows the map selection, supports pinned geometry and filter snapshots,
+click-to-attach hexagons, removable hexagons and arbitrary date attachments. Context
+changes preserve visible chat but reset scope inference for subsequent requests.
+Messages show their attachment snapshots; answers show the actual queried area/dates.
+The existing single DeckGL mount is preserved. The attached chatbot methodology
+informs grounding and fallback behavior; project UI and documentation stay in English.
+
+Validation: 287 backend tests and 16 frontend tests pass; the production frontend
+build passes and all four frozen test hashes match. A real-data offline check against
+independent staging SQL and the scientific dashboard returns 8 detections and 15.811 GJ
+for R7 cell `87390cac0ffffff` on 2026-07-24 through 2026-07-25. Chromium checks cover
+pinned dates, a real Madrid energy query, desktop/mobile layouts, actual GPU cell
+picking and attachment removal, with no JavaScript errors or horizontal mobile overflow.
 
 ## 2026-11-14 — Main integration conflict resolution
 

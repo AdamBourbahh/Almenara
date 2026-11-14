@@ -8,7 +8,6 @@ import {
   Send,
   Bot,
   ShieldCheck,
-  Flame,
   BookOpen,
   Satellite,
   Trash2,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
 import type { CitationReference } from "../../api/types";
+import { CopilotContextPanel } from "./CopilotContextPanel";
 
 // ============================================================================
 // Markdown & Inline Formatting Helpers
@@ -219,10 +219,10 @@ const CitationCard: React.FC<CitationCardProps> = ({ citation }) => {
     : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400";
 
   const sourceLabel = isWeb
-    ? "Web Report"
+    ? citation.dataset_or_doi.startsWith("Official") ? "Official report" : "News report"
     : isNasa
     ? "NASA Dataset"
-    : "Peer-Reviewed";
+    : "Scientific literature";
 
   const SourceIcon = isWeb ? Globe : isNasa ? Satellite : BookOpen;
 
@@ -283,24 +283,18 @@ export function FireCopilotDrawer() {
     copilotLoading,
     copilotError,
     copilotMessages,
-    activeSpikeDay,
-    activeSpikeHex,
     closeCopilot,
     askCopilot,
-    clearCopilotMessages,
-    openCopilot
+    clearCopilotMessages
   } = useAnalysisStore(
     useShallow((s) => ({
       isCopilotOpen: s.isCopilotOpen,
       copilotLoading: s.copilotLoading,
       copilotError: s.copilotError,
       copilotMessages: s.copilotMessages,
-      activeSpikeDay: s.activeSpikeDay,
-      activeSpikeHex: s.activeSpikeHex,
       closeCopilot: s.closeCopilot,
       askCopilot: s.askCopilot,
-      clearCopilotMessages: s.clearCopilotMessages,
-      openCopilot: s.openCopilot
+      clearCopilotMessages: s.clearCopilotMessages
     }))
   );
 
@@ -357,7 +351,7 @@ export function FireCopilotDrawer() {
                 </span>
               </div>
               <p className="text-[11px] text-faint">
-                Explore satellite detections and attributed fire reports
+                Query local energy, satellite detections and fire reports
               </p>
             </div>
           </div>
@@ -384,35 +378,6 @@ export function FireCopilotDrawer() {
           </div>
         </header>
 
-        {/* Active Telemetry Chip */}
-        {(activeSpikeDay || activeSpikeHex) && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rule bg-paper/50 px-4 py-2 text-xs">
-            <div className="flex items-center gap-1.5 text-muted">
-              <Flame className="h-3.5 w-3.5 text-terracotta" />
-              <span className="font-medium text-ink">Active Context:</span>
-              {activeSpikeDay && (
-                <span>
-                  {activeSpikeDay.date} · {activeSpikeDay.harmonized_fre_mj_km2.toFixed(1)} MJ/km² · Anomaly{" "}
-                  {activeSpikeDay.z_score_anomaly.toFixed(2)}σ
-                </span>
-              )}
-              {!activeSpikeDay && activeSpikeHex && (
-                <span className="font-mono text-[11px]">
-                  Hex {activeSpikeHex.h3_index.slice(0, 10)}… (Entropy: {activeSpikeHex.shannon_entropy.toFixed(2)})
-                </span>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => openCopilot({ day: activeSpikeDay, hex: activeSpikeHex })}
-              className="text-[11px] font-medium text-reference hover:underline"
-            >
-              Re-analyze
-            </button>
-          </div>
-        )}
-
         {/* Message Thread */}
         <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
           {copilotMessages.length === 0 ? (
@@ -421,7 +386,7 @@ export function FireCopilotDrawer() {
                 <Sparkles className="h-6 w-6" />
               </div>
               <h4 className="font-serif text-lg font-semibold text-ink">
-                Investigate a fire
+                Explore your fire data
               </h4>
               <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted">
                 Ask about a place and date, or inspect the selected map area. Answers distinguish
@@ -433,8 +398,8 @@ export function FireCopilotDrawer() {
                   Suggested inquiries:
                 </p>
                 {[
-                  "What happened near Madrid on 24 July 2026?",
-                  "Investigate the fires near Careiro, Amazonas on 13 September 2024.",
+                  "How much energy in GJ and how many detections are in this area?",
+                  "Show energy by year for this area from 2020 to 2025.",
                   "Which days had the most detections near Manaus in September 2024?",
                   "Can satellite FRP tell us the cause or burned area?"
                 ].map((q, i) => (
@@ -459,6 +424,7 @@ export function FireCopilotDrawer() {
                 {msg.role === "user" ? (
                   <div className="max-w-[85%] rounded-lg bg-ink px-3.5 py-2.5 text-xs text-paper">
                     <p className="leading-relaxed">{msg.content}</p>
+                    {msg.context && <p className="mt-1 text-[10px] opacity-75">{msg.context.hex ? `H3 ${msg.context.hex.h3_index}` : msg.context.label} · {msg.context.start}–{msg.context.end}</p>}
                   </div>
                 ) : (
                   <div className="w-full rounded-lg border border-rule bg-panel p-3.5 shadow-sm">
@@ -476,55 +442,36 @@ export function FireCopilotDrawer() {
                         </span>
                       )}
 
-                      {/* Physical Classification Badge */}
-                      {msg.response?.physical_classification && (
-                        <span className="rounded border border-rule px-1.5 py-0.5 font-mono text-[10px] text-muted">
-                          {msg.response.physical_classification.replaceAll("_", " ").toLowerCase()}
-                        </span>
-                      )}
-
-                      {/* Web results retrieved Badge */}
-                      {msg.response?.web_search_used && (
-                        <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                          <Globe className="h-3 w-3" />
-                          Web results retrieved
-                        </span>
-                      )}
                     </div>
-
-                    {/* Executed Search Query in Muted Monospace Text */}
-                    {msg.response?.web_search_used && msg.response.search_query_executed && (
-                      <div className="mb-2 rounded bg-paper/80 px-2.5 py-1.5 border border-rule/60">
-                        <p className="font-mono text-[11px] text-faint truncate">
-                          <span className="text-muted font-sans font-medium">Executed Search:</span>{" "}
-                          "{msg.response.search_query_executed}"
-                        </p>
-                      </div>
-                    )}
 
                     {msg.response?.data_source === "synthetic" && (
                       <p className="mb-2 text-xs font-medium text-bias">Synthetic demo data · cannot verify real fires</p>
                     )}
+                    {msg.response?.map_context && (
+                      <p className="mb-2 text-[11px] text-faint">
+                        Queried: {msg.response.map_context.label} · {msg.response.map_context.period_start}–{msg.response.map_context.period_end}
+                      </p>
+                    )}
                     {/* Markdown Body */}
-                    <div className="text-xs text-ink">{renderMarkdownBlocks(msg.content, msg.response?.citations)}</div>
+                    <div className="text-[13px] text-ink">{renderMarkdownBlocks(msg.content, msg.response?.citations)}</div>
 
                     {/* Verifiable References List */}
                     {msg.response?.citations && msg.response.citations.length > 0 && (
-                      <div className="mt-4 border-t border-rule pt-3">
-                        <div className="mb-2 flex items-center justify-between">
+                      <details className="mt-4 border-t border-rule pt-3">
+                        <summary className="mb-2 flex cursor-pointer items-center justify-between">
                           <h5 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-faint">
                             <ShieldCheck className="h-3.5 w-3.5 text-validated" />
                             Sources ({msg.response.citations.length})
                           </h5>
-                          <span className="text-[10px] text-faint">Open a source to check its scope</span>
-                        </div>
+                          <span className="text-[10px] text-faint">View evidence</span>
+                        </summary>
 
                         <ul className="space-y-2">
                           {msg.response.citations.map((cit, idx) => (
                             <CitationCard key={cit.id || idx} citation={cit} />
                           ))}
                         </ul>
-                      </div>
+                      </details>
                     )}
                   </div>
                 )}
@@ -551,6 +498,7 @@ export function FireCopilotDrawer() {
 
         {/* Input Bar */}
         <footer className="shrink-0 border-t border-rule bg-panel p-3.5">
+          <CopilotContextPanel />
           <form onSubmit={handleSubmit} className="flex items-center gap-2">
             <input
               type="text"

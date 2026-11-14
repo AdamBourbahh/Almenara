@@ -23,6 +23,42 @@ Answers and UI text are in English. For example:
 - “Investigate Careiro, Amazonas on 13 September 2024.”
 - “Which days had the most detections near Manaus in September 2024?”
 - “And on the next day?” (after a dated question)
+- “How much energy in GJ and how many detections are in this area?”
+- “Show energy by year for this area from 2020 to 2025.”
+
+Selecting a map area, hexagon or timeline day automatically adds **Area and day
+added as context** above the chat input. Month/year selections are labeled as periods,
+including **full year** where appropriate. The notice shows location and dates and
+has a single **×** to remove the attachment. Drawing an area preserves the selected
+day. There are no separate pinning or date controls inside the chat. Removing context
+also prevents earlier attached geometry or dates from leaking into the next question.
+
+A compatible reference such as “that fire in Madrid” keeps the drawn polygon; it does
+not expand a small selection to the whole Madrid envelope. A different named place or
+explicit date can change the scope. Answers show their actual queried scope.
+
+For “why did this fire happen?”, responses start with what can be established, then
+show concise local evidence and distinguish incident reports from scientific context.
+A whole-year selection is not treated as a single incident. Ignition causes are never
+inferred from detection counts, power, weather theory or the busiest day.
+
+The assistant searches official agencies and reputable news, reads a bounded number of
+official pages, and checks related scientific publication metadata using Crossref.
+A causal excerpt must be present in retrieved official text, retain its complete
+sentence and uncertainty, and match a nearby explicit event date and locality. Search
+snippets remain leads. DOI metadata and general scientific papers do not establish the
+cause of a particular fire. Useful sources are cited, without inflating source counts.
+This is retrieval and evidence checking, not model training. Source details can be
+expanded below each response.
+
+GJ answers use the same full-history scientific calculation as the dashboard, with
+the attached reconstruction and industrial-source filters. They integrate daily FRE
+over represented H3 area, then select the requested dates; they never convert a sum of
+instantaneous MW samples into GJ. Responses include biomass estimates, reconstructed
+day counts, the highest-energy day and annual energy totals for multiyear requests.
+Reconstructed regional totals may differ from the map's observed-only period energy.
+Numerical queries need no model credentials or internet access. Missing data are
+reported explicitly, and synthetic results remain visibly labeled.
 
 The assistant queries accepted local FIRMS detections for the question's geography and
 exact inclusive dates. It reports counts, summed instantaneous power and busiest days
@@ -49,7 +85,7 @@ when no reports are found.
 Run the chatbot checks from `firms-harmonizer/`:
 
 ```bash
-python -m pytest backend/tests/test_explain_spike.py -q
+python -m pytest backend/tests/test_explain_spike.py backend/tests/test_copilot_metrics.py backend/tests/test_copilot_research.py -q
 python scripts/06_validate_copilot.py --output data/processed/copilot_validation_offline.json
 python scripts/06_validate_copilot.py --live --output data/processed/copilot_validation_live.json
 cd frontend && node --test tests/*.test.mjs && npm run build

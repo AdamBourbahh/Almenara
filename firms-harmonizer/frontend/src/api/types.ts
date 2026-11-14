@@ -198,6 +198,18 @@ export interface ExplainSpikeRequest {
   conversation?: CopilotTurn[];
   period_start?: string | null;
   period_end?: string | null;
+  prefer_map_context?: boolean;
+  exclude_industrial_flaring?: boolean;
+  enable_kalman_gap_filling?: boolean;
+  previous_context?: CopilotMapContext | null;
+}
+
+export interface CopilotMapContext {
+  label: string;
+  aoi: GeoJSONPolygon;
+  period_start: string;
+  period_end: string;
+  h3_index?: string | null;
 }
 
 export interface ExplainSpikeResponse {
@@ -208,6 +220,7 @@ export interface ExplainSpikeResponse {
   search_query_executed?: string | null;
   model_used?: string;
   data_source?: "real" | "synthetic";
+  map_context?: CopilotMapContext | null;
 }
 
 /** Pilot regions = SPECS.md §5.3 bounds (the synthetic cube places its cells inside them). */
