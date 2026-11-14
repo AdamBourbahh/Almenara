@@ -79,6 +79,33 @@ download can never fabricate zero-count outage days. `scripts/02` then prefers
 Limits: the archives are per country (open-sea detections are absent, relevant for flaring offshore of
 the Niger Delta), end in 2025, and every member of a zip must share one CSV header.
 
+## Cloud ancillary (NASA POWER `CLOUD_AMT`)
+
+`cloud_power.py` supplies the local cloud reanalysis that `scripts/04` reads from
+`data/lookup/cell_day_ancillary.parquet` (strictly above 0.80 sets gap bit `2` and nulls the observations;
+the rule is unchanged). It is the second module that uses the network. Probed on 2026-11-14: the POWER daily
+point API needs no key; its source is CERES SYN1deg, a **1 x 1 degree grid with integer-degree cell edges**
+(identical series for every point sharing `floor(lat), floor(lon)`; an exact edge belongs to the north/east
+cell). One request per cell at its centre returns 2000-11-01..2026-11-01 in percent; the fill value `-999`
+(all days after about 2026-08-30, and any other gap) becomes NULL, never 0.
+
+```bash
+python -m pipeline.run --cloud-power                  # fetch missing cells (about 1 request/s) and build the table
+python -m pipeline.run --cloud-build-only             # rebuild the table from the cache, no network
+python scripts/02_detect_outages_clouds.py            # offline: build data/lookup/cell_day_ancillary.parquet
+```
+
+| Output | Path |
+| --- | --- |
+| Per-cell JSON cache (resumable, git-ignored) | `data/real/cloud_power/lat<+LL>_lon<+LLL>.json` |
+| Grid table `grid_lat_sw, grid_lon_sw, acq_date, cloud_fraction` (ZSTD, key-value metadata `cloud_power`) | `data/lookup/cloud_power_daily.parquet` |
+| Cell-day ancillary (derived, git-ignored) | `data/lookup/cell_day_ancillary.parquet` |
+
+Cells are enumerated from the boxes of **all** regions in `data/regions.json`. Requests are sequential with
+retries and exponential backoff. Stage 02 builds the ancillary only when the grid table sits next to its
+outputs; each H3 R7 cell takes the value of the grid cell that contains its centroid. This is a daily mean
+cloud amount on a coarse grid, not cloud at the satellite overpass time (see `data/ETL_SPEC.md`).
+
 ## One-time setup
 
 Install the backend requirements, then the DuckDB `h3` community extension **once**, with the same

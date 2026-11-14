@@ -1,9 +1,14 @@
 """Build offline outage evidence and coincident Terra/Aqua diurnal ratios."""
 
 import argparse
+import hashlib
+import json
 from pathlib import Path
 
 import duckdb
+import h3
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGED = ROOT / "data/processed/staged_firms.parquet"
@@ -11,6 +16,10 @@ GLOBAL_COUNTS = Path("data/lookup/global_daily_counts.csv")
 ARCHIVE_COUNTS = Path("data/lookup/global_daily_counts_archive.csv")
 # Measured in FIRMS world counts (VIIRS_SNPP_SP = 0 detections; Aqua, Terra and NOAA-20 nominal).
 KNOWN_OUTAGES = (("SNPP", "2022-07-27", "2022-08-10"),)
+CLOUD_GRID_NAME = "cloud_power_daily.parquet"
+ANCILLARY_NAME = "cell_day_ancillary.parquet"
+ANCILLARY_SCHEMA = pa.schema([("h3_r7", pa.uint64()), ("acq_date", pa.date32()),
+                              ("cloud_cover_pct", pa.float64()), ("burned_area_ha_mcd64", pa.float64())])
 
 
 def read_counts_sql(path):
@@ -98,7 +107,64 @@ def build_outages_table(staged=STAGED, output_dir="data/lookup", global_counts=N
                 0::DOUBLE AS ratio, 0::BIGINT AS matched_days WHERE false""")
         ratios.write_parquet(str(output / "diurnal_ratios.parquet"))
     print("Wrote sensor_outages.parquet and diurnal_ratios.parquet.")
+    build_cell_day_ancillary(staged, output_dir)
     return output / "sensor_outages.parquet"
+
+
+def build_cell_day_ancillary(staged=STAGED, output_dir="data/lookup", grid=None):
+    """Join the staged cell-days to the POWER cloud grid table; offline, returns the path or None.
+
+    Rows are exactly the unique ``(h3_r7, acq_date)`` pairs of the staged detections (footprint-spread
+    cells included), which is the set of cell-days stage 04 publishes. ``cloud_cover_pct`` is the grid cell
+    (1 degree, integer-degree edges, ``floor`` on both axes) that contains the H3 R7 centroid; days or cells
+    without a value stay NULL so stage 04 counts them as missing, never as clear sky. No burned-area source
+    exists here, so ``burned_area_ha_mcd64`` is NULL. Without a grid table nothing is written.
+    """
+    output = ROOT / output_dir
+    grid = Path(grid) if grid is not None else output / CLOUD_GRID_NAME
+    path = ROOT / staged
+    if not grid.is_file():
+        return None
+    if not path.is_file():
+        print(f"No staged detections at {path}; cell_day_ancillary.parquet not built.")
+        return None
+    with duckdb.connect(config={"threads": 1}) as con:
+        cells = [row[0] for row in con.execute(
+            "SELECT DISTINCT h3_r7 FROM read_parquet(?) ORDER BY h3_r7", [str(path)]).fetchall()]
+        centroids = []
+        for cell in cells:
+            lat, lng = h3.cell_to_latlng(format(cell, "x"))
+            centroids.append((cell, int(lat // 1), int(lng // 1)))
+        con.register("centroids", pa.Table.from_pylist(
+            [dict(h3_r7=c, grid_lat_sw=a, grid_lon_sw=b) for c, a, b in centroids],
+            schema=pa.schema([("h3_r7", pa.uint64()), ("grid_lat_sw", pa.int16()), ("grid_lon_sw", pa.int16())])))
+        table = con.execute("""
+            SELECT d.h3_r7, d.acq_date::DATE AS acq_date,
+                   g.cloud_fraction::DOUBLE AS cloud_cover_pct,
+                   NULL::DOUBLE AS burned_area_ha_mcd64
+            FROM (SELECT DISTINCT h3_r7, acq_date FROM read_parquet(?)) d
+            JOIN centroids c USING (h3_r7)
+            LEFT JOIN read_parquet(?) g ON g.grid_lat_sw = c.grid_lat_sw
+                 AND g.grid_lon_sw = c.grid_lon_sw AND g.acq_date = d.acq_date
+            ORDER BY d.h3_r7, d.acq_date
+        """, [str(path), str(grid)]).to_arrow_table().cast(ANCILLARY_SCHEMA)
+    source = {}
+    raw = pq.read_schema(grid).metadata or {}
+    if b"cloud_power" in raw:
+        source = json.loads(raw[b"cloud_power"])
+    provenance = dict(source, grid_file=grid.name, grid_sha256=hashlib.sha256(grid.read_bytes()).hexdigest(),
+                      cell_days=table.num_rows, cloud_rows=table.num_rows - table.column("cloud_cover_pct").null_count,
+                      mapping="H3 R7 centroid -> 1 degree grid cell (floor of latitude and longitude); "
+                              "same acq_date; no value stays NULL",
+                      burned_area="NULL: no burned-area source in this ancillary")
+    table = table.replace_schema_metadata({"cell_day_ancillary": json.dumps(provenance, sort_keys=True)})
+    output.mkdir(parents=True, exist_ok=True)
+    target = output / ANCILLARY_NAME
+    temporary = target.with_suffix(".parquet.part")
+    pq.write_table(table, temporary, compression="zstd")
+    temporary.replace(target)
+    print(f"Wrote {ANCILLARY_NAME} ({table.num_rows} cell-days, {provenance['cloud_rows']} with cloud).")
+    return target
 
 
 if __name__ == "__main__":

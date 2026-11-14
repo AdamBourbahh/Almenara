@@ -750,6 +750,160 @@ def test_stage04_ancillary_metadata_distinguishes_missing_and_observed_zero(stag
     assert present["cloud_cover_pct"] == {"observed_rows": 1, "missing_rows": 37, "observed_zero_rows": 1}
     assert present["burned_area_ha_mcd64"] == {"observed_rows": 2, "missing_rows": 36, "observed_zero_rows": 1}
 
+def write_cloud_grid(path, series):
+    """Write a POWER-style grid table: series maps (lat_sw, lon_sw) to {date: fraction or None}."""
+    rows = [dict(grid_lat_sw=lat, grid_lon_sw=lon, acq_date=day, cloud_fraction=value)
+            for (lat, lon), days in sorted(series.items()) for day, value in sorted(days.items())]
+    schema = pa.schema([("grid_lat_sw", pa.int16()), ("grid_lon_sw", pa.int16()),
+                        ("acq_date", pa.date32()), ("cloud_fraction", pa.float64())])
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    meta = {b"cloud_power": json.dumps({"source": "fixture POWER grid", "parameter": "CLOUD_AMT"}).encode()}
+    pq.write_table(pa.Table.from_pylist(rows, schema=schema).replace_schema_metadata(meta), path,
+                   compression="zstd")
+
+
+def grid_cell_of(cell):
+    lat, lng = h3.cell_to_latlng(format(cell, "x"))
+    return int(np.floor(lat)), int(np.floor(lng))
+
+
+def stage04_cloud_grid(stage04_inputs, outages, series_for):
+    """Build the ancillary from a fixture grid for the stage04 fixture; returns the parsed table."""
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    series = {}
+    for cell, days in series_for(grid_cell_of(center), grid_cell_of(neighbor)).items():
+        series.setdefault(cell, {}).update(days)
+    write_cloud_grid(lookup / "cloud_power_daily.parquet", series)
+    outages.build_outages_table(staged, lookup)
+    return lookup / "cell_day_ancillary.parquet"
+
+
+def test_stage02_ancillary_maps_cells_to_grid_and_covers_exactly_the_stage04_cell_days(
+        stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    outages = import_module("02_detect_outages_clouds")
+    center_cell, neighbor_cell = grid_cell_of(center), grid_cell_of(neighbor)
+    days = [date(2022, 7, 30) + timedelta(days=i) for i in range(19)]
+    series = {center_cell: {day: 0.25 for day in days}}
+    if neighbor_cell != center_cell:
+        series[neighbor_cell] = {day: 0.5 for day in days}
+    write_cloud_grid(lookup / "cloud_power_daily.parquet", series)
+    outages.build_outages_table(staged, lookup)
+    table = pq.read_table(lookup / "cell_day_ancillary.parquet")
+    assert [(f.name, f.type) for f in table.schema] == [
+        ("h3_r7", pa.uint64()), ("acq_date", pa.date32()), ("cloud_cover_pct", pa.float64()),
+        ("burned_area_ha_mcd64", pa.float64())]
+    rows = table.to_pylist()
+    keys = [(r["h3_r7"], r["acq_date"]) for r in rows]
+    assert len(keys) == len(set(keys)) == 38 and keys == sorted(keys)
+    cube = pq.read_table(builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup))
+    assert {(r["h3_r7"], date(1970, 1, 1) + timedelta(days=r["epoch_day"]))
+            for r in cube.to_pylist()} == set(keys)
+    expected = {center: 0.25, neighbor: 0.25 if neighbor_cell == center_cell else 0.5}
+    assert all(r["cloud_cover_pct"] == expected[r["h3_r7"]] for r in rows)
+    assert all(r["burned_area_ha_mcd64"] is None for r in rows)
+
+
+def test_stage02_ancillary_includes_footprint_spread_cells(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    outages = import_module("02_detect_outages_clouds")
+    centre = h3.latlng_to_cell(40.0, -4.0, 7)
+    spread = next(cell for cell in h3.grid_disk(centre, 1) if cell != centre)
+    record = dict(h3_r4=int(h3.cell_to_parent(centre, 4), 16), acq_date=date(2022, 9, 1), satellite="Terra",
+                  sensor_bit=1, igbp_biome=8, scan_bin=0, corrected_frp=1.0, frp=10.0,
+                  industrial_prob=0.0, region="iberia_med", daynight="D")
+    staged = tmp_path / "staged.parquet"
+    pq.write_table(pa.Table.from_pylist([
+        dict(record, h3_r7=int(centre, 16), is_center=True),
+        dict(record, h3_r7=int(spread, 16), is_center=False, corrected_frp=0.4),
+        dict(record, h3_r7=int(spread, 16), is_center=False, satellite="Aqua", sensor_bit=2)]), staged)
+    lookup = tmp_path / "lookup"
+    write_cloud_grid(lookup / "cloud_power_daily.parquet",
+                     {grid_cell_of(int(c, 16)): {date(2022, 9, 1): 0.3} for c in (centre, spread)})
+    outages.build_outages_table(staged, lookup)
+    rows = pq.read_table(lookup / "cell_day_ancillary.parquet").to_pylist()
+    assert sorted(r["h3_r7"] for r in rows) == sorted([int(centre, 16), int(spread, 16)])
+
+
+@pytest.mark.parametrize("cloud,mask", [(0.8, 0), (0.8001, 10), (0.0, 0), (1.0, 10)])
+def test_stage02_ancillary_keeps_the_exact_080_boundary_through_stage04(stage04_inputs, tmp_path, cloud, mask):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    outages = import_module("02_detect_outages_clouds")
+    day = date(2022, 8, 12)
+    path = stage04_cloud_grid(stage04_inputs, outages,
+                              lambda c, n: {c: {day: cloud}, n: {day: cloud}})
+    row = next(r for r in pq.read_table(path).to_pylist()
+               if r["h3_r7"] == center and r["acq_date"] == day)
+    assert row["cloud_cover_pct"] == cloud
+    cube = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+    out = {(r["h3_r7"], r["epoch_day"]): r for r in pq.read_table(cube).to_pylist()}
+    result = out[center, (day - date(1970, 1, 1)).days]
+    assert result["gap_status_mask"] == mask
+    assert (result["obs_terra_fre"] is None) == (mask == 10)
+    assert result["cloud_cover_pct"] == pytest.approx(cloud, abs=1e-6)  # the cube stores FLOAT
+
+
+def test_stage02_missing_cloud_is_counted_as_missing_not_observed_zero(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    outages = import_module("02_detect_outages_clouds")
+    observed, null_day, absent_day = date(2022, 8, 12), date(2022, 8, 13), date(2022, 8, 14)
+    path = stage04_cloud_grid(stage04_inputs, outages, lambda c, n: {
+        c: {observed: 0.0, null_day: None}, n: {observed: 0.0, null_day: None}})
+    rows = {(r["h3_r7"], r["acq_date"]): r["cloud_cover_pct"] for r in pq.read_table(path).to_pylist()}
+    assert rows[center, null_day] is None and rows[center, absent_day] is None
+    assert rows[center, observed] == 0.0
+    cube = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+    meta = json.loads(pq.read_schema(cube).metadata[b"ancillary_coverage"])
+    assert meta["input_present"] is True
+    observed_cells = len({center, neighbor})
+    # Only the one observed day of each cell is observed; the other 17 days of both cells are missing
+    # when the two cells share a grid cell or not (the fixture grid has a value for both).
+    assert meta["cloud_cover_pct"] == {"observed_rows": observed_cells, "missing_rows": 38 - observed_cells,
+                                       "observed_zero_rows": observed_cells}
+    assert meta["burned_area_ha_mcd64"]["observed_rows"] == 0
+    out = {(r["h3_r7"], r["epoch_day"]): r for r in pq.read_table(cube).to_pylist()}
+    for day in (null_day, absent_day):
+        assert (out[center, (day - date(1970, 1, 1)).days]["gap_status_mask"] & 2) == 0
+
+
+def test_stage02_ancillary_records_provenance_and_is_reproducible(stage04_inputs, tmp_path):
+    import hashlib
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    outages = import_module("02_detect_outages_clouds")
+    day = date(2022, 8, 12)
+    path = stage04_cloud_grid(stage04_inputs, outages, lambda c, n: {c: {day: 0.4}, n: {day: 0.4}})
+    meta = json.loads(pq.read_schema(path).metadata[b"cell_day_ancillary"])
+    grid = lookup / "cloud_power_daily.parquet"
+    assert meta["grid_file"] == "cloud_power_daily.parquet"
+    assert meta["grid_sha256"] == hashlib.sha256(grid.read_bytes()).hexdigest()
+    assert meta["source"] == "fixture POWER grid" and meta["parameter"] == "CLOUD_AMT"
+    assert meta["cell_days"] == 38 and meta["cloud_rows"] == 2
+    assert "centroid" in meta["mapping"] and meta["burned_area"].startswith("NULL")
+    first = path.read_bytes()
+    outages.build_outages_table(staged, lookup)
+    assert path.read_bytes() == first
+
+
+def test_stage02_without_a_grid_table_behaves_as_before(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    outages = import_module("02_detect_outages_clouds")
+    outages.build_outages_table(staged, lookup)
+    assert not (lookup / "cell_day_ancillary.parquet").exists()
+    cube = builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup)
+    assert json.loads(pq.read_schema(cube).metadata[b"ancillary_coverage"])["input_present"] is False
+
+
+def test_stage02_cli_builds_the_ancillary_next_to_its_outputs(stage04_inputs, tmp_path):
+    builder, staged, lookup, center, neighbor = stage04_inputs
+    day = date(2022, 8, 12)
+    write_cloud_grid(lookup / "cloud_power_daily.parquet",
+                     {grid_cell_of(center): {day: 0.6}, grid_cell_of(neighbor): {day: 0.6}})
+    result = run_outage_cli(staged, lookup)
+    assert result.returncode == 0, result.stderr
+    assert (lookup / "cell_day_ancillary.parquet").is_file()
+    assert "cell_day_ancillary.parquet" in result.stdout
+
+
 def test_missing_staging_preserves_existing_master(tmp_path, monkeypatch):
     monkeypatch.syspath_prepend(str(ROOT / "scripts"))
     builder = import_module("04_build_master_cube")

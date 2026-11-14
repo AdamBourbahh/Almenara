@@ -26,6 +26,7 @@ Use local auxiliary Parquet files when available.
 |---|---|
 | `data/lookup/igbp_cells.parquet` | Unique unsigned `h3_r7`, `igbp_biome` from MCD12Q1 |
 | `data/lookup/cell_day_ancillary.parquet` | Unique unsigned `h3_r7` and `acq_date`, with `cloud_cover_pct` in 0–1 and `burned_area_ha_mcd64` in hectares |
+| `data/lookup/cloud_power_daily.parquet` | NASA POWER daily `CLOUD_AMT` grid table written by `pipeline/cloud_power.py`: `grid_lat_sw`, `grid_lon_sw` (INT16 south-west integer corner of a 1-degree cell), `acq_date`, `cloud_fraction` (DOUBLE in 0–1, NULL when missing). Parquet key `cloud_power` records source URL template, parameter, community, date range, grid, fetch date (UTC) and fill handling |
 | Path passed to script 02 with `--global-counts` | `satellite`, `acq_date`, `detection_count`. Supply one row per instrument per calendar day, including observed zero counts. |
 
 ## Stage behavior
@@ -210,6 +211,17 @@ Cell-day cloud occlusion applies to all instruments: the three FRE observations 
 The builder still emits only staged cell-days. Neither an absent sensor detection nor an absent cell-day proves a swath gap; it does not invent a dense calendar or set bit `4`. Positive swath-gap validation requires an additional documented coverage source and remains open.
 
 The optional ancillary file uses unique `(h3_r7, acq_date)` keys, cloud fractions in `[0, 1]`, and finite nonnegative burned area in hectares. Missing rows or null values retain the frozen non-null columns' zero sentinel. The JSON Parquet metadata key `ancillary_coverage` records `input_present` and, for each of `cloud_cover_pct` and `burned_area_ha_mcd64`, `observed_rows`, `missing_rows`, and `observed_zero_rows` over published cell-days. An observed zero counts as observed, never missing. These are aggregate provenance counts: an individual zero in a partially covered cube still requires the original ancillary join to distinguish its provenance. Do not treat all zero sentinels as measured clear sky or measured zero burned area.
+
+### Cloud ancillary from NASA POWER `CLOUD_AMT`
+
+`pipeline/cloud_power.py` (the only networked step of this chain) downloads the NASA POWER daily point series of the variable `CLOUD_AMT` (community `AG`, no key; `https://power.larc.nasa.gov/api/temporal/daily/point?parameters=CLOUD_AMT&community=AG&longitude=<lon>&latitude=<lat>&start=20001101&end=20261101&format=JSON`) for every grid cell that intersects the bounding box of any region in `data/regions.json`, and writes `data/lookup/cloud_power_daily.parquet`. Resumable per-cell JSON responses are cached under `data/real/cloud_power/` (git-ignored).
+
+- **Grid.** The source is CERES SYN1deg (`header.sources = ["SYN1DEG"]`). Probed on 2026-11-14: points with the same `floor(latitude), floor(longitude)` return identical series, points on either side of an integer degree differ, and a point exactly on an integer edge belongs to the north/east cell. Cells are therefore 1 x 1 degree with integer-degree edges, identified by their south-west corner; one request per cell is made at its centre. Cells touched only at a box edge are included.
+- **Units and fill.** POWER reports percent; the table stores a fraction (percent / 100, rounded to six decimals). The fill value `-999` becomes NULL, never `0`.
+- **Latency.** Data start on 2000-11-01 and are fill from about 2026-08-30, so later days are NULL and count as missing in stage 04.
+- **Stage 02 offline step.** When `cloud_power_daily.parquet` exists next to the stage 02 outputs, `scripts/02_detect_outages_clouds.py` also writes `cell_day_ancillary.parquet`: one row per unique `(h3_r7, acq_date)` of the staged detections (exactly the cell-days stage 04 publishes, footprint-spread cells included), `cloud_cover_pct` taken from the grid cell that contains the H3 R7 centroid on the same date, `burned_area_ha_mcd64` NULL (no burned-area source). Without a grid file nothing is written and stage 04 behaves as before. The Parquet key `cell_day_ancillary` records the grid file name, its SHA-256, the source metadata and the row counts. A cell-day without a cloud value is NULL and is counted as `missing_rows` by `ancillary_coverage`, not as an observed zero.
+- **Rule.** Stage 04 is unchanged: a fraction strictly above `0.80` sets bit `2` and nulls the observations of that cell-day; exactly `0.80` does not.
+- **Limitation.** POWER `CLOUD_AMT` is a **daily mean cloud amount on a coarse (about 100 km) grid in local solar time**, not the cloud state at the satellite overpass time and not at the 7th-resolution H3 cell scale. A cloudy daily mean can occlude cell-days that had clear overpasses, and the converse. The occlusion therefore removes observations for validated reanalysis evidence, not per-pixel cloud masking, and its effect is reported with the cube.
 
 ### Phase 5 local verification — 2026-11-14
 
