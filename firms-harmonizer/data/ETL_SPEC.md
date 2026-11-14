@@ -77,7 +77,7 @@ The daily grouping uses DuckDB's vectorized hash aggregation, with expected O(N)
 
 ```text
 FRP: 1 MW = 1 MJ/s
-FRE_obs(h,t,s) = P_cal(h,t,s) * 3600 s / A_h
+FRE_obs(h,t,s) = P_cal(h,t,s) * 3600 s / A_h * w_orb(h)      (Terra also * kappa; see below)
 reported unit: MJ / km² / day (energy assigned to one UTC daily bin)
 ```
 
@@ -96,6 +96,25 @@ This is a ratio of sums, not the unweighted mean of individual daily ratios. Mul
 
 **Diurnal application.** Stage 04 loads only lookup rows with `matched_days >= 3`. It multiplies Terra FRE by `kappa(h3_r4, month)` to represent the nominal morning Terra overpass (10:30 local time) on the afternoon Aqua amplitude scale (13:30 local time). A missing bucket or fewer than three matched days uses the neutral factor `1.0`. Aqua is not multiplied by kappa, nor are the VIIRS estimates. The grouping date remains UTC; local overpass times describe the physical rationale and do not shift the calendar key.
 
+**Orbital revisit weighting (Phase 4, `SPECS.md` §3.4(1)).** Sun-synchronous polar orbiters (inclination ≈ 98.2°) revisit high latitudes more often because their swaths converge: the relative daily revisit density at R7 centroid latitude φ_h is `π_orb(φ_h) / π_orb(0°) = sec(φ_h)`. The Horvitz-Thompson estimator divides each observation by that relative sampling probability, so the weight is the inverse, `cos(φ_h)`, not `sec(φ_h)`:
+
+```text
+φ_h      = h3.cell_to_latlng(h3_r7)[0]                       (centroid latitude, degrees)
+w_orb(h) = clip(cos(φ_h), cos(80°), 1.0)  ∈ [0.173648, 1.0]
+
+obs_terra_fre = P_cal,Terra * 3600 / A_h * kappa(h3_r4, month) * w_orb(h)
+obs_aqua_fre  = P_cal,Aqua  * 3600 / A_h * w_orb(h)
+obs_viirs_fre = mean over surviving VIIRS instruments of (P_cal,VIIRS * 3600 / A_h * w_orb(h))
+```
+
+- **Normalization:** `w_orb = 1.0` at the equator. Weighted densities are therefore expressed on the equatorial sampling scale.
+- **Domain and clamp:** the revisit model covers φ_h ∈ [−81.8°, +81.8°]. The lower clamp at `cos(80°) ≈ 0.173648` bounds the weight for cells poleward of ±80°.
+- **Single application:** Stage 04 multiplies each channel by `w_orb` exactly once, at the point where calibrated power becomes FRE density. Because the weight is constant per cell, weighting each VIIRS instrument before averaging equals weighting the mean. `neighbor_fre_lag1` is derived from the already-weighted channels and is not weighted again. DuckDB queries, the API and `backend/core/` must not re-apply it.
+- **Orthogonality:** `kappa` is the separate, existing Terra-only diurnal correction. Aqua and VIIRS receive `w_orb` without `kappa`.
+- **Unchanged fields:** `raw_frp_mw`, raw counts, masks and null semantics are untouched. A channel that is missing, in outage or cloud-occluded stays null; the weight only scales observed values.
+- **Provenance:** the published Parquet metadata records `orbital_weighting = "w_orb = clip(cos(centroid_lat_h3_r7), cos(80 deg), 1.0); applied once to obs_terra_fre, obs_aqua_fre, obs_viirs_fre"`.
+- **Limits:** `cos(φ)` is a first-order swath-convergence model. It does not use actual per-day swath geometry, scan angle or orbit tracks, and published real cubes acquire the weight only after a Stage 04 rebuild.
+
 **Spatial lag.** First form each source cell-day's mean across its non-null Terra, Aqua and grouped-VIIRS FRE channels. Let J(h,t-1) be the cells in `grid_disk(h, 1)`, excluding h itself, whose resulting mean on exactly `epoch_day - 1` is positive. An ordinary R7 cell has six neighbors (H3 pentagons can have five). Then:
 
 ```text
@@ -105,7 +124,7 @@ neighbor_fre_lag1(h,t) = 0.0 when J(h,t-1) is empty
 
 The mean is over active burning neighbors, not over all six locations; zero-energy neighbors do not dilute it. A measured zero remains a valid observation and does not become a blackout. Missing or occluded channels cannot contribute. Self, contemporaneous t, and older t-2 observations are excluded; there is no forward fill. The tests use valid FIRMS dates 2024-01-10 through 2024-01-12 (`epoch_day` 19732–19734), rather than literal epoch day 100 in 1970, which is outside the data contract.
 
-**Hand-checkable regression inputs.** All Phase 2 CSVs, region definitions, lookups and cubes are created under pytest temporary directories. Cell `87390c014ffffff` at 40° N, 4° W has an exact area of approximately 5.338061472892 km². Identity-calibrated 10, 30 and 75 MW give approximately 6,744.021249, 20,232.063746 and 50,580.159365 MJ/km²/day, respectively; assertions use `pytest.approx` to accommodate FLOAT storage. The end-to-end fixture has three daily groups of Terra 10 + 20 MW and Aqua 75 MW, plus archive/NRT conflicts and an exact duplicate. It retains nine detections, yields kappa `225 / 90 = 2.5` from three matched days, and publishes three daily rows with both channels at `75 * 3600 / A_h`. Independent cases cover insufficient/missing ratios, midnight boundaries, separate instrument means, and active-neighbor lag averaging.
+**Hand-checkable regression inputs.** All Phase 2 CSVs, region definitions, lookups and cubes are created under pytest temporary directories. Cell `87390c014ffffff` at 40° N, 4° W has an exact area of approximately 5.338061472892 km². Identity-calibrated 10, 30 and 75 MW give approximately 6,744.021249, 20,232.063746 and 50,580.159365 MJ/km²/day before orbital weighting, respectively; since Phase 4 the assertions multiply these by the cell's `w_orb = cos(centroid latitude)` (≈ 0.766 for this cell) and use `pytest.approx` to accommodate FLOAT storage. The end-to-end fixture has three daily groups of Terra 10 + 20 MW and Aqua 75 MW, plus archive/NRT conflicts and an exact duplicate. It retains nine detections, yields kappa `225 / 90 = 2.5` from three matched days, and publishes three daily rows with both channels at `75 * 3600 / A_h`. Independent cases cover insufficient/missing ratios, midnight boundaries, separate instrument means, and active-neighbor lag averaging.
 
 ### Stage 02 outage evidence contract
 

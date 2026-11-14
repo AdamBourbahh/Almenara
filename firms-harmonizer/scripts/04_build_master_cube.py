@@ -20,6 +20,19 @@ ROOT = ingest.ROOT
 EPOCH = date(1970, 1, 1)
 SORT = [(key, "ascending") for key in ("h3_r4", "epoch_day", "h3_r7")]
 OUT = ROOT / "data/processed/fire_cube.parquet"
+MIN_ORBITAL_WEIGHT = float(np.cos(np.deg2rad(80.0)))
+ORBITAL_WEIGHTING = ("w_orb = clip(cos(centroid_lat_h3_r7), cos(80 deg), 1.0); "
+                     "applied once to obs_terra_fre, obs_aqua_fre, obs_viirs_fre")
+
+
+def orbital_weight(h3_r7):
+    """Horvitz-Thompson inverse revisit weight (SPECS.md §3.4(1)).
+
+    Sun-synchronous revisit density grows as sec(latitude), so its inverse is cos(latitude),
+    normalized to 1.0 at the equator and clamped at cos(80°) near the poles.
+    """
+    latitude, _ = h3.cell_to_latlng(format(h3_r7, "x"))
+    return float(np.clip(np.cos(np.deg2rad(latitude)), MIN_ORBITAL_WEIGHT, 1.0))
 
 
 def estimate(sensor, mw, biome, angle, lut):
@@ -55,7 +68,7 @@ def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
         max(industrial_prob) AS industrial, mode(region) AS region
         FROM read_parquet(?) GROUP BY h3_r4, h3_r7, acq_date, satellite, sensor_bit
         ORDER BY h3_r7, acq_date, satellite""", [str(staged)]).fetchall()
-    daily, viirs, areas = {}, {}, {}
+    daily, viirs, scales = {}, {}, {}
     for h4, h7, day, sensor, bit, biome, angle, mw, n, raw, industrial, region in rows:
         ranges = regions[region].get("coverage", [])
         if not any(date.fromisoformat(start) <= day <= date.fromisoformat(end)
@@ -75,10 +88,11 @@ def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
         row["industrial_prob"] = max(row["industrial_prob"], industrial)
         if (day, sensor) in outages:
             continue
-        if h7 not in areas:
-            areas[h7] = h3.cell_area(format(h7, "x"), unit="km^2")
-        # One-hour integration proxy. FIRMS does not measure fire duration.
-        value = estimate(sensor, mw, biome, angle, lut) * 3600 / areas[h7]
+        if h7 not in scales:
+            # One-hour integration proxy (FIRMS does not measure fire duration) per km²,
+            # times the orbital revisit weight. This is the only place w_orb is applied.
+            scales[h7] = 3600 / h3.cell_area(format(h7, "x"), unit="km^2") * orbital_weight(h7)
+        value = estimate(sensor, mw, biome, angle, lut) * scales[h7]
         row["sensor_obs_mask"] |= bit
         if sensor == "Terra":
             row["obs_terra_fre"] = value * ratios.get((h4, day.month), 1.0)
@@ -180,6 +194,7 @@ def build_master_cube(staged_path=ingest.STAGED, output_path=OUT, force_bootstra
             b"ancillary_coverage": json.dumps(ancillary_coverage, sort_keys=True).encode(),
             b"real_igbp": b"local IGBP lookup or nominal regional fallback",
             b"fre_method": b"one-hour FRP integration proxy",
+            b"orbital_weighting": ORBITAL_WEIGHTING.encode(),
         }
         table = table_from_rows(daily.values()).replace_schema_metadata(metadata)
         if not len(table):

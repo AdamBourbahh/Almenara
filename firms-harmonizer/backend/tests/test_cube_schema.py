@@ -50,6 +50,12 @@ def phase2_etl(tmp_path, monkeypatch):
     return ingest, outages, builder
 
 
+def w_orb(cell):
+    """Independent SPECS.md §3.4(1) Horvitz-Thompson weight for an H3 R7 cell (hex or int)."""
+    latitude = h3.cell_to_latlng(cell if isinstance(cell, str) else format(cell, "x"))[0]
+    return float(np.clip(np.cos(np.radians(latitude)), np.cos(np.radians(80.0)), 1.0))
+
+
 def write_phase2_csv(path, records):
     """Write nadir FIRMS records; test inputs override the shared valid defaults."""
     defaults = dict(latitude=40.0, longitude=-4.0, acq_date="2024-01-10", acq_time="1030",
@@ -126,16 +132,17 @@ def test_stage04_eulerian_fre_conversion_and_units(phase2_etl, tmp_path):
     staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
     path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
     rows = pq.read_table(path).to_pylist()
-    area = h3.cell_area(h3.latlng_to_cell(40.0, -4.0, 7), unit="km^2")
+    cell = h3.latlng_to_cell(40.0, -4.0, 7)
+    scale = 3600 / h3.cell_area(cell, unit="km^2") * w_orb(cell)
     assert len(rows) == 2
     first, second = rows
-    assert first["obs_terra_fre"] == pytest.approx(30.0 * 3600 / area)
-    assert first["obs_aqua_fre"] == pytest.approx(7.0 * 3600 / area)
-    assert first["obs_viirs_fre"] == pytest.approx(12.0 * 3600 / area)
+    assert first["obs_terra_fre"] == pytest.approx(30.0 * scale)
+    assert first["obs_aqua_fre"] == pytest.approx(7.0 * scale)
+    assert first["obs_viirs_fre"] == pytest.approx(12.0 * scale)
     assert first["raw_frp_mw"] == 61.0
     assert first["raw_modis_cnt"] == 3 and first["raw_viirs_cnt"] == 2
     assert first["sensor_obs_mask"] == 15
-    assert second["obs_terra_fre"] == pytest.approx(5.0 * 3600 / area)
+    assert second["obs_terra_fre"] == pytest.approx(5.0 * scale)
     assert second["raw_modis_cnt"] == 1 and second["raw_frp_mw"] == 5.0
     assert second["epoch_day"] == first["epoch_day"] + 1
     assert second["neighbor_fre_lag1"] == 0.0  # Self is not a neighbor.
@@ -182,7 +189,7 @@ def test_stage04_diurnal_scaling_terra_to_aqua(phase2_etl, tmp_path, matched_day
         dict(h3_r4=parent, month=2, ratio=2.5, matched_days=2),
     ]), tmp_path / "data/lookup/diurnal_ratios.parquet")
     path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
-    base = 10.0 * 3600 / h3.cell_area(cell, unit="km^2")
+    base = 10.0 * 3600 / h3.cell_area(cell, unit="km^2") * w_orb(cell)
     rows = pq.read_table(path).to_pylist()
     assert len(rows) == 3
     for row, factor in zip(rows, (2.5, 1.0, 1.0)):
@@ -207,7 +214,7 @@ def test_stage04_neighbor_lag1_alignment(phase2_etl, tmp_path):
     rows = sorted((row for row in pq.read_table(path).to_pylist() if row["h3_r7"] == int(cell_b, 16)),
                   key=lambda row: row["epoch_day"])
     assert len(rows) == 3
-    expected = 10.0 * 3600 / h3.cell_area(cell_a, unit="km^2")
+    expected = 10.0 * 3600 / h3.cell_area(cell_a, unit="km^2") * w_orb(cell_a)
     assert [row["neighbor_fre_lag1"] for row in rows] == pytest.approx([0.0, expected, 0.0])
     assert [row["epoch_day"] for row in rows] == [19732, 19733, 19734]
 
@@ -223,7 +230,7 @@ def test_stage04_neighbor_lag_averages_only_active_burning_cells(phase2_etl, tmp
         lat, lon = h3.cell_to_latlng(cell)
         records.append(dict(latitude=lat, longitude=lon, frp=power))
         if power > 0:
-            expected_energy.append(power * 3600 / h3.cell_area(cell, unit="km^2"))
+            expected_energy.append(power * 3600 / h3.cell_area(cell, unit="km^2") * w_orb(cell))
     write_phase2_csv(tmp_path / "data/raw/archive.csv", records)
     staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
     path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
@@ -251,13 +258,95 @@ def test_phase2_csv_to_cube_preserves_energy_and_empirical_scaling(phase2_etl, t
     assert len(ratio) == 1 and ratio[0]["matched_days"] == 3 and ratio[0]["ratio"] == 2.5
     path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
     rows = pq.read_table(path).to_pylist()
-    area = h3.cell_area(h3.latlng_to_cell(40.0, -4.0, 7), unit="km^2")
+    cell = h3.latlng_to_cell(40.0, -4.0, 7)
+    expected = 75.0 * 3600 / h3.cell_area(cell, unit="km^2") * w_orb(cell)
     assert len(rows) == 3
     for row in rows:
         assert row["raw_modis_cnt"] == 3 and row["raw_frp_mw"] == 105.0
-        assert row["obs_terra_fre"] == pytest.approx(75.0 * 3600 / area)
-        assert row["obs_aqua_fre"] == pytest.approx(75.0 * 3600 / area)
+        assert row["obs_terra_fre"] == pytest.approx(expected)
+        assert row["obs_aqua_fre"] == pytest.approx(expected)
         assert row["neighbor_fre_lag1"] == 0.0
+
+
+def write_orbital_regions(tmp_path):
+    """Register an equatorial and a 60° N fixture region (bounds: west, south, east, north)."""
+    regions = {name: {"bounds": bounds, "nominal_biome": 8, "coverage": [["2024-01-01", "2024-12-31"]]}
+               for name, bounds in (("equator", [-61, -1, -59, 1]), ("subarctic", [9, 59, 11, 61]))}
+    (tmp_path / "data/regions.json").write_text(json.dumps(regions), encoding="utf-8")
+
+
+@pytest.mark.parametrize("latitude,expected", [
+    (0.0, 1.0), (60.0, 0.5), (-60.0, 0.5),
+    (85.0, float(np.cos(np.radians(80.0)))), (-89.0, float(np.cos(np.radians(80.0)))),
+])
+def test_stage04_orbital_weight_normalization_and_polar_clamp(phase2_etl, latitude, expected):
+    _, _, builder = phase2_etl
+    cell = h3.latlng_to_cell(latitude, 10.0, 7)
+    weight = builder.orbital_weight(int(cell, 16))
+    assert weight == pytest.approx(w_orb(cell), abs=1e-12)
+    assert weight == pytest.approx(expected, abs=2e-3)  # Centroid is within ~1.3 km of the input point.
+    assert np.cos(np.radians(80.0)) <= weight <= 1.0
+
+
+def test_stage04_orbital_revisit_weighting_equator_vs_high_latitude(phase2_etl, tmp_path):
+    ingest, _, builder = phase2_etl
+    write_orbital_regions(tmp_path)
+    points = {"equator": (0.0, -60.0), "subarctic": (60.0, 10.0)}
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [
+        dict(latitude=lat, longitude=lon, satellite=sensor, frp=40.0)
+        for lat, lon in points.values() for sensor in ("Terra", "Aqua", "SNPP")
+    ])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
+    table = pq.read_table(path)
+    rows = {row["h3_r7"]: row for row in table.to_pylist()}
+    assert len(rows) == 2
+    ratios = {}
+    for name, (lat, lon) in points.items():
+        cell = h3.latlng_to_cell(lat, lon, 7)
+        row = rows[int(cell, 16)]
+        unweighted = 40.0 * 3600 / h3.cell_area(cell, unit="km^2")
+        centroid_lat = h3.cell_to_latlng(cell)[0]
+        for field in ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre"):
+            assert row[field] == pytest.approx(unweighted * np.cos(np.radians(centroid_lat)), rel=1e-6)
+        assert row["raw_frp_mw"] == 120.0  # Raw provenance remains unweighted.
+        ratios[name] = row["obs_aqua_fre"] / unweighted
+    # Applied exactly once: cos(φ), never cos²(φ) and never sec(φ).
+    assert ratios["equator"] == pytest.approx(1.0, abs=1e-4)
+    assert ratios["subarctic"] == pytest.approx(0.5, abs=2e-3)
+    assert ratios["subarctic"] != pytest.approx(0.25, abs=0.05)
+    assert b"cos(centroid_lat_h3_r7)" in table.schema.metadata[b"orbital_weighting"]
+
+
+def test_stage04_orbital_weight_and_terra_diurnal_orthogonality(phase2_etl, tmp_path):
+    ingest, _, builder = phase2_etl
+    write_orbital_regions(tmp_path)
+    cell = h3.latlng_to_cell(60.0, 10.0, 7)
+    neighbor = sorted(set(h3.grid_disk(cell, 1)) - {cell})[0]
+    lat_n, lon_n = h3.cell_to_latlng(neighbor)
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [
+        dict(latitude=60.0, longitude=10.0, satellite=sensor, frp=frp)
+        for sensor, frp in (("Terra", 10.0), ("Aqua", 20.0), ("SNPP", 30.0), ("N20", 50.0))
+    ] + [dict(latitude=lat_n, longitude=lon_n, acq_date="2024-01-11", satellite="Aqua", frp=1.0)])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    pq.write_table(pa.Table.from_pylist([
+        dict(h3_r4=int(h3.cell_to_parent(cell, 4), 16), month=1, ratio=2.0, matched_days=3),
+    ]), tmp_path / "data/lookup/diurnal_ratios.parquet")
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
+    rows = {row["h3_r7"]: row for row in pq.read_table(path).to_pylist()}
+    row = rows[int(cell, 16)]
+    weight = float(np.cos(np.radians(h3.cell_to_latlng(cell)[0])))
+    assert weight == pytest.approx(0.5, abs=2e-3)
+    scale = 3600 / h3.cell_area(cell, unit="km^2")
+    terra = 10.0 * scale * 2.0 * weight
+    aqua = 20.0 * scale * weight
+    viirs = (30.0 + 50.0) / 2 * scale * weight
+    assert row["obs_terra_fre"] == pytest.approx(terra, rel=1e-6)
+    assert row["obs_aqua_fre"] == pytest.approx(aqua, rel=1e-6)
+    assert row["obs_viirs_fre"] == pytest.approx(viirs, rel=1e-6)
+    # Lag energy inherits the channel weights and is not weighted again.
+    lag = rows[int(neighbor, 16)]["neighbor_fre_lag1"]
+    assert lag == pytest.approx((terra + aqua + viirs) / 3, rel=1e-6)
 
 def run_outage_cli(staged, output, counts=None):
     command = [sys.executable, str(ROOT / "scripts/02_detect_outages_clouds.py"),
