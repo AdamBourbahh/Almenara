@@ -101,3 +101,21 @@ class RadiometricHarmonizer:
             raise ValueError("FRE must be non-negative and finite, with optional NaNs.")
         mapped = np.interp(data, unique, targets) + correction
         return np.asarray(np.where(np.isnan(data), np.nan, np.where(data == 0, 0.0, mapped)))
+
+    def compensate_modis_censoring(self, modis_fre: np.ndarray, lut: dict | None = None) -> np.ndarray:
+        """Add delta E_sub to detected MODIS values so both channels share one scale.
+
+        MODIS omits fires below its ~8 MW threshold in every year; the same
+        expected sub-threshold energy that harmonize_viirs_to_modis adds to
+        VIIRS is added here. NaNs remain missing and zeros remain zero.
+        """
+        model = self.lut if lut is None else lut
+        if model is None:
+            raise ValueError("Fit a LUT first or supply one explicitly.")
+        correction = float(model.get("delta_e_sub", 0.0))
+        if not np.isfinite(correction) or correction < 0:
+            raise ValueError("The LUT correction must be finite and non-negative.")
+        data = np.asarray(modis_fre, dtype=float)
+        if np.isinf(data).any() or np.any(data < 0):
+            raise ValueError("FRE must be non-negative and finite, with optional NaNs.")
+        return np.asarray(np.where(data > 0, data + correction, data))
