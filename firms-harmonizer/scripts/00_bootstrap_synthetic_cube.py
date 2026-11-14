@@ -172,7 +172,7 @@ def _write_mock(table: pa.Table, dates: np.ndarray, truth: np.ndarray,
     mock.write_bytes(orjson.dumps(validated.model_dump(), option=orjson.OPT_APPEND_NEWLINE))
 
 
-def generate_bootstrap_cube(output_path="data/processed/fire_cube.parquet") -> Path:
+def generate_bootstrap_cube(output_path="data/processed/fire_cube.parquet", *, write_mock=True) -> Path:
     """Generate 28 R7 cells × 9496 days, sorted, ZSTD-compressed and reproducible."""
     started = perf_counter()
     rng = np.random.default_rng(42)
@@ -230,7 +230,8 @@ def generate_bootstrap_cube(output_path="data/processed/fire_cube.parquet") -> P
         path = ROOT/path
     path.parent.mkdir(parents=True,exist_ok=True)
     pq.write_table(table,path,compression="zstd",row_group_size=32768,write_statistics=True)
-    _write_mock(table,dates,np.asarray(truths),years,doy,(perf_counter()-started)*1000)
+    if write_mock:
+        _write_mock(table,dates,np.asarray(truths),years,doy,(perf_counter()-started)*1000)
     return path
 
 
