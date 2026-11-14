@@ -5,22 +5,24 @@ from __future__ import annotations
 
 import ast
 import json
+from datetime import date
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 import h3
-import numpy as np
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import pytest
 
-from pipeline import config, cube, industrial, ingest, pairs
-from pipeline.tests.conftest import FIXTURES, GERMAN
+from pipeline import config, cube, german, ingest, pairs
+from pipeline.tests.conftest import FIXTURES, GERMAN, REGION
 
 PKG = Path(__file__).resolve().parents[1]
-CUBE_FIELDS = [(f.name, f.type, f.nullable) for f in cube.cube_schema()]
+CUBE_FIELDS = [(f.name, f.type, f.nullable) for f in german.load("00_bootstrap_synthetic_cube").CUBE_SCHEMA]
+SNPP_OUTAGE = german.load("02_detect_outages_clouds").KNOWN_OUTAGES
 
 
 def table(path) -> pa.Table:
@@ -64,14 +66,15 @@ def test_sama_rule_removes_rows_and_is_counted(built):
         assert s["after_dedup"] - s["sama_removed"] == s["kept"]
 
 
-def test_detection_outside_regions_is_kept_with_fill_biome(built):
+def test_detection_outside_regions_is_kept_without_region(built):
     t = table(built.det_file).to_pylist()
     out = [r for r in t if r["longitude"] == 20.5]
-    assert len(out) == 1 and out[0]["region"] is None and out[0]["igbp_biome"] == config.IGBP_FILL
+    assert len(out) == 1 and out[0]["region"] is None
     regions = config.load_regions()
     for r in t:
         if r["region"] is not None:
-            assert r["igbp_biome"] == regions[r["region"]]["nominal_biome"]
+            west, south, east, north = regions[r["region"]]["bounds"]
+            assert west <= r["longitude"] <= east and south <= r["latitude"] <= north
 
 
 def test_unknown_satellite_and_missing_columns_raise(tmp_path):
@@ -86,28 +89,55 @@ def test_unknown_satellite_and_missing_columns_raise(tmp_path):
         ingest.ingest_csvs(con, [short], tmp_path / "o2" / "part.parquet")
 
 
-# ---------------- footprint / industrial ----------------
+# ---------------- canonical staging (scripts/01) ----------------
 
-def test_footprint_weights_sum_to_one_and_only_deformed_modis_spreads(built):
-    f = industrial.footprint_relation(built.con, built.det, built.industrial).arrow().read_all().to_pylist()
-    by_det = {}
-    for r in f:
-        by_det.setdefault(r["det_id"], []).append(r)
-    for rows in by_det.values():
-        assert sum(r["footprint_weight"] for r in rows) == pytest.approx(1.0, abs=1e-12)
-        assert sum(r["is_center"] for r in rows) == 1
-        spreads = rows[0]["instrument"] == "MODIS" and rows[0]["scan"] * rows[0]["track"] > config.FOOTPRINT_MIN_AREA_KM2
-        assert len(rows) == (7 if spreads else 1)
-        for r in rows:
-            assert r["corrected_frp"] == pytest.approx(r["frp"] * r["bowtie_weight"] * r["footprint_weight"])
+def _rows(t: pa.Table) -> list[dict]:
+    key = ("satellite", "acq_date", "acq_time", "latitude", "longitude", "h3_r7")
+    return sorted(t.to_pylist(), key=lambda r: tuple(r[k] for k in key))
 
 
-def test_industrial_table_shape(built):
-    t = table(built.industrial)
-    assert t.column_names == ["h3_r10", "h_temp", "industrial_prob"]
-    assert len(set(t["h3_r10"].to_pylist())) == len(t)
-    p = t["industrial_prob"].to_numpy()
-    assert np.all((p >= 0) & (p <= 1))
+def test_regional_staging_is_scripts01_output_on_the_raw_csvs(built, tmp_path):
+    """Parity: global ingest -> FIRMS CSV export -> scripts/01 == scripts/01 on the original region CSVs."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    for path in GERMAN:  # every fixture row outside the global-only file lies inside a configured region
+        (raw / path.name).write_bytes(path.read_bytes())
+    stage01 = german.load("01_ingest_firms")
+    reference = pq.read_table(stage01.ingest_raw_firms(raw, tmp_path / "staged.parquet"))
+    reference = reference.filter(pc.equal(reference["region"], REGION))
+    staged = table(built.staged)
+    assert staged.schema == reference.schema
+    assert set(staged["region"].to_pylist()) == {REGION}
+    ours, theirs = _rows(staged), _rows(reference)
+    assert len(ours) == len(theirs) > 0
+    for a, b in zip(ours, theirs):
+        assert a.keys() == b.keys()
+        for name in a:
+            if isinstance(a[name], float):
+                assert a[name] == pytest.approx(b[name], rel=1e-12, abs=1e-15), name
+            else:
+                assert a[name] == b[name], name
+
+
+def test_regional_staging_keeps_footprints_and_drops_sama(built):
+    rows = table(built.staged).to_pylist()
+    by_detection = {}
+    for r in rows:
+        by_detection.setdefault((r["satellite"], r["acq_date"], r["acq_time"], r["latitude"], r["longitude"]),
+                                []).append(r)
+    assert any(len(parts) > 1 for parts in by_detection.values())  # deformed MODIS pixels spread
+    for parts in by_detection.values():
+        assert sum(r["footprint_weight"] for r in parts) == pytest.approx(1.0, abs=1e-12)
+        assert sum(r["is_center"] for r in parts) == 1
+    assert not [r for r in rows if r["satellite"] == "Terra" and r["acq_time"] == "0150"]
+    assert {r["source_file"] for r in rows} <= {p.name for p in GERMAN}
+
+
+def test_unknown_region_and_empty_region_raise(built, tmp_path):
+    with pytest.raises(ValueError, match="Unknown region"):
+        cube.stage_region(built.con, built.det, "atlantis", tmp_path)
+    with pytest.raises(ValueError, match="No ingested detections"):
+        cube.stage_region(built.con, built.det, "orlando_florida", tmp_path)
 
 
 # ---------------- lookups ----------------
@@ -121,13 +151,31 @@ def test_global_counts_have_every_day_including_zeros(built):
     assert 0 in t["detection_count"].to_pylist()
 
 
-def test_outages_contain_known_aqua_safe_mode(built):
-    t = table(built.outages).to_pylist()
-    assert {"acq_date", "satellite", "evidence"} == set(t[0])
-    start, end = config.AQUA_SAFE_MODE
-    aqua = {r["acq_date"] for r in t if r["satellite"] == "Aqua" and r["evidence"] == "known_safe_mode"}
-    assert len(aqua) == (end - start).days + 1
-    assert len({(r["acq_date"], r["satellite"]) for r in t}) == len(t)
+def test_outages_are_scripts02_with_the_known_snpp_outage(built):
+    t = table(built.outages)
+    assert t.column_names == ["acq_date", "satellite", "evidence"]
+    rows = t.to_pylist()
+    assert len({(r["acq_date"], r["satellite"], r["evidence"]) for r in rows}) == len(rows)
+    assert {r["evidence"] for r in rows} <= {"known_outage", "global_count_drop", "zero_global_count"}
+    for satellite, first, last in SNPP_OUTAGE:
+        known = {r["acq_date"] for r in rows if r["satellite"] == satellite and r["evidence"] == "known_outage"}
+        assert known == {r["acq_date"] for r in rows if r["evidence"] == "known_outage"}
+        assert len(known) == (date.fromisoformat(last) - date.fromisoformat(first)).days + 1
+    assert not [r for r in rows if r["satellite"] == "Aqua" and r["evidence"] == "known_outage"]
+    # Interior zero-count days of the fixture's global counts are zero_global_count evidence.
+    counts = table(built.counts).to_pylist()
+    zero = {(r["acq_date"], r["satellite"]) for r in rows if r["evidence"] == "zero_global_count"}
+    for satellite in {r["satellite"] for r in counts}:
+        positive = [r["acq_date"] for r in counts if r["satellite"] == satellite and r["detection_count"] > 0]
+        expected = {(r["acq_date"], satellite) for r in counts if r["satellite"] == satellite
+                    and r["detection_count"] == 0 and min(positive) < r["acq_date"] < max(positive)}
+        assert {z for z in zero if z[1] == satellite} == expected
+
+
+def test_diurnal_ratios_table_shape(built):
+    t = table(built.ratios)
+    assert t.column_names == ["h3_r4", "month", "ratio", "matched_days"]
+    assert len(t) > 0
 
 
 # ---------------- pairs ----------------
@@ -138,7 +186,7 @@ def test_pairs_contract(built):
     rows = t.to_pylist()
     assert rows
     assert len({(r["h3_r7"], r["epoch_day"], r["daynight"]) for r in rows}) == len(rows)
-    staged = table(built.det_file).to_pylist()
+    staged = table(built.staged).to_pylist()
     for r in rows:
         assert r["snpp_count"] > 0 and r["aqua_frp_corrected_mw"] > 0 and r["acq_date"] >= config.PAIRS_START
         raw = [d["frp"] for d in staged if d["satellite"] == "SNPP" and d["h3_r7"] == r["h3_r7"]
@@ -146,9 +194,10 @@ def test_pairs_contract(built):
         assert r["snpp_frp_sum_mw"] == pytest.approx(sum(raw)) and r["snpp_count"] == len(raw)
 
 
-def test_lut_json_format(built):
+def test_lut_is_written_by_scripts03(built):
     lut = json.loads(built.lut.read_text())
-    assert {"reference", "threshold_mw", "biomes", "angle_edges_degrees", "models"} <= set(lut)
+    assert {"reference", "method", "threshold_mw", "biomes", "angle_edges_degrees", "models"} <= set(lut)
+    assert lut["method"] == german.load("03_train_eqm_lut").METHOD
 
 
 # ---------------- cube ----------------
@@ -169,45 +218,58 @@ def test_cube_sorted_unique_and_dates(built):
         assert day.year == y and day.timetuple().tm_yday == d
 
 
-def test_cube_metadata_is_real_with_declared_sentinels(built):
+def test_cube_metadata_is_the_canonical_scripts04_provenance(built):
     meta = pq.ParquetFile(built.cube).schema_arrow.metadata
+    builder = german.load("04_build_master_cube")
     assert b"SYNTHETIC" not in meta[b"source"] and b"REAL" in meta[b"source"]
-    sentinels = json.loads(meta[b"ancillary_sentinels"])
-    assert {"cloud_cover_pct", "burned_area_ha_mcd64", "igbp_biome"} <= set(sentinels)
     assert int(meta[b"real_rows"]) == pq.ParquetFile(built.cube).metadata.num_rows
     assert meta[b"synthetic_rows"] == b"0"
+    assert meta[b"orbital_weighting"] == builder.ORBITAL_WEIGHTING.encode()
+    assert meta[b"radiometric_harmonization"] == builder.RADIOMETRIC_HARMONIZATION.encode()
+    ancillary = json.loads(meta[b"ancillary_coverage"])
+    assert ancillary["input_present"] is False
 
 
-def test_cube_sentinels_and_masks(built):
+def test_cube_without_ancillary_keeps_zero_sentinels_and_masks(built):
     t = table(built.cube).to_pylist()
     for r in t:
-        assert r["cloud_cover_pct"] == config.CLOUD_SENTINEL and r["burned_area_ha_mcd64"] == config.BURNED_SENTINEL
+        assert r["cloud_cover_pct"] == 0.0 and r["burned_area_ha_mcd64"] == 0.0
         assert r["sensor_obs_mask"] & ~0b11111 == 0 and r["gap_status_mask"] & 0b0110 == 0
         assert 0.0 <= r["industrial_prob"] <= 1.0 and r["neighbor_fre_lag1"] >= 0.0
 
 
-def test_outage_day_has_no_aqua_observation(built):
-    start = config.AQUA_SAFE_MODE[0]
-    day = (config.EPOCH.fromordinal(start.toordinal()) - config.EPOCH).days + 5  # 2022-08-05
+def test_snpp_outage_day_keeps_aqua_and_drops_snpp(built):
+    day = (date(2022, 8, 5) - config.EPOCH).days  # inside the known SNPP outage 2022-07-27..08-10
     rows = [r for r in table(built.cube).to_pylist() if r["epoch_day"] == day]
     assert rows
     for r in rows:
-        assert r["obs_aqua_fre"] is None and r["gap_status_mask"] & 1 and not r["sensor_obs_mask"] & 2
+        assert r["gap_status_mask"] & 1 and not r["sensor_obs_mask"] & 4
+    # Aqua was nominal (the former "Aqua safe mode" was wrong): its observations survive.
+    assert any(r["obs_aqua_fre"] is not None and r["sensor_obs_mask"] & 2 for r in rows)
 
 
-def test_region_cube_only_has_region_detections(built, built_global):
-    region = table(built.cube)
-    every = table(built_global.cube)
-    assert 0 < len(region) < len(every)
-    assert config.IGBP_FILL in every["igbp_biome"].to_pylist()
-    assert config.IGBP_FILL not in region["igbp_biome"].to_pylist()
+def test_region_cube_only_has_region_detections(built):
+    t = table(built.cube)
+    staged = table(built.staged)
+    assert set(t["h3_r7"].to_pylist()) == set(staged["h3_r7"].to_pylist())
+    nominal = config.load_regions()[REGION]["nominal_biome"]
+    assert set(t["igbp_biome"].to_pylist()) == {nominal}
+    outside = [h3.str_to_int(h3.latlng_to_cell(r["latitude"], r["longitude"], 7))
+               for r in table(built.det_file).to_pylist() if r["region"] != REGION]
+    assert outside and not set(outside) & set(t["h3_r7"].to_pylist())
 
 
 def test_reserved_synthetic_path_is_refused(built):
     with pytest.raises(ValueError, match="synthetic"):
-        cube.build_cube(built.con, built.det, output=config.ROOT / "data/processed/fire_cube_synthetic.parquet",
-                        industrial_path=built.industrial, lut_path=built.lut, outages=built.outages,
-                        ratios=built.ratios)
+        cube.publish_cube(built.staged, config.ROOT / "data/processed/fire_cube_synthetic.parquet", built.lookup)
+
+
+def test_pipeline_has_no_parallel_stage_implementation():
+    names = {p.stem for p in PKG.glob("*.py")}
+    assert "industrial" not in names
+    for name in ("AQUA_SAFE_MODE", "OUTAGE_DROP_FACTOR", "EQM_THRESHOLD_MW", "FRP_INTEGRATION_S"):
+        assert not hasattr(config, name)
+    assert not hasattr(cube, "estimate_vec") and not hasattr(pairs, "train_lut")
 
 
 # ---------------- quality report ----------------

@@ -1,11 +1,13 @@
 """Run the real-data pipeline end to end (resumable).
 
-    python -m pipeline.run --download                  # fetch the FIRMS yearly global archives
-    python -m pipeline.run --region cerrado_brazil     # ingest, lookups, pairs, Cerrado cube, report
-    python -m pipeline.run --global-cube               # same, cube over every ingested detection
+    python -m pipeline.run --download                       # fetch the FIRMS yearly global archives
+    python -m pipeline.run                                  # ingest the archives, global daily counts, report
+    python -m pipeline.run --region amazonas_manaus         # same, then the regional cube
 
-Stages: ingest (per product-year, skipped when ``_SUCCESS`` exists) -> industrial scores -> global daily counts
--> outages -> diurnal ratios -> Aqua–SNPP pairs -> EQM/GPD LUT -> cube -> quality report.
+Stages: ingest (per product-year, skipped when ``_SUCCESS`` exists) -> global daily counts -> with
+``--region``: canonical staging (``scripts/01``) -> outages and diurnal ratios (``scripts/02``) -> EQM/GPD
+LUT (``scripts/03``) -> cube (``scripts/04``) -> Aqua-SNPP pairs -> quality report. Regional outputs go to
+``data/real/regions/<region>/``. The region needs a ``coverage`` in ``data/regions.json``.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ import argparse
 import time
 from pathlib import Path
 
-from pipeline import config, cube, download, industrial, ingest, lookups, pairs, quality
+from pipeline import config, cube, download, ingest, lookups, pairs, quality
 
 
 def _step(name: str, fn):
@@ -29,34 +31,32 @@ def main(argv=None) -> int:
     parser.add_argument("--download", action="store_true", help="download missing yearly archives first")
     parser.add_argument("--products", nargs="*", choices=sorted(config.PRODUCTS))
     parser.add_argument("--years", nargs="*", type=int)
-    target = parser.add_mutually_exclusive_group()
-    target.add_argument("--region", help="build the cube for one data/regions.json region")
-    target.add_argument("--global-cube", action="store_true", help="build the cube over all detections")
+    parser.add_argument("--region", choices=sorted(config.load_regions()),
+                        help="build the cube for one data/regions.json region")
     parser.add_argument("--force-ingest", action="store_true", help="re-ingest chunks that already succeeded")
-    parser.add_argument("--output", default=str(config.CUBE), help="cube path (default data/real/fire_cube_real.parquet)")
+    parser.add_argument("--output", type=Path,
+                        help="cube path (default data/real/regions/<region>/fire_cube.parquet)")
     args = parser.parse_args(argv)
+    if args.output is not None and args.region is None:
+        parser.error("--output needs --region")
 
     if args.download:
         download.main((["--products", *args.products] if args.products else [])
                       + (["--years", *map(str, args.years)] if args.years else []))
     con = config.connect()
-    chunks = download.wanted(args.products, args.years)
-    for product, year in chunks:
+    for product, year in download.wanted(args.products, args.years):
         if not (config.RAW / product / f"{year}.zip").is_file():
             continue
         _step(f"ingest {product} {year}", lambda: ingest.ingest_archive(con, product, year, args.force_ingest))
     det = ingest.detections_glob()
-    _step("industrial scores", lambda: industrial.build_industrial(con, det))
     _step("global daily counts", lambda: lookups.build_global_counts(con, det))
-    _step("outages", lambda: lookups.build_outages(con))
-    _step("diurnal ratios", lambda: lookups.build_diurnal_ratios(con, det))
-    _step("aqua-snpp pairs", lambda: pairs.build_pairs(con, det))
-    _step("eqm/gpd lut", lambda: pairs.train_lut(con))
-    if args.region or args.global_cube:
-        cov = {s["satellite"]: [s["first_day"], s["last_day"]]
-               for s in quality._counts_stats(con)["sensors"]}
-        _step("cube", lambda: cube.build_cube(con, det, region=args.region, output=Path(args.output), coverage=cov))
-    _step("quality report", lambda: quality.build_report(con, Path(args.output)))
+    cube_path = None
+    if args.region:
+        build = _step(f"cube {args.region}", lambda: cube.build_region(con, det, args.region, output=args.output))
+        _step("aqua-snpp pairs", lambda: pairs.build_pairs(con, build.staged,
+                                                          config.region_dir(args.region) / pairs.PAIRS_NAME))
+        cube_path = build.cube
+    _step("quality report", lambda: quality.build_report(con, args.region, cube_path=cube_path))
     print(f"Report: {config.REPORT_MD}")
     return 0
 

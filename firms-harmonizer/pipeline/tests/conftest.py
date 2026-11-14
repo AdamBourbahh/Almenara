@@ -2,56 +2,60 @@
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from pipeline import config, cube, industrial, ingest, lookups, pairs, quality
+from pipeline import config, cube, german, ingest, lookups, pairs, quality
 
 FIXTURES = Path(__file__).parent / "fixtures"
 GERMAN = sorted((FIXTURES / "german").glob("*.csv"))
 GLOBAL = sorted((FIXTURES / "global").glob("*.csv"))
+REGION = "cerrado_brazil"
+# data/regions.json declares no coverage for this preset yet; scripts/04 requires one for every detection day.
+FIXTURE_COVERAGE = [["2015-08-10", "2022-08-05"]]
 
 
-def build_all(root: Path, files: list[Path], region: str | None = "cerrado_brazil") -> SimpleNamespace:
+def fixture_regions() -> dict:
+    regions = copy.deepcopy(config.load_regions())
+    regions[REGION]["coverage"] = FIXTURE_COVERAGE
+    return regions
+
+
+@pytest.fixture(scope="session")
+def regions_with_coverage():
+    """scripts/01 and scripts/04 read regions through scripts/01.load_regions; give the preset a coverage."""
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(german.load("01_ingest_firms"), "load_regions", fixture_regions)
+        yield
+
+
+def build_all(root: Path, files: list[Path]) -> SimpleNamespace:
     con = config.connect()
     det_file = root / "detections" / "product=fixture" / "year=0" / "part.parquet"
     stats = ingest.ingest_csvs(con, files, det_file)
     det = str(root / "detections" / "*" / "*" / "part.parquet")
-    ns = SimpleNamespace(root=root, con=con, det=det, det_file=det_file, stats=stats,
-                         industrial=root / "industrial_r10.parquet", counts=root / "global_daily_counts.parquet",
-                         outages=root / "sensor_outages.parquet", ratios=root / "diurnal_ratios.parquet",
-                         pairs=root / "pairs_aqua_snpp.parquet", lut=root / "eqm_gpd_lut.json",
-                         cube=root / "fire_cube_real.parquet")
-    industrial.build_industrial(con, det, ns.industrial)
-    lookups.build_global_counts(con, det, ns.counts)
-    lookups.build_outages(con, ns.counts, ns.outages)
-    lookups.build_diurnal_ratios(con, det, ns.industrial, ns.ratios)
-    pairs.build_pairs(con, det, ns.industrial, ns.pairs)
-    pairs.train_lut(con, ns.pairs, ns.lut)
-    cube.build_cube(con, det, region=region, output=ns.cube, industrial_path=ns.industrial, lut_path=ns.lut,
-                    outages=ns.outages, ratios=ns.ratios, coverage={"fixture": ["2015-08-10", "2022-08-05"]})
-    return ns
+    counts = lookups.build_global_counts(con, det, root / "global_daily_counts.parquet")
+    work = root / "regions" / REGION
+    build = cube.build_region(con, det, REGION, global_counts=counts, work=work)
+    pairs_path = pairs.build_pairs(con, build.staged, work / pairs.PAIRS_NAME)
+    return SimpleNamespace(root=root, con=con, det=det, det_file=det_file, stats=stats, counts=counts, work=work,
+                           staged=build.staged, lookup=build.lookup, outages=build.lookup / "sensor_outages.parquet",
+                           ratios=build.lookup / "diurnal_ratios.parquet", lut=build.lookup / cube.LUT_NAME,
+                           pairs=pairs_path, cube=build.cube)
 
 
 @pytest.fixture(scope="session")
-def built(tmp_path_factory):
+def built(tmp_path_factory, regions_with_coverage):
     return build_all(tmp_path_factory.mktemp("pipeline"), GERMAN + GLOBAL)
-
-
-@pytest.fixture(scope="session")
-def built_global(tmp_path_factory):
-    return build_all(tmp_path_factory.mktemp("pipeline_global"), GERMAN + GLOBAL, region=None)
 
 
 @pytest.fixture()
 def report(built, monkeypatch):
-    for name, value in (("CUBE", built.cube), ("PAIRS", built.pairs), ("GLOBAL_COUNTS", built.counts),
-                        ("REPORT_MD", built.root / "quality_report.md"),
+    for name, value in (("REPORT_MD", built.root / "quality_report.md"),
                         ("REPORT_JSON", built.root / "quality_report.json"),
                         ("STAGED", built.root / "staged_none"), ("RAW", built.root / "raw_none")):
         monkeypatch.setattr(config, name, value)
-    monkeypatch.setattr(lookups, "OUTAGES", built.outages)
-    monkeypatch.setattr(pairs, "LUT", built.lut)
-    return quality.build_report(built.con, built.cube)
+    return quality.build_report(built.con, REGION, work=built.work, global_counts=built.counts)

@@ -1,13 +1,15 @@
-"""Stage 1: FIRMS CSV (or yearly zip) -> normalized, de-duplicated, SAMA-filtered detections.
+"""Stage 1: FIRMS CSV (or yearly zip) -> normalized, de-duplicated, SAMA-filtered global detections.
 
-Vectorized port of ``scripts/01_ingest_firms.py`` (Germán): same validity window, sensor canon,
-confidence normalization, exact-identity de-duplication, local SAMA rule, H3 R4/R7/R10 keys,
-bow-tie weight and scan-angle bin. Differences, by design:
-* detections outside every ``data/regions.json`` box are kept with ``region = NULL`` (global ingest);
+These detections feed the global daily counts (``pipeline.lookups``) and the per-region FIRMS CSV export
+that ``pipeline.cube`` hands to the canonical ``scripts/01_ingest_firms.py``. They are not cube staging:
+footprint, bow-tie, biome, scan-angle and industrial values are computed only by ``scripts/01``.
+The filters match ``scripts/01`` (validity window, sensor canon, confidence normalization, exact-identity
+de-duplication, SAMA rule), so re-running them there is a no-op; a parity test proves it. By design:
+* detections outside every ``data/regions.json`` box are kept with ``region = NULL`` (global counts);
 * the yearly archives can mix standard (SP) and near-real-time rows; ``tier`` comes from ``version``
-  (or an ``nrt`` file name) and SP wins exact-identity duplicates, like Germán's NRT-last file order;
-* footprint expansion and the industrial score are computed later (``pipeline.industrial``),
-  because the entropy needs every year of a cell.
+  (or an ``nrt`` file name) and SP wins exact-identity duplicates, like the NRT-last file order of
+  ``scripts/01``;
+* the sensor canon also accepts the numeric NOAA-20/21 codes of the yearly archives.
 One output row per detection; ``det_id`` is unique inside one output file.
 """
 
@@ -29,24 +31,18 @@ OPTIONAL = ("brightness", "bright_t31", "bright_ti4", "bright_ti5", "instrument"
 
 DETECTION_COLUMNS = ("det_id", "latitude", "longitude", "acq_date", "acq_time", "satellite", "instrument", "frp",
                      "scan", "track", "brightness_mir", "brightness_tir", "confidence_norm", "daynight", "h3_r4",
-                     "h3_r7", "h3_r10", "region", "igbp_biome", "scan_bin", "source_file", "sensor_bit",
-                     "bowtie_weight", "version", "tier")
+                     "h3_r7", "h3_r10", "region", "source_file", "sensor_bit", "version", "tier")
 
 
-def _region_case(regions: dict) -> tuple[str, list, str, list]:
-    """CASE expressions for region and nominal biome; SQL text depends only on the region count."""
-    region_sql, biome_sql, region_params, biome_params = ["CASE"], ["CASE"], [], []
+def _region_case(regions: dict) -> tuple[str, list]:
+    """CASE expression for the first matching region (as ``scripts/01.region_at``); text depends on the count."""
+    sql, params = ["CASE"], []
     for name, region in regions.items():
         west, south, east, north = region["bounds"]
-        clause = " WHEN lon BETWEEN ? AND ? AND lat BETWEEN ? AND ? THEN ?"
-        region_sql.append(clause)
-        biome_sql.append(clause)
-        region_params += [west, east, south, north, name]
-        biome_params += [west, east, south, north, int(region["nominal_biome"])]
-    region_sql.append(" ELSE NULL END")
-    biome_sql.append(" ELSE ? END")
-    biome_params.append(config.IGBP_FILL)
-    return "".join(region_sql), region_params, "".join(biome_sql), biome_params
+        sql.append(" WHEN lon BETWEEN ? AND ? AND lat BETWEEN ? AND ? THEN ?")
+        params += [west, east, south, north, name]
+    sql.append(" ELSE NULL END")
+    return "".join(sql), params
 
 
 def ingest_csvs(con: duckdb.DuckDBPyConnection, files: list[Path], output: Path,
@@ -104,7 +100,7 @@ def ingest_csvs(con: duckdb.DuckDBPyConnection, files: list[Path], output: Path,
                            "OR acq_time_int // 100 > 23 OR acq_time_int % 100 > 59").fetchall()[0][0]
     if bad_time:
         raise ValueError(f"{bad_time} detections have an invalid UTC acquisition time")
-    region_sql, region_params, biome_sql, biome_params = _region_case(regions)
+    region_sql, region_params = _region_case(regions)
     con.execute("""CREATE OR REPLACE TEMP TABLE dedup AS
         SELECT *, lpad(acq_time_int::VARCHAR, 4, '0') AS acq_time,
                CASE WHEN regexp_full_match(conf_raw, '[0-9]+') THEN
@@ -132,15 +128,9 @@ def ingest_csvs(con: duckdb.DuckDBPyConnection, files: list[Path], output: Path,
                h3_cell_to_parent(h3_r7, 4)::UBIGINT AS h3_r4, h3_r7,
                h3_latlng_to_cell(lat, lon, 10)::UBIGINT AS h3_r10,
                """ + region_sql + """ AS region,
-               (""" + biome_sql + """)::UTINYINT AS igbp_biome,
-               least(9, floor(degrees(acos(sqrt(greatest(0, least(1,
-                   CASE WHEN list_contains(?, k.sensor) THEN 1.0 ELSE 0.375 END / scan))))) / 6.5))::UTINYINT AS scan_bin,
-               source_file, b.bit AS sensor_bit,
-               CASE WHEN list_contains(?, k.sensor) AND track > ? THEN 1.0 / track ELSE 1.0 END AS bowtie_weight,
-               version, tier
+               source_file, b.bit AS sensor_bit, version, tier
         FROM k JOIN sensor_bits b ON b.sensor = k.sensor
-    ) TO ? (FORMAT parquet, COMPRESSION zstd)""",
-                [modis] + region_params + biome_params + [modis, modis, config.BOWTIE_TRACK_KM, str(tmp)])
+    ) TO ? (FORMAT parquet, COMPRESSION zstd)""", [modis] + region_params + [str(tmp)])
     stats = {}
     for sensor, raw in con.execute("SELECT coalesce(m.sensor, n.sat_code), count(*) FROM norm n "
                                    "LEFT JOIN sensor_map m ON m.code = n.sat_code GROUP BY 1").fetchall():

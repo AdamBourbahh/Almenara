@@ -12,33 +12,33 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
-from pipeline import config, cube, lookups, pairs
+from pipeline import config, cube, german, pairs
 
 STAGES = ("rows_read", "valid", "after_dedup", "sama_removed", "kept")
 
-# Static provenance of every cube column; the report adds measured null/sentinel counts.
+# Static provenance of every column of the scripts/04 cube (data/ETL_SPEC.md); the report adds measured counts.
 COLUMNS = {
     "h3_r4": ("computed", "H3 v4 parent (res 4) of the target R7 cell"),
     "h3_r7": ("computed", "H3 v4 res 7 of the detection, or the MODIS footprint target cell"),
     "epoch_day": ("computed", "UTC acquisition day, days since 1970-01-01"),
     "year": ("computed", "UTC acquisition year"),
     "doy": ("computed", "UTC day of year"),
-    "igbp_biome": ("sentinel", "no MCD12Q1 input: regions.json nominal_biome inside a region, 255 (MCD12Q1 fill) outside"),
-    "sensor_obs_mask": ("computed", "bit per sensor with a detection and no recorded outage that day"),
-    "gap_status_mask": ("partial", "bit 1 outage (known Aqua safe mode, global count drop, zero global count) and "
-                                   "bit 8 MODIS+VIIRS outage the same day; bits 2 (cloud) and 4 (swath gap) need "
-                                   "cloud and orbit data FIRMS does not provide and stay 0"),
-    "cloud_cover_pct": ("sentinel", "no cloud product input: 0.0"),
+    "igbp_biome": ("partial", "data/lookup/igbp_cells.parquet class when present, else regions.json nominal_biome"),
+    "sensor_obs_mask": ("computed", "bit per sensor with a usable observation after outage and cloud masking"),
+    "gap_status_mask": ("partial", "bit 1 any instrument outage that day (scripts/02 evidence: known SNPP outage, "
+                                   "global count drop, zero global count), bit 2 cloud > 0.80, bit 8 no observation "
+                                   "channel left; bit 4 (swath gap) is not computed"),
+    "cloud_cover_pct": ("partial", "cell_day_ancillary.parquet in the lookup folder when present, else 0.0"),
     "raw_modis_cnt": ("computed", "MODIS centre-pixel detections (Terra + Aqua)"),
     "raw_viirs_cnt": ("computed", "VIIRS centre-pixel detections (SNPP + NOAA-20)"),
     "raw_frp_mw": ("computed", "sum of raw centre-pixel FRP, all sensors"),
-    "obs_terra_fre": ("computed", "EQM/GPD-calibrated FRP x 3600 s / cell area x diurnal Aqua/Terra ratio; "
-                                  "one-hour integration proxy (FIRMS has no fire duration)"),
-    "obs_aqua_fre": ("computed", "same proxy, reference sensor; NULL on outage days"),
-    "obs_viirs_fre": ("computed", "EQM-harmonized VIIRS FRP with the same proxy; mean of SNPP and NOAA-20"),
-    "neighbor_fre_lag1": ("computed", "mean previous-day energy of the 6 neighbouring cells present in the cube, else 0"),
-    "industrial_prob": ("computed", "R10 Shannon temporal entropy score with the positional-variance gate"),
-    "burned_area_ha_mcd64": ("sentinel", "no MCD64A1 input: 0.0"),
+    "obs_terra_fre": ("computed", "core RadiometricHarmonizer daily MW x 3600 s / cell area x orbital weight x "
+                                  "diurnal Aqua/Terra ratio; one-hour integration proxy; NULL on outage or cloud"),
+    "obs_aqua_fre": ("computed", "same proxy, reference sensor; NULL on outage or cloud"),
+    "obs_viirs_fre": ("computed", "EQM-harmonized VIIRS with the same proxy; mean of the surviving VIIRS sensors"),
+    "neighbor_fre_lag1": ("computed", "mean previous-day energy of burning neighbouring cells, else 0"),
+    "industrial_prob": ("computed", "max R10 Shannon temporal entropy score with the positional-variance gate"),
+    "burned_area_ha_mcd64": ("partial", "cell_day_ancillary.parquet in the lookup folder when present, else 0.0"),
 }
 
 
@@ -68,7 +68,7 @@ def _cube_stats(con, path: Path) -> dict:
         return {"present": False}
     f = pq.ParquetFile(path)
     meta = {k.decode(): v.decode() for k, v in (f.schema_arrow.metadata or {}).items()}
-    expected = cube.cube_schema()
+    expected = german.load("00_bootstrap_synthetic_cube").CUBE_SCHEMA
     schema_ok = [(x.name, x.type, x.nullable) for x in f.schema_arrow] == \
                 [(x.name, x.type, x.nullable) for x in expected]
     p = [str(path)]
@@ -84,9 +84,6 @@ def _cube_stats(con, path: Path) -> dict:
     for name, (status, note) in COLUMNS.items():
         nulls = con.execute("SELECT count(*) FILTER (WHERE " + name + " IS NULL) FROM read_parquet(?)", p).fetchall()[0][0]
         entry = {"column": name, "status": status, "note": note, "null_rows": nulls}
-        if name == "igbp_biome":
-            entry["fill_255_rows"] = con.execute("SELECT count(*) FILTER (WHERE igbp_biome = ?) FROM read_parquet(?)",
-                                                 [config.IGBP_FILL] + p).fetchall()[0][0]
         if name in ("cloud_cover_pct", "burned_area_ha_mcd64"):
             entry["nonzero_rows"] = con.execute("SELECT count(*) FILTER (WHERE " + name + " <> 0) FROM read_parquet(?)",
                                                 p).fetchall()[0][0]
@@ -105,15 +102,17 @@ def _cube_stats(con, path: Path) -> dict:
                         for y, n, m, v in by_year]}
 
 
-def _pairs_stats(con) -> dict:
-    if not config.PAIRS.is_file():
+def _pairs_stats(con, work: Path | None) -> dict:
+    path = None if work is None else work / pairs.PAIRS_NAME
+    if path is None or not path.is_file():
         return {"present": False}
-    p = [str(config.PAIRS)]
+    p = [str(path)]
     by_year = con.execute("SELECT year, daynight, count(*), count(*) FILTER (WHERE aqua_count > 0) "
                           "FROM read_parquet(?) GROUP BY ALL ORDER BY ALL", p).fetchall()
     by_region = con.execute("SELECT coalesce(region, '<none>'), count(*) FROM read_parquet(?) GROUP BY 1 ORDER BY 1",
                             p).fetchall()
-    lut = json.loads(pairs.LUT.read_text()) if pairs.LUT.is_file() else {"models": {}}
+    lut_path = work / cube.LOOKUP_NAME / cube.LUT_NAME
+    lut = json.loads(lut_path.read_text()) if lut_path.is_file() else {"models": {}}
     return {"present": True, "rows": sum(r[2] for r in by_year),
             "by_year": [{"year": y, "daynight": d, "pairs": n, "centre_to_centre": c} for y, d, n, c in by_year],
             "by_region": [{"region": r, "pairs": n} for r, n in by_region],
@@ -121,16 +120,17 @@ def _pairs_stats(con) -> dict:
             "lut_models_with_gpd_tail": sorted(k for k, m in lut["models"].items() if m.get("gpd"))}
 
 
-def _counts_stats(con) -> dict:
-    if not config.GLOBAL_COUNTS.is_file():
+def _counts_stats(con, global_counts: Path, work: Path | None) -> dict:
+    if not global_counts.is_file():
         return {"present": False}
     span = con.execute("SELECT satellite, min(acq_date), max(acq_date), count(*), count(*) FILTER (WHERE detection_count = 0),"
                        " sum(detection_count) FROM read_parquet(?) GROUP BY 1 ORDER BY 1",
-                       [str(config.GLOBAL_COUNTS)]).fetchall()
+                       [str(global_counts)]).fetchall()
     outages = []
-    if lookups.OUTAGES.is_file():
+    outage_path = None if work is None else work / cube.LOOKUP_NAME / "sensor_outages.parquet"
+    if outage_path is not None and outage_path.is_file():
         outages = con.execute("SELECT satellite, evidence, count(*), min(acq_date), max(acq_date) FROM read_parquet(?) "
-                              "GROUP BY ALL ORDER BY ALL", [str(lookups.OUTAGES)]).fetchall()
+                              "GROUP BY ALL ORDER BY ALL", [str(outage_path)]).fetchall()
     return {"present": True,
             "sensors": [{"satellite": s, "first_day": str(a), "last_day": str(b), "days": d, "zero_days": z,
                          "detections": n} for s, a, b, d, z, n in span],
@@ -143,15 +143,24 @@ def coverage() -> dict:
     return {"archives": downloaded,
             "not_covered": ["2026 (no yearly archive yet; needs the FIRMS area API with a MAP_KEY)",
                             "NOAA-21 (no viirs-jpss2 yearly archive; needs the FIRMS area API)",
-                            "detections not assigned to any country by FIRMS (yearly *_all_countries archives)"]}
+                            "detections not assigned to any country by FIRMS (yearly *_all_countries archives)",
+                            "detections outside every data/regions.json box (counted globally, never cubed)"]}
 
 
-def build_report(con, cube_path: Path = config.CUBE) -> dict:
+def build_report(con, region: str | None = None, work: Path | None = None, cube_path: Path | None = None,
+                 global_counts: Path = config.GLOBAL_COUNTS) -> dict:
+    """Report on the global ingest and, when ``region`` is given, on its regional build in ``work``."""
+    if region is not None:
+        work = config.region_dir(region) if work is None else work
+        cube_path = work / cube.CUBE_NAME if cube_path is None else cube_path
     chunks = _stats_by_chunk()
     sensors, regions = detections_table(chunks)
-    report = {"coverage": coverage(), "detections_by_year_satellite": sensors,
-              "kept_by_year_satellite_region_tier": regions, "global_daily_counts": _counts_stats(con),
-              "cube": _cube_stats(con, cube_path), "pairs_aqua_snpp": _pairs_stats(con)}
+    report = {"coverage": coverage(), "region": region, "detections_by_year_satellite": sensors,
+              "kept_by_year_satellite_region_tier": regions,
+              "global_daily_counts": _counts_stats(con, Path(global_counts), work),
+              "cube": _cube_stats(con, cube_path) if cube_path is not None else {"present": False},
+              "pairs_aqua_snpp": _pairs_stats(con, work)}
+    config.REPORT_JSON.parent.mkdir(parents=True, exist_ok=True)
     config.REPORT_JSON.write_text(json.dumps(report, indent=1, default=str))
     config.REPORT_MD.write_text(render_markdown(report))
     return report
@@ -190,18 +199,20 @@ def render_markdown(r: dict) -> str:
                         for s in gc["sensors"]]), "",
                 _table(["satellite", "evidence", "days", "first", "last"],
                        [[o["satellite"], o["evidence"], o["days"], o["first_day"], o["last_day"]] for o in gc["outages"]]),
-                ""]
+                "", "Outage evidence comes from `scripts/02_detect_outages_clouds.py` run on these counts for the "
+                "region build; the table is empty when no region was built.", ""]
     c = r["cube"]
     out += ["## 4. Cube columns", ""]
     if c["present"]:
         out += [f"`{c['path']}` — {c['rows']:,} cell-days, {c['cells']:,} R7 cells, {c['first_day']} → {c['last_day']}. "
                 f"Schema matches the 18-field contract: **{c['schema_matches_contract']}**; duplicate keys: "
-                f"{c['duplicate_keys']}; unsorted rows: {c['unsorted_rows']}. Selection: `{c['metadata'].get('selection')}`.",
+                f"{c['duplicate_keys']}; unsorted rows: {c['unsorted_rows']}. Region: `{r['region']}`; built by "
+                "`scripts/04_build_master_cube.py`.",
                 "", "Real rows are sparse: a cell-day exists only when FIRMS detected a fire; a missing day is "
                 "*no detection*, not an observed zero.", "",
                 _table(["column", "status", "null rows", "detail", "how"],
                        [[x["column"], x["status"], x["null_rows"],
-                         ", ".join(f"{k}={v}" for k, v in x.items() if k in ("fill_255_rows", "nonzero_rows", "bit_rows")),
+                         ", ".join(f"{k}={v}" for k, v in x.items() if k in ("nonzero_rows", "bit_rows")),
                          x["note"]] for x in c["columns"]]), "",
                 _table(["year", "cell-days", "MODIS detections", "VIIRS detections"],
                        [[y["year"], y["cell_days"], y["modis_detections"], y["viirs_detections"]] for y in c["by_year"]]), ""]
