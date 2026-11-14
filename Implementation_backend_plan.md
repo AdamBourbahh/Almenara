@@ -10,7 +10,7 @@
 
 | Block | Complete | In progress | Pending |
 | --- | --- | --- | --- |
-| Offline ETL | — | 1, 2, 3, 5, 6, 7 | 4 |
+| Offline ETL | 2 | 1, 3, 5, 6, 7 | 4 |
 | Online API | — | 8, 9, 10, 11, 12 | — |
 
 ## Earlier pull review (historical context)
@@ -42,12 +42,12 @@
 - [x] Implement Adam's footprint module and verify center-cell behavior, Gaussian weighting for deformed MODIS footprints, and energy conservation and bow-tie weighting in the math tests.
 - [ ] Verify parity between the ETL footprint calculations and Adam's core implementation on the same detections.
 
-### Phase 2 — Daily de-duplication and diurnal FRE · In progress
+### Phase 2 — Daily de-duplication and diurnal FRE · Complete
 
 **Owner** — Germán. **Files** — `scripts/01_ingest_firms.py`, `scripts/02_detect_outages_clouds.py`, `scripts/04_build_master_cube.py`. **Specification** — [ETL_SPEC.md](firms-harmonizer/data/ETL_SPEC.md) stages 01, 02 and 04 and [SPECS.md](SPECS.md) §2(6), §3.4.
 
 - [x] Deduplicate identical sensor/time/location records, aggregate by R7 cell and UTC day, use coincident Terra/Aqua diurnal ratios where available, and publish previous-day neighbor energy in `neighbor_fre_lag1`.
-- [ ] Validate the daily Eulerian integration and diurnal weights on known inputs, including repeated acquisitions and lag alignment. The current conversion multiplies FRP by a one-hour integration proxy and divides by cell area. Document the proxy's limits and verify the approved daily FRE method before claiming validated energy estimates. The approved scope uses cell-day aggregation, with the proposed event graph and trapezoidal integration outside this phase.
+- [x] Validate the daily Eulerian integration and diurnal weights on known inputs, including repeated acquisitions and lag alignment — **2026-11-14**. Command from `firms-harmonizer/`: `python -m pytest backend/tests/test_cube_schema.py -v`. Result: **47 passed in 13.60s**, exit 0, including 10 new Phase 2 cases. Data source: **deterministic temporary fixtures + ETL_SPEC.md contract**. Tests verify exact-record deduplication with archive priority, per-instrument multi-pass energy, `FRP_calibrated * 3600 / exact_H3_area`, the daytime ratio of sums, the three-day support threshold and neutral fallback, and strict previous-day active-neighbor averaging. Fixed zero-energy neighbors diluting the mean; measured zeros remain valid observations. Production `data/processed/` file hashes, sizes and modification timestamps are unchanged. The [Eulerian integration contract](firms-harmonizer/data/ETL_SPEC.md#stage-04-diurnal-scaling-and-eulerian-integration-contract) documents the one-hour proxy and its physical limits. Completion validates implementation arithmetic, not independent real-fire energy accuracy; event graphs and continuous trapezoidal integration remain outside Phase 2.
 
 ### Phase 3 — Industrial entropy, infrared contrast and SAMA · In progress
 
@@ -140,6 +140,25 @@
 - [ ] Pass `python -m backend.check_core --synthetic` and `python -m backend.validation_report --synthetic` using the actual adapted core. Then run `python -m backend.validation_report` and smoke-test the HTTP routes on real local data with networking disabled. Verify startup behavior and provenance in both source modes, including an uncached analysis, a repeated request and a Chaos Monkey run. Record timings by stage and compare them to the project query target.
 
 ## Next backend step
+
+### Independent ETL task for Germán — Phase 2
+
+**Execution plan — 2026-11-14:** native execution in this session, using `SPECS.md` §2(6), §3.4(1), §5.1 and `ETL_SPEC.md`. All new regression cases live in `backend/tests/test_cube_schema.py`; script changes are limited to failures demonstrated by those cases. Temporary CSV, lookup and Parquet fixtures use Python, DuckDB, H3 and PyArrow. Preserve the existing production artifacts and the scientific/API integration work below.
+
+- [x] Isolate the existing bootstrap subprocess test under `tmp_path`, including its default output, then record production artifact hashes before running tests.
+- [x] Add `test_stage01_deduplication_exact_records`: normalized sensor/time keys, five-decimal coordinates, archive preference over NRT, and distinct acquisitions retained.
+- [x] Add `test_stage04_eulerian_fre_conversion_and_units` and an end-to-end case: known 10 + 20 MW acquisitions produce `30 * 3600 / exact_H3_area`, with independent sensor counts and UTC dates preserved.
+- [x] Add stage 02 ratio-generation and `test_stage04_diurnal_scaling_terra_to_aqua` cases: positive coincident daytime sums, night/unmatched/zero exclusions, ratio 2.5 at three or five matched days, and factor 1.0 at two days or a missing bucket. Aqua remains unscaled.
+- [x] Add `test_stage04_neighbor_lag1_alignment`: adjacent cells on three UTC days, exclusion of self/current/two-day-old observations, and mean over positive-energy neighbors only. Run focused tests before any necessary production fix and after it.
+- [x] Document the Eulerian proxy, exact equations, complexity limits and physical uncertainty; run `python -m pytest backend/tests/test_cube_schema.py -v`, review the diff, and compare production artifact hashes. Mark Phase 2 complete only after these checks pass.
+
+Merge `920d3d3` changed `kalman_rts.py`, `von_mises.py`, `auditor_stats.py`, `chaos_monkey.py`, and the math suite. It advanced the scientific core of phases 9–11. Phase 2 ETL acceptance is now complete with the 2026-11-14 evidence above. Commit `5424d74` already verified the phase 5 outage rule and previous-day lag exclusion with fixtures. The remaining phase 5 validation needs global counts, cloud reanalysis, and swath evidence.
+
+- [x] Verify daily FRE end to end with a small local fixture. Include an exact duplicate and a distinct repeat acquisition, concurrent Terra and Aqua observations, a supported diurnal ratio and a cell with no ratio. Assert daily counts and expected per-sensor FRE in MJ/km² against a hand calculation using H3 cell area.
+- [x] Verify `neighbor_fre_lag1` with adjacent H3 cells across a UTC day boundary. Check that only the previous day's eligible neighbor observations contribute. Reuse the phase 5 outage and cloud cases for missing observations.
+- [x] Run the cube schema suite and record the inputs, expected values, and results in [ETL_SPEC.md](firms-harmonizer/data/ETL_SPEC.md). Document where the fixed one-hour FRP-to-FRE proxy limits physical interpretation. This ETL check requires only local fixtures and the files owned by Germán.
+
+### Science and API integration
 
 Implement the science/API adapter for phases 9–11 while preserving both the frozen response schemas and tested scientific entry points. Then rerun actual-core conformance and the validation report, and verify a known UTC date through the API on the real Chilecito cube to close phase 8. Keep frontend provenance/parity and real-data scientific/performance acceptance open until independently verified.
 

@@ -144,8 +144,9 @@ def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
         if cell not in neighbors:
             neighbors[cell] = [int(x, 16) for x in h3.grid_disk(format(cell, "x"), 1)
                                if int(x, 16) != cell]
+        # Only active burning neighbors contribute to the previous-day mean.
         lag = [energy[(neighbor, epoch - 1)] for neighbor in neighbors[cell]
-               if (neighbor, epoch - 1) in energy]
+               if (neighbor, epoch - 1) in energy and energy[(neighbor, epoch - 1)] > 0]
         if lag:
             row["neighbor_fre_lag1"] = float(np.mean(lag))
     return daily

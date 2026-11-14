@@ -1,5 +1,6 @@
 """Offline ETL evidence, cube schema, storage and physical scenario regression gates."""
 
+import csv
 import importlib.util
 from datetime import date, timedelta
 from importlib import import_module
@@ -27,6 +28,206 @@ spec = importlib.util.spec_from_file_location("bootstrap",ROOT/"scripts/00_boots
 bootstrap = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bootstrap)
 
+
+@pytest.fixture
+def phase2_etl(tmp_path, monkeypatch):
+    """Keep input configuration, auxiliary lookups and published artifacts temporary."""
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    ingest = import_module("01_ingest_firms")
+    outages = import_module("02_detect_outages_clouds")
+    builder = import_module("04_build_master_cube")
+    for module in (ingest, outages, builder):
+        monkeypatch.setattr(module, "ROOT", tmp_path)
+    (tmp_path / "data/raw").mkdir(parents=True)
+    regions = {"fixture": {"bounds": [-5, 39, -3, 41], "nominal_biome": 8,
+                            "coverage": [["2024-01-01", "2024-12-31"]]}}
+    (tmp_path / "data/regions.json").write_text(json.dumps(regions), encoding="utf-8")
+    lookup = tmp_path / "data/lookup"
+    outages.build_outages_table(tmp_path / "absent.parquet", lookup)
+    (lookup / "eqm_gpd_lut.json").write_text('{"models": {}}', encoding="utf-8")
+    return ingest, outages, builder
+
+
+def write_phase2_csv(path, records):
+    """Write nadir FIRMS records; test inputs override the shared valid defaults."""
+    defaults = dict(latitude=40.0, longitude=-4.0, acq_date="2024-01-10", acq_time="1030",
+                    satellite="Terra", frp=10.0, scan=1.0, track=1.0,
+                    confidence=100, daynight="D", brightness=330.0, bright_t31=300.0)
+    with path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(defaults))
+        writer.writeheader()
+        writer.writerows(defaults | record for record in records)
+
+
+def test_stage01_deduplication_exact_records(phase2_etl, tmp_path):
+    ingest, _, _ = phase2_etl
+    raw = tmp_path / "data/raw"
+    # NRT sorts first lexically; archive priority must still win after normalization.
+    write_phase2_csv(raw / "a_nrt.csv", [dict(satellite="T", acq_time="930", frp=99.0,
+                                             latitude=40.000002, longitude=-4.000002)])
+    write_phase2_csv(raw / "z_archive.csv", [
+        dict(acq_time="0930", latitude=40.000001, longitude=-4.000001),
+        dict(satellite="T", acq_time="930", latitude=40.000002, longitude=-4.000002),
+        dict(acq_time="1130", frp=20.0),
+        dict(satellite="A", acq_time="0930", frp=30.0),
+        dict(acq_time="0930", acq_date="2024-01-11", frp=40.0),
+        dict(acq_time="0930", latitude=40.00002, frp=50.0),
+    ])
+    path = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    rows = pq.read_table(path).to_pylist()
+    assert len(rows) == 5
+    assert all(row["source_file"] == "z_archive.csv" and row["is_center"] for row in rows)
+    assert sorted(row["frp"] for row in rows) == [10, 20, 30, 40, 50]
+    first = next(row for row in rows if row["frp"] == 10)
+    assert first["satellite"] == "Terra" and first["acq_time"] == "0930"
+    assert first["latitude"] == 40.000001
+    assert sum(row["satellite"] == "Terra" for row in rows) == 4
+    assert sum(row["acq_date"] == date(2024, 1, 10) for row in rows) == 4
+
+
+def test_stage04_eulerian_fre_conversion_and_units(phase2_etl, tmp_path):
+    ingest, _, builder = phase2_etl
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [
+        dict(frp=10.0, acq_time="1030"), dict(frp=20.0, acq_time="1230"),
+        dict(satellite="Aqua", frp=7.0, acq_time="1330"),
+        dict(satellite="SNPP", frp=6.0), dict(satellite="N20", frp=18.0),
+        dict(frp=5.0, acq_time="0000", acq_date="2024-01-11"),
+    ])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
+    rows = pq.read_table(path).to_pylist()
+    area = h3.cell_area(h3.latlng_to_cell(40.0, -4.0, 7), unit="km^2")
+    assert len(rows) == 2
+    first, second = rows
+    assert first["obs_terra_fre"] == pytest.approx(30.0 * 3600 / area)
+    assert first["obs_aqua_fre"] == pytest.approx(7.0 * 3600 / area)
+    assert first["obs_viirs_fre"] == pytest.approx(12.0 * 3600 / area)
+    assert first["raw_frp_mw"] == 61.0
+    assert first["raw_modis_cnt"] == 3 and first["raw_viirs_cnt"] == 2
+    assert first["sensor_obs_mask"] == 15
+    assert second["obs_terra_fre"] == pytest.approx(5.0 * 3600 / area)
+    assert second["raw_modis_cnt"] == 1 and second["raw_frp_mw"] == 5.0
+    assert second["epoch_day"] == first["epoch_day"] + 1
+    assert second["neighbor_fre_lag1"] == 0.0  # Self is not a neighbor.
+
+
+def test_stage02_diurnal_ratio_uses_positive_coincident_daytime_sums(phase2_etl, tmp_path):
+    ingest, outages, _ = phase2_etl
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [
+        dict(frp=4.0), dict(frp=6.0, acq_time="1130"), dict(satellite="Aqua", frp=20.0),
+        dict(acq_date="2024-01-11", frp=20.0),
+        dict(acq_date="2024-01-11", satellite="Aqua", frp=50.0),
+        dict(acq_date="2024-01-12", frp=30.0),
+        dict(acq_date="2024-01-12", satellite="Aqua", frp=80.0),
+        dict(daynight="N", satellite="Aqua", acq_time="0130", frp=900.0),
+        dict(acq_date="2024-01-13", frp=700.0),
+        dict(acq_date="2024-01-14", satellite="Aqua", frp=800.0),
+        dict(acq_date="2024-01-15", frp=0.0),
+        dict(acq_date="2024-01-15", satellite="Aqua", frp=60.0),
+        dict(acq_date="2024-01-16", frp=60.0),
+        dict(acq_date="2024-01-16", satellite="Aqua", frp=0.0),
+        dict(acq_date="2024-02-01", frp=2.0),
+        dict(acq_date="2024-02-01", satellite="Aqua", frp=8.0),
+    ])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    outages.build_outages_table(staged)
+    ratios = pq.read_table(tmp_path / "data/lookup/diurnal_ratios.parquet").to_pylist()
+    assert len(ratios) == 2
+    assert [(row["month"], row["matched_days"], row["ratio"]) for row in ratios] == [
+        (1, 3, 2.5), (2, 1, 4.0)]
+
+
+@pytest.mark.parametrize("matched_days", [3, 5])
+def test_stage04_diurnal_scaling_terra_to_aqua(phase2_etl, tmp_path, matched_days):
+    ingest, _, builder = phase2_etl
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [
+        dict(acq_date=f"2024-{month:02d}-10", satellite=sensor)
+        for month in (1, 2, 3) for sensor in ("Terra", "Aqua")
+    ])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    cell = h3.latlng_to_cell(40.0, -4.0, 7)
+    parent = int(h3.cell_to_parent(cell, 4), 16)
+    pq.write_table(pa.Table.from_pylist([
+        dict(h3_r4=parent, month=1, ratio=2.5, matched_days=matched_days),
+        dict(h3_r4=parent, month=2, ratio=2.5, matched_days=2),
+    ]), tmp_path / "data/lookup/diurnal_ratios.parquet")
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
+    base = 10.0 * 3600 / h3.cell_area(cell, unit="km^2")
+    rows = pq.read_table(path).to_pylist()
+    assert len(rows) == 3
+    for row, factor in zip(rows, (2.5, 1.0, 1.0)):
+        assert row["obs_terra_fre"] == pytest.approx(base * factor)
+        assert row["obs_aqua_fre"] == pytest.approx(base)
+
+
+def test_stage04_neighbor_lag1_alignment(phase2_etl, tmp_path):
+    ingest, _, builder = phase2_etl
+    cell_a = h3.latlng_to_cell(40.0, -4.0, 7)
+    cell_b = sorted(set(h3.grid_disk(cell_a, 1)) - {cell_a})[0]
+    lat_b, lon_b = h3.cell_to_latlng(cell_b)
+    # Use a valid 2024 UTC epoch rather than day 100 after 1970 (outside FIRMS coverage).
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [
+        dict(acq_time="2359", frp=10.0),
+    ] + [
+        dict(latitude=lat_b, longitude=lon_b, acq_date=day, acq_time="0000", frp=20.0)
+        for day in ("2024-01-10", "2024-01-11", "2024-01-12")
+    ])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
+    rows = sorted((row for row in pq.read_table(path).to_pylist() if row["h3_r7"] == int(cell_b, 16)),
+                  key=lambda row: row["epoch_day"])
+    assert len(rows) == 3
+    expected = 10.0 * 3600 / h3.cell_area(cell_a, unit="km^2")
+    assert [row["neighbor_fre_lag1"] for row in rows] == pytest.approx([0.0, expected, 0.0])
+    assert [row["epoch_day"] for row in rows] == [19732, 19733, 19734]
+
+
+@pytest.mark.parametrize("powers", [(10.0, 0.0), (10.0, 30.0), (0.0, 0.0)])
+def test_stage04_neighbor_lag_averages_only_active_burning_cells(phase2_etl, tmp_path, powers):
+    ingest, _, builder = phase2_etl
+    target = h3.latlng_to_cell(40.0, -4.0, 7)
+    neighbors = sorted(set(h3.grid_disk(target, 1)) - {target})[:2]
+    records = [dict(acq_date="2024-01-11")]
+    expected_energy = []
+    for cell, power in zip(neighbors, powers):
+        lat, lon = h3.cell_to_latlng(cell)
+        records.append(dict(latitude=lat, longitude=lon, frp=power))
+        if power > 0:
+            expected_energy.append(power * 3600 / h3.cell_area(cell, unit="km^2"))
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", records)
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
+    rows = pq.read_table(path).to_pylist()
+    row = next(row for row in rows if row["h3_r7"] == int(target, 16))
+    expected = sum(expected_energy) / len(expected_energy) if expected_energy else 0.0
+    assert row["neighbor_fre_lag1"] == pytest.approx(expected)
+    for source in (row for row in rows if row["h3_r7"] != int(target, 16)):
+        assert source["gap_status_mask"] == 0  # Measured zero is not a blackout.
+
+
+def test_phase2_csv_to_cube_preserves_energy_and_empirical_scaling(phase2_etl, tmp_path):
+    ingest, outages, builder = phase2_etl
+    raw = tmp_path / "data/raw"
+    records = [dict(acq_date=day, acq_time=time, satellite=sensor, frp=power)
+               for day in ("2024-01-10", "2024-01-11", "2024-01-12")
+               for time, sensor, power in (("1030", "Terra", 10.0), ("1130", "Terra", 20.0),
+                                           ("1330", "Aqua", 75.0))]
+    write_phase2_csv(raw / "z_archive.csv", records + [records[0]])
+    write_phase2_csv(raw / "a_nrt.csv", [records[0] | {"frp": 999.0}])
+    staged = ingest.ingest_raw_firms(output_path=tmp_path / "staged.parquet")
+    assert pq.read_table(staged).num_rows == 9
+    outages.build_outages_table(staged)
+    ratio = pq.read_table(tmp_path / "data/lookup/diurnal_ratios.parquet").to_pylist()
+    assert len(ratio) == 1 and ratio[0]["matched_days"] == 3 and ratio[0]["ratio"] == 2.5
+    path = builder.build_master_cube(staged, tmp_path / "cube.parquet")
+    rows = pq.read_table(path).to_pylist()
+    area = h3.cell_area(h3.latlng_to_cell(40.0, -4.0, 7), unit="km^2")
+    assert len(rows) == 3
+    for row in rows:
+        assert row["raw_modis_cnt"] == 3 and row["raw_frp_mw"] == 105.0
+        assert row["obs_terra_fre"] == pytest.approx(75.0 * 3600 / area)
+        assert row["obs_aqua_fre"] == pytest.approx(75.0 * 3600 / area)
+        assert row["neighbor_fre_lag1"] == 0.0
 
 def run_outage_cli(staged, output, counts=None):
     command = [sys.executable, str(ROOT / "scripts/02_detect_outages_clouds.py"),
@@ -436,10 +637,17 @@ def test_generator_repeatability_performance_and_alternate_path(tmp_path,cube):
     assert isinstance(path, str)
     assert perf_counter()-start<3.0
     assert pq.read_table(path).equals(cube)
-    # A foreign working directory must not alter the default output location.
-    result=subprocess.run([sys.executable,str(ROOT/"scripts/00_bootstrap_synthetic_cube.py")],cwd=tmp_path,capture_output=True,text=True)
+    # Exercise the unchanged CLI default in an isolated project, never in production.
+    isolated = tmp_path / "isolated_project"
+    script = isolated / "scripts/00_bootstrap_synthetic_cube.py"
+    script.parent.mkdir(parents=True)
+    script.write_bytes((ROOT / "scripts/00_bootstrap_synthetic_cube.py").read_bytes())
+    result=subprocess.run([sys.executable,str(script)],cwd=tmp_path,capture_output=True,text=True)
     assert result.returncode==0,result.stderr
     assert "Synthetic cube:" in result.stdout
+    generated = isolated / "data/processed/fire_cube_synthetic.parquet"
+    assert str(generated) in result.stdout
+    assert pq.read_table(generated).equals(cube)
 
 
 @pytest.mark.parametrize("version", [3, 4])
