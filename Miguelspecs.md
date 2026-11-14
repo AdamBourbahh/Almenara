@@ -310,3 +310,38 @@ Post-pull actions:
 - **Drawer regression re-fixed:** the pulled `7c4ca2b` removed the earlier `lg:top-16` offset when it changed the header to wrap at `2xl`, so the drawer covered the header again. The panel is now `absolute` inside a content wrapper below the header (mobile backdrop at `z-30`), which is breakpoint-independent. Verified: with the Copilot open, the header stays clickable and navigation works.
 
 No scientific method or frozen public contract was changed by this refresh.
+
+---
+
+## 14. Audit remediation — Migue's part (2026-11-14)
+
+Response to the independent audit. Scope: audit panel, chart copy, README/pitch, ownership docs and frozen-test coordination. Backend, ETL, core and map/store fixes belong to their owners.
+
+### Audit panel (`AuditMetricsPanel.tsx`)
+
+- Shows `audit.executive_verdict_en` **verbatim**, so the PASS/FAIL gates come from the backend (Chow p > 0.1, W1 reduction > 88%), not a local heuristic.
+- Status column now uses `[PASS]` / `[FAIL]` / `Not available`; the W1 row prints the measured reduction; R² shows `Not available` while MCD64A1 is absent (previously it could render `[VALIDATED]`).
+- PM2.5 shows **"Not computed"** when `total_pm25_emitted_tonnes` is `null` (it used to print `0 t`).
+- The hard-coded "R² rises" sentence is gone; the footer says "industrial **detections** discarded" (not "sources") and states when the count is zero that no flaring was detected with the current pipeline.
+
+### Chart and view copy
+
+- `KalmanUncertaintyBandChart.tsx`: "Truth" → **"Intact reference"** (legend and tooltip); the repaired-days description no longer claims a satellite-pass gap model; the "14-day forecast" legend entry renders only when `forecast_series` has data (today it never does).
+- `TrendsPage.tsx` intro: removes the promise to "project the next two weeks".
+- `BurningCalendarCanvas.tsx`: the forecast legend is hidden when there are no forecast cells.
+
+### Documentation
+
+- `firms-harmonizer/README.md` rewritten: real sections, six regions with data, explicit "not implemented" table (forecast, PM2.5, industrial flaring, R²), measured diagnostics, known audit issues, run/test instructions and Copilot limits.
+- `frontendExpects.md` marked historical with a banner pointing to this document.
+- Root `README.md` replaced by an index of the project documents.
+- `AGENTS.md` ownership table: removed the non-existent `ChaosMonkeyButton.tsx`, assigned every backend, frontend, script and data file (plus a Shared row for contracts, docs and infrastructure).
+- `CAMBIOS.md`: added the pending frozen-contract changes (forecast, PM2.5/tooltip nulls, CORS `*`) with the agreed procedure to regenerate `FROZEN_TESTS.sha256`.
+
+### Verification
+
+- `npx tsc --noEmit` 0 errors; `npm run build` OK; `npm test` 19/19.
+- Browser (Impact, Chilecito): backend verdict rendered verbatim (`PASS` Chow, `FAIL` W1), PM2.5 "Not computed", no `[VALIDATED]`, no "R² rises", no console errors.
+
+The remaining audit findings (biomass aggregation, zero-detection days, sensor bits, AOI area, request limits, Chaos Monkey metric, industrial ETL threshold, presets/CSV, CI) are with their assigned owners.
+
