@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
-import { LayoutGrid, Minus } from "lucide-react";
+import { LayoutGrid, Minus, Plus } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { selectedMapPeriod, useAnalysisStore } from "../../store/useAnalysisStore";
+import { isoDate, selectedMapPeriod, useAnalysisStore } from "../../store/useAnalysisStore";
 
 type Precision = "day" | "month" | "year";
 type Period = { key: string; detections: number };
@@ -43,6 +43,8 @@ export function HeatHistoryCard() {
   const position = positionByKey.get(key) ?? 0;
   const selected = periods[position];
   const unavailable = state.loading || Boolean(state.error) || !periods.length;
+  const canStepBack = !unavailable && (!state.min || anchor > state.min);
+  const canStepForward = !unavailable && (!state.max || anchor < state.max);
   const label = selected ? precision === "day"
     ? new Date(`${selected.key}T00:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })
     : precision === "month" ? new Date(`${selected.key}-01T00:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "long", timeZone: "UTC" }) : selected.key : "No dates";
@@ -70,6 +72,29 @@ export function HeatHistoryCard() {
   function changePrecision(unit: Precision) {
     setPrecision(unit);
   }
+  function stepDate(delta: -1 | 1) {
+    if (!(delta === -1 ? canStepBack : canStepForward)) return;
+    const date = new Date(`${anchor}T00:00:00Z`);
+    if (precision === "day") {
+      date.setUTCDate(date.getUTCDate() + delta);
+      state.setDate(date.toISOString().slice(0, 10));
+      return;
+    }
+    const year = date.getUTCFullYear() + (precision === "year" ? delta : 0);
+    const month = date.getUTCMonth() + (precision === "month" ? delta : 0);
+    const first = new Date(Date.UTC(year, month, 1));
+    state.setDate(isoDate(first.getUTCFullYear(), first.getUTCMonth() + 1, date.getUTCDate()));
+  }
+  function onDateKey(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (e.key === "ArrowUp" || e.key === "ArrowRight") {
+      e.preventDefault();
+      stepDate(1);
+    } else if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      stepDate(-1);
+    }
+  }
   function point(e: PointerEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     return Math.min(periods.length - 1, Math.max(0, Math.floor((e.clientX - rect.left) / rect.width * periods.length)));
@@ -92,6 +117,7 @@ export function HeatHistoryCard() {
   }, [periods, width]);
   const maximum = bins.reduce((m, bin) => Math.max(m, bin.detections), 1);
   const inputClass = "h-8 min-w-0 rounded-md border border-rule bg-paper px-2 text-xs text-ink focus-visible:outline-2 focus-visible:outline-reference [color-scheme:light_dark]";
+  const stepButtonClass = "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-rule text-muted hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-reference aria-disabled:opacity-40";
 
   return (
     <section aria-label="Chronology timeline" className="relative z-30 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-rule bg-panel px-3 py-2 text-ink sm:px-4">
@@ -126,12 +152,20 @@ export function HeatHistoryCard() {
         <select aria-label="Timeline precision" value={precision} disabled={unavailable} onChange={(e) => changePrecision(e.target.value as Precision)} className={inputClass}>
           <option value="year">Year</option><option value="month">Month</option><option value="day">Day</option>
         </select>
-        <input type="date" lang="en-US" aria-label="Go to date" title="Inspect an exact day without changing the timeline scale" value={state.date ?? anchor} min={state.min ?? undefined} max={state.max ?? undefined} disabled={unavailable} onChange={(e) => {
-          if (e.target.value) {
-            useAnalysisStore.getState().setHoveredDay(null);
-            state.setDate(e.target.value, true);
-          }
-        }} className={inputClass + " w-40"} />
+        <div className="flex min-w-0 items-center gap-1.5" onKeyDown={onDateKey}>
+          <button type="button" aria-label={`Previous ${precision}`} title={`Previous ${precision} (↓ or ←)`} aria-disabled={!canStepBack} onClick={() => stepDate(-1)} className={stepButtonClass}>
+            <Minus aria-hidden="true" className="h-4 w-4" />
+          </button>
+          <button type="button" aria-label={`Next ${precision}`} title={`Next ${precision} (↑ or →)`} aria-disabled={!canStepForward} onClick={() => stepDate(1)} className={stepButtonClass}>
+            <Plus aria-hidden="true" className="h-4 w-4" />
+          </button>
+          <input type="date" lang="en-US" aria-label="Go to date" title={`Inspect an exact day. Arrow keys move one ${precision}.`} value={anchor} min={state.min ?? undefined} max={state.max ?? undefined} disabled={unavailable} onChange={(e) => {
+            if (e.target.value) {
+              useAnalysisStore.getState().setHoveredDay(null);
+              state.setDate(e.target.value, true);
+            }
+          }} className={inputClass + " w-40"} />
+        </div>
       </div>
     </section>
   );
