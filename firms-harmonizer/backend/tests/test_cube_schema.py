@@ -568,6 +568,80 @@ def test_stage02_defaults_to_tracked_global_counts(tmp_path, monkeypatch):
     assert dict(acq_date=target, satellite="N20", evidence="global_count_drop") in rows
 
 
+def test_stage02_prefers_the_archive_counts_over_the_tracked_lookup(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    outages = import_module("02_detect_outages_clouds")
+    monkeypatch.setattr(outages, "ROOT", tmp_path)
+    tracked_day, archive_day = date(2022, 2, 1), date(2010, 6, 1)
+    (tmp_path / "data/lookup").mkdir(parents=True)
+    write_global_counts(tmp_path / outages.GLOBAL_COUNTS, n20_drop_records(tracked_day))
+    write_global_counts(tmp_path / outages.ARCHIVE_COUNTS, n20_drop_records(archive_day))
+    assert outages.default_global_counts() == outages.ARCHIVE_COUNTS
+    outages.build_outages_table(tmp_path / "absent.parquet", "out")
+    rows = pq.read_table(tmp_path / "out/sensor_outages.parquet").to_pylist()
+    assert dict(acq_date=archive_day, satellite="N20", evidence="global_count_drop") in rows
+    assert dict(acq_date=tracked_day, satellite="N20", evidence="global_count_drop") not in rows
+
+
+def test_stage02_explicit_counts_override_the_archive_series(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    outages = import_module("02_detect_outages_clouds")
+    monkeypatch.setattr(outages, "ROOT", tmp_path)
+    explicit_day, archive_day = date(2022, 2, 1), date(2010, 6, 1)
+    (tmp_path / "data/lookup").mkdir(parents=True)
+    write_global_counts(tmp_path / outages.ARCHIVE_COUNTS, n20_drop_records(archive_day))
+    write_global_counts(tmp_path / "explicit.csv", n20_drop_records(explicit_day))
+    outages.build_outages_table(tmp_path / "absent.parquet", "out", "explicit.csv")
+    rows = pq.read_table(tmp_path / "out/sensor_outages.parquet").to_pylist()
+    assert dict(acq_date=explicit_day, satellite="N20", evidence="global_count_drop") in rows
+    assert dict(acq_date=archive_day, satellite="N20", evidence="global_count_drop") not in rows
+
+
+def test_stage02_without_any_counts_file_has_no_default(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    outages = import_module("02_detect_outages_clouds")
+    monkeypatch.setattr(outages, "ROOT", tmp_path)
+    assert outages.default_global_counts() is None
+
+
+def test_stage01_ingests_extra_raw_directories_and_keeps_the_default_identical(phase2_etl, tmp_path):
+    ingest, _, _ = phase2_etl
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [dict(satellite="Terra", frp=10.0)])
+    extra = tmp_path / "elsewhere/archive_csv"
+    extra.mkdir(parents=True)
+    write_phase2_csv(extra / "fixture_modis_archive_2024.csv",
+                     [dict(satellite="Aqua", frp=20.0, acq_date="2024-01-11")])
+    plain = ingest.ingest_raw_firms(output_path=tmp_path / "plain.parquet")
+    empty = ingest.ingest_raw_firms(output_path=tmp_path / "empty.parquet", extra_raw_dirs=())
+    assert plain.read_bytes() == empty.read_bytes()
+    both = ingest.ingest_raw_firms(output_path=tmp_path / "both.parquet",
+                                   extra_raw_dirs=["elsewhere/archive_csv"])
+    assert {r["satellite"] for r in pq.read_table(plain).to_pylist()} == {"Terra"}
+    rows = pq.read_table(both).to_pylist()
+    assert {(r["satellite"], r["source_file"]) for r in rows} == {
+        ("Terra", "archive.csv"), ("Aqua", "fixture_modis_archive_2024.csv")}
+
+
+def test_stage01_extra_raw_directory_must_exist(phase2_etl, tmp_path):
+    ingest, _, _ = phase2_etl
+    write_phase2_csv(tmp_path / "data/raw/archive.csv", [dict(satellite="Terra")])
+    with pytest.raises(SystemExit, match="Extra raw directory not found"):
+        ingest.ingest_raw_firms(output_path=tmp_path / "x.parquet", extra_raw_dirs=["no/such/dir"])
+
+
+def test_stage01_cli_accepts_repeatable_extra_raw_dir(phase2_etl, tmp_path):
+    ingest, _, _ = phase2_etl
+    for name, sat in (("one", "Terra"), ("two", "Aqua")):
+        (tmp_path / name).mkdir()
+        write_phase2_csv(tmp_path / name / f"{name}_archive.csv", [dict(satellite=sat)])
+    (tmp_path / "data/raw/empty_dir_marker").mkdir()
+    write_phase2_csv(tmp_path / "data/raw/base.csv", [dict(satellite="Terra", acq_date="2024-02-01")])
+    out = tmp_path / "cli.parquet"
+    ingest.main(["--extra-raw-dir", "one", "--extra-raw-dir", "two", "--output", str(out)])
+    assert {r["source_file"] for r in pq.read_table(out).to_pylist()} == {
+        "base.csv", "one_archive.csv", "two_archive.csv"}
+
+
 @pytest.fixture
 def stage04_inputs(tmp_path, monkeypatch):
     monkeypatch.syspath_prepend(str(ROOT / "scripts"))

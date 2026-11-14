@@ -25,6 +25,60 @@ building live only in `scripts/01–04` and `backend/core/`.
 configured regions, and `scripts/04` requires the region to declare a `coverage` in `data/regions.json`
 that contains every detection day.
 
+## Streaming archive pass (global counts and preset clipping without a global ingest)
+
+`archive_pass.py` gets two small things out of the 48 yearly zips (modis 2000-2025, viirs-snpp 2012-2025,
+viirs-jpss1 2018-2025; about 9.75 GB zipped; there is no NOAA-21 yearly archive) in one streaming pass that
+keeps **at most one zip on disk**:
+
+1. **Global daily detection counts per satellite**, for `scripts/02`'s outage detector. They use the same
+   rules as the global ingest (`ingest.prepare_kept`: validity window, exact-identity de-duplication, SAMA
+   rule, canonical satellite names; an unknown satellite code raises).
+2. **The real detections inside the box of each preset region** (`cerrado_brazil`, `california_usa`,
+   `niger_delta_flaring`, or any `--regions`) as FIRMS-format CSVs with the original columns and text.
+
+Per (product, year): download (`download.download_one`, resumable, verified) -> extract the CSV members to
+`data/real/.tmp/` -> DuckDB (2 GB, 2 threads, spilling to `.tmp`) -> write outputs -> delete the extraction
+and, unless `--keep-zips`, the zip. Disk peak is therefore one zip plus its extracted CSVs; network is the
+full 9.75 GB, once. Everything under `data/real/` is git-ignored.
+
+| Output | Path |
+| --- | --- |
+| Partial counts, stats and marker | `data/real/archive_pass/product=<p>/year=<y>/{counts.csv,stats.json,_SUCCESS}` |
+| Clipped CSV (only when rows exist) | `data/real/regions/<region>/archive_csv/<region>_<product>_archive_<year>.csv` |
+| Merged counts | `data/lookup/global_daily_counts_archive.csv` (`satellite,acq_date,detection_count`) |
+
+A chunk is finished only when `_SUCCESS` exists (written last); it is skipped on the next run unless
+`--force`, or unless a requested region was not clipped yet. Clipped file names never contain `nrt`, so
+`scripts/01` treats them as standard archive data. Stage them with the tracked CSVs:
+
+```bash
+python scripts/01_ingest_firms.py --extra-raw-dir data/real/regions/cerrado_brazil/archive_csv \
+    --extra-raw-dir data/real/regions/california_usa/archive_csv \
+    --extra-raw-dir data/real/regions/niger_delta_flaring/archive_csv
+```
+
+```bash
+python -m pipeline.run --archive-pass --products modis --years 2000     # one chunk (the smallest probe)
+python -m pipeline.run --archive-pass                                   # everything, sequential, resumable
+python -m pipeline.run --merge-counts                                   # partial counts -> lookup CSV
+```
+
+**Splitting between machines or people.** Chunks are independent: run
+`--archive-pass --products viirs-snpp` on one machine, `--products viirs-jpss1` on another, and split MODIS
+with `--years 2000 2001 ...`. Copy each machine's `data/real/archive_pass/` and
+`data/real/regions/*/archive_csv/` folders into the same paths on the machine that merges, then run
+`--merge-counts`. The merge writes one row for **every** calendar day between each satellite's first and last
+observed day, explicit zeros included, sorted by satellite and day. It fails with `ArchiveIncomplete` when a
+(product, year) chunk has no `_SUCCESS` (by default all 48 are required; `--partial` only demands a
+contiguous year range per finished product, for probes), and when a day appears in two chunks, so a partial
+download can never fabricate zero-count outage days. `scripts/02` then prefers
+`data/lookup/global_daily_counts_archive.csv` over the tracked 50-day `global_daily_counts.csv` unless
+`--global-counts` is given.
+
+Limits: the archives are per country (open-sea detections are absent, relevant for flaring offshore of
+the Niger Delta), end in 2025, and every member of a zip must share one CSV header.
+
 ## One-time setup
 
 Install the backend requirements, then the DuckDB `h3` community extension **once**, with the same

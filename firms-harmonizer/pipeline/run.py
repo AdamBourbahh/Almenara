@@ -3,6 +3,12 @@
     python -m pipeline.run --download                       # fetch the FIRMS yearly global archives
     python -m pipeline.run                                  # ingest the archives, global daily counts, report
     python -m pipeline.run --region amazonas_manaus         # same, then the regional cube
+    python -m pipeline.run --archive-pass --products modis --years 2000   # streaming pass (network)
+    python -m pipeline.run --merge-counts                   # partial counts -> data/lookup/*_archive.csv
+
+``--archive-pass`` downloads one yearly zip at a time, counts detections per satellite and day, clips the
+preset regions to FIRMS CSVs and deletes the zip (see ``pipeline/archive_pass.py``); it does not run the
+global ingest below.
 
 Stages: ingest (per product-year, skipped when ``_SUCCESS`` exists) -> global daily counts -> with
 ``--region``: canonical staging (``scripts/01``) -> outages and diurnal ratios (``scripts/02``) -> EQM/GPD
@@ -16,7 +22,7 @@ import argparse
 import time
 from pathlib import Path
 
-from pipeline import config, cube, download, ingest, lookups, pairs, quality
+from pipeline import archive_pass, config, cube, download, ingest, lookups, pairs, quality
 
 
 def _step(name: str, fn):
@@ -33,6 +39,16 @@ def main(argv=None) -> int:
     parser.add_argument("--years", nargs="*", type=int)
     parser.add_argument("--region", choices=sorted(config.load_regions()),
                         help="build the cube for one data/regions.json region")
+    parser.add_argument("--archive-pass", action="store_true",
+                        help="streaming pass: global daily counts and preset-region clipping per (product, year)")
+    parser.add_argument("--merge-counts", action="store_true",
+                        help="merge the archive-pass partial counts into data/lookup/global_daily_counts_archive.csv")
+    parser.add_argument("--regions", nargs="*", default=list(config.PRESET_REGIONS),
+                        help="regions clipped by --archive-pass (default: the three presets)")
+    parser.add_argument("--keep-zips", action="store_true", help="--archive-pass: keep each zip after success")
+    parser.add_argument("--force", action="store_true", help="--archive-pass: redo chunks that already succeeded")
+    parser.add_argument("--partial", action="store_true",
+                        help="--merge-counts: require only a contiguous year range per finished product")
     parser.add_argument("--force-ingest", action="store_true", help="re-ingest chunks that already succeeded")
     parser.add_argument("--output", type=Path,
                         help="cube path (default data/real/regions/<region>/fire_cube.parquet)")
@@ -40,6 +56,17 @@ def main(argv=None) -> int:
     if args.output is not None and args.region is None:
         parser.error("--output needs --region")
 
+    if args.archive_pass and args.merge_counts:
+        parser.error("--archive-pass and --merge-counts are separate steps")
+    if args.archive_pass or args.merge_counts:
+        if args.download or args.region:
+            parser.error("--archive-pass/--merge-counts do not combine with --download or --region")
+        forwarded = ["--regions", *args.regions]
+        forwarded += ["--products", *args.products] if args.products else []
+        forwarded += ["--years", *map(str, args.years)] if args.years else []
+        forwarded += [flag for flag, on in (("--keep-zips", args.keep_zips), ("--force", args.force),
+                                            ("--merge-counts", args.merge_counts), ("--partial", args.partial)) if on]
+        return archive_pass.main(forwarded)
     if args.download:
         download.main((["--products", *args.products] if args.products else [])
                       + (["--years", *map(str, args.years)] if args.years else []))

@@ -8,6 +8,7 @@ import duckdb
 ROOT = Path(__file__).resolve().parents[1]
 STAGED = ROOT / "data/processed/staged_firms.parquet"
 GLOBAL_COUNTS = Path("data/lookup/global_daily_counts.csv")
+ARCHIVE_COUNTS = Path("data/lookup/global_daily_counts_archive.csv")
 # Measured in FIRMS world counts (VIIRS_SNPP_SP = 0 detections; Aqua, Terra and NOAA-20 nominal).
 KNOWN_OUTAGES = (("SNPP", "2022-07-27", "2022-08-10"),)
 
@@ -19,13 +20,21 @@ def read_counts_sql(path):
     return "read_parquet(?)"
 
 
+def default_global_counts():
+    """Relative path of the counts file used when none is given, or None when neither exists."""
+    for candidate in (ARCHIVE_COUNTS, GLOBAL_COUNTS):
+        if (ROOT / candidate).is_file():
+            return candidate
+    return None
+
+
 def build_outages_table(staged=STAGED, output_dir="data/lookup", global_counts=None):
     """Record documented outages, drops and interior zero days in global daily counts.
 
-    Uses the tracked lookup by default.
+    Default counts: the 2000-2025 archive series when it exists, else the tracked 50-day lookup.
     """
-    if global_counts is None and (ROOT / GLOBAL_COUNTS).is_file():
-        global_counts = GLOBAL_COUNTS
+    if global_counts is None:
+        global_counts = default_global_counts()
     output = ROOT / output_dir
     output.mkdir(parents=True, exist_ok=True)
     # Serial aggregation fixes floating-point summation order for identical local inputs.
@@ -97,6 +106,6 @@ if __name__ == "__main__":
     parser.add_argument("--staged", default=STAGED)
     parser.add_argument("--output-dir", default="data/lookup")
     parser.add_argument("--global-counts", help="Local CSV or Parquet of satellite, acq_date, detection_count "
-                                                f"(default: {GLOBAL_COUNTS} when present)")
+                                                f"(default: {ARCHIVE_COUNTS} when present, else {GLOBAL_COUNTS})")
     args = parser.parse_args()
     build_outages_table(args.staged, args.output_dir, args.global_counts)

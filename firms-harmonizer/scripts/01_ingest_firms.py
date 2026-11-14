@@ -96,8 +96,13 @@ def footprint(lat, lon, cell, scan, track, modis):
     return list(result.items())
 
 
-def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
+def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED, extra_raw_dirs=()):
+    """Stage every FIRMS CSV of ``raw_dir`` plus those of ``extra_raw_dirs`` (relative paths are under ROOT)."""
     files = sorted((ROOT / raw_dir).glob("*.csv"))
+    for extra in extra_raw_dirs:
+        if not (ROOT / extra).is_dir():
+            raise SystemExit(f"Extra raw directory not found: {extra}")
+        files += sorted((ROOT / extra).glob("*.csv"))
     if not files:
         raise SystemExit("No FIRMS CSVs found. Use script 04 --bootstrap for the offline fixture.")
     regions = load_regions()
@@ -216,9 +221,15 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
     return out
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw-dir", default="data/raw")
+    parser.add_argument("--extra-raw-dir", action="append", default=[],
+                        help="additional directory of FIRMS CSVs (repeatable), e.g. data/real/regions/<region>/archive_csv")
     parser.add_argument("--output", default=STAGED)
-    args = parser.parse_args()
-    ingest_raw_firms(args.raw_dir, args.output)
+    args = parser.parse_args(argv)
+    ingest_raw_firms(args.raw_dir, args.output, args.extra_raw_dir)
+
+
+if __name__ == "__main__":
+    main()
