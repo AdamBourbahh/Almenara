@@ -10,7 +10,7 @@
 
 | Block | Complete | In progress | Pending |
 | --- | --- | --- | --- |
-| Offline ETL | 1, 2 | 3, 5, 6, 7 | 4 |
+| Offline ETL | 1, 2, 3 | 5, 6, 7 | 4 |
 | Online API | 8 | 9, 10, 11, 12 | — |
 
 ## Earlier pull review (historical context)
@@ -49,13 +49,13 @@
 - [x] Deduplicate identical sensor/time/location records, aggregate by R7 cell and UTC day, use coincident Terra/Aqua diurnal ratios where available, and publish previous-day neighbor energy in `neighbor_fre_lag1`.
 - [x] Validate the daily Eulerian integration and diurnal weights on known inputs, including repeated acquisitions and lag alignment — **2026-11-14**. Command from `firms-harmonizer/`: `python -m pytest backend/tests/test_cube_schema.py -v`. Result: **47 passed in 13.60s**, exit 0, including 10 new Phase 2 cases. Data source: **deterministic temporary fixtures + ETL_SPEC.md contract**. Tests verify exact-record deduplication with archive priority, per-instrument multi-pass energy, `FRP_calibrated * 3600 / exact_H3_area`, the daytime ratio of sums, the three-day support threshold and neutral fallback, and strict previous-day active-neighbor averaging. Fixed zero-energy neighbors diluting the mean; measured zeros remain valid observations. Production `data/processed/` file hashes, sizes and modification timestamps are unchanged. The [Eulerian integration contract](firms-harmonizer/data/ETL_SPEC.md#stage-04-diurnal-scaling-and-eulerian-integration-contract) documents the one-hour proxy and its physical limits. Completion validates implementation arithmetic, not independent real-fire energy accuracy; event graphs and continuous trapezoidal integration remain outside Phase 2.
 
-### Phase 3 — Industrial entropy, infrared contrast and SAMA · In progress
+### Phase 3 — Industrial entropy, infrared contrast and SAMA · Complete
 
 **Owners** — Adam for `backend/core/industrial_filter.py`; Germán for `scripts/01_ingest_firms.py`; Moha for the query consumer. **Specification** — [ETL_SPEC.md](firms-harmonizer/data/ETL_SPEC.md) stage 01 and [SPECS.md](SPECS.md) §2(3), §3.2.
 
 - [x] Compute R10 Shannon entropy normalized over 12 calendar months. Current staging uses a positional variance gate, a logistic industrial score and a local SAMA filter.
 - [x] Implement the core entropy, industrial score and SAMA filter. Unit tests cover the sigmoid, infrared contrast, SAMA boundaries and the Terra date cutoff.
-- [ ] Align the ETL and core implementations and verify the classification and the API's removal counts with persistent flares and seasonal fires. ETL probes for `is_sama_artifact`, while the new core exposes `filter_sama_anomalies` and ETL still takes its local path. The DB industrial-filter integration test passes with the aligned fixture.
+- [x] Align the ETL and core implementations and verify the classification and the API's removal counts with persistent flares and seasonal fires — **2026-11-14**. Command from `firms-harmonizer/`: `python -m pytest backend/tests/test_cube_schema.py -k "test_phase3" -v`. Result: **14 passed in 4.50s**, exit 0 (suite total: **79 passed in 20.85s**; full backend: **186 passed in 26.05s**). In `scripts/01_ingest_firms.py`, replaced the obsolete probe for `is_sama_artifact` with the official `industrial_filter.filter_sama_anomalies` implementation, including night/low-confidence/thermal-contrast screening and pre-Nov 2000 Terra MODIS gating. Integrated `industrial_filter.compute_industrial_probability` for exact R10 Shannon persistence entropy ($H_{\text{temp}}$) and the calibrated logistic industrial score ($P_{\text{industrial}}$ with 22.0 slope), validated against year-round flaring sites ($H_{\text{temp}} > 0.95, P_{\text{industrial}} > 0.90$) and dynamic seasonal wildfires ($H_{\text{temp}} < 0.05, P_{\text{industrial}} < 0.05$). All 21 DB integration tests continue to pass.
 
 ### Phase 4 — Orbital revisit weighting · Pending
 

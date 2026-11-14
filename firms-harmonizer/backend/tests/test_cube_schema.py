@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 from backend.api.schemas import AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, GeoJSONPolygon
-from backend.core import footprint_h3
+from backend.core import footprint_h3, industrial_filter
 
 spec = importlib.util.spec_from_file_location("bootstrap",ROOT/"scripts/00_bootstrap_synthetic_cube.py")
 bootstrap = importlib.util.module_from_spec(spec)
@@ -833,3 +833,114 @@ def test_phase1_staged_parquet_preserves_footprint_and_bowtie_weights(phase2_etl
     assert orlando_rows[0]["bowtie_weight"] == 1.0
     assert orlando_rows[0]["corrected_frp"] == 30.0
     assert orlando_rows[0]["is_center"] is True
+
+
+# =====================================================================
+# Phase 3: SAMA anomaly rejection and Shannon industrial entropy
+# =====================================================================
+
+@pytest.mark.parametrize("label,lat,lon,daynight,conf,mir,tir,acq_date,satellite,expected_drop", [
+    # Inside SAMA box (-35 to -15 lat, -65 to -30 lon), night, low conf, contrast < 1.5K -> DROP
+    ("sama_noise_cerrado", -16.9, -56.2, "N", "low", 300.0, 299.5, "2024-06-15", "Aqua", True),
+    ("sama_noise_south_atlantic", -25.0, -45.0, "N", "low", 300.0, 299.5, "2024-06-15", "Aqua", True),
+    ("sama_noise_digit_conf", -22.0, -45.0, "N", "20", 305.0, 304.5, "2024-06-15", "Terra", True),
+    # Inside SAMA box but daytime -> KEEP
+    ("sama_daytime_valid", -16.9, -56.2, "D", "low", 300.0, 299.5, "2024-06-15", "Aqua", False),
+    # Inside SAMA box but nominal/high conf -> KEEP
+    ("sama_nominal_conf_valid", -16.9, -56.2, "N", "nominal", 300.0, 299.5, "2024-06-15", "Aqua", False),
+    ("sama_high_conf_valid", -16.9, -56.2, "N", "100", 300.0, 299.5, "2024-06-15", "Terra", False),
+    # Inside SAMA box but thermal contrast >= 1.5K -> KEEP
+    ("sama_high_contrast_valid", -16.9, -56.2, "N", "low", 305.0, 300.0, "2024-06-15", "Aqua", False),
+    # Outside SAMA box (Iberia 40.0, -4.0) with low conf & night -> KEEP
+    ("iberia_outside_sama", 40.0, -4.0, "N", "low", 300.0, 299.5, "2024-06-15", "Terra", False),
+    # Outside SAMA box (Orlando 28.54, -81.38) with low conf & night -> KEEP
+    ("orlando_outside_sama", 28.54, -81.38, "N", "low", 300.0, 299.5, "2024-06-15", "NOAA-20", False),
+    # Outside SAMA box (Amazonas -3.10, -60.02 is north of -15) with low conf & night -> KEEP
+    ("amazonas_north_of_sama", -3.10, -60.02, "N", "low", 300.0, 299.5, "2024-06-15", "Aqua", False),
+    # Outside SAMA box (Chilecito -29.16, -67.5 is west of -65) with low conf & night -> KEEP
+    ("chilecito_west_of_sama", -29.16, -67.5, "N", "low", 300.0, 299.5, "2024-06-15", "Terra", False),
+    # Terra pre-Nov 2000 records -> DROP
+    ("terra_pre_nov_2000", 40.0, -4.0, "D", "high", 350.0, 300.0, "2000-10-15", "Terra", True),
+    # Non-Terra pre-Nov 2000 records -> KEEP
+    ("non_terra_pre_nov_2000", 40.0, -4.0, "D", "high", 350.0, 300.0, "2000-10-15", "Aqua", False),
+])
+def test_phase3_sama_artifact_filter_parity_etl_vs_core(label, lat, lon, daynight, conf,
+                                                        mir, tir, acq_date, satellite, expected_drop):
+    """Verify that ingest.sama_artifact delegates to industrial_filter.filter_sama_anomalies with identical verdicts."""
+    ingest = import_module("01_ingest_firms")
+    d = date.fromisoformat(acq_date)
+    conf_norm = "low" if conf.isdigit() and int(conf) < 30 else ("nominal" if conf.isdigit() and int(conf) < 80 else conf)
+    row = dict(
+        latitude=lat, longitude=lon, daynight=daynight.upper(),
+        confidence_norm=conf_norm, brightness_mir=mir, brightness_tir=tir,
+        acq_date=d, satellite=satellite,
+    )
+    # Direct ETL call
+    is_dropped = ingest.sama_artifact(row)
+    assert is_dropped == expected_drop, f"ETL verdict mismatch for {label}: got {is_dropped}, expected {expected_drop}"
+
+    # Core call parity
+    delta = (mir - tir) if (mir is not None and tir is not None) else np.nan
+    is_terra = (satellite == "Terra")
+    core_verdict = bool(industrial_filter.filter_sama_anomalies(
+        lat, lon, daynight.upper(), conf_norm == "low", delta,
+        d.year if is_terra else None, d.month if is_terra else None,
+    ))
+    assert is_dropped == core_verdict, f"Parity mismatch with core for {label}"
+
+
+def test_phase3_staged_entropy_and_industrial_score(phase2_etl, tmp_path):
+    """Verify that staged FIRMS detections filter SAMA noise and preserve exact Shannon entropy and industrial probability."""
+    ingest, _, _ = phase2_etl
+    raw = tmp_path / "data/raw"
+    (tmp_path / "data/regions.json").write_text((ROOT / "data/regions.json").read_text(encoding="utf-8"), encoding="utf-8")
+
+    # In Chilecito: 12 monthly detections at fixed position (flare/industrial site)
+    flare_records = [
+        dict(latitude=-29.16000, longitude=-67.50000, acq_date=f"2024-{m:02d}-15", acq_time="1200",
+             satellite="Terra", frp=50.0, scan=1.0, track=1.0, confidence=100, daynight="D",
+             brightness=340.0, bright_t31=300.0)
+        for m in range(1, 13)
+    ]
+    # In Iberia: a single seasonal wildfire detection in August
+    wildfire_records = [
+        dict(latitude=40.00000, longitude=-4.00000, acq_date="2024-08-15", acq_time="1200",
+             satellite="Terra", frp=80.0, scan=1.0, track=1.0, confidence=100, daynight="D",
+             brightness=360.0, bright_t31=300.0)
+    ]
+    # SAMA noise candidate in Cerrado region that must be filtered out
+    sama_records = [
+        dict(latitude=-16.90000, longitude=-56.20000, acq_date="2024-07-15", acq_time="0330",
+             satellite="Aqua", frp=15.0, scan=1.0, track=1.0, confidence=20, daynight="N",
+             brightness=300.0, bright_t31=299.5)
+    ]
+    write_phase2_csv(raw / "phase3_test_detections.csv", flare_records + wildfire_records + sama_records)
+
+    staged_path = ingest.ingest_raw_firms(output_path=tmp_path / "staged_phase3.parquet")
+    table = pq.read_table(staged_path)
+    rows = table.to_pylist()
+
+    # The SAMA record must have been dropped (0 rows in staged)
+    assert not any(r["daynight"] == "N" and r["confidence_norm"] == "low" for r in rows)
+
+    # Flare cell in Chilecito: 12 detections staged
+    flare_rows = [r for r in rows if r["region"] == "chilecito_la_rioja"]
+    assert len(flare_rows) == 12
+    expected_ent, expected_prob = industrial_filter.compute_industrial_probability(np.ones(12))
+    for r in flare_rows:
+        assert r["h_temp"] == pytest.approx(float(expected_ent), abs=1e-6)
+        assert r["industrial_prob"] == pytest.approx(float(expected_prob), abs=1e-6)
+        assert r["h_temp"] > 0.95
+        assert r["industrial_prob"] > 0.90
+
+    # Wildfire in Iberia: 1 detection staged
+    wildfire_rows = [r for r in rows if r["region"] == "iberia_med"]
+    assert len(wildfire_rows) == 1
+    w_counts = np.zeros(12)
+    w_counts[7] = 1.0  # August
+    w_ent, w_prob = industrial_filter.compute_industrial_probability(w_counts)
+    w = wildfire_rows[0]
+    assert w["h_temp"] == pytest.approx(float(w_ent), abs=1e-6)
+    assert w["industrial_prob"] == pytest.approx(float(w_prob), abs=1e-6)
+    assert w["h_temp"] < 0.05
+    assert w["industrial_prob"] < 0.05

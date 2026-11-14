@@ -46,11 +46,16 @@ def scan_bin(scan, sensor):
 
 
 def sama_artifact(row):
-    predicate = getattr(industrial_filter, "is_sama_artifact", None)
+    predicate = getattr(industrial_filter, "filter_sama_anomalies", None)
     if callable(predicate):
-        return predicate(row["latitude"], row["longitude"], row["daynight"],
-                         row["confidence_norm"], row["brightness_mir"], row["brightness_tir"])
-    # Local implementation of spec section 3.2 while the core module is empty.
+        mir, tir = row["brightness_mir"], row["brightness_tir"]
+        delta = (mir - tir) if (mir is not None and tir is not None) else np.nan
+        day = row.get("acq_date")
+        is_terra = (row.get("satellite") == "Terra")
+        year = day.year if is_terra and hasattr(day, "year") else None
+        month = day.month if is_terra and hasattr(day, "month") else None
+        return bool(predicate(row["latitude"], row["longitude"], row["daynight"],
+                              row["confidence_norm"] == "low", delta, year, month))
     mir, tir = row["brightness_mir"], row["brightness_tir"]
     return (
         -35 <= row["latitude"] <= -15 and -65 <= row["longitude"] <= -30
@@ -162,12 +167,17 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
         if not rows:
             raise ValueError("The FIRMS inputs contain no usable detections.")
         scores = {}
+        calc_ind = getattr(industrial_filter, "compute_industrial_probability", None)
         for cell, counts in monthly.items():
-            p = counts[counts > 0] / counts.sum()
-            entropy = float(-np.sum(p * np.log(p)) / np.log(12))
+            if callable(calc_ind):
+                ent, prob = calc_ind(counts)
+                entropy, score = float(ent), float(prob)
+            else:
+                p = counts[counts > 0] / counts.sum()
+                entropy = float(-np.sum(p * np.log(p)) / np.log(12))
+                score = 1 / (1 + np.exp(-22 * (entropy - .72)))
             coords = np.asarray(positions[cell])
             metres = coords * [111195, 111195 * np.cos(np.radians(coords[:, 0].mean()))]
-            score = 1 / (1 + np.exp(-20 * (entropy - .72)))
             scores[cell] = (entropy, score if metres.var(axis=0).sum() < 50 else 0.0)
 
         con.execute("""CREATE TABLE detections (

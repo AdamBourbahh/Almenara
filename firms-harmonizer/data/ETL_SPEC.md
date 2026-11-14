@@ -30,7 +30,7 @@ Use local auxiliary Parquet files when available.
 
 ## Stage behavior
 
-- **01** uses DuckDB to read local CSVs. It normalizes sensors, UTC date and time, thermal channels and confidence. It deduplicates exact sensor/time/location matches, filters SAMA candidates, computes H3 resolutions 4, 7 and 10, and stages both center counts and Gaussian MODIS footprint contributions. The footprint weights sum to one per detection. Entropy is normalized over twelve calendar months and the industrial score includes a positional variance gate. The ETL currently uses its local SAMA rule.
+- **01** uses DuckDB to read local CSVs. It normalizes sensors, UTC date and time, thermal channels and confidence. It deduplicates exact sensor/time/location matches, filters SAMA candidates, computes H3 resolutions 4, 7 and 10, and stages both center counts and Gaussian MODIS footprint contributions. The footprint weights sum to one per detection. Entropy is normalized over twelve calendar months and the industrial score includes a positional variance gate. The ETL delegates SAMA screening and Shannon industrial scoring to `backend/core/industrial_filter.py` (`filter_sama_anomalies` and `compute_industrial_probability`).
 - **02** records the Aqua safe-mode interval and optionally flags fourfold drops relative to the previous 15 complete days of global counts. Local detection counts cannot establish global outages. Diurnal ratios use coincident daytime Aqua and Terra FRP by H3 r4 and month.
 - **03** uses coincident daytime Aqua and SNPP r7 cell-days in 2012–2025. It fits empirical quantiles above 8 MW and fits a bounded sub-threshold contribution from VIIRS samples. Bins derive from footprint width, which is an angle proxy. Sparse strata fall back to biome then pooled fits. Unsupported models are omitted, with uncalibrated FRP as the build fallback.
 - **04** aggregates per cell-day, applies available lookup corrections, uses a one-hour FRP integration proxy for FRE density and computes prior-day neighbor energy. Only staged FIRMS detections contribute rows to the real master. Missing staging stops the build before replacement. Coverage is declared independently of detection density. Real FIRMS rows are sparse detections, and days without detections have no real row. For real rows without auxiliary data, biome uses the configured nominal class and cloud and burned area use zero sentinels. Parquet metadata records these limitations. The final replacement is atomic.
@@ -49,6 +49,21 @@ Use local auxiliary Parquet files when available.
 - Along-track bow-tie overlap suppression: For MODIS observations with `track > 1.35 km`, the discount weight is $w_{\text{bowtie}} = 1.0 / \text{track}$. For `track <= 1.35 km` or VIIRS observations, $w_{\text{bowtie}} = 1.0$.
 
 **Parity verification.** `scripts/01_ingest_firms.py` delegates directly to `backend.core.footprint_h3` (`compute_elliptical_psf_weights` and `compute_modis_bowtie_overlap_weight`) and incorporates an identical mathematical fallback. Exact parity ($\Delta < 10^{-12}$) across all 4 production regions (Chilecito, Iberia, Orlando, Amazonas), polar and antimeridian extremes, boundary conditions, and staged Parquet output is verified by `backend/tests/test_cube_schema.py::test_phase1_*` (14 automated test cases).
+
+### Stage 01 SAMA artifact and industrial persistence contract
+
+**SAMA anomaly screening.** As defined in `SPECS.md` §3.2 and implemented in `backend/core/industrial_filter.py::filter_sama_anomalies`:
+- Detections inside the South Atlantic Magnetic Anomaly bounding box ($15^\circ\text{S} \le \text{lat} \le 35^\circ\text{S}$, $30^\circ\text{W} \le \text{lon} \le 65^\circ\text{W}$) that occur at nighttime (`daynight == 'N'`), carry normalized `low` confidence, and have background thermal contrast $\Delta T_{11} = T_{\text{MIR}} - T_{\text{TIR}} < 1.5\text{ K}$ are discarded as energetic proton noise.
+- Pre-November 2000 corrupted Terra MODIS records (`acq_year == 2000 and acq_month < 11`) are discarded.
+- In `scripts/01_ingest_firms.py`, `sama_artifact` delegates directly to `filter_sama_anomalies` with scalar broadcasting and identical fallback logic.
+
+**Shannon temporal entropy & industrial probability.**
+- Monthly counts $c_m$ ($m=1,\dots,12$) at H3 resolution 10 evaluate temporal persistence:
+  $$H_{\text{temp}} = -\frac{1}{\ln(12)} \sum_{m=1}^{12} p_m \ln(p_m + 10^{-12}) \in [0, 1]$$
+- The logistic industrial score uses `compute_industrial_probability`:
+  $$P_{\text{industrial}} = \text{expit}(22.0 \cdot (H_{\text{temp}} - 0.72))$$
+  gated by spatial positional variance ($\sigma_{\text{pos}}^2 < 50\text{ m}^2$) to distinguish stationary industrial gas flaring ($H_{\text{temp}} > 0.75$) from dynamic seasonal wildfire events.
+- Parity between ETL and core is verified by `backend/tests/test_cube_schema.py::test_phase3_*` (14 automated test cases).
 
 ### Stage 04 diurnal scaling and Eulerian integration contract
 
