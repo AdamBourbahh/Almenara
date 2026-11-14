@@ -1,6 +1,7 @@
 """Offline synthetic cube schema, storage and physical scenario regression gates."""
 
 import importlib.util
+from importlib import import_module
 from pathlib import Path
 import subprocess
 import sys
@@ -9,17 +10,43 @@ from time import perf_counter
 import duckdb
 import h3
 import numpy as np
+import orjson
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import pytest
+from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
+from backend.api.schemas import AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, GeoJSONPolygon
 
 spec = importlib.util.spec_from_file_location("bootstrap",ROOT/"scripts/00_bootstrap_synthetic_cube.py")
 bootstrap = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bootstrap)
+
+def test_missing_staging_preserves_existing_master(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    builder = import_module("04_build_master_cube")
+    master = tmp_path / "fire_cube.parquet"
+    master.write_bytes(b"existing master")
+    with pytest.raises(FileNotFoundError, match="staged"):
+        builder.build_master_cube(tmp_path / "missing.parquet", master)
+    assert master.read_bytes() == b"existing master"
+
+
+def test_mock_and_request_contract():
+    payload = orjson.loads((ROOT / "data/mock/mock_analyze_response.json").read_bytes())
+    response = AnalyzeResponse.model_validate(payload)
+    assert response.data_source == "synthetic"
+    assert len(response.calendar_series) == 9496
+    aoi = GeoJSONPolygon(coordinates=[[[-6, 38], [-4, 38], [-4, 40], [-6, 38]]])
+    assert AnalyzeRequest(aoi=aoi).forecast_days == 14
+    assert ChaosMonkeyRequest(aoi=aoi).drop_fraction == .25
+    with pytest.raises(ValidationError):
+        AnalyzeRequest(aoi=aoi, forecast_days=15)
+    with pytest.raises(ValidationError):
+        AnalyzeRequest(aoi=aoi, start_year=2025, end_year=2020)
 
 EXPECTED = [
     ("h3_r4",pa.uint64()),("h3_r7",pa.uint64()),("epoch_day",pa.uint16()),
@@ -34,22 +61,27 @@ EXPECTED = [
 
 
 @pytest.fixture(scope="module")
-def cube():
-    path = ROOT/"data/processed/fire_cube.parquet"
-    assert path.is_file(), "Run python3 scripts/00_bootstrap_synthetic_cube.py first."
-    return pq.read_table(path)
+def cube_path(tmp_path_factory):
+    return bootstrap.generate_bootstrap_cube(
+        tmp_path_factory.mktemp("cube_schema") / "fire_cube_synthetic.parquet"
+    )
 
 
-def test_exact_schema_and_compression(cube):
+@pytest.fixture(scope="module")
+def cube(cube_path):
+    return pq.read_table(cube_path)
+
+
+def test_exact_schema_and_compression(cube, cube_path):
     assert [(f.name,f.type) for f in cube.schema] == EXPECTED
     with duckdb.connect() as con:
         columns = con.execute("DESCRIBE SELECT * FROM read_parquet(?)",
-                              [str(ROOT / "data/processed/fire_cube.parquet")]).fetchall()
+                              [str(cube_path)]).fetchall()
     sql_types = ["UBIGINT", "UBIGINT", "USMALLINT", "USMALLINT", "USMALLINT",
                  "UTINYINT", "UTINYINT", "UTINYINT", "FLOAT", "USMALLINT", "USMALLINT"] + ["FLOAT"] * 7
     assert [(row[0], row[1]) for row in columns] == [(name, typ) for (name, _), typ in zip(EXPECTED, sql_types)]
     assert [f.name for f in cube.schema if f.nullable] == ["obs_terra_fre","obs_aqua_fre","obs_viirs_fre"]
-    parquet = pq.ParquetFile(ROOT/"data/processed/fire_cube.parquet")
+    parquet = pq.ParquetFile(cube_path)
     for i in range(parquet.metadata.num_row_groups):
         for j in range(18):
             assert parquet.metadata.row_group(i).column(j).compression == "ZSTD"
@@ -122,14 +154,14 @@ def test_outages_and_sensor_masks(cube):
     ("2022-08-10", ["obs_aqua_fre"]),
     ("2022-08-24", ["obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre"]),
 ])
-def test_required_outage_dates_in_duckdb(date, sensors):
+def test_required_outage_dates_in_duckdb(cube_path, date, sensors):
     day = int(np.datetime64(date).astype(int))
     condition = " AND ".join(f"({s} IS NULL OR isnan({s}))" for s in sensors)
     with duckdb.connect() as con:
         total, missing = con.execute(
             f"SELECT count(*), count(*) FILTER (WHERE {condition}) "
             "FROM read_parquet(?) WHERE epoch_day = ?",
-            [str(ROOT / "data/processed/fire_cube.parquet"), day],
+            [str(cube_path), day],
         ).fetchone()
     assert total == missing == 40
 

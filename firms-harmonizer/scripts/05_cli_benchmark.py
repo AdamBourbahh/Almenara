@@ -54,6 +54,7 @@ def run_benchmark(cube_path="data/processed/fire_cube.parquet"):
         print(f"Cube unavailable at {path}. Run script 04.")
         return False
     parquet = pq.ParquetFile(path)
+    synthetic = b"SYNTHETIC" in (parquet.schema_arrow.metadata or {}).get(b"source", b"")
     metadata = parquet.metadata
     compressed = all(metadata.row_group(i).column(j).compression == "ZSTD"
                      for i in range(metadata.num_row_groups) for j in range(metadata.num_columns))
@@ -66,7 +67,7 @@ def run_benchmark(cube_path="data/processed/fire_cube.parquet"):
         all_cells = con.execute("SELECT DISTINCT h3_r4,h3_r7 FROM read_parquet(?)",
                                 [str(path)]).fetchall()
         for name, region in regions.items():
-            fixture = bootstrap.REGIONS.get(name)
+            fixture = bootstrap.REGIONS.get(name) if synthetic else None
             fixture_cells = {int(c, 16) for c in bootstrap.region_cells(*fixture[:2])} if fixture else set()
             cells = [(r4, r7) for r4, r7 in all_cells if r7 in fixture_cells
                      or ingest.region_at(*h3.cell_to_latlng(format(r7, "x")), {name: region}) == name]
@@ -103,7 +104,7 @@ def run_benchmark(cube_path="data/processed/fire_cube.parquet"):
             # Real-region validation requires independent burned-area input.
             # Fixture remnants outside declared coverage cannot supply that input.
             r2 = None
-            if not region.get("coverage"):
+            if synthetic:
                 r2 = cross_validated_r2(
                     np.array([energy[years == year].sum() for year in unique]),
                     np.array([area[years == year].sum() for year in unique]),
