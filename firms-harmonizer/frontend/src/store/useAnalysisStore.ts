@@ -8,31 +8,36 @@ import { analyzeAoi, runChaosMonkey } from "../api/client";
 
 export interface PresetRegion {
   label: string;
+  context: string;
   coordinates: number[][][];
 }
 
 export const PRESET_REGIONS = {
-  CHILECITO: {
-    label: "Chilecito, La Rioja (Argentina · Jul 2026)",
-    coordinates: [[[-67.6, -29.3], [-67.2, -29.3], [-67.2, -29.7], [-67.6, -29.7], [-67.6, -29.3]]]
+  CERRADO: {
+    label: "Cerrado & Pantanal",
+    context: "Brazil: the 2012 sensor jump",
+    coordinates: [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0], [-57.2, -16.0], [-57.2, -17.8]]]
   },
-  AMAZONAS: {
-    label: "Amazonas / Pantanal (Brazil)",
-    coordinates: [[[-55.5, -12.5], [-53.0, -12.5], [-53.0, -15.0], [-55.5, -15.0], [-55.5, -12.5]]]
-  },
-  CALIFORNIA: {
-    label: "California / Western US",
-    coordinates: [[[-122.4, 37.7], [-120.0, 37.7], [-120.0, 39.5], [-122.4, 39.5], [-122.4, 37.7]]]
+  SIERRA_NEVADA: {
+    label: "Sierra Nevada",
+    context: "California: when the season starts earlier",
+    coordinates: [[[-121.2, 38.0], [-119.5, 38.0], [-119.5, 40.2], [-121.2, 40.2], [-121.2, 38.0]]]
   },
   IBERIA: {
-    label: "Mediterranean Basin / Iberia",
-    coordinates: [[[-6.0, 37.0], [-3.0, 37.0], [-3.0, 39.5], [-6.0, 39.5], [-6.0, 37.0]]]
+    label: "Iberian Peninsula",
+    context: "Spain and Portugal: coast and mountain detail",
+    coordinates: [[[-6.5, 37.2], [-3.2, 37.2], [-3.2, 39.8], [-6.5, 39.8], [-6.5, 37.2]]]
+  },
+  NIGER_DELTA: {
+    label: "Niger Delta",
+    context: "Nigeria: oil flares versus wildfires",
+    coordinates: [[[5.6, 4.6], [7.2, 4.6], [7.2, 5.8], [5.6, 5.8], [5.6, 4.6]]]
   }
 } satisfies Record<string, PresetRegion>;
 
 export type PresetKey = keyof typeof PRESET_REGIONS;
 export type RegionSelection = PresetKey | "CUSTOM";
-export const PRESET_ORDER: PresetKey[] = ["CHILECITO", "AMAZONAS", "CALIFORNIA", "IBERIA"];
+export const PRESET_ORDER: PresetKey[] = ["CERRADO", "SIERRA_NEVADA", "IBERIA", "NIGER_DELTA"];
 
 /** Minimum side of a custom bounding box (degrees) to avoid accidental click-sized AOIs. */
 export const MIN_BBOX_SIDE_DEG = 0.02;
@@ -123,8 +128,8 @@ let chaosSeq = 0;
 
 export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   viewMode: "HARMONIZED",
-  selectedPreset: "CHILECITO",
-  currentAoi: polygonFromPreset("CHILECITO"),
+  selectedPreset: "CERRADO",
+  currentAoi: polygonFromPreset("CERRADO"),
   startYear: 2001,
   endYear: 2026,
   excludeIndustrial: true,

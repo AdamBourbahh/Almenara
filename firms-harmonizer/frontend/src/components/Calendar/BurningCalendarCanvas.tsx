@@ -3,10 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { AnalyzeResponse } from "../../api/types";
 import { calendarKey, useAnalysisStore, type HoveredDay } from "../../store/useAnalysisStore";
 import { getHatchPattern, hatchCss } from "./HatchPatternDefs";
-
-// ============================================================================
-// Layout & palette
-// ============================================================================
+import { useTheme } from "../../lib/theme";
 
 const DAY_COLUMNS = 366;
 const CANVAS_CSS_HEIGHT = 340;
@@ -15,8 +12,8 @@ const MONTH_START_DOY = [1, 32, 61, 92, 122, 153, 183, 214, 245, 275, 306, 336];
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const FONT = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
-const VIIRS_MARKER = { year: 2012, label: "Jan 2012 · Suomi-NPP VIIRS launch", color: "#f59e0b" };
-const AQUA_MARKER = { year: 2022, startDoy: 212, endDoy: 228, label: "Aug 2022 · MODIS Aqua Safe Mode", color: "#ef4444" };
+const VIIRS_MARKER = { year: 2012, label: "Jan 2012 · VIIRS comes online", color: "#b45309" };
+const AQUA_MARKER = { year: 2022, startDoy: 212, endDoy: 228, label: "Aug 2022 · MODIS Aqua safe mode", color: "#b91c1c" };
 
 const FLAG_DATA = 1;
 const FLAG_GAP = 2;
@@ -24,7 +21,6 @@ const FLAG_FORECAST = 4;
 
 type Rgb = readonly [number, number, number];
 
-/** 256-entry RGB lookup table interpolated between colour stops. */
 function buildRamp(stops: Rgb[]): Uint8ClampedArray {
   const lut = new Uint8ClampedArray(256 * 3);
   for (let i = 0; i < 256; i++) {
@@ -36,13 +32,11 @@ function buildRamp(stops: Rgb[]): Uint8ClampedArray {
   return lut;
 }
 
-const RAW_RAMP = buildRamp([[38, 10, 12], [220, 38, 38], [255, 196, 80]]);
-const HARM_RAMP = buildRamp([[10, 22, 44], [30, 144, 255], [190, 242, 255]]);
-const EMPTY_RGB: Rgb = [15, 23, 42];
-
-// ============================================================================
-// Data preparation (once per response, typed arrays)
-// ============================================================================
+const HARM_RAMP = buildRamp([[254, 240, 217], [253, 190, 133], [230, 85, 13], [179, 0, 0]]);
+const RAW_RAMP_LIGHT = buildRamp([[229, 231, 235], [156, 163, 175], [71, 85, 105]]);
+const RAW_RAMP_DARK = buildRamp([[42, 47, 58], [107, 114, 128], [203, 213, 225]]);
+const EMPTY_LIGHT: Rgb = [239, 238, 235];
+const EMPTY_DARK: Rgb = [24, 28, 38];
 
 interface PreparedGrid {
   rows: number;
@@ -80,7 +74,6 @@ function prepareGrid(data: AnalyzeResponse | null, startYear: number, endYear: n
   };
   if (!data) return grid;
 
-  // Reference = p95 of the MODIS-only era (pre-2012): post-2012 raw counts saturate -> the artefact pops out.
   const preRaw: number[] = [];
   const preHarm: number[] = [];
   const allRaw: number[] = [];
@@ -155,7 +148,6 @@ function computeLayout(width: number, rows: number, startYear: number): Layout {
   };
 }
 
-/** Size the backing store to CSS size × devicePixelRatio and return a context in CSS-pixel units. */
 function prepareCanvas(canvas: HTMLCanvasElement, L: Layout): CanvasRenderingContext2D | null {
   const dpr = window.devicePixelRatio || 1;
   const pxW = Math.round(L.width * dpr);
@@ -169,7 +161,6 @@ function prepareCanvas(canvas: HTMLCanvasElement, L: Layout): CanvasRenderingCon
   return ctx;
 }
 
-/** Fill horizontal runs of consecutive cells in one call each (fewer draw calls, continuous stripes). */
 function fillRuns(ctx: CanvasRenderingContext2D, L: Layout, sortedIdx: number[]) {
   let i = 0;
   while (i < sortedIdx.length) {
@@ -183,11 +174,11 @@ function fillRuns(ctx: CanvasRenderingContext2D, L: Layout, sortedIdx: number[])
   }
 }
 
-function labelBox(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, align: "left" | "right" = "left") {
+function labelBox(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, bg: string, align: "left" | "right" = "left") {
   ctx.font = `9px ${FONT}`;
   const w = ctx.measureText(text).width + 8;
   const bx = align === "left" ? x : x - w;
-  ctx.fillStyle = "rgba(7, 11, 20, 0.88)";
+  ctx.fillStyle = bg;
   ctx.fillRect(bx, y - 9, w, 12);
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
@@ -198,19 +189,15 @@ function labelBox(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
   ctx.fillText(text, bx + 4, y);
 }
 
-// ============================================================================
-// Component
-// ============================================================================
-
-export const BurningCalendarCanvas: React.FC = () => {
+export function BurningCalendarCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const offscreenRef = useRef<HTMLCanvasElement | null>(null);
-  const renderMsRef = useRef<HTMLSpanElement | null>(null);
   const layoutRef = useRef<Layout | null>(null);
   const [width, setWidth] = useState(0);
 
+  const theme = useTheme((s) => s.theme);
   const { analysisData, viewMode, splitCurtainPct, setSplitCurtainPct, selectedYear, setSelectedYear, setHoveredDay, startYear, endYear } =
     useAnalysisStore(
       useShallow((s) => ({
@@ -228,7 +215,6 @@ export const BurningCalendarCanvas: React.FC = () => {
 
   const grid = useMemo(() => prepareGrid(analysisData, startYear, endYear), [analysisData, startYear, endYear]);
 
-  // Track the CSS width so the backing store matches the displayed size (sharp on HiDPI, exact hit-testing).
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -248,24 +234,31 @@ export const BurningCalendarCanvas: React.FC = () => {
     if (row < 0 || row >= L.rows || col < 0 || col >= DAY_COLUMNS) return;
     const x = L.gridX + col * L.cellW;
     const y = L.gridY + row * L.cellH;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+    ctx.fillStyle = theme === "dark" ? "rgba(255,255,255,0.10)" : "rgba(17,24,39,0.06)";
     ctx.fillRect(L.gridX, y, L.gridW, L.cellH);
     ctx.fillRect(x, L.gridY, L.cellW, L.gridH);
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = theme === "dark" ? "#e6e9ef" : "#111827";
     ctx.lineWidth = 1;
     ctx.strokeRect(x - 1.5, y - 1.5, L.cellW + 3, L.cellH + 3);
-  }, []);
+  }, [theme]);
 
   const renderCalendar = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || width <= 0) return;
-    const t0 = performance.now();
     const L = computeLayout(width, grid.rows, grid.startYear);
     layoutRef.current = L;
     const ctx = prepareCanvas(canvas, L);
     if (!ctx) return;
 
-    // 1) Cells: one ImageData pixel per day, upscaled with nearest-neighbour (single drawImage call).
+    const isDark = theme === "dark";
+    const rawRamp = isDark ? RAW_RAMP_DARK : RAW_RAMP_LIGHT;
+    const emptyRgb = isDark ? EMPTY_DARK : EMPTY_LIGHT;
+    const gridLine = isDark ? "rgba(255,255,255,0.08)" : "rgba(220,220,220,0.85)";
+    const guideLine = isDark ? "rgba(255,255,255,0.10)" : "rgba(196,196,196,0.55)";
+    const monthLabel = isDark ? "#7b8494" : "#6b7280";
+    const yearLabel = isDark ? "#9aa3b2" : "#4b5563";
+    const labelBg = isDark ? "rgba(18,22,31,0.94)" : "rgba(255,255,255,0.94)";
+
     const offscreen = (offscreenRef.current ??= document.createElement("canvas"));
     if (offscreen.width !== DAY_COLUMNS) offscreen.width = DAY_COLUMNS;
     if (offscreen.height !== grid.rows) offscreen.height = grid.rows;
@@ -282,15 +275,15 @@ export const BurningCalendarCanvas: React.FC = () => {
       const o = idx * 4;
       px[o + 3] = 255;
       if (!(flag & FLAG_DATA)) {
-        px[o] = EMPTY_RGB[0];
-        px[o + 1] = EMPTY_RGB[1];
-        px[o + 2] = EMPTY_RGB[2];
+        px[o] = emptyRgb[0];
+        px[o + 1] = emptyRgb[1];
+        px[o + 2] = emptyRgb[2];
         continue;
       }
       const useRaw = !(flag & FLAG_FORECAST) && idx % DAY_COLUMNS < curtainCol;
       const v = useRaw ? grid.raw[idx] * rawScale : grid.harm[idx] * harmScale;
       const lutIdx = Math.round(Math.pow(Math.min(1, v), 0.6) * 255) * 3;
-      const lut = useRaw ? RAW_RAMP : HARM_RAMP;
+      const lut = useRaw ? rawRamp : HARM_RAMP;
       px[o] = lut[lutIdx];
       px[o + 1] = lut[lutIdx + 1];
       px[o + 2] = lut[lutIdx + 2];
@@ -299,23 +292,20 @@ export const BurningCalendarCanvas: React.FC = () => {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(offscreen, L.gridX, L.gridY, L.gridW, L.gridH);
 
-    // 2) Year separators and month guides.
     if (L.cellH >= 6) {
-      ctx.fillStyle = "rgba(7, 11, 20, 0.85)";
+      ctx.fillStyle = gridLine;
       for (let r = 1; r < L.rows; r++) ctx.fillRect(L.gridX, L.gridY + r * L.cellH - 0.5, L.gridW, 1);
     }
-    ctx.fillStyle = "rgba(148, 163, 184, 0.14)";
     ctx.font = `9px ${FONT}`;
     ctx.textAlign = "left";
     MONTH_START_DOY.forEach((doy, m) => {
       const x = L.gridX + (doy - 1) * L.cellW;
-      ctx.fillStyle = "rgba(148, 163, 184, 0.14)";
+      ctx.fillStyle = guideLine;
       ctx.fillRect(x, L.gridY, 1, L.gridH);
-      ctx.fillStyle = "#64748b";
+      ctx.fillStyle = monthLabel;
       ctx.fillText(MONTH_LABELS[m], x + 2, PAD.top - 7);
     });
 
-    // 3) Hatched overlays: gap-filled (cyan/white) and forecast (gold).
     const gapPattern = getHatchPattern(ctx, "gapFilled");
     if (gapPattern && grid.gapCells.length) {
       ctx.fillStyle = gapPattern;
@@ -327,27 +317,25 @@ export const BurningCalendarCanvas: React.FC = () => {
       fillRuns(ctx, L, grid.forecastCells);
     }
 
-    // 4) Year labels + selected row.
     const step = L.cellH >= 9 ? 1 : 2;
     for (let r = 0; r < L.rows; r++) {
       const year = L.startYear + r;
       const isSelected = year === selectedYear;
       if (r % step !== 0 && !isSelected && year !== VIIRS_MARKER.year && year !== AQUA_MARKER.year) continue;
       ctx.font = `${isSelected ? "bold " : ""}9px ${FONT}`;
-      ctx.fillStyle = isSelected ? "#22d3ee" : "#94a3b8";
+      ctx.fillStyle = isSelected ? "#b30000" : yearLabel;
       ctx.textAlign = "right";
       ctx.fillText(String(year), L.gridX - 6, L.gridY + r * L.cellH + L.cellH / 2 + 3);
     }
     ctx.textAlign = "left";
     const selRow = selectedYear - L.startYear;
     if (selRow >= 0 && selRow < L.rows) {
-      ctx.strokeStyle = "#22d3ee";
+      ctx.strokeStyle = "#b30000";
       ctx.lineWidth = 1.5;
       ctx.setLineDash([]);
       ctx.strokeRect(L.gridX - 0.75, L.gridY + selRow * L.cellH - 0.75, L.gridW + 1.5, L.cellH + 1.5);
     }
 
-    // 5) Event markers.
     const viirsRow = VIIRS_MARKER.year - L.startYear;
     if (viirsRow >= 0 && viirsRow < L.rows) {
       const y = L.gridY + viirsRow * L.cellH;
@@ -358,7 +346,7 @@ export const BurningCalendarCanvas: React.FC = () => {
       ctx.moveTo(L.gridX - 4, y);
       ctx.lineTo(L.gridX + L.gridW, y);
       ctx.stroke();
-      labelBox(ctx, VIIRS_MARKER.label, L.gridX + L.gridW - 2, y - 2, VIIRS_MARKER.color, "right");
+      labelBox(ctx, VIIRS_MARKER.label, L.gridX + L.gridW - 2, y - 2, VIIRS_MARKER.color, labelBg, "right");
     }
     const aquaRow = AQUA_MARKER.year - L.startYear;
     if (aquaRow >= 0 && aquaRow < L.rows) {
@@ -370,16 +358,16 @@ export const BurningCalendarCanvas: React.FC = () => {
       ctx.setLineDash([3, 2]);
       ctx.strokeRect(x - 2, y - 2, w + 4, L.cellH + 4);
       ctx.setLineDash([]);
+      ctx.font = `9px ${FONT}`;
       const labelWidth = ctx.measureText(AQUA_MARKER.label).width + 8;
       const fitsRight = x + w + 6 + labelWidth < L.gridX + L.gridW;
-      labelBox(ctx, AQUA_MARKER.label, fitsRight ? x + w + 6 : x - 6, y + L.cellH / 2 + 3, AQUA_MARKER.color, fitsRight ? "left" : "right");
+      labelBox(ctx, AQUA_MARKER.label, fitsRight ? x + w + 6 : x - 6, y + L.cellH / 2 + 3, AQUA_MARKER.color, labelBg, fitsRight ? "left" : "right");
     }
 
-    // 6) "2012 Time-Machine" split curtain (left = raw counts, right = harmonized FRE).
     if (viewMode === "HARMONIZED") {
       const cx = L.gridX + (L.gridW * splitCurtainPct) / 100;
       ctx.setLineDash([]);
-      ctx.strokeStyle = "#38bdf8";
+      ctx.strokeStyle = "#1d4ed8";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(cx, L.gridY - 4);
@@ -388,35 +376,33 @@ export const BurningCalendarCanvas: React.FC = () => {
       ctx.font = `bold 8px ${FONT}`;
       const tagY = L.gridY + L.gridH + 12;
       if (splitCurtainPct > 6) {
-        ctx.fillStyle = "#f87171";
+        ctx.fillStyle = isDark ? "#9aa3b2" : "#475569";
         ctx.textAlign = "right";
         ctx.fillText("◀ RAW COUNTS", cx - 4, tagY);
       }
       if (splitCurtainPct < 94) {
-        ctx.fillStyle = "#38bdf8";
+        ctx.fillStyle = "#b30000";
         ctx.textAlign = "left";
-        ctx.fillText("HARMONIZED FRE ▶", cx + 4, tagY);
+        ctx.fillText("HARMONIZED ENERGY ▶", cx + 4, tagY);
       }
       ctx.textAlign = "left";
     }
 
     if (!grid.hasData) {
-      ctx.fillStyle = "#64748b";
+      ctx.fillStyle = monthLabel;
       ctx.font = `11px ${FONT}`;
       ctx.textAlign = "center";
-      ctx.fillText("Waiting for analysis…", L.gridX + L.gridW / 2, L.gridY + L.gridH / 2);
+      ctx.fillText("Waiting for the analysis…", L.gridX + L.gridW / 2, L.gridY + L.gridH / 2);
       ctx.textAlign = "left";
     }
 
-    if (renderMsRef.current) renderMsRef.current.textContent = `${(performance.now() - t0).toFixed(2)} ms`;
     drawOverlay(useAnalysisStore.getState().hoveredDay);
-  }, [grid, viewMode, splitCurtainPct, selectedYear, width, drawOverlay]);
+  }, [grid, viewMode, splitCurtainPct, selectedYear, width, drawOverlay, theme]);
 
   useEffect(() => {
     renderCalendar();
   }, [renderCalendar]);
 
-  // Hover highlight without React re-renders: imperative subscription to hoveredDay.
   useEffect(
     () =>
       useAnalysisStore.subscribe((state, prev) => {
@@ -425,7 +411,6 @@ export const BurningCalendarCanvas: React.FC = () => {
     [drawOverlay]
   );
 
-  /** O(1) hit-test: pointer -> (year, doy) by arithmetic, then Map lookup. */
   const locate = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const L = layoutRef.current;
     const canvas = canvasRef.current;
@@ -463,28 +448,23 @@ export const BurningCalendarCanvas: React.FC = () => {
   const curtainDisabled = viewMode === "RAW";
 
   return (
-    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-2xl text-slate-200">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
-        <div>
-          <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-            <span>🔥 Burning Activity Calendar Matrix ({startYear}–{endYear})</span>
-            <span className="text-xs bg-cyan-950 text-cyan-400 px-2 py-0.5 rounded border border-cyan-800 font-mono">
-              Selected Year: {selectedYear}
-            </span>
+    <div className="border border-rule bg-panel p-6">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-2xl">
+          <h3 className="font-serif text-lg text-ink">
+            Burning activity calendar ({startYear}–{endYear})
           </h3>
-          <p className="text-xs text-slate-400">
-            Click a row (or use ↑/↓) to inspect a year. Drag the curtain to compare raw pixel counts vs. harmonized FRE physics.
-            <span className="ml-2 font-mono text-slate-500">
-              render <span ref={renderMsRef}>–</span>
-            </span>
+          <p className="mt-1 text-sm leading-relaxed text-muted">
+            Each row is a year, each column a day. Drag the curtain to put raw hot-spot counts on the
+            left against harmonized fire energy on the right.
           </p>
         </div>
 
         <label
-          className={`flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 text-xs ${curtainDisabled ? "opacity-50" : ""}`}
-          title={curtainDisabled ? "Switch to HARMONIZED mode to use the curtain" : "Left: raw counts · Right: harmonized FRE"}
+          className={`flex items-center gap-2 border border-rule px-3 py-1.5 text-xs ${curtainDisabled ? "opacity-50" : ""}`}
+          title={curtainDisabled ? "Switch to Harmonized to use the curtain" : "Left: raw counts · right: harmonized energy"}
         >
-          <span className="font-mono text-cyan-400">2012 Time-Machine Split Curtain</span>
+          <span className="text-muted">2012 curtain</span>
           <input
             type="range"
             min={0}
@@ -492,46 +472,46 @@ export const BurningCalendarCanvas: React.FC = () => {
             value={splitCurtainPct}
             disabled={curtainDisabled}
             onChange={(e) => setSplitCurtainPct(Number(e.target.value))}
-            className="w-28 accent-cyan-500 cursor-pointer disabled:cursor-not-allowed"
-            aria-label="2012 Time-Machine split curtain position"
+            className="w-28 cursor-pointer accent-[#1d4ed8] disabled:cursor-not-allowed"
+            aria-label="2012 curtain position"
           />
-          <span className="font-mono text-slate-300 w-9 text-right">{splitCurtainPct}%</span>
+          <span className="w-9 text-right text-ink tnum">{splitCurtainPct}%</span>
         </label>
       </div>
 
-      <div ref={containerRef} className="relative w-full" style={{ height: CANVAS_CSS_HEIGHT }}>
+      <div ref={containerRef} className="relative w-full border border-rule" style={{ height: CANVAS_CSS_HEIGHT }}>
         <canvas
           ref={canvasRef}
           tabIndex={0}
           role="img"
-          aria-label={`Burning activity calendar ${startYear}–${endYear}, ${viewMode.toLowerCase()} view`}
+          aria-label={`Burning activity calendar ${startYear}–${endYear}, ${viewMode === "RAW" ? "raw" : "harmonized"} view`}
           onClick={handleClick}
           onMouseMove={handleMouseMove}
           onMouseLeave={() => setHoveredDay(null)}
           onKeyDown={handleKeyDown}
-          className="absolute inset-0 w-full h-full cursor-crosshair rounded-lg border border-slate-800 bg-[#070B14] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+          className="absolute inset-0 h-full w-full cursor-crosshair bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-reference"
         />
-        <canvas ref={overlayRef} aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none" />
+        <canvas ref={overlayRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" />
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-mono text-slate-400">
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-muted">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-8 h-2.5 rounded-sm" style={{ background: "linear-gradient(90deg, rgb(38,10,12), rgb(220,38,38), rgb(255,196,80))" }} />
-          Raw hotspot count
+          <span className="inline-block h-2.5 w-8" style={{ background: "linear-gradient(90deg, rgb(229,231,235), rgb(71,85,105))" }} />
+          Raw hot-spot count
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-8 h-2.5 rounded-sm" style={{ background: "linear-gradient(90deg, rgb(10,22,44), rgb(30,144,255), rgb(190,242,255))" }} />
-          Harmonized FRE (MJ/km²)
+          <span className="inline-block h-2.5 w-8" style={{ background: "linear-gradient(90deg, rgb(254,240,217), rgb(253,190,133), rgb(230,85,13), rgb(179,0,0))" }} />
+          Harmonized energy (MJ/km²)
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-4 h-2.5 rounded-sm border border-cyan-800" style={{ background: hatchCss("gapFilled") }} />
-          Gap-filled (RTS Kalman / cross-guard)
+          <span className="inline-block h-2.5 w-4 border border-rule" style={{ background: hatchCss("gapFilled") }} />
+          Repaired (Kalman)
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-4 h-2.5 rounded-sm border border-amber-800" style={{ background: hatchCss("forecast") }} />
+          <span className="inline-block h-2.5 w-4 border border-rule" style={{ background: hatchCss("forecast") }} />
           14-day forecast
         </span>
       </div>
     </div>
   );
-};
+}

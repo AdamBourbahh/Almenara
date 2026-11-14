@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif: "Source Serif 4 Variable", Georgia, "Times New Roman", serif;
+  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Institutional paper palette (light) */
+  --color-paper: #f8f7f4;
+  --color-panel: #ffffff;
+  --color-rule: #dcdcdc;
+  --color-rule-strong: #c4c4c4;
+  --color-ink: #111827;
+  --color-muted: #4b5563;
+  --color-faint: #6b7280;
+
+  /* Cartographic / data palettes (theme-independent) */
+  --color-thermal-1: #fef0d9;
+  --color-thermal-2: #fdbe85;
+  --color-thermal-3: #e6550d;
+  --color-thermal-4: #b30000;
+  --color-industrial: #6a3d9a;
+  --color-validated: #15803d;
+  --color-bias: #b91c1c;
+  --color-reference: #1d4ed8;
+  --color-terracotta: #b45309;
+  --color-raw: #475569;
+}
+
+/* Dark theme: override the semantic surfaces; the data ramps stay legible. */
+.dark {
+  --color-paper: #0b0e14;
+  --color-panel: #12161f;
+  --color-rule: #232a36;
+  --color-rule-strong: #364152;
+  --color-ink: #e6e9ef;
+  --color-muted: #9aa3b2;
+  --color-faint: #7b8494;
+  --color-raw: #cbd5e1;
+  --color-thermal-1: #3a2a18;
+  --color-thermal-2: #7a4a1f;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background: #fde68a;
+    color: #111827;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-reference);
+    outline-offset: 2px;
+  }
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-ink) 22%, transparent);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* deck.gl default tooltip, tuned for the paper/dark palette */
+.deck-tooltip {
+  background: var(--color-panel) !important;
+  color: var(--color-ink) !important;
+  border: 1px solid var(--color-rule) !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  padding: 8px 10px !important;
+}
+
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib a {
+  font-size: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
