@@ -8,6 +8,7 @@ bootstrap:
 test: bootstrap
 	$(PYTEST) backend/tests/test_cube_schema.py
 	$(PYTEST) backend/tests/test_math_core.py -v
+	$(PYTEST) backend/tests/test_db_layer.py -v
 	$(PYTEST) backend/tests/test_api_contract.py -v
 
 api:
@@ -17,8 +18,8 @@ frontend:
 	cd frontend && npm run dev
 
 sync-rules:
-	@for target in AGENTS.md CLAUDE.md .cursorrules .windsurfrules .clinerules .github/copilot-instructions.md; do \
-		if [ ! agent.md -ef "$$target" ]; then cp agent.md "$$target" || exit 1; fi; \
+	@for target in .cursorrules .windsurfrules .clinerules .github/copilot-instructions.md; do \
+		if [ ! ../AGENTS.md -ef "$$target" ]; then cp ../AGENTS.md "$$target" || exit 1; fi; \
 	done
 
 check-all: sync-rules test

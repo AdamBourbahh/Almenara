@@ -55,13 +55,13 @@ class DailyCalendarCell(ContractModel):
     ci_95_upper: float
     uncertainty_pct: float
     biomass_burned_tonnes: float
-    pm25_emitted_kg: float
+    pm25_emitted_kg: float | None
     z_score_anomaly: float
     is_gap_filled: bool
     is_forecast: bool
     gap_reason: str | None
     active_sensors: list[str]
-    tooltip_narrative: str
+    tooltip_narrative: str | None
 
 
 class VonMisesPhenologyYear(ContractModel):
@@ -80,13 +80,13 @@ class ScientificAuditMetrics(ContractModel):
     chow_test_p_val_harm: float
     wasserstein_w1_raw: float
     wasserstein_w1_harm: float
-    burned_area_r2_raw: float
-    burned_area_r2_harm: float
+    burned_area_r2_raw: float | None
+    burned_area_r2_harm: float | None
     phenology_shift_days_per_decade: float
     mann_kendall_p_value: float
     industrial_false_positives_removed: int
     total_biomass_burned_kt: float
-    total_pm25_emitted_tonnes: float
+    total_pm25_emitted_tonnes: float | None
     executive_verdict_en: str
 
 
@@ -100,14 +100,15 @@ class H3MapSummaryHex(ContractModel):
 
 
 class AnalyzeResponse(ContractModel):
+    data_source: Literal["real", "synthetic"]
     query_hash: str
     execution_time_ms: float
     aoi_area_km2: float
     total_h3_cells: int
     calendar_series: list[DailyCalendarCell]
-    forecast_series: list[DailyCalendarCell]
+    forecast_series: list[DailyCalendarCell] | None
     phenology_by_year: list[VonMisesPhenologyYear]
-    audit_metrics: ScientificAuditMetrics
+    audit_metrics: ScientificAuditMetrics | None
     map_hexagons: list[H3MapSummaryHex]
 
 
@@ -120,6 +121,7 @@ class ChaosMonkeyRequest(ContractModel):
 
 
 class ChaosMonkeyResponse(ContractModel):
+    data_source: Literal["real", "synthetic"]
     dropped_days_count: int
     dropped_dates: list[str]
     dates: list[str]

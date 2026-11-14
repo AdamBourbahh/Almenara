@@ -150,7 +150,7 @@ def _write_mock(table: pa.Table, dates: np.ndarray, truth: np.ndarray,
                  executive_verdict_en=("Synthetic integration fixture. Harmonized Chow gate: "
                      + ("PASS" if harm_p > .10 else "FAIL")
                      + ". Chow and Wasserstein are simulated diagnostics; burned-area R² is squared proxy correlation, not independent validation. No production Kalman results are claimed."))
-    response = dict(query_hash=hashlib.sha256(b"synthetic-cerrado-2001-2026-v1").hexdigest(),
+    response = dict(data_source="synthetic", query_hash=hashlib.sha256(b"synthetic-cerrado-2001-2026-v1").hexdigest(),
                     execution_time_ms=elapsed_ms, aoi_area_km2=area, total_h3_cells=7,
                     calendar_series=cells, forecast_series=forecasts, phenology_by_year=phenology,
                     audit_metrics=audit, map_hexagons=[])
