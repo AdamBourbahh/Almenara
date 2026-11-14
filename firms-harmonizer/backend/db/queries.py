@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-import h3
+import h3.api.basic_int as h3i
 import numpy as np
 import pyarrow as pa
-from scipy.stats import theilslopes
+import pyarrow.compute as pc
 
 from backend.api.schemas import H3MapSummaryHex
 from backend.db import duckdb_engine
@@ -49,8 +49,16 @@ _SPATIAL_FILTER = (" FROM fire_cube"
                    " AND h3_r7 IN (SELECT h3_r7 FROM aoi_r7)"
                    " AND year BETWEEN ? AND ?")
 _INDUSTRIAL_FILTER = " AND industrial_prob < ?"
-_OBS_VALUE = {c: "COALESCE(" + c + ", 0)::DOUBLE" for c in OBS_COLUMNS}
-_OBS_PRESENT = {c: "(" + c + " IS NOT NULL)::INT" for c in OBS_COLUMNS}
+_SCAN_COLUMNS = ("h3_r7", "epoch_day", "year", "raw_modis_cnt", "raw_viirs_cnt", "raw_frp_mw", "obs_terra_fre",
+                 "obs_aqua_fre", "obs_viirs_fre", "neighbor_fre_lag1", "cloud_cover_pct", "gap_status_mask",
+                 "sensor_obs_mask", "burned_area_ha_mcd64", "industrial_prob")
+_SCAN_ABSENT = {
+    "obs_terra_fre": "NULL::DOUBLE AS obs_terra_fre", "obs_aqua_fre": "NULL::DOUBLE AS obs_aqua_fre",
+    "obs_viirs_fre": "NULL::DOUBLE AS obs_viirs_fre", "neighbor_fre_lag1": "NULL::DOUBLE AS neighbor_fre_lag1",
+    "cloud_cover_pct": "NULL::DOUBLE AS cloud_cover_pct", "burned_area_ha_mcd64": "NULL::DOUBLE AS burned_area_ha_mcd64",
+    "gap_status_mask": "NULL::INTEGER AS gap_status_mask", "sensor_obs_mask": "NULL::INTEGER AS sensor_obs_mask",
+}
+_HEX_SQL = "SELECT printf('%x', h3_r7) AS h3_index FROM hex_cells ORDER BY h3_r7"
 
 
 class AoiAggregate(NamedTuple):
@@ -102,26 +110,37 @@ def _to_latlng_ring(ring: list) -> list[tuple[float, float]]:
     return [(float(lat), float(lng)) for lng, lat in positions]
 
 
+def _parents_r4(cells_r7: np.ndarray) -> np.ndarray:
+    """Vectorized H3 cell_to_parent(c, 4) for R7 cells (bit layout of the H3 index).
+
+    Resolution lives in bits 52-55; each resolution digit r occupies 3 bits at (15 - r) * 3 and unused
+    digits are 7 (0b111). Parent at R4 = resolution field set to 4 and digits 5..15 set to 7.
+    """
+    res_mask = np.uint64(0xF) << np.uint64(52)
+    low_digits = np.uint64((1 << (3 * (15 - 4))) - 1)
+    return (cells_r7 & ~res_mask) | (np.uint64(4) << np.uint64(52)) | low_digits
+
+
 def get_hierarchical_h3_filter(geojson_coords: list) -> tuple[list[int], list[int], float]:
     """Return (sorted unique R4 parents, sorted R7 cells inside the polygon, R7 area in km²)."""
     outer, *holes = (_to_latlng_ring(r) for r in geojson_coords)
-    poly = h3.LatLngPoly(outer, *holes)
-    r7_str = h3.polygon_to_cells(poly, 7)
-    if len(r7_str) > MAX_R7_CELLS:
-        raise ValueError(f"AOI too large: {len(r7_str)} R7 cells exceed the limit of {MAX_R7_CELLS}.")
-    if not r7_str:
+    poly = h3i.LatLngPoly(outer, *holes)
+    r7_int = h3i.polygon_to_cells(poly, 7)
+    if len(r7_int) > MAX_R7_CELLS:
+        raise ValueError(f"AOI too large: {len(r7_int)} R7 cells exceed the limit of {MAX_R7_CELLS}.")
+    if not r7_int:
         return [], [], 0.0
-    r7 = sorted(h3.str_to_int(c) for c in r7_str)
-    r4 = sorted({h3.str_to_int(h3.cell_to_parent(c, 4)) for c in r7_str})
-    area = float(sum(h3.cell_area(c, unit="km^2") for c in r7_str))
-    return r4, r7, area
+    r7_arr = np.sort(np.asarray(r7_int, dtype=np.uint64))
+    r4_arr = np.unique(_parents_r4(r7_arr))
+    area = float(sum(h3i.cell_area(c, unit="km^2") for c in r7_int))
+    return [int(c) for c in r4_arr.tolist()], [int(c) for c in r7_arr.tolist()], area
 
 
 # ---------------------------------------------------------------- SQL
 
 def _register_cells(cur, cells_r4: list[int], cells_r7: list[int]) -> None:
-    cur.register("aoi_r4", pa.table({"h3_r4": pa.array(cells_r4, type=pa.uint64())}))
-    cur.register("aoi_r7", pa.table({"h3_r7": pa.array(cells_r7, type=pa.uint64())}))
+    cur.register("aoi_r4", pa.table({"h3_r4": pa.array(np.asarray(cells_r4, dtype=np.uint64))}))
+    cur.register("aoi_r7", pa.table({"h3_r7": pa.array(np.asarray(cells_r7, dtype=np.uint64))}))
 
 
 def _unregister_cells(cur) -> None:
@@ -144,24 +163,6 @@ def _daily_sql(missing: set[str], exclude_industrial: bool) -> str:
     return sql + " GROUP BY epoch_day ORDER BY epoch_day"
 
 
-def _hex_sql(missing: set[str]) -> str:
-    obs = [c for c in OBS_COLUMNS if c not in missing]
-    if obs:
-        energy = ("COALESCE((" + " + ".join(_OBS_VALUE[c] for c in obs) + ") / NULLIF("
-                  + " + ".join(_OBS_PRESENT[c] for c in obs) + ", 0), 0)")
-    else:
-        energy = "NULL::DOUBLE"
-    return ("SELECT h3_r7, printf('%x', h3_r7) AS h3_index, year,"
-            " month(DATE '2000-01-01' + CAST(epoch_day AS INTEGER)) AS month,"
-            " SUM(raw_modis_cnt::BIGINT + raw_viirs_cnt::BIGINT) AS raw_cnt,"
-            " SUM(" + energy + ")::DOUBLE AS energy,"
-            " MAX(industrial_prob)::DOUBLE AS max_prob, MIN(industrial_prob)::DOUBLE AS min_prob,"
-            " SUM(CASE WHEN industrial_prob >= ? THEN raw_modis_cnt::BIGINT + raw_viirs_cnt::BIGINT"
-            " ELSE 0 END) AS industrial_cnt"
-            + _SPATIAL_FILTER
-            + " GROUP BY h3_r7, year, month ORDER BY h3_r7, year, month")
-
-
 def query_daily_rows(cur, cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int,
                      exclude_industrial: bool) -> pa.Table:
     """Daily AOI aggregation as an Arrow table (one row per epoch_day with data)."""
@@ -176,14 +177,33 @@ def query_daily_rows(cur, cells_r4: list[int], cells_r7: list[int], start_year: 
         _unregister_cells(cur)
 
 
-def _query_hex_rows(cur, cells_r4, cells_r7, start_year, end_year) -> pa.Table:
+def _scan_sql(missing: set[str]) -> str:
+    parts = []
+    for name in _SCAN_COLUMNS:
+        if name in missing:
+            parts.append(_SCAN_ABSENT[name])
+        else:
+            parts.append(name)
+    return "SELECT " + ", ".join(parts) + _SPATIAL_FILTER
+
+
+def query_aoi_rows(cur, cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int) -> pa.Table:
+    """Single scan: every cube row of the AOI and year range (no grouping), as Arrow."""
     missing = set(duckdb_engine.missing_columns())
     _register_cells(cur, cells_r4, cells_r7)
     try:
-        return cur.sql(_hex_sql(missing), params=[INDUSTRIAL_THRESHOLD, int(start_year), int(end_year)]
-                           ).to_arrow_table()
+        return cur.sql(_scan_sql(missing), params=[int(start_year), int(end_year)]).to_arrow_table()
     finally:
         _unregister_cells(cur)
+
+
+def _hex_strings(cur, cells: np.ndarray) -> list[str]:
+    """15-character hex H3 indices, projected in SQL with printf('%x', h3_r7) (shield 1)."""
+    cur.register("hex_cells", pa.table({"h3_r7": pa.array(cells, type=pa.uint64())}))
+    try:
+        return [row[0] for row in cur.sql(_HEX_SQL).fetchall()]
+    finally:
+        cur.unregister("hex_cells")
 
 
 # ---------------------------------------------------------------- aggregation
@@ -193,98 +213,137 @@ def _empty_daily() -> dict[str, np.ndarray]:
     return {k: np.empty(0, dtype=np.int64 if k in ints else np.float64) for k in DAILY_KEYS}
 
 
-def _dense_daily(table: pa.Table, start_year: int, end_year: int, missing: set[str]) -> dict[str, np.ndarray]:
+def _float_col(table: pa.Table, name: str) -> np.ndarray:
+    return pc.fill_null(table.column(name).cast(pa.float64()), np.nan).to_numpy()
+
+
+def _int_col(table: pa.Table, name: str) -> np.ndarray:
+    return table.column(name).to_numpy().astype(np.int64)
+
+
+def _finite_mean(idx: np.ndarray, values: np.ndarray, n: int) -> np.ndarray:
+    ok = np.isfinite(values)
+    total = np.bincount(idx[ok], weights=values[ok], minlength=n)
+    count = np.bincount(idx[ok], minlength=n)
+    return np.where(count > 0, total / np.maximum(count, 1), np.nan)
+
+
+def _finite_sum(idx: np.ndarray, values: np.ndarray, n: int) -> np.ndarray:
+    ok = np.isfinite(values)
+    total = np.bincount(idx[ok], weights=values[ok], minlength=n)
+    count = np.bincount(idx[ok], minlength=n)
+    return np.where(count > 0, total, np.nan)
+
+
+def _bit_or(idx: np.ndarray, values: np.ndarray, n: int) -> np.ndarray:
+    out = np.zeros(n, dtype=np.int64)
+    present = int(np.bitwise_or.reduce(values)) if len(values) else 0
+    for flag in (1 << b for b in range(8) if present & (1 << b)):
+        hits = np.bincount(idx, weights=(values & flag) != 0, minlength=n)
+        out |= np.where(hits > 0, flag, 0)
+    return out
+
+
+def _aggregate_daily(cols: dict[str, np.ndarray], keep: np.ndarray, start_year: int, end_year: int,
+                     missing: set[str]) -> dict[str, np.ndarray]:
+    """Dense daily AOI series from the kept rows (same semantics as the GROUP BY in query_daily_rows)."""
     lo = int((np.datetime64(f"{start_year}-01-01") - EPOCH).astype(int))
     hi = int((np.datetime64(f"{end_year}-12-31") - EPOCH).astype(int))
     epoch_day = np.arange(lo, hi + 1, dtype=np.int64)
     dates = EPOCH + epoch_day.astype("timedelta64[D]")
-    year = dates.astype("datetime64[Y]").astype(np.int64) + 1970
-    doy = (dates - dates.astype("datetime64[Y]")).astype(np.int64) + 1
-    idx = table.column("epoch_day").to_numpy().astype(np.int64) - lo
     n = len(epoch_day)
-    out: dict[str, np.ndarray] = {"epoch_day": epoch_day, "year": year, "doy": doy}
+    idx = cols["epoch_day"][keep] - lo
+    out: dict[str, np.ndarray] = {
+        "epoch_day": epoch_day,
+        "year": dates.astype("datetime64[Y]").astype(np.int64) + 1970,
+        "doy": (dates - dates.astype("datetime64[Y]")).astype(np.int64) + 1,
+    }
     for name in ("raw_modis_cnt", "raw_viirs_cnt"):
-        arr = np.zeros(n, dtype=np.int64)
-        arr[idx] = table.column(name).to_numpy().astype(np.int64)
-        out[name] = arr
-    arr = np.zeros(n, dtype=np.float64)
-    arr[idx] = table.column("raw_frp_mw").to_numpy(zero_copy_only=False).astype(np.float64)
-    out["raw_frp_mw"] = arr
-    for name in OBS_COLUMNS + ("neighbor_fre_lag1", "cloud_cover_pct", "burned_area_ha_mcd64"):
-        arr = np.full(n, np.nan, dtype=np.float64)
-        if name not in missing:
-            arr[idx] = table.column(name).to_numpy(zero_copy_only=False).astype(np.float64)
-        out[name] = arr
+        out[name] = np.rint(np.bincount(idx, weights=cols[name][keep], minlength=n)).astype(np.int64)
+    out["raw_frp_mw"] = np.bincount(idx, weights=np.where(np.isfinite(cols["raw_frp_mw"][keep]),
+                                                          cols["raw_frp_mw"][keep], 0.0), minlength=n)
+    for name in OBS_COLUMNS + ("neighbor_fre_lag1", "cloud_cover_pct"):
+        out[name] = np.full(n, np.nan) if name in missing else _finite_mean(idx, cols[name][keep], n)
+    burned = "burned_area_ha_mcd64"
+    out[burned] = np.full(n, np.nan) if burned in missing else _finite_sum(idx, cols[burned][keep], n)
     for name in MASK_COLUMNS:
-        if name in missing:
-            out[name] = np.full(n, -1, dtype=np.int64)
-        else:
-            arr = np.zeros(n, dtype=np.int64)
-            arr[idx] = table.column(name).to_numpy().astype(np.int64)
-            out[name] = arr
+        out[name] = np.full(n, -1, dtype=np.int64) if name in missing else _bit_or(idx, cols[name][keep], n)
     return {k: out[k] for k in DAILY_KEYS}
 
 
-def _summarize_hexagons(table: pa.Table, start_year: int, end_year: int
-                        ) -> tuple[list[H3MapSummaryHex], int, list[float]]:
-    """Per-cell map summaries, industrial detection total and per-cell min industrial_prob."""
-    if table.num_rows == 0:
-        return [], 0, []
-    cols = {name: table.column(name).to_numpy(zero_copy_only=False) for name in
-            ("h3_r7", "year", "month", "raw_cnt", "energy", "max_prob", "min_prob", "industrial_cnt")}
-    h3_index = table.column("h3_index").to_pylist()
-    years = np.arange(start_year, end_year + 1)
-    energy_raw = cols["energy"].astype(np.float64)
-    energy_all = np.where(np.isfinite(energy_raw), energy_raw, 0.0)  # NULL only if no obs columns exist
-    hexagons, min_probs, industrial_total = [], [], 0
-    for cell in np.unique(cols["h3_r7"]):
-        sel = cols["h3_r7"] == cell
-        energy = energy_all[sel]
-        annual = np.zeros(len(years))
-        np.add.at(annual, cols["year"][sel].astype(np.int64) - start_year, energy)
-        monthly = np.zeros(12)
-        np.add.at(monthly, cols["month"][sel].astype(np.int64) - 1, energy)
-        total = monthly.sum()
-        if total > 0:
-            p = monthly / total
-            entropy = float(np.clip(-np.sum(p * np.log(p + 1e-12)) / np.log(12), 0.0, 1.0))
-        else:
-            entropy = 0.0
-        if len(years) >= 2 and np.ptp(annual) > 0:
-            slope = float(theilslopes(annual, years).slope)
-        else:
-            slope = 0.0
-        first = int(np.argmax(sel))
-        hexagons.append(H3MapSummaryHex(
-            h3_index=h3_index[first],
-            mean_annual_fre=float(annual.mean()),
-            raw_pixel_count=int(cols["raw_cnt"][sel].astype(np.int64).sum()),
-            trend_slope=slope,
-            is_industrial_site=bool(cols["max_prob"][sel].max() >= INDUSTRIAL_THRESHOLD),
-            shannon_entropy=entropy,
-        ))
-        min_probs.append(float(cols["min_prob"][sel].min()))
-        industrial_total += int(cols["industrial_cnt"][sel].astype(np.int64).sum())
-    order = np.argsort([h.h3_index for h in hexagons])
-    return [hexagons[i] for i in order], industrial_total, [min_probs[i] for i in order]
+def _theil_sen_rows(values: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """Row-wise Theil-Sen slope (median of pairwise slopes), equal to scipy.stats.theilslopes."""
+    if values.shape[1] < 2:
+        return np.zeros(values.shape[0])
+    i, j = np.triu_indices(values.shape[1], 1)
+    slopes = np.median((values[:, j] - values[:, i]) / (x[j] - x[i]), axis=1)
+    return np.where(np.ptp(values, axis=1) > 0, slopes, 0.0)
+
+
+def _summarize_hexagons(cur, cols: dict[str, np.ndarray], cells_r7: np.ndarray, start_year: int, end_year: int
+                        ) -> tuple[list[H3MapSummaryHex], int, np.ndarray]:
+    """Per-cell map summaries over all rows (industrial included), industrial total, per-cell min prob."""
+    cell_idx = np.searchsorted(cells_r7, cols["h3_r7"])
+    n_cells = len(cells_r7)
+    rows_per_cell = np.bincount(cell_idx, minlength=n_cells)
+    present = np.flatnonzero(rows_per_cell)
+    if len(present) == 0:
+        return [], 0, np.empty(0)
+    obs = np.column_stack([cols[c] for c in OBS_COLUMNS])
+    count = np.isfinite(obs).sum(axis=1)
+    density = np.where(count > 0, np.nansum(obs, axis=1) / np.maximum(count, 1), 0.0)
+    n_years = end_year - start_year + 1
+    year_idx = cols["year"] - start_year
+    month_idx = (EPOCH + cols["epoch_day"].astype("timedelta64[D]")).astype("datetime64[M]").astype(np.int64) % 12
+    annual = np.bincount(cell_idx * n_years + year_idx, weights=density,
+                         minlength=n_cells * n_years).reshape(n_cells, n_years)[present]
+    monthly = np.bincount(cell_idx * 12 + month_idx, weights=density,
+                          minlength=n_cells * 12).reshape(n_cells, 12)[present]
+    raw = cols["raw_modis_cnt"] + cols["raw_viirs_cnt"]
+    raw_count = np.bincount(cell_idx, weights=raw, minlength=n_cells)[present]
+    prob = cols["industrial_prob"]
+    max_prob = np.full(n_cells, -np.inf)
+    min_prob = np.full(n_cells, np.inf)
+    np.maximum.at(max_prob, cell_idx, prob)
+    np.minimum.at(min_prob, cell_idx, prob)
+    industrial_total = int(raw[prob >= INDUSTRIAL_THRESHOLD].sum())
+    totals = monthly.sum(axis=1)
+    p = monthly / np.where(totals > 0, totals, 1.0)[:, None]
+    entropy = np.where(totals > 0, np.clip(-np.sum(p * np.log(p + 1e-12), axis=1) / np.log(12), 0.0, 1.0), 0.0)
+    slopes = _theil_sen_rows(annual, np.arange(start_year, end_year + 1, dtype=np.float64))
+    hex_ids = _hex_strings(cur, cells_r7[present])
+    hexagons = [H3MapSummaryHex(h3_index=h, mean_annual_fre=float(a), raw_pixel_count=int(round(rc)),
+                                trend_slope=float(s), is_industrial_site=bool(mx >= INDUSTRIAL_THRESHOLD),
+                                shannon_entropy=float(e))
+                for h, a, rc, s, mx, e in zip(hex_ids, annual.mean(axis=1).tolist(), raw_count.tolist(),
+                                              slopes.tolist(), max_prob[present].tolist(), entropy.tolist())]
+    return hexagons, industrial_total, min_prob[present]
 
 
 def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int,
                               exclude_industrial: bool) -> AoiAggregate:
-    """Dense daily arrays, map hexagons and industrial removal count for an AOI."""
+    """Dense daily arrays, map hexagons and industrial removal count for an AOI (one cube scan)."""
     if not cells_r4 or not cells_r7:
         return AoiAggregate(_empty_daily(), [], 0, 0)
     missing = set(duckdb_engine.missing_columns())
+    r7_sorted = np.asarray(sorted(cells_r7), dtype=np.uint64)
     with duckdb_engine.get_db_cursor() as cur:
-        daily_tbl = query_daily_rows(cur, cells_r4, cells_r7, start_year, end_year, exclude_industrial)
-        hex_tbl = _query_hex_rows(cur, cells_r4, cells_r7, start_year, end_year)
-    hexagons, industrial_total, min_probs = _summarize_hexagons(hex_tbl, start_year, end_year)
-    daily = _empty_daily() if daily_tbl.num_rows == 0 else _dense_daily(daily_tbl, start_year, end_year, missing)
+        table = query_aoi_rows(cur, cells_r4, cells_r7, start_year, end_year)
+        if table.num_rows == 0:
+            return AoiAggregate(_empty_daily(), [], 0, 0)
+        cols = {"h3_r7": table.column("h3_r7").to_numpy()}
+        for name in ("epoch_day", "year", "raw_modis_cnt", "raw_viirs_cnt") + MASK_COLUMNS:
+            cols[name] = np.zeros(table.num_rows, dtype=np.int64) if name in missing else _int_col(table, name)
+        for name in ("raw_frp_mw", "industrial_prob") + OBS_COLUMNS + (
+                "neighbor_fre_lag1", "cloud_cover_pct", "burned_area_ha_mcd64"):
+            cols[name] = _float_col(table, name)
+        hexagons, industrial_total, min_probs = _summarize_hexagons(cur, cols, r7_sorted, start_year, end_year)
+    keep = cols["industrial_prob"] < INDUSTRIAL_THRESHOLD if exclude_industrial else np.ones(table.num_rows, bool)
+    daily = _aggregate_daily(cols, keep, start_year, end_year, missing) if keep.any() else _empty_daily()
     if exclude_industrial:
         removed = industrial_total
-        used = [h.h3_index for h, p in zip(hexagons, min_probs) if p < INDUSTRIAL_THRESHOLD]
+        used = [h.h3_index for h, p in zip(hexagons, min_probs.tolist()) if p < INDUSTRIAL_THRESHOLD]
     else:
         removed = 0
         used = [h.h3_index for h in hexagons]
     return AoiAggregate(daily, hexagons, removed, len(used), used)
-
