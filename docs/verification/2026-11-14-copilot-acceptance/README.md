@@ -45,5 +45,5 @@ npm run build
 These are finite acceptance checks, not proof of universal correctness. Search results
 and providers can change. A source-backed regional report is not proof that a selected
 satellite cell belongs to that incident. Publication metadata do not certify a paper's
-findings. No frozen test file was edited; the existing API-contract hash manifest is
-already inconsistent with its tracked HEAD version and is not relabeled by this patch.
+findings. No frozen test file was edited by this patch. The upstream frozen-hash repair was
+integrated and the hash gate now passes.
