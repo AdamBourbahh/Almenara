@@ -52,6 +52,7 @@ export function MapInfo() {
         <div><dt className="text-[10px] text-faint">Peak detection year</dt><dd className="font-serif text-lg text-ink tnum">{loading ? "—" : peak[0] || "—"}</dd></div>
       </dl>
       <p className="mt-2 text-[10px] leading-relaxed text-muted">Full-record counts use the current industrial filter. Detection counts depend on sensor availability. Neither the regional Kalman estimate nor its gap-filled energy is used for these mapped totals.</p>
+
     </div>
   );
 }

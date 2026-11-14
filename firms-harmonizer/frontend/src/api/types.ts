@@ -244,3 +244,28 @@ export const PRESET_REGIONS = {
   center: [number, number];
   aoi: GeoJSONPolygon;
 }>;
+
+// ============================================================================
+// Cube Synchronization (Live NASA FIRMS -> Master Parquet/DuckDB Cube)
+// ============================================================================
+
+export type CubeSyncStatusState = "idle" | "in_progress" | "success" | "error";
+
+export interface CubeSyncRequest {
+  days?: number;
+  sync_full_month?: boolean;
+  regions?: string[];
+}
+
+export interface CubeSyncStatusResponse {
+  status: CubeSyncStatusState;
+  last_synced_utc: string | null;
+  new_detections_count: number;
+  date_coverage_start?: string;
+  date_coverage_end?: string;
+  regions_updated?: string[];
+  message?: string;
+  data_source?: "real" | "synthetic";
+  error?: string | null;
+}
+

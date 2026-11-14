@@ -131,7 +131,7 @@ def test_core_missing_returns_503(client, fake_core, monkeypatch):
 
 
 def test_routes_are_sync_and_middleware_configured():
-    for fn in (routes.analyze, routes.chaos_monkey, routes.health):
+    for fn in (routes.analyze, routes.chaos_monkey, routes.health, routes.trigger_cube_sync, routes.get_cube_sync_status):
         assert inspect.isfunction(fn) and not inspect.iscoroutinefunction(fn)
     mws = {m.cls.__name__: m for m in app.user_middleware}
     assert {"CORSMiddleware", "GZipMiddleware"} <= set(mws)
@@ -142,6 +142,20 @@ def test_routes_are_sync_and_middleware_configured():
 
 def test_gzip_is_applied(client, fake_core):
     assert analyze(client, {"aoi": CERRADO}).headers.get("content-encoding") == "gzip"
+
+
+def test_cube_sync_endpoints(client):
+    r_status = client.get("/api/cube/sync-status")
+    assert r_status.status_code == 200
+    data = r_status.json()
+    assert "status" in data
+    assert "data_source" in data
+
+    r_sync = client.post("/api/cube/sync", json={"days": 1, "regions": ["chilecito_la_rioja"]})
+    assert r_sync.status_code == 200
+    data_sync = r_sync.json()
+    assert data_sync["status"] in ("success", "idle", "in_progress")
+
 
 
 def test_no_silent_fallbacks_or_shortcuts_in_source():

@@ -1,6 +1,23 @@
 import { create } from "zustand";
-import type { AnalyzeRequest, AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, H3MapSummaryHex, ViewMode, ExplainSpikeResponse } from "../api/types";
-import { analyzeAoi, fetchMapPeriod, explainSpike, runChaosMonkey } from "../api/client";
+import type {
+  AnalyzeRequest,
+  AnalyzeResponse,
+  ChaosMonkeyResponse,
+  CubeSyncStatusState,
+  DailyCalendarCell,
+  GeoJSONPolygon,
+  H3MapSummaryHex,
+  ViewMode,
+  ExplainSpikeResponse
+} from "../api/types";
+import {
+  analyzeAoi,
+  fetchMapPeriod,
+  explainSpike,
+  runChaosMonkey,
+  triggerCubeSync,
+  fetchCubeSyncStatus
+} from "../api/client";
 
 // ============================================================================
 // Official pilot regions for the jury demo
@@ -171,14 +188,25 @@ interface AnalysisState {
   loadPresetRegion: (presetKey: PresetKey) => Promise<void>;
   setCustomAoi: (coordinates: number[][][]) => Promise<void>;
   setCustomBbox: (west: number, south: number, east: number, north: number) => Promise<void>;
-  executeAnalysis: () => Promise<void>;
+  executeAnalysis: (preserveSelection?: boolean) => Promise<void>;
   triggerChaosMonkey: () => Promise<void>;
   resetChaosMonkey: () => void;
+
+  // Cube Live Sync (NASA FIRMS -> Master Cube)
+  syncStatus: CubeSyncStatusState;
+  lastSyncedUtc: string | null;
+  coverageDateEnd: string | null;
+  syncSource: "real" | "synthetic" | null;
+  syncError: string | null;
+  fetchSyncStatus: () => Promise<void>;
+  triggerSync: () => Promise<void>;
 }
 
 // Request bookkeeping lives outside the state: it never drives rendering.
 let analysisController: AbortController | null = null;
 let analysisSeq = 0;
+let syncStatusSeq = 0;
+let manualSyncPending = false;
 let mapController: AbortController | null = null;
 let mapSeq = 0;
 let mapTimer: ReturnType<typeof setTimeout> | undefined;
@@ -236,6 +264,13 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   copilotMessages: [],
   activeSpikeDay: null,
   activeSpikeHex: null,
+
+  // Cube Live Sync
+  syncStatus: "idle",
+  lastSyncedUtc: null,
+  coverageDateEnd: null,
+  syncSource: null,
+  syncError: null,
 
   setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -391,12 +426,16 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }
   },
 
-  executeAnalysis: async () => {
+  executeAnalysis: async (preserveSelection = false) => {
     mapController?.abort();
     mapSeq++;
     clearTimeout(mapTimer);
     annualMapCache.clear();
-    set({ mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null, hoveredDay: null, hoveredDate: null, hoveredCell: null, isDatePinned: false, selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null });
+    set({
+      mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null,
+      hoveredDay: null, hoveredDate: null, hoveredCell: null,
+      ...(preserveSelection ? {} : { isDatePinned: false, selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null })
+    });
     analysisController?.abort();
     const controller = new AbortController();
     analysisController = controller;
@@ -536,6 +575,57 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     copilotController?.abort();
     copilotSeq++;
     set({ copilotMessages: [], copilotError: null, copilotLoading: false, activeSpikeDay: null, activeSpikeHex: null });
+  },
+
+  fetchSyncStatus: async () => {
+    if (manualSyncPending) return;
+    const seq = ++syncStatusSeq;
+    try {
+      const res = await fetchCubeSyncStatus();
+      if (seq !== syncStatusSeq) return;
+      const state = get();
+      const updated = res.status === "success" && res.data_source === "real"
+        && Boolean(res.last_synced_utc && res.last_synced_utc !== state.lastSyncedUtc);
+      set({
+        syncStatus: res.status,
+        lastSyncedUtc: res.last_synced_utc,
+        coverageDateEnd: res.date_coverage_end ?? null,
+        syncSource: res.data_source ?? null,
+        syncError: res.error ?? null
+      });
+      if (updated && state.analysisData && res.new_detections_count > 0) await get().executeAnalysis(true);
+    } catch {
+      // Status requests are best effort. Keep the last confirmed coverage while offline.
+    }
+  },
+
+  triggerSync: async () => {
+    const state = get();
+    if (manualSyncPending || state.syncStatus === "in_progress" || state.syncSource === "synthetic") return;
+    manualSyncPending = true;
+    syncStatusSeq++;
+    set({ syncStatus: "in_progress", syncError: null });
+
+    try {
+      const res = await triggerCubeSync();
+      set({
+        syncStatus: res.status,
+        lastSyncedUtc: res.last_synced_utc,
+        coverageDateEnd: res.date_coverage_end ?? null,
+        syncSource: res.data_source ?? null,
+        syncError: res.error ?? null
+      });
+      if (res.status === "success" && res.data_source === "real" && res.new_detections_count > 0) {
+        await get().executeAnalysis(true);
+      }
+    } catch (err: unknown) {
+      set({
+        syncStatus: "error",
+        syncError: err instanceof Error ? err.message : "FIRMS update failed."
+      });
+    } finally {
+      manualSyncPending = false;
+    }
   }
 
 }));

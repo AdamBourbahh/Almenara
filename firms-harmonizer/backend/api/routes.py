@@ -25,6 +25,7 @@ from backend.api.science_adapter import KalmanInput
 from backend.api import core_contract, fire_copilot
 from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE, CachedJSON, LRUCache, geometry_key, make_cache_key
 from backend.api.schemas import (AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse,
+                                 CubeSyncRequest, CubeSyncStatusResponse,
                                  ExplainSpikeRequest, ExplainSpikeResponse,
                                  GeoJSONPolygon, H3MapSummaryHex, RiskPredictionRequest, RiskPredictionResponse)
 from backend.core.risk_predictor import predict_risk as fit_risk_predictor
@@ -391,3 +392,22 @@ def observations(aoi: GeoJSONPolygon):
 def explain_spike(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
     """Answer using retrieved observations and explicitly attributed reports."""
     return fire_copilot.answer(req)
+
+
+@router.post("/cube/sync", response_model=CubeSyncStatusResponse)
+def trigger_cube_sync(req: CubeSyncRequest = CubeSyncRequest()) -> CubeSyncStatusResponse:
+    """Synchronize live NASA FIRMS detections for preset regions into the master cube."""
+    result = nrt_poller.sync_cube(
+        days=req.days,
+        sync_full_month=req.sync_full_month,
+        regions=req.regions,
+    )
+    return CubeSyncStatusResponse.model_validate(result)
+
+
+@router.get("/cube/sync-status", response_model=CubeSyncStatusResponse)
+def get_cube_sync_status() -> CubeSyncStatusResponse:
+    """Return the current synchronization status and latest sync metrics."""
+    result = nrt_poller.get_sync_status()
+    return CubeSyncStatusResponse.model_validate(result)
+

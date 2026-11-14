@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, datetime, timedelta
 
 import h3.api.basic_int as h3
 import httpx
@@ -170,3 +170,66 @@ def test_nrt_poller_retains_a_safe_error(monkeypatch):
     monkeypatch.setattr(nrt_poller, "fetch_nrt_csv", fail)
     assert asyncio.run(nrt_poller.poll_firms_nrt_once(map_key="test-key")) == 0
     assert nrt_poller.get_nrt_status()["last_error"] == "FIRMS NRT request failed: ConnectTimeout."
+
+
+def test_sync_cube_offline_mode(monkeypatch):
+    monkeypatch.setenv("USE_SYNTHETIC_CUBE", "0")
+    monkeypatch.setenv("OFFLINE_MODE", "1")
+    res = nrt_poller.sync_cube(sync_full_month=True)
+    assert res["status"] == "error"
+    assert "internet connection" in res["error"]
+
+
+def test_sync_cube_with_mock_transport(tmp_path, monkeypatch):
+    monkeypatch.delenv("OFFLINE_MODE", raising=False)
+    monkeypatch.delenv("AIRPLANE_MODE", raising=False)
+    monkeypatch.setenv("USE_SYNTHETIC_CUBE", "0")
+    monkeypatch.setenv("FIRMS_MAP_KEY", "test_key_abc")
+    monkeypatch.setattr(nrt_poller, "ROOT", tmp_path)
+    monkeypatch.setattr(nrt_poller.duckdb_engine, "cube_path", lambda: tmp_path / "missing.parquet")
+    monkeypatch.setattr(nrt_poller.duckdb_engine, "data_source", lambda: "real")
+
+    transport = _transport(SAMPLE.encode(), 200)
+    res = nrt_poller.sync_cube(days=1, regions=["chilecito_la_rioja"], transport=transport)
+    assert res["status"] == "success"
+    assert res["new_detections_count"] >= 1
+    assert "chilecito_la_rioja" in res["regions_updated"]
+    status = nrt_poller.get_sync_status()
+    assert status["status"] == "success"
+
+
+def test_sync_status_reports_persisted_dates_and_default_sync_reaches_today(tmp_path, monkeypatch):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    today = date(2026, 12, 3)
+    latest = today - timedelta(days=2)
+    cube = tmp_path / "fire_cube.parquet"
+    pq.write_table(pa.table({"epoch_day": [(latest - nrt_poller.EPOCH).days]}), cube)
+    monkeypatch.setattr(nrt_poller.duckdb_engine, "cube_path", lambda: cube)
+    monkeypatch.setattr(nrt_poller.duckdb_engine, "data_source", lambda: "real")
+    monkeypatch.setattr(nrt_poller, "ROOT", tmp_path)
+    monkeypatch.setattr(nrt_poller, "_CUBE_SYNC_STATUS", {"status": "idle"})
+    monkeypatch.setenv("USE_SYNTHETIC_CUBE", "0")
+    monkeypatch.setenv("FIRMS_MAP_KEY", "test_key")
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 12, 3, tzinfo=tz)
+
+    monkeypatch.setattr(nrt_poller, "datetime", FrozenDateTime)
+    requests = []
+
+    def fetch(request):
+        requests.append(request.url.path.split("/")[-2:])
+        return httpx.Response(200, content=SAMPLE.splitlines()[0].encode(), request=request)
+
+    assert nrt_poller.get_sync_status()["date_coverage_end"] == latest.isoformat()
+    result = nrt_poller.sync_cube(regions=["chilecito_la_rioja"], transport=httpx.MockTransport(fetch))
+    assert requests == [["4", (latest - timedelta(days=1)).isoformat()]] * len(nrt_poller.SYNC_SOURCES)
+    assert result["status"] == "success"
+    assert result["date_coverage_end"] == latest.isoformat()
+    failed = nrt_poller.sync_cube(regions=["chilecito_la_rioja"], transport=_transport(status=503))
+    assert failed["status"] == "error"
+    assert failed["date_coverage_end"] == latest.isoformat()

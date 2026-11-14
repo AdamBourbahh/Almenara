@@ -13,20 +13,26 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import csv
 import io
+import json
 import logging
 import math
 import os
 import re
-from datetime import date, datetime, timezone
+import tempfile
+import threading
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
 import duckdb
 import h3
 import httpx
 import pyarrow as pa
+import pyarrow.parquet as pq
 
 from backend.db import duckdb_engine
 
@@ -96,7 +102,7 @@ def _date(value: str | date | None) -> str | None:
         parsed = value if isinstance(value, date) else date.fromisoformat(str(value))
     except ValueError as exc:
         raise NrtPollerError("The date must be ISO YYYY-MM-DD.") from exc
-    if parsed > date.today():
+    if parsed > datetime.now(timezone.utc).date():
         raise NrtPollerError("The date cannot be in the future.")
     return parsed.isoformat()
 
@@ -334,6 +340,352 @@ async def poll_firms_nrt_once(
         return 0
 
 
+MIN_ORBITAL_WEIGHT = float(math.cos(math.radians(80.0)))
+
+PRESET_REGIONS: dict[str, tuple[float, float, float, float]] = {
+    "chilecito_la_rioja": (-69.5, -31.0, -65.5, -27.5),
+    "orlando_florida": (-82.0, 28.0, -80.7, 29.3),
+    "amazonas_manaus": (-62.0, -5.0, -58.0, -1.0),
+    "iberia_med": (-9.5, 36.0, 4.0, 44.0),
+}
+NOMINAL_BIOMES: dict[str, int] = {
+    "chilecito_la_rioja": 16,
+    "orlando_florida": 8,
+    "amazonas_manaus": 2,
+    "iberia_med": 8,
+}
+SYNC_SOURCES: tuple[str, ...] = (
+    "VIIRS_NOAA20_NRT",
+    "VIIRS_NOAA21_NRT",
+    "VIIRS_SNPP_NRT",
+    "MODIS_NRT",
+)
+SENSOR_BITS: dict[str, int] = {
+    "TERRA": 1,
+    "AQUA": 2,
+    "SNPP": 4,
+    "N20": 8,
+    "NOAA20": 8,
+    "NOAA-20": 8,
+    "J1": 8,
+    "N21": 16,
+    "NOAA21": 16,
+    "NOAA-21": 16,
+    "J2": 16,
+}
+
+CUBE_SCHEMA = pa.schema([
+    pa.field("h3_r4", pa.uint64()),
+    pa.field("h3_r7", pa.uint64()),
+    pa.field("epoch_day", pa.uint16()),
+    pa.field("year", pa.uint16()),
+    pa.field("doy", pa.uint16()),
+    pa.field("igbp_biome", pa.uint8()),
+    pa.field("sensor_obs_mask", pa.uint8()),
+    pa.field("gap_status_mask", pa.uint8()),
+    pa.field("cloud_cover_pct", pa.float32()),
+    pa.field("raw_modis_cnt", pa.uint16()),
+    pa.field("raw_viirs_cnt", pa.uint16()),
+    pa.field("raw_frp_mw", pa.float32()),
+    pa.field("obs_terra_fre", pa.float32()),
+    pa.field("obs_aqua_fre", pa.float32()),
+    pa.field("obs_viirs_fre", pa.float32()),
+    pa.field("neighbor_fre_lag1", pa.float32()),
+    pa.field("industrial_prob", pa.float32()),
+    pa.field("burned_area_ha_mcd64", pa.float32()),
+])
+
+_SYNC_LOCK = threading.Lock()
+_CUBE_SYNC_STATUS: dict[str, Any] = {
+    "status": "idle",
+    "last_synced_utc": None,
+    "new_detections_count": 0,
+    "date_coverage_start": None,
+    "date_coverage_end": None,
+    "regions_updated": [],
+    "message": "Ready to synchronize.",
+    "data_source": "real",
+    "error": None,
+}
+
+
+def _orbital_weight(c7: int) -> float:
+    latitude, _ = h3.cell_to_latlng(format(c7, "x"))
+    return float(max(math.cos(math.radians(latitude)), MIN_ORBITAL_WEIGHT))
+
+
+def _cell_scale(c7: int) -> float:
+    area = h3.cell_area(format(c7, "x"), unit="km^2")
+    return (3600.0 / area) * _orbital_weight(c7)
+
+
+def get_configured_regions() -> dict[str, tuple[float, float, float, float]]:
+    regions_file = ROOT / "data/regions.json"
+    if regions_file.is_file():
+        try:
+            data = json.loads(regions_file.read_text(encoding="utf-8"))
+            out = {}
+            for name, reg in data.items():
+                if "bounds" in reg and len(reg["bounds"]) == 4:
+                    out[name] = tuple(float(x) for x in reg["bounds"])
+            if out:
+                return out
+        except Exception:
+            pass
+    return dict(PRESET_REGIONS)
+
+
+def get_sync_status() -> dict[str, Any]:
+    """Return the current synchronization status and latest sync metrics."""
+    st = dict(_CUBE_SYNC_STATUS)
+    try:
+        st["data_source"] = duckdb_engine.data_source()
+        with duckdb.connect() as con:
+            first, last = con.execute(
+                "SELECT min(epoch_day), max(epoch_day) FROM read_parquet(?)",
+                [str(duckdb_engine.cube_path())],
+            ).fetchone()
+        st["date_coverage_start"] = (EPOCH + timedelta(days=first)).isoformat() if first is not None else None
+        st["date_coverage_end"] = (EPOCH + timedelta(days=last)).isoformat() if last is not None else None
+    except (duckdb.Error, duckdb_engine.CubeNotAvailableError, OSError):
+        st.update(date_coverage_start=None, date_coverage_end=None)
+    return st
+
+
+def sync_cube(
+    days: int | None = None,
+    sync_full_month: bool = False,
+    regions: list[str] | None = None,
+    transport: httpx.BaseTransport | None = None,
+) -> dict[str, Any]:
+    """Synchronize live NASA FIRMS active-fire data for preset regions into the master cube."""
+    with _SYNC_LOCK:
+        _CUBE_SYNC_STATUS["status"] = "in_progress"
+        _CUBE_SYNC_STATUS["error"] = None
+        now_utc = datetime.now(timezone.utc)
+        target_regions = [r for r in (regions or list(PRESET_REGIONS.keys())) if r in PRESET_REGIONS]
+        if not target_regions:
+            target_regions = list(PRESET_REGIONS.keys())
+
+        if os.environ.get("USE_SYNTHETIC_CUBE") == "1":
+            _CUBE_SYNC_STATUS.update({
+                "status": "idle",
+                "message": "FIRMS updates are unavailable in synthetic mode.",
+            })
+            return get_sync_status()
+        if os.environ.get("OFFLINE_MODE") == "1" or os.environ.get("AIRPLANE_MODE") == "1":
+            _CUBE_SYNC_STATUS.update(status="error", error="FIRMS updates require an internet connection.")
+            return get_sync_status()
+
+        # In real mode, verify API key
+        try:
+            key = _map_key()
+        except NrtPollerError as exc:
+            _CUBE_SYNC_STATUS.update({
+                "status": "error",
+                "error": str(exc),
+                "message": "Sync failed due to missing FIRMS key.",
+            })
+            return get_sync_status()
+
+        today_val = now_utc.date()
+        if sync_full_month:
+            start_date = today_val.replace(day=1)
+        elif days is not None:
+            start_date = today_val - timedelta(days=min(max(int(days), 1), 30) - 1)
+        else:
+            status = get_sync_status()
+            last = status["date_coverage_end"]
+            if last is None:
+                _CUBE_SYNC_STATUS.update(status="error", error="Could not read the local cube dates.")
+                return get_sync_status()
+            start_date = min(date.fromisoformat(last), today_val) - timedelta(days=1)
+
+        chunks = []
+        while start_date <= today_val:
+            span = min(MAX_DAY_RANGE, (today_val - start_date).days + 1)
+            chunks.append((start_date.isoformat(), span))
+            start_date += timedelta(days=span)
+
+        # Fetch concurrently across regions and sources
+        def _fetch_worker(item):
+            reg, bbox, src, sdate, span = item
+            try:
+                raw_bytes = fetch_nrt_csv(
+                    bbox,
+                    source=src,
+                    days=span,
+                    start_date=sdate,
+                    map_key=key,
+                    timeout=15.0,
+                    transport=transport,
+                )
+                fields = csv.DictReader(io.StringIO(raw_bytes.decode("utf-8-sig"))).fieldnames or []
+                if not {"latitude", "longitude", "acq_date"}.issubset(fields):
+                    raise NrtPollerError("FIRMS returned an invalid CSV header.")
+                parsed = parse_nrt_csv(raw_bytes)
+                csv_path = ROOT / f"data/raw/sync_{reg}_{src}_{sdate}_{span}d.csv"
+                write_nrt_csv(raw_bytes, csv_path)
+                return reg, src, parsed
+            except (NrtPollerError, OSError, UnicodeError, csv.Error) as exc:
+                logger.warning("FIRMS sync failed for %s %s: %s", reg, src, exc)
+                return reg, src, None
+
+        work_items = []
+        for reg in target_regions:
+            bbox = PRESET_REGIONS[reg]
+            for src in SYNC_SOURCES:
+                for sdate, span in chunks:
+                    work_items.append((reg, bbox, src, sdate, span))
+
+        all_records: list[tuple[str, str, dict]] = []
+        failed = 0
+        with ThreadPoolExecutor(max_workers=min(16, max(1, len(work_items)))) as pool:
+            for reg, src, rows in pool.map(_fetch_worker, work_items):
+                if rows is None:
+                    failed += 1
+                else:
+                    all_records.extend((reg, src, row) for row in rows)
+        if failed:
+            _CUBE_SYNC_STATUS.update(status="error", error=f"FIRMS update failed for {failed} of {len(work_items)} requests.")
+            return get_sync_status()
+
+        # Deduplicate detections
+        seen_identities = set()
+        deduped: list[tuple[str, str, dict]] = []
+        for reg, src, row in all_records:
+            try:
+                lat = float(row["latitude"])
+                lon = float(row["longitude"])
+                acq_d = str(row["acq_date"]).strip()
+                acq_t = str(row.get("acq_time", "")).strip()
+                sat = str(row.get("satellite", "")).strip().upper()
+                ident = (sat, acq_d, acq_t, round(lat, 4), round(lon, 4))
+                if ident in seen_identities:
+                    continue
+                seen_identities.add(ident)
+                deduped.append((reg, src, row))
+            except (KeyError, ValueError, TypeError):
+                continue
+
+        # Aggregate into daily H3 cube rows
+        daily_cells: dict[tuple[int, int], dict[str, Any]] = {}
+        for reg, src, row in deduped:
+            try:
+                lat = float(row["latitude"])
+                lon = float(row["longitude"])
+                frp = float(row.get("frp") or 0.0)
+                if not (abs(lat) <= 90 and abs(lon) <= 180 and math.isfinite(frp) and frp >= 0):
+                    continue
+                acq_d = datetime.strptime(str(row["acq_date"]).strip(), "%Y-%m-%d").date()
+                epoch_d = (acq_d - EPOCH).days
+                c7 = int(h3.latlng_to_cell(lat, lon, 7), 16)
+                c4 = int(h3.cell_to_parent(format(c7, "x"), 4), 16)
+                key_cell = (c7, epoch_d)
+
+                if key_cell not in daily_cells:
+                    daily_cells[key_cell] = {
+                        "h3_r4": c4,
+                        "h3_r7": c7,
+                        "epoch_day": epoch_d,
+                        "year": acq_d.year,
+                        "doy": int(acq_d.strftime("%j")),
+                        "igbp_biome": NOMINAL_BIOMES.get(reg, 8),
+                        "sensor_obs_mask": 0,
+                        "gap_status_mask": 0,
+                        "cloud_cover_pct": 0.0,
+                        "raw_modis_cnt": 0,
+                        "raw_viirs_cnt": 0,
+                        "raw_frp_mw": 0.0,
+                        "obs_terra_fre": None,
+                        "obs_aqua_fre": None,
+                        "obs_viirs_fre": None,
+                        "neighbor_fre_lag1": 0.0,
+                        "industrial_prob": 0.0,
+                        "burned_area_ha_mcd64": 0.0,
+                        "_terra": [],
+                        "_aqua": [],
+                        "_viirs": [],
+                    }
+
+                cell_entry = daily_cells[key_cell]
+                sat = str(row.get("satellite", "")).strip().upper()
+                bit = SENSOR_BITS.get(sat, 4)
+                cell_entry["sensor_obs_mask"] |= bit
+                cell_entry["raw_frp_mw"] += frp
+
+                is_modis = ("MODIS" in src) or (sat in ("TERRA", "AQUA", "T", "A"))
+                if is_modis:
+                    cell_entry["raw_modis_cnt"] += 1
+                    if sat in ("TERRA", "T"):
+                        cell_entry["_terra"].append(frp)
+                    else:
+                        cell_entry["_aqua"].append(frp)
+                else:
+                    cell_entry["raw_viirs_cnt"] += 1
+                    cell_entry["_viirs"].append(frp)
+            except Exception:
+                continue
+
+        # Finalize FRE energy proxies
+        for entry in daily_cells.values():
+            scale = _cell_scale(entry["h3_r7"])
+            if entry["_terra"]:
+                entry["obs_terra_fre"] = float(sum(entry["_terra"]) * scale)
+            if entry["_aqua"]:
+                entry["obs_aqua_fre"] = float(sum(entry["_aqua"]) * scale)
+            if entry["_viirs"]:
+                entry["obs_viirs_fre"] = float((sum(entry["_viirs"]) / len(entry["_viirs"])) * scale)
+            del entry["_terra"], entry["_aqua"], entry["_viirs"]
+
+        # Merge with existing master parquet cube
+        cube_path = duckdb_engine.cube_path()
+        if daily_cells and cube_path.is_file() and duckdb_engine.data_source() == "real":
+            incoming_table = pa.Table.from_pylist(list(daily_cells.values()), schema=CUBE_SCHEMA)
+            existing_table = pq.read_table(cube_path)
+            with duckdb.connect() as con:
+                con.register("existing_cube", existing_table)
+                con.register("incoming_rows", incoming_table)
+                con.execute("""
+                    CREATE TABLE merged_cube AS
+                    SELECT * FROM existing_cube
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM incoming_rows i
+                        WHERE i.h3_r7 = existing_cube.h3_r7 AND i.epoch_day = existing_cube.epoch_day
+                    )
+                    UNION ALL BY NAME
+                    SELECT * FROM incoming_rows
+                    ORDER BY h3_r4, epoch_day, h3_r7
+                """)
+                merged_table = con.sql("SELECT * FROM merged_cube").to_arrow_table()
+
+            meta = pq.read_schema(cube_path).metadata or {}
+            meta[b"real_rows"] = str(len(merged_table)).encode()
+            merged_table = merged_table.replace_schema_metadata(meta)
+            with tempfile.NamedTemporaryFile(dir=cube_path.parent, suffix=".parquet", delete=False) as tmp:
+                output = Path(tmp.name)
+            try:
+                pq.write_table(merged_table, output, compression="zstd", row_group_size=32768, write_statistics=True)
+                output.replace(cube_path)
+            except (pa.ArrowException, OSError) as exc:
+                logger.warning("Could not publish the updated FIRMS cube: %s", exc)
+                _CUBE_SYNC_STATUS.update(status="error", error="Could not save the updated FIRMS cube. Try again.")
+                return get_sync_status()
+            finally:
+                output.unlink(missing_ok=True)
+
+        _CUBE_SYNC_STATUS.update({
+            "status": "success",
+            "last_synced_utc": now_utc.isoformat(),
+            "new_detections_count": len(deduped),
+            "regions_updated": target_regions,
+            "message": f"Successfully synchronized {len(deduped)} live FIRMS detections for {len(target_regions)} regions.",
+            "data_source": "real",
+            "error": None,
+        })
+        return get_sync_status()
+
+
 async def nrt_poller_loop(
     interval_seconds: int = DEFAULT_POLL_INTERVAL_SECONDS,
     map_key: str | None = None,
@@ -342,26 +694,38 @@ async def nrt_poller_loop(
     logger.info("Starting FIRMS NRT Poller loop (interval=%ds).", interval_seconds)
     while True:
         try:
-            await poll_firms_nrt_once(map_key=map_key)
+            _NRT_STATUS.update(status="polling", last_poll_utc=datetime.now(timezone.utc).isoformat())
+            result = await asyncio.to_thread(sync_cube)
+            _NRT_STATUS.update(
+                status="active" if result["status"] == "success" else result["status"],
+                last_success_utc=result.get("last_synced_utc"),
+                last_error=result.get("error"),
+                rows_ingested=result.get("new_detections_count", 0),
+            )
         except asyncio.CancelledError:
             logger.info("NRT Poller loop received cancellation. Stopping.")
             break
         except Exception as exc:
             logger.error("Unexpected error in NRT poller: %s", exc)
+            _NRT_STATUS.update(status="error", last_error="FIRMS update failed.")
         await asyncio.sleep(interval_seconds)
 
 
-def start_nrt_poller(interval_seconds: int = DEFAULT_POLL_INTERVAL_SECONDS) -> None:
+def start_nrt_poller(interval_seconds: int | None = None) -> None:
     """Launch the background asyncio NRT poller task."""
     global _NRT_TASK
-    if os.environ.get("NRT_POLLING") != "1":
+    if os.environ.get("NRT_POLLING") != "1" and os.environ.get("AUTO_SYNC") != "1":
+        return
+    if any(os.environ.get(name) == "1" for name in ("USE_SYNTHETIC_CUBE", "OFFLINE_MODE", "AIRPLANE_MODE")):
+        _NRT_STATUS.update(status="offline_standby")
         return
     if _NRT_TASK is not None and not _NRT_TASK.done():
         logger.info("NRT Poller task is already running.")
         return
+    sec = interval_seconds or int(os.environ.get("NRT_POLL_INTERVAL_SECONDS", DEFAULT_POLL_INTERVAL_SECONDS))
     try:
         loop = asyncio.get_running_loop()
-        _NRT_TASK = loop.create_task(nrt_poller_loop(interval_seconds=interval_seconds))
+        _NRT_TASK = loop.create_task(nrt_poller_loop(interval_seconds=sec))
     except RuntimeError:
         logger.debug("No running asyncio event loop; poller task not started.")
 
@@ -373,12 +737,14 @@ def stop_nrt_poller() -> None:
         _NRT_TASK.cancel()
         _NRT_TASK = None
         _NRT_STATUS["status"] = "stopped"
+        _CUBE_SYNC_STATUS["status"] = "idle"
         logger.info("NRT Poller task stopped.")
 
 
 def get_nrt_status() -> dict[str, str | int | None]:
     """Return live status of the NRT poller."""
     return dict(_NRT_STATUS)
+
 
 
 def _cli() -> int:

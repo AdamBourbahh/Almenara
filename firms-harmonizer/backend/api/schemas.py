@@ -255,3 +255,22 @@ class ExplainSpikeResponse(ContractModel):
     model_used: str = "deterministic-fallback"
     data_source: Literal["real", "synthetic"] = "synthetic"
 
+
+class CubeSyncRequest(ContractModel):
+    days: int | None = Field(default=None, ge=1, le=30)
+    sync_full_month: bool = False
+    regions: list[str] | None = None
+
+
+class CubeSyncStatusResponse(ContractModel):
+    status: Literal["idle", "in_progress", "success", "error"]
+    last_synced_utc: str | None = None
+    new_detections_count: int = 0
+    date_coverage_start: str | None = None
+    date_coverage_end: str | None = None
+    regions_updated: list[str] = Field(default_factory=list)
+    message: str | None = None
+    data_source: Literal["real", "synthetic"] = "real"
+    error: str | None = None
+
+

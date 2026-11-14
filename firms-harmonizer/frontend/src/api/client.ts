@@ -4,6 +4,8 @@ import type {
   AnalyzeResponse,
   ChaosMonkeyRequest,
   ChaosMonkeyResponse,
+  CubeSyncRequest,
+  CubeSyncStatusResponse,
   DailyCalendarCell,
   ExplainSpikeRequest,
   ExplainSpikeResponse,
@@ -84,6 +86,66 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
   } finally {
     clearTimeout(timeoutId);
     signal?.removeEventListener("abort", forwardAbort);
+  }
+}
+
+async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(new DOMException(`Request timed out after ${REQUEST_TIMEOUT_MS} ms`, "TimeoutError")),
+    REQUEST_TIMEOUT_MS
+  );
+  const forwardAbort = () => controller.abort(signal?.reason);
+  if (signal?.aborted) forwardAbort();
+  signal?.addEventListener("abort", forwardAbort, { once: true });
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      let detail = response.statusText;
+      try {
+        const payload: unknown = await response.json();
+        if (payload && typeof payload === "object" && "detail" in payload) {
+          detail = JSON.stringify((payload as { detail: unknown }).detail);
+        }
+      } catch {
+        /* non-JSON error body: keep statusText */
+      }
+      throw new ApiError(`HTTP ${response.status}: ${detail}`, response.status);
+    }
+    return (await response.json()) as T;
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", forwardAbort);
+  }
+}
+
+export async function triggerCubeSync(
+  request: CubeSyncRequest = {},
+  signal?: AbortSignal
+): Promise<CubeSyncStatusResponse> {
+  return postJson<CubeSyncStatusResponse>("/cube/sync", request, signal);
+}
+
+export async function fetchCubeSyncStatus(
+  signal?: AbortSignal
+): Promise<CubeSyncStatusResponse> {
+  try {
+    return await getJson<CubeSyncStatusResponse>("/cube/sync-status", signal);
+  } catch (error) {
+    if (!ALLOW_SYNTHETIC_FALLBACK || !isBackendUnavailable(error)) throw error;
+    return {
+      status: "idle",
+      last_synced_utc: null,
+      new_detections_count: 0,
+      message: "Offline synthetic mode.",
+      data_source: "synthetic",
+      error: null
+    };
   }
 }
 

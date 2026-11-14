@@ -97,7 +97,7 @@ def footprint(lat, lon, cell, scan, track, modis):
 
 
 def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
-    files = sorted((ROOT / raw_dir).glob("*.csv"))
+    files = sorted([p for p in (ROOT / raw_dir).glob("*.csv") if not p.name.startswith("sync_")])
     if not files:
         raise SystemExit("No FIRMS CSVs found. Use script 04 --bootstrap for the offline fixture.")
     regions = load_regions()
@@ -216,9 +216,188 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
     return out
 
 
+NRT_TARGET_FILES = {
+    "chilecito_la_rioja": {
+        "MODIS_NRT": "chilecito_modis_nrt_2026.csv",
+        "VIIRS_NOAA20_NRT": "chilecito_viirs_noaa20_nrt_2026.csv",
+        "VIIRS_NOAA21_NRT": "chilecito_viirs_noaa21_nrt_2026.csv",
+        "VIIRS_SNPP_NRT": "chilecito_viirs_snpp_nrt_2026.csv",
+    },
+    "iberia_med": {
+        "MODIS_NRT": "spain_fire_nrt_M-C61_847720.csv",
+        "VIIRS_NOAA20_NRT": "spain_fire_nrt_J1V-C2_847721.csv",
+        "VIIRS_NOAA21_NRT": "spain_fire_nrt_J2V-C2_847722.csv",
+        "VIIRS_SNPP_NRT": "spain_fire_nrt_SV-C2_847723.csv",
+    },
+    "orlando_florida": {
+        "MODIS_NRT": "orlando_fire_nrt_M-C61_848215.csv",
+        "VIIRS_NOAA20_NRT": "orlando_fire_nrt_J1V-C2_848216.csv",
+        "VIIRS_NOAA21_NRT": "orlando_fire_nrt_J2V-C2_848217.csv",
+        "VIIRS_SNPP_NRT": "orlando_fire_nrt_SV-C2_848218.csv",
+    },
+    "amazonas_manaus": {
+        "MODIS_NRT": "amazonas_fire_nrt_M-C61_848219.csv",
+        "VIIRS_NOAA20_NRT": "amazonas_fire_nrt_J1V-C2_848220.csv",
+        "VIIRS_NOAA21_NRT": "amazonas_fire_nrt_J2V-C2_848221.csv",
+        "VIIRS_SNPP_NRT": "amazonas_fire_nrt_SV-C2_848222.csv",
+    },
+}
+
+
+def fetch_firms_nrt(
+    raw_dir: str | Path = "data/raw",
+    start_date: str = "2026-11-01",
+    end_date: str = "2026-11-14",
+    regions_filter: list[str] | None = None,
+    map_key: str | None = None,
+) -> dict[str, int]:
+    """Fetch live NRT detections from NASA FIRMS API and append new unique rows to raw NRT CSVs."""
+    import csv
+    import io
+    import os
+    from datetime import datetime, timedelta
+    import httpx
+
+    key = (map_key or os.environ.get("FIRMS_MAP_KEY", "")).strip()
+    if not key:
+        env_file = ROOT / ".env"
+        if env_file.exists():
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                if line.strip().startswith("FIRMS_MAP_KEY=") and not line.strip().startswith("#"):
+                    key = line.strip().split("=", 1)[1].strip()
+                    break
+    if not key:
+        raise ValueError("FIRMS_MAP_KEY is not set in environment or .env file.")
+
+    regions = load_regions()
+    raw_path = ROOT / raw_dir
+    raw_path.mkdir(parents=True, exist_ok=True)
+
+    counts_by_file: dict[str, int] = {}
+    selected_regions = {
+        name: targets for name, targets in NRT_TARGET_FILES.items()
+        if regions_filter is None or name in regions_filter
+    }
+
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+    chunk_starts = []
+    curr = start_dt
+    while curr <= end_dt:
+        chunk_starts.append(curr.isoformat())
+        curr += timedelta(days=5)
+
+    with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+        for reg_name, sources in selected_regions.items():
+            if reg_name not in regions:
+                continue
+            west, south, east, north = regions[reg_name]["bounds"]
+            bbox = f"{west:.4f},{south:.4f},{east:.4f},{north:.4f}"
+
+            for src_name, filename in sources.items():
+                target_file = raw_path / filename
+                if not target_file.exists():
+                    continue
+
+                seen_keys = set()
+                with target_file.open("r", encoding="utf-8") as fp:
+                    reader = csv.DictReader(fp)
+                    for row in reader:
+                        s = (row.get("satellite") or "").strip()
+                        d = (row.get("acq_date") or "").strip()
+                        t = (row.get("acq_time") or "").strip().zfill(4)
+                        try:
+                            lat = round(float(row.get("latitude", 0)), 5)
+                            lon = round(float(row.get("longitude", 0)), 5)
+                        except (ValueError, TypeError):
+                            continue
+                        seen_keys.add((s, d, t, lat, lon))
+
+                new_rows = []
+                urls = [
+                    f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{key}/{src_name}/{bbox}/5/{chunk_d}"
+                    for chunk_d in chunk_starts
+                ] + [f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{key}/{src_name}/{bbox}/5"]
+
+                for url in urls:
+                    try:
+                        resp = client.get(url)
+                    except httpx.HTTPError:
+                        continue
+                    if resp.status_code != 200 or resp.text.lstrip().startswith("<"):
+                        continue
+
+                    reader = csv.DictReader(io.StringIO(resp.text))
+                    for row in reader:
+                        acq_date_val = (row.get("acq_date") or "").strip()
+                        if not (start_date <= acq_date_val <= end_date):
+                            continue
+                        s = (row.get("satellite") or "").strip()
+                        try:
+                            t = str(int(row.get("acq_time", 0))).zfill(4)
+                            lat = round(float(row.get("latitude", 0)), 5)
+                            lon = round(float(row.get("longitude", 0)), 5)
+                        except (ValueError, TypeError):
+                            continue
+
+                        ident = (s, acq_date_val, t, lat, lon)
+                        if ident in seen_keys:
+                            continue
+                        seen_keys.add(ident)
+
+                        mir = row.get("brightness") or row.get("bright_ti4") or ""
+                        tir = row.get("bright_t31") or row.get("bright_ti5") or ""
+
+                        std_row = {
+                            "latitude": row.get("latitude", ""),
+                            "longitude": row.get("longitude", ""),
+                            "brightness": mir,
+                            "scan": row.get("scan", ""),
+                            "track": row.get("track", ""),
+                            "acq_date": acq_date_val,
+                            "acq_time": t,
+                            "satellite": s,
+                            "instrument": row.get("instrument", ""),
+                            "confidence": row.get("confidence", ""),
+                            "version": row.get("version", ""),
+                            "bright_t31": tir,
+                            "frp": row.get("frp", ""),
+                            "daynight": (row.get("daynight") or "").upper(),
+                        }
+                        new_rows.append(std_row)
+
+                if new_rows:
+                    with target_file.open("a", newline="", encoding="utf-8") as fp:
+                        writer = csv.DictWriter(
+                            fp,
+                            fieldnames=[
+                                "latitude", "longitude", "brightness", "scan", "track",
+                                "acq_date", "acq_time", "satellite", "instrument",
+                                "confidence", "version", "bright_t31", "frp", "daynight",
+                            ],
+                            lineterminator="\n",
+                        )
+                        for r in new_rows:
+                            writer.writerow(r)
+
+                counts_by_file[filename] = len(new_rows)
+                print(f"Fetched {len(new_rows):,} new rows for {filename} ({reg_name} {src_name}).")
+
+    total_new = sum(counts_by_file.values())
+    print(f"Total new FIRMS detections appended: {total_new:,}")
+    return counts_by_file
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw-dir", default="data/raw")
     parser.add_argument("--output", default=STAGED)
+    parser.add_argument("--fetch-nrt", action="store_true", help="Fetch live NRT detections from NASA FIRMS API")
+    parser.add_argument("--start-date", default="2026-11-01", help="Start date for NRT fetch (YYYY-MM-DD)")
+    parser.add_argument("--end-date", default="2026-11-14", help="End date for NRT fetch (YYYY-MM-DD)")
+    parser.add_argument("--regions", nargs="*", default=None, help="Optional subset of region names to fetch")
     args = parser.parse_args()
+    if args.fetch_nrt:
+        fetch_firms_nrt(raw_dir=args.raw_dir, start_date=args.start_date, end_date=args.end_date, regions_filter=args.regions)
     ingest_raw_firms(args.raw_dir, args.output)

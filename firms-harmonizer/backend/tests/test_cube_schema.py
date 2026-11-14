@@ -1179,3 +1179,41 @@ def test_stage04_eqm_gpd_parity_with_core_on_every_channel(phase2_etl, tmp_path,
     assert second["obs_viirs_fre"] == pytest.approx(float(core.harmonize_viirs_to_modis(3.0, chosen)) * scale)
     assert second["obs_viirs_fre"] != pytest.approx(3.0 * scale)
     assert first["raw_frp_mw"] == 70.0 and second["raw_frp_mw"] == 3.0
+
+
+def test_real_cube_november_2026_coverage_and_schema():
+    """Verify that the published master cube spans through November 14, 2026 with valid schema and H3."""
+    regions = json.loads((ROOT / "data/regions.json").read_text(encoding="utf-8"))
+    for reg in ("chilecito_la_rioja", "iberia_med", "orlando_florida", "amazonas_manaus"):
+        assert reg in regions
+        ranges = regions[reg].get("coverage", [])
+        assert any(end >= "2026-11-14" for _, end in ranges)
+
+    cube_file = ROOT / "data/processed/fire_cube.parquet"
+    assert cube_file.is_file(), "Master fire_cube.parquet must be published"
+    table = pq.read_table(cube_file)
+    assert [(f.name, f.type) for f in table.schema] == EXPECTED
+
+    # Check date coverage spanning through 2026-11-14 (epoch_day 20771)
+    with duckdb.connect() as con:
+        min_day, max_day, total_rows = con.execute(
+            "SELECT min(epoch_day), max(epoch_day), count(*) FROM read_parquet(?)",
+            [str(cube_file)]
+        ).fetchone()
+        assert min_day == (date(2000, 11, 1) - date(1970, 1, 1)).days
+        assert max_day >= (date(2026, 11, 14) - date(1970, 1, 1)).days
+        assert total_rows > 760_000
+
+        # Verify November 2026 records
+        nov_records = con.execute("""
+            SELECT count(*), count(DISTINCT h3_r4), count(DISTINCT h3_r7),
+                   sum(raw_frp_mw), min(igbp_biome), max(igbp_biome)
+            FROM read_parquet(?)
+            WHERE epoch_day >= 20758
+        """, [str(cube_file)]).fetchone()
+        nov_count, distinct_r4, distinct_r7, sum_frp, min_biome, max_biome = nov_records
+        assert nov_count >= 1900
+        assert distinct_r4 >= 200
+        assert distinct_r7 >= 1000
+        assert sum_frp > 10_000
+        assert 1 <= min_biome <= 17 and 1 <= max_biome <= 17

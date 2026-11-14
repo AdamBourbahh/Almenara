@@ -107,6 +107,20 @@ def init_engine() -> duckdb.DuckDBPyConnection:
         return conn
 
 
+def reload_engine() -> duckdb.DuckDBPyConnection:
+    """Close the master connection and reopen it to refresh views from parquet."""
+    global _MASTER_CONN, _DATA_SOURCE, _CUBE_PATH, _MISSING
+    with _INIT_LOCK:
+        if _MASTER_CONN is not None:
+            try:
+                _MASTER_CONN.close()
+            except Exception:
+                pass
+            _MASTER_CONN = None
+    return init_engine()
+
+
+
 @contextmanager
 def get_db_cursor() -> Iterator[duckdb.DuckDBPyConnection]:
     """Isolated cursor per request; always closed."""
