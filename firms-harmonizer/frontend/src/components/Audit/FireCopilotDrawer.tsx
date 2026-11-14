@@ -334,7 +334,7 @@ export function FireCopilotDrawer() {
       {/* Slide-over Drawer */}
       <aside
         aria-label="Fire AI Copilot"
-        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-rule bg-panel shadow-2xl transition-transform lg:top-16"
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-rule bg-panel shadow-2xl transition-transform"
       >
         {/* Header */}
         <header className="flex shrink-0 items-center justify-between border-b border-rule px-4 py-3.5">

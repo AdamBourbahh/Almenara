@@ -46,7 +46,7 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-paper text-ink">
       <header className="relative z-40 shrink-0 border-b border-rule">
-        <div className="flex flex-wrap items-center gap-x-3 px-3 lg:h-16 lg:flex-nowrap lg:px-6">
+        <div className="flex flex-wrap items-center gap-x-3 px-3 2xl:h-16 2xl:flex-nowrap lg:px-6">
           <div className="flex h-16 shrink-0 items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-ink text-paper">
               <Flame className="h-4 w-4" />
@@ -54,14 +54,14 @@ export default function App() {
             <span className="font-serif text-sm font-semibold text-ink sm:text-base">FIRMS Harmonizer</span>
           </div>
 
-          <nav aria-label="Main sections" className="order-last flex w-full items-stretch justify-between border-t border-rule lg:order-none lg:h-full lg:w-auto lg:flex-1 lg:justify-center lg:border-t-0">
+          <nav aria-label="Main sections" className="order-last flex w-full items-stretch justify-between overflow-x-auto border-t border-rule 2xl:order-none 2xl:h-full 2xl:w-auto 2xl:flex-1 2xl:justify-center 2xl:border-t-0">
             {SECTIONS.map((item) => (
               <button
                 key={item.key}
                 type="button"
                 onClick={() => openSection(item.key)}
                 aria-current={section === item.key ? "page" : undefined}
-                className={`flex-1 border-b-2 px-3 py-3 text-sm font-medium transition-colors lg:flex-none lg:px-7 ${
+                className={`flex-1 border-b-2 px-3 py-3 text-sm font-medium transition-colors 2xl:flex-none 2xl:px-4 ${
                   section === item.key ? "border-reference text-reference" : "border-transparent text-muted hover:bg-panel hover:text-ink"
                 }`}
               >
@@ -70,7 +70,7 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex max-w-full flex-wrap items-center gap-2 pb-2 2xl:pb-0">
             <CubeSyncWidget />
             <button type="button" onClick={() => useAnalysisStore.getState().toggleCopilot()} className="flex items-center gap-1 border border-rule px-2 py-1.5 text-xs"><Sparkles className="h-4 w-4" />Fire Copilot</button>
             <div className="inline-flex border border-rule text-xs">
