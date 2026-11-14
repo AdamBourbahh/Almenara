@@ -2,7 +2,8 @@
 
 This is NOT a test: nothing is asserted and no threshold changes the exit code except a missing core.
 Usage:  python -m backend.validation_report [--synthetic]
-Exit codes: 0 = report complete, 2 = Adam's backend/core functions are missing (latencies still shown).
+Exit codes: 0 = report complete; otherwise the backend.check_core exit code (1 = contract violation,
+2 = missing core functions). Latencies are always shown first.
 """
 
 from __future__ import annotations
@@ -54,8 +55,8 @@ def main() -> int:
 
     from fastapi.testclient import TestClient
 
-    from backend.api import core_contract
-    from backend.api.cache import ANALYZE_CACHE
+    from backend import check_core
+    from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE
     from backend.api.main import app
     from backend.db import duckdb_engine, queries
 
@@ -80,25 +81,24 @@ def main() -> int:
               f"{q_med:7.2f}   fetch_aoi_aggregated_data {a_first:7.2f} | {a_med:7.2f}   "
               f"(R7={len(r7)}, R4={len(r4)})")
 
-    status = core_contract.core_status()
-    print("\n== backend.core availability ==")
-    for fn, ok in status.items():
-        print(f"   {fn:30s} {'present' if ok else 'MISSING'}")
-    if not all(status.values()):
-        print("\nScientific diagnostics need Adam's backend/core. Missing functions listed above "
-              "(signatures in CAMBIOS.md).")
-        return 2
+    print("\n== backend.core conformance (python -m backend.check_core) ==")
+    conformance = check_core.main([])
+    if conformance != 0:
+        print("\nScientific diagnostics need a conforming backend/core (signatures and output contract in "
+              "CAMBIOS.md).")
+        return conformance
 
     print("\n== Scientific diagnostics (printed as measured; real core) ==")
     with TestClient(app) as client:
         for name, (lon, lat) in PRESETS.items():
             body = {"aoi": {"type": "Polygon", "coordinates": rectangle(lon, lat)}}
             ANALYZE_CACHE.clear()
+            GEOMETRY_CACHE.clear()
             t0 = perf_counter()
             r = client.post("/api/analyze", json=body)
             cold = (perf_counter() - t0) * 1000
             t0 = perf_counter()
-            client.post("/api/analyze", json=body)
+            r_hit = client.post("/api/analyze", json=body)
             hit = (perf_counter() - t0) * 1000
             if r.status_code != 200:
                 print(f"{name}: analyze HTTP {r.status_code} {r.text[:300]}")
@@ -107,6 +107,8 @@ def main() -> int:
             a = data["audit_metrics"]
             print(f"\n[{name}] data_source={data['data_source']} cells={data['total_h3_cells']} "
                   f"execution_time_ms={data['execution_time_ms']:.1f} wall cold={cold:.1f} ms, cache hit={hit:.1f} ms")
+            print(f"   Server-Timing cold: {r.headers.get('server-timing')}")
+            print(f"   Server-Timing hit:  {r_hit.headers.get('server-timing')}")
             if a is None:
                 print("   no data in AOI (audit_metrics is null)")
                 continue
