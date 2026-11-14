@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 import { X, Zap } from "lucide-react";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
 
-export function AoiRiskPrompt({ onView }: { onView: () => void }) {
-  const popup = useAnalysisStore((s) => s.aoiPromptPopup);
-  const dismiss = useAnalysisStore((s) => s.dismissAoiPrompt);
+export function DateRiskPrompt({ onView }: { onView: () => void }) {
+  const popup = useAnalysisStore((s) => s.dateRiskPrompt);
+  const dismiss = useAnalysisStore((s) => s.dismissDateRiskPrompt);
   const panel = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -16,7 +16,7 @@ export function AoiRiskPrompt({ onView }: { onView: () => void }) {
       const anchorX = popup.x + 14;
       const left = anchorX + width + 8 <= window.innerWidth ? anchorX : popup.x - width - 14;
       node.style.left = `${Math.max(8, Math.min(window.innerWidth - width - 8, left))}px`;
-      node.style.top = `${Math.max(8, Math.min(window.innerHeight - height - 8, popup.y - 12))}px`;
+      node.style.top = `${Math.max(8, Math.min(window.innerHeight - height - 8, popup.y - height - 8))}px`;
     };
     place();
     const animation = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? null
@@ -39,14 +39,14 @@ export function AoiRiskPrompt({ onView }: { onView: () => void }) {
 
   if (!popup) return null;
   return createPortal(
-    <div ref={panel} role="region" aria-label="Area risk prompt"
+    <div ref={panel} role="region" aria-label="Date risk prompt"
       className="fixed z-[60] w-max max-w-[calc(100vw-16px)] rounded-xl border border-slate-600/60 bg-slate-950/90 p-3 text-slate-50 shadow-xl backdrop-blur-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0" role="status">
-          <p className="text-xs font-semibold">Area selected · Run AI Fire Risk Prediction?</p>
-          <p className="mt-0.5 truncate text-xs text-slate-300">{popup.aoiLabel}</p>
+          <p className="text-xs font-semibold">Date selected · Run AI Fire Risk Prediction?</p>
+          <p className="mt-0.5 truncate text-xs text-slate-300">{popup.date} UTC</p>
         </div>
-        <button type="button" aria-label="Dismiss area risk prompt" onClick={dismiss}
+        <button type="button" aria-label="Dismiss date risk prompt" onClick={dismiss}
           className="-mr-1 -mt-1 grid size-7 shrink-0 place-items-center rounded text-slate-300 hover:bg-white/10 focus-visible:outline-2">
           <X className="size-4" aria-hidden="true" />
         </button>

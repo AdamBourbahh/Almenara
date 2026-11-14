@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Activity, RefreshCw } from "lucide-react";
 import type { RiskFactor, RiskValidation } from "../../api/types";
-import { PRESET_REGIONS, useAnalysisStore } from "../../store/useAnalysisStore";
+import { PRESET_REGIONS, riskForecastDate, useAnalysisStore } from "../../store/useAnalysisStore";
 
 const HORIZONS = [1, 7, 14] as const;
 const horizonLabels = { 1: "24-Hour", 7: "7-Day", 14: "14-Day" };
@@ -17,6 +17,11 @@ const modelNames: Record<string, string> = {
   gaussian_naive_bayes: "Gaussian naive Bayes",
   causal_prior: "Causal prior",
 };
+const forecastTracks = [
+  { label: "High heat in non-persistent cells", key: "wildfire_prob_pct", target: "wildfire", color: "bg-orange-500" },
+  { label: "Excursion in persistent cells", key: "accident_prob_pct", target: "accident", color: "bg-violet-500" },
+  { label: "Either thermal event", key: "combined_risk_pct", target: "combined", color: "bg-blue-500" },
+] as const;
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -68,9 +73,13 @@ function Drivers({ title, factors }: { title: string; factors: RiskFactor[] }) {
     <ul className="mt-3 space-y-3">
       {valid.map((factor) => <li key={factor.feature} title={factor.description}>
         <p className="flex flex-wrap justify-between gap-1"><span>{factor.feature}</span>
-          <span className="text-muted">{factor.direction} likelihood · {formatPct(factor.impact_pct)}</span></p>
-        <progress className="mt-1 block h-1.5 w-full accent-[var(--color-reference)]"
-          aria-label={factor.feature + " contribution magnitude"} max={100} value={factor.impact_pct} />
+          <span className="text-muted">{factor.direction === "raises" ? "Raises" : "Lowers"} · {formatPct(factor.impact_pct)}</span></p>
+        <div className="relative mt-1.5 h-2 rounded-sm bg-rule/60" aria-hidden="true">
+          <span className="absolute inset-y-0 left-1/2 border-l border-muted" />
+          <span className={"absolute inset-y-0 " + (factor.direction === "raises" ? "left-1/2 bg-orange-500" : "right-1/2 bg-blue-500")}
+            style={{ width: (factor.impact_pct / 2) + "%" }} />
+        </div>
+        <p className="mt-1 leading-relaxed text-muted">{factor.description}</p>
       </li>)}
     </ul>
   </section>;
@@ -256,12 +265,12 @@ export function RiskPredictionPanel() {
   const error = useAnalysisStore((s) => s.riskError);
   const fetchRisk = useAnalysisStore((s) => s.fetchRiskPredictionForAoi);
   const preset = useAnalysisStore((s) => s.selectedPreset);
-  const selectedDate = useAnalysisStore((s) => s.selectedDate);
+  const forecastDate = useAnalysisStore(riskForecastDate);
   const analysis = useAnalysisStore((s) => s.analysisData);
   const [active, setActive] = useState<1 | 7 | 14>(1);
-  useEffect(() => { void fetchRisk(selectedDate ?? undefined); }, [fetchRisk, selectedDate, analysis]);
+  useEffect(() => { void fetchRisk(forecastDate); }, [fetchRisk, forecastDate, analysis]);
 
-  const assessment = response?.assessment;
+  const assessment = response?.assessment?.as_of_date === forecastDate ? response.assessment : null;
   const horizon = assessment?.horizons.find((item) => item.days === active);
   const combined = assessment?.combined_risk_pct;
   const week = assessment?.horizons.find((item) => item.days === 7)?.combined_risk_pct;
@@ -276,12 +285,6 @@ export function RiskPredictionPanel() {
     { label: "Persistent-source excursion", stats: horizon.accident_validation },
     { label: "Either thermal event", stats: horizon.combined_validation },
   ].filter(({ stats }) => hasMetrics(stats)) : [];
-  const values = horizon ? [
-    { label: "Non-persistent heat", value: horizon.wildfire_prob_pct, key: "wildfire" },
-    { label: "Persistent-source excursion", value: horizon.accident_prob_pct, key: "accident" },
-    { label: "Either thermal event", value: horizon.combined_risk_pct, key: "combined" },
-  ] as const : [];
-  const prior = horizon?.prior_targets ?? [];
 
   return <section aria-label="Risk AI forecast" className="space-y-5 text-ink">
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-4">
@@ -294,7 +297,7 @@ export function RiskPredictionPanel() {
       </span>}
     </header>
     {loading && <p role="status" className="flex items-center gap-2 text-sm text-muted">
-      <RefreshCw className="size-4 motion-safe:animate-spin" /> Calculating local forecast…
+      <RefreshCw className="size-4 motion-safe:animate-spin" /> Calculating forecast for {forecastDate} UTC…
     </p>}
     {error && <div role="alert" className="border border-rule p-4 text-sm">
       <p>{error}</p>
@@ -315,6 +318,8 @@ export function RiskPredictionPanel() {
         </div>}
         <div className="border border-rule bg-panel p-4 text-sm">
           <p className="font-semibold">Forecast as of <time dateTime={assessment.as_of_date}>{assessment.as_of_date}</time> UTC</p>
+          {assessment.last_observation_date && assessment.last_observation_date !== assessment.as_of_date &&
+            <p className="mt-1 text-muted">Last cube record {assessment.last_observation_date} UTC. The longer the gap, the more the forecast relies on historical event rates.</p>}
           <p className="mt-2 text-muted">Non-persistent heat threshold {assessment.vegetation_event_threshold_mw.toLocaleString("en-US", { maximumFractionDigits: 2 })} MW</p>
           <p className="mt-1 text-muted">Persistent-source excursions exceed the past baseline by 2.5 standard deviations.</p>
         </div>
@@ -328,13 +333,29 @@ export function RiskPredictionPanel() {
       <p className="text-xs text-muted">Forecast window {formatOffsetDate(assessment.as_of_date, 1)}
         {active > 1 && " to " + formatOffsetDate(assessment.as_of_date, active)} UTC
       </p>
-      <div className="grid gap-3 sm:grid-cols-3" aria-live="polite">
-        {values.map(({ label, value, key }) => isFiniteNumber(value) && <div key={key} className="border border-rule bg-panel p-4">
-          <p className="text-xs text-muted">{label}</p>
-          <p className="mt-1 font-serif text-2xl">{formatPct(value)}</p>
-          {prior.includes(key) && <p className="mt-1 text-xs text-muted">Causal prior · limited training examples</p>}
-        </div>)}
-      </div>
+      <section aria-label="Risk by forecast horizon" className="border border-rule bg-panel p-4">
+        <h4 className="font-semibold">Risk across the three horizons</h4>
+        <p className="mt-1 text-xs text-muted">Each bar shows the chance of at least one event within the window, on a shared 0–100% scale.</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          {assessment.horizons.map((item) => <div key={item.days}
+            className={"min-w-0 rounded border p-3 " + (item.days === active ? "border-reference" : "border-rule")}>
+            <h5 className="text-sm font-semibold">{horizonLabels[item.days]}</h5>
+            <div className="mt-3 space-y-3">{forecastTracks.map((track) => {
+              const value = item[track.key];
+              if (!isFiniteNumber(value)) return null;
+              return <div key={track.key}>
+                <div className="flex items-baseline justify-between gap-1 text-xs">
+                  <span className="text-muted">{track.label}</span><strong className="shrink-0 font-mono">{formatPct(value)}</strong>
+                </div>
+                <div className="mt-1 h-1.5 rounded-sm bg-rule/60" aria-hidden="true">
+                  <div className={"h-full rounded-sm " + track.color} style={{ width: value + "%" }} />
+                </div>
+                {item.prior_targets?.includes(track.target) && <p className="mt-1 text-xs text-muted">Causal prior · limited examples</p>}
+              </div>;
+            })}</div>
+          </div>)}
+        </div>
+      </section>
       {diagnostics.length > 0 && <section className="border-t border-rule pt-4 text-xs">
         <h4 className="mb-3 text-sm font-semibold">Held-out validation from {assessment.validation_start_date}</h4>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -359,11 +380,17 @@ export function RiskPredictionPanel() {
       {(assessment.top_risk_factors.length > 0 || assessment.industrial_risk_factors.length > 0) &&
         <section className="border-t border-rule pt-4 text-xs">
           <h4 className="mb-3 text-sm font-semibold">Top Physical Risk Drivers · 24 hours</h4>
+          <p className="mb-3 text-muted">Bars show the share of absolute log-odds contribution in the logistic model or causal prior. Left lowers, right raises.</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Drivers title="Non-persistent heat" factors={assessment.top_risk_factors} />
             <Drivers title="Persistent-source excursion" factors={assessment.industrial_risk_factors} />
           </div>
         </section>}
+      <details className="border-t border-rule pt-4 text-sm text-muted">
+        <summary className="cursor-pointer font-semibold text-ink">What the model uses</summary>
+        <p className="mt-2">The local FIRMS cube supplies reported fire radiative power (FRP), recent heat, neighboring activity, seasonal history and deviations at persistent sources. Features use records through the forecast date. Coverage gaps are treated as unknown.</p>
+        <p className="mt-2">Logistic regression, boosted stumps and Gaussian naive Bayes are fitted on earlier dates and calibrated before validation. For sparse data, a causal prior combines earlier event frequency with recent heat and seasonal signals.</p>
+      </details>
     </>}
   </section>;
 }

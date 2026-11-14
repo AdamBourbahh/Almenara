@@ -295,3 +295,11 @@ backward compatibility. Forecasts for sparse observed areas use the causal prior
 documented in SPECS. The panel omits undefined diagnostics and marks each prior
 estimate. Selecting an area opens a dismissible shortcut to Risk AI and computes
 the new forecast on demand, without mounting an additional map.
+
+## Historical forecast origins and blackout validation
+
+Risk AI and Impact share the timeline cutoff. The additive assessment field
+`last_observation_date` distinguishes the last cube record from the requested UTC
+origin. Forecasts after a gap blend toward historical event frequency as the gap
+grows. `python -m scripts.07_risk_blackout_benchmark` replays Chilecito and Iberia
+with hidden input blocks and scores the next 1, 7 and 14 days against later reports.

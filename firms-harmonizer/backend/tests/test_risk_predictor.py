@@ -499,3 +499,23 @@ def test_single_day_prior_omits_validation_without_outcomes():
     assert len(result["daily_probability_series"]) == 1
     assert all(0 <= h["combined_risk_pct"] <= 100 for h in result["horizons"])
     assert result["model_metrics"]["brier_score"] is None
+
+
+def test_blackout_forecast_ignores_hidden_readings_and_uses_the_requested_origin():
+    from backend.core.risk_predictor import with_observation_gap
+
+    daily = _make_daily_fixture(1800)
+    visible = {key: values[:-7] for key, values in daily.items()}
+    origin = int(daily["epoch_day"][-1])
+    blinded = with_observation_gap(visible, origin)
+    assert all(np.isnan(blinded[name][-7:]).all()
+               for name in ("vegetation_frp", "neighbor_frp", "industrial_z", "persistent_share", "cloud"))
+    assert np.all(blinded["gap"][-7:] == 1)
+    forecast = predict_risk(blinded)
+    daily["vegetation_frp"][-7:] *= 1000
+    daily["industrial_z"][-7:] = 1000
+    changed = with_observation_gap({key: values[:-7] for key, values in daily.items()}, origin)
+    assert predict_risk(changed) == forecast
+    assert forecast["daily_probability_series"][-1]["date"] == forecast["as_of_date"]
+    for horizon in forecast["horizons"]:
+        assert 0 <= horizon["combined_risk_pct"] <= 100

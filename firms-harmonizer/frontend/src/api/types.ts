@@ -46,6 +46,7 @@ export interface RiskFactor {
 
 export interface AIRiskAssessment {
   as_of_date: string;
+  last_observation_date?: string | null;
   validation_start_date: string;
   wildfire_prob_24h_pct: number | null;
   wildfire_prob_7d_pct: number | null;

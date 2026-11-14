@@ -79,7 +79,13 @@ export function dateSelection(iso: string) {
   return { selectedDate: iso, selectedYear: date.getUTCFullYear(), selectedMonth: date.getUTCMonth() + 1,
     selectedDay: date.getUTCDate(), selectedDoy: Math.round((date.getTime() - Date.UTC(date.getUTCFullYear(), 0, 1)) / 86400000) + 1 };
 }
-export function selectedMapPeriod(state: { selectedYear: number; selectedMonth: number | null; selectedDate: string | null }): string {
+type ChronologySelection = { selectedYear: number; selectedMonth: number | null; selectedDate: string | null };
+
+export function riskForecastDate(state: ChronologySelection): string {
+  return state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 12, 31);
+}
+
+export function selectedMapPeriod(state: ChronologySelection): string {
   return state.selectedDate ?? (state.selectedMonth === null ? String(state.selectedYear)
     : `${state.selectedYear}-${String(state.selectedMonth).padStart(2, "0")}`);
 }
@@ -145,8 +151,6 @@ export function liveCopilotSelection(state: AnalysisState): CopilotSelection {
     enableKalman: state.enableKalman
   };
 }
-
-export interface SelectionPoint { x: number; y: number }
 
 interface AnalysisState {
   // Parameters & selection
@@ -229,9 +233,9 @@ interface AnalysisState {
   setEnableKalman: (enable: boolean) => Promise<void>;
   setHighlightIndustrialOnMap: (highlight: boolean) => void;
   setDrawingAoi: (drawing: boolean) => void;
-  loadPresetRegion: (presetKey: PresetKey, point?: SelectionPoint) => Promise<void>;
-  setCustomAoi: (coordinates: number[][][], point?: SelectionPoint) => Promise<void>;
-  setCustomBbox: (west: number, south: number, east: number, north: number, point?: SelectionPoint) => Promise<void>;
+  loadPresetRegion: (presetKey: PresetKey) => Promise<void>;
+  setCustomAoi: (coordinates: number[][][]) => Promise<void>;
+  setCustomBbox: (west: number, south: number, east: number, north: number) => Promise<void>;
   executeAnalysis: (preserveSelection?: boolean) => Promise<void>;
   triggerChaosMonkey: () => Promise<void>;
   resetChaosMonkey: () => void;
@@ -252,8 +256,9 @@ interface AnalysisState {
   riskError: string | null;
   fetchRiskPredictionForAoi: (asOfDate?: string) => Promise<void>;
   clearRiskPrediction: () => void;
-  aoiPromptPopup: (SelectionPoint & { aoiLabel: string }) | null;
-  dismissAoiPrompt: () => void;
+  dateRiskPrompt: { x: number; y: number; date: string } | null;
+  showDateRiskPrompt: (date: string, x: number, y: number) => void;
+  dismissDateRiskPrompt: () => void;
 }
 
 // Request bookkeeping lives outside the state: it never drives rendering.
@@ -337,8 +342,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   riskAssessment: null,
   isRiskLoading: false,
   riskError: null,
-  aoiPromptPopup: null,
-  dismissAoiPrompt: () => set({ aoiPromptPopup: null }),
+  dateRiskPrompt: null,
+  showDateRiskPrompt: (date, x, y) => set({ dateRiskPrompt: { date, x, y } }),
+  dismissDateRiskPrompt: () => set({ dateRiskPrompt: null }),
 
   setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -357,7 +363,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const candidate = isoDate(clamped, get().selectedMonth ?? 1, get().selectedDay ?? 1);
     const bounded = candidate < (minDate ?? candidate) ? minDate! : candidate > (maxDate ?? candidate) ? maxDate! : candidate;
     const selection = previous ? dateSelection(bounded) : {};
-    set({ ...selection, hoveredDate: null, hoveredCell: null, hoveredDay: null, selectedYear: clamped, chaosData: null });
+    set({ ...selection, dateRiskPrompt: null, hoveredDate: null, hoveredCell: null, hoveredDay: null, selectedYear: clamped, chaosData: null });
     if (pin) get().attachCopilotContext();
     scheduleMapLoad();
   },
@@ -365,7 +371,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setSelectedMonth: (month, pin = true) => {
     if (month !== null && (!Number.isInteger(month) || month < 1 || month > 12)) return;
     if (month === get().selectedMonth && !get().selectedDate) { if (pin) get().attachCopilotContext(); return; }
-    set({ selectedMonth: month, selectedDay: null, selectedDoy: null, selectedDate: null,
+    set({ dateRiskPrompt: null, selectedMonth: month, selectedDay: null, selectedDoy: null, selectedDate: null,
       isDatePinned: false, hoveredCell: null, hoveredDate: null, hoveredDay: null });
     if (pin) get().attachCopilotContext();
     scheduleMapLoad();
@@ -373,7 +379,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setSelectedDate: (iso, pin = true) => {
     if (iso === null) {
       if (!get().selectedDate) return;
-      set({ selectedDate: null, selectedDay: null, selectedDoy: null, isDatePinned: false, hoveredDay: null, hoveredCell: null, hoveredDate: null });
+      set({ dateRiskPrompt: null, selectedDate: null, selectedDay: null, selectedDoy: null, isDatePinned: false, hoveredDay: null, hoveredCell: null, hoveredDate: null });
       if (pin) get().attachCopilotContext();
       scheduleMapLoad();
       return;
@@ -385,7 +391,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const bounded = [iso, minDate ?? `${startYear}-01-01`].sort()[1];
     const date = [bounded, maxDate ?? `${endYear}-12-31`].sort()[0];
     const changed = get().selectedDate !== date;
-    set({ ...dateSelection(date), isDatePinned: pin, hoveredDay: null, hoveredCell: null, hoveredDate: null, chaosData: null });
+    set({ ...dateSelection(date), dateRiskPrompt: null, isDatePinned: pin, hoveredDay: null, hoveredCell: null, hoveredDate: null, chaosData: null });
     if (pin) get().attachCopilotContext();
     if (changed) scheduleMapLoad();
   },
@@ -417,41 +423,41 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     if (get().excludeIndustrial === exclude) return;
     set({ excludeIndustrial: exclude });
     if (get().copilotContext) get().attachCopilotContext();
-    await get().executeAnalysis();
+    await get().executeAnalysis(true);
   },
 
   setEnableKalman: async (enable) => {
     if (get().enableKalman === enable) return;
     set({ enableKalman: enable });
     if (get().copilotContext) get().attachCopilotContext();
-    await get().executeAnalysis();
+    await get().executeAnalysis(true);
   },
 
   setHighlightIndustrialOnMap: (highlight) => set({ highlightIndustrialOnMap: highlight }),
 
-  setDrawingAoi: (drawing) => set(drawing ? { isDrawingAoi: true, aoiPromptPopup: null } : { isDrawingAoi: false }),
+  setDrawingAoi: (drawing) => set(drawing ? { isDrawingAoi: true, dateRiskPrompt: null } : { isDrawingAoi: false }),
 
-  loadPresetRegion: async (presetKey, point) => {
+  loadPresetRegion: async (presetKey) => {
     if (!(presetKey in PRESET_REGIONS)) return;
     set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null,
-      aoiPromptPopup: point ? { ...point, aoiLabel: PRESET_REGIONS[presetKey].label } : null });
+      dateRiskPrompt: null });
     get().attachCopilotContext({ day: null, hex: null });
-    await get().executeAnalysis();
+    await get().executeAnalysis(true);
   },
 
-  setCustomAoi: async (coordinates, point) => {
+  setCustomAoi: async (coordinates) => {
     const ring = coordinates[0];
     if (!ring || ring.length < 4) {
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
     set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null,
-      aoiPromptPopup: point ? { ...point, aoiLabel: "Custom area" } : null });
+      dateRiskPrompt: null });
     get().attachCopilotContext({ day: null, hex: null });
-    await get().executeAnalysis();
+    await get().executeAnalysis(true);
   },
 
-  setCustomBbox: async (west, south, east, north, point) => {
+  setCustomBbox: async (west, south, east, north) => {
     const w = Math.max(-180, Math.min(west, east));
     const e = Math.min(180, Math.max(west, east));
     const s = Math.max(-85, Math.min(south, north));
@@ -461,7 +467,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       return;
     }
     // Counter-clockwise exterior ring (RFC 7946), closed.
-    await get().setCustomAoi([[[w, s], [e, s], [e, n], [w, n], [w, s]]], point);
+    await get().setCustomAoi([[[w, s], [e, s], [e, n], [w, n], [w, s]]]);
   },
 
   loadMapYear: async () => {
@@ -731,14 +737,11 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   fetchRiskPredictionForAoi: async (asOfDate?: string) => {
     const state = get();
-    const selected = asOfDate ?? state.selectedDate;
-    const targetDate = selected && selected >= isoDate(state.startYear, 1, 1) &&
-      selected <= isoDate(state.endYear, 12, 31) ? selected : undefined;
     const request: RiskPredictionRequest = {
       aoi: state.currentAoi,
       start_year: state.startYear,
       end_year: state.endYear,
-      ...(targetDate ? { as_of_date: targetDate } : {})
+      as_of_date: asOfDate ?? riskForecastDate(state)
     };
     const key = JSON.stringify(request);
     if (key === riskRequestKey && (state.isRiskLoading || state.riskResponse)) return;

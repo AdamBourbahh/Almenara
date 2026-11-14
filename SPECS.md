@@ -521,8 +521,12 @@ The active region catalogue is `firms-harmonizer/data/regions.json`: entries wit
 ### 5.6 Offline satellite thermal event predictor
 
 `POST /api/predict-risk` accepts an AOI polygon, optional `start_year` and `end_year`
-(default 2001–2026), and an optional UTC `as_of_date` inside those years. The forecast origin
-is the latest local cube row within the requested period. Horizons 1, 7 and 14 cover the
+(default 2001–2026), and an optional UTC `as_of_date` inside those years. An explicit
+date is the forecast origin. The API excludes later records and treats any days after
+the last available record through that origin as unknown. Without a date the origin
+is the latest local cube row within the requested period. The frontend sends the selected
+day or the final UTC day of the selected month or year. The optional
+`assessment.last_observation_date` identifies the final cube record used. Horizons 1, 7 and 14 cover the
 following UTC days. The response includes `data_source`, the target identifier
 `satellite_thermal_event_proxy`, nullable `assessment` and `unavailable_reason`,
 `model_time_ms` and `execution_time_ms`. Existing analysis contracts remain compatible.
@@ -564,6 +568,10 @@ no records receives an unavailable status. Brier score requires complete held-ou
 windows and ROC-AUC also requires both classes. Reliability bins compare predicted
 means to observed frequencies.
 The combined estimate is trained on the union and constrained by its marginals.
+During a run of missing observations the estimate is blended toward the earlier
+event frequency, reaching that frequency after seven days when prior complete
+windows exist. The blackout benchmark replays historical cutoffs with the last 1,
+3 or 7 days hidden, then scores forecasts against intact later FIRMS reports.
 The severity badge denotes the combined 24-hour proxy likelihood, with boundaries at
 20%, 50% and 75%. Driver bars show shares of absolute model or prior log-odds contributions,
 not causal effects or ensemble probability changes.

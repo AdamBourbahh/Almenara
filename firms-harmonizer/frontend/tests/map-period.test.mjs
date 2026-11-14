@@ -60,3 +60,26 @@ test('late daily responses cannot replace a newer day, and empty days clear the 
  assert.equal(state.getState().mapError,'offline');
  assert.deepEqual(state.getState().mapHexagons,[]);
 });
+
+test('risk forecast follows day, month and year and keeps the date when the area changes', async () => {
+ const store = state.getState();
+ const dates = [];
+ const calendar = [{date:'2001-01-01',year:2001,doy:1},{date:'2026-11-14',year:2026,doy:318}];
+ globalThis.fetch = async (url, options) => {
+  const path = new URL(url, 'http://localhost').pathname;
+  if (path === '/api/predict-risk') {
+   dates.push(JSON.parse(options.body).as_of_date);
+   return new Response(JSON.stringify({data_source:'real',assessment:null}));
+  }
+  return new Response(JSON.stringify({...history,calendar_series:calendar}));
+ };
+ state.setState({selectedYear:2020,selectedMonth:2,selectedDate:null});
+ await store.fetchRiskPredictionForAoi();
+ state.setState({selectedMonth:null});
+ await store.fetchRiskPredictionForAoi();
+ state.setState({selectedDate:'2020-02-17',selectedMonth:2});
+ await store.loadPresetRegion('iberia_med');
+ await store.fetchRiskPredictionForAoi();
+ await pause();
+ assert.deepEqual(dates, ['2020-02-29','2020-12-31','2020-02-17']);
+});

@@ -275,6 +275,28 @@ def _prior_prediction(features, labels, known, horizon, test_start, target):
     return probability, drivers
 
 
+def _temper_for_observation_gap(probability, labels, known, horizon, test_start, blend):
+    """Shrink toward the earlier event frequency as the outage grows."""
+    fit_end = max(0, test_start - horizon)
+    fit = known[:fit_end]
+    if not fit.any():
+        return probability
+    rate = (labels[:fit_end][fit].sum() + 0.5) / (fit.sum() + 1)
+    return probability + blend * (rate - probability)
+
+
+def with_observation_gap(daily: dict[str, np.ndarray], through_epoch: int) -> dict[str, np.ndarray]:
+    """Extend a historical series through the forecast origin with unknown observations."""
+    days = int(through_epoch - daily["epoch_day"][-1])
+    if days <= 0:
+        return daily
+    return {
+        name: np.r_[values, np.arange(values[-1] + 1, through_epoch + 1)] if name == "epoch_day"
+        else np.r_[values, np.full(days, 1 if name == "gap" else np.nan)]
+        for name, values in daily.items()
+    }
+
+
 def predict_risk(daily: dict[str, np.ndarray]) -> dict | None:
     """Fit on a chronological prefix and score only unseen forecast origins."""
     n = len(daily["epoch_day"])
@@ -289,6 +311,9 @@ def predict_risk(daily: dict[str, np.ndarray]) -> dict | None:
         fit_reference = features[30:calibration_start-max(HORIZONS)]
         z = np.clip((features - fit_reference.mean(axis=0)) / np.maximum(0.01, fit_reference.std(axis=0)), -8, 8)
     observed = np.isfinite(daily["vegetation_frp"])
+    indices = np.arange(n)
+    age = indices - np.maximum.accumulate(np.where(observed, indices, -1))
+    blend = np.minimum(1.0, age[test_start:] / 7)
     reference = daily["vegetation_frp"][:n//5]
     reference = reference[np.isfinite(reference) & (reference > 0)]
     threshold = float(np.quantile(reference, 0.9)) if len(reference) else 1.0
@@ -320,6 +345,7 @@ def predict_risk(daily: dict[str, np.ndarray]) -> dict | None:
             if horizon == 1:
                 first_drivers.append(drivers)
                 stack_weights.append(stack)
+            p = _temper_for_observation_gap(p, labels, known, horizon, test_start, blend)
             if predictions[index] is not None:
                 p = np.maximum(p, predictions[index])
             predictions[index] = p
