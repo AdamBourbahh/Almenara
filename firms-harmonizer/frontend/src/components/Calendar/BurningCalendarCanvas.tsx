@@ -16,10 +16,9 @@ export const BurningCalendarCanvas: React.FC = () => {
 
   const startYear = 2001;
   const endYear = 2026;
-  const totalYears = endYear - startYear + 1; // 26 años
+  const totalYears = endYear - startYear + 1;
   const daysInYear = 366;
 
-  // Manejador del renderizado en Canvas 2D
   const renderCalendar = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -31,17 +30,14 @@ export const BurningCalendarCanvas: React.FC = () => {
 
     ctx.clearRect(0, 0, width, height);
 
-    // Configuración de celdas
     const paddingLeft = 50;
     const paddingTop = 30;
     const cellWidth = (width - paddingLeft - 20) / daysInYear;
     const cellHeight = (height - paddingTop - 20) / totalYears;
 
-    // Patrones diagonales
     const hatchKalman = createHatchPattern(ctx, "rgba(56, 189, 248, 0.6)", "rgba(14, 116, 144, 0.3)");
     const hatchForecast = createHatchPattern(ctx, "rgba(251, 191, 36, 0.7)", "rgba(180, 83, 9, 0.4)");
 
-    // Dibujar etiquetas de años en el Eje Y
     ctx.fillStyle = "#94a3b8";
     ctx.font = "10px monospace";
     for (let i = 0; i < totalYears; i++) {
@@ -51,19 +47,16 @@ export const BurningCalendarCanvas: React.FC = () => {
     }
 
     if (!analysisData || !analysisData.calendar_series) {
-      // Estado vacío o simulado si no hay datos cargados aún
       ctx.fillStyle = "#1e293b";
       ctx.fillRect(paddingLeft, paddingTop, width - paddingLeft - 20, height - paddingTop - 20);
       return;
     }
 
-    // Índice rápido para búsqueda de celdas
     const cellMap = new Map<string, any>();
     analysisData.calendar_series.forEach((cell) => {
       cellMap.set(`${cell.year}-${cell.doy}`, cell);
     });
 
-    // Pintar la matriz de celdas
     for (let i = 0; i < totalYears; i++) {
       const year = startYear + i;
       const y = paddingTop + i * cellHeight;
@@ -79,23 +72,20 @@ export const BurningCalendarCanvas: React.FC = () => {
           continue;
         }
 
-        // Determinación del valor según la Cortina Interactiva (splitCurtainPct)
-        // A la izquierda de la cortina (o en modo RAW) usamos raw_hotspot_count; a la derecha, harmonized_fre_mj_km2
         const curtainXPixel = paddingLeft + (width - paddingLeft - 20) * (splitCurtainPct / 100);
         const isRawSide = x < curtainXPixel || viewMode === "RAW";
 
         let intensityVal = 0;
         if (isRawSide) {
           intensityVal = Math.min(1, cellData.raw_hotspot_count / 40);
-          ctx.fillStyle = `rgba(239, 68, 68, ${Math.max(0.15, intensityVal)})`; // Rojo crudo / artefacto 2012
+          ctx.fillStyle = `rgba(239, 68, 68, ${Math.max(0.15, intensityVal)})`;
         } else {
           intensityVal = Math.min(1, cellData.harmonized_fre_mj_km2 / 500);
-          ctx.fillStyle = `rgba(30, 144, 255, ${Math.max(0.15, intensityVal)})`; // Cian/Azul armonizado físico
+          ctx.fillStyle = `rgba(30, 144, 255, ${Math.max(0.15, intensityVal)})`;
         }
 
         ctx.fillRect(x, y, cellWidth - 0.5, cellHeight - 0.5);
 
-        // Superponer trama diagonal si el día fue reconstruido (Gap Filling / RTS Kalman)
         if (cellData.is_gap_filled && hatchKalman) {
           ctx.fillStyle = hatchKalman;
           ctx.fillRect(x, y, cellWidth - 0.5, cellHeight - 0.5);
@@ -103,12 +93,11 @@ export const BurningCalendarCanvas: React.FC = () => {
       }
     }
 
-    // Pintar la banda de 14 días de Forecast (en 2026)
     if (analysisData.forecast_series) {
       const forecastYearIdx = endYear - startYear;
       const y = paddingTop + forecastYearIdx * cellHeight;
       analysisData.forecast_series.forEach((fCell, idx) => {
-        const doyIdx = 180 + idx; // Posición de muestra en julio 2026
+        const doyIdx = 180 + idx;
         const x = paddingLeft + doyIdx * cellWidth;
         if (hatchForecast) {
           ctx.fillStyle = hatchForecast;
@@ -117,7 +106,6 @@ export const BurningCalendarCanvas: React.FC = () => {
       });
     }
 
-    // Dibujar línea vertical divisoria de la Cortina 2012 Time-Machine
     const curtainLineX = paddingLeft + (width - paddingLeft - 20) * (splitCurtainPct / 100);
     ctx.strokeStyle = "#38bdf8";
     ctx.lineWidth = 2;
@@ -126,7 +114,6 @@ export const BurningCalendarCanvas: React.FC = () => {
     ctx.lineTo(curtainLineX, height - 10);
     ctx.stroke();
 
-    // Marcadores históricos críticos: Enero 2012 (Suomi-NPP) y Agosto 2022 (MODIS Aqua Safe Mode)[cite: 3]
     const x2012 = paddinglerForDate(2012, 1, paddingLeft, cellWidth);
     drawMarkerLine(ctx, x2012, paddingTop, height, "Jan 2012 (Suomi-NPP)", "#f59e0b");
 
@@ -135,9 +122,7 @@ export const BurningCalendarCanvas: React.FC = () => {
 
   }, [analysisData, viewMode, splitCurtainPct]);
 
-  // Auxiliar para calcular la coordenada X de un evento histórico
   function paddinglerForDate(targetYear: number, doy: number, pLeft: number, cWidth: number) {
-    const yearIdx = targetYear - startYear;
     return pLeft + (doy - 1) * cWidth;
   }
 
@@ -160,7 +145,6 @@ export const BurningCalendarCanvas: React.FC = () => {
     renderCalendar();
   }, [renderCalendar]);
 
-  // Manejo de interacción de Click y Hover en el Canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -218,7 +202,6 @@ export const BurningCalendarCanvas: React.FC = () => {
           </p>
         </div>
 
-        {/* Deslizador de la Cortina 2012 Time-Machine */}
         <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 text-xs">
           <span className="font-mono text-cyan-400">2012 Split Curtain:</span>
           <input
