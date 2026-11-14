@@ -12,6 +12,16 @@ Regenerated the npm lockfile from a clean dependency tree and corrected the Node
 range to match Vite. Added npm test and make install/check-deps entry points; local
 installation includes the optional Rasterio/STAC acquisition dependencies.
 
+Rebuilt local real staging, outages, calibration and the master cube from the updated
+tracked observations: 927,542 cube rows with coverage through 2026-11-14. Updated the
+tracked calibration lookup. Fixed header controls overlapping after the sync widget
+was integrated, including responsive navigation and a full-height copilot drawer.
+Merged the incoming timeline-anchored risk prediction update, retaining both the
+risk date prompt and automatic chatbot context. Final validation: 362 backend tests,
+19 frontend tests, production build, pip check, npm ls --all and a zero-vulnerability
+npm audit. Chromium exercised map loading, chat controls and mobile layout without
+JavaScript errors or horizontal overflow.
+
 ## 2026-11-14 — Automatic removable context and causal evidence
 
 Replaces the earlier pin/follow-map panel with one automatic location/date attachment
