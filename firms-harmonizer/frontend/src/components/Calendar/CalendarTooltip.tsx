@@ -1,7 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
-import { CloudOff, Satellite, ShieldCheck, TrendingUp, Wrench } from "lucide-react";
+import { CloudOff, Satellite, ShieldCheck, Sparkles, TrendingUp, Wrench } from "lucide-react";
 import { calendarKey, useAnalysisStore } from "../../store/useAnalysisStore";
 
 const TOOLTIP_WIDTH = 320;
@@ -152,6 +152,13 @@ export const CalendarTooltip: React.FC = () => {
       {cell.tooltip_narrative && (
         <p className="border-t border-rule pt-2 text-[11px] leading-relaxed text-muted">{cell.tooltip_narrative}</p>
       )}
+
+      <div className="mt-2 flex items-center justify-between border-t border-rule pt-1.5 text-[10px]">
+        <span className="flex items-center gap-1 font-medium text-reference">
+          <Sparkles className="h-3 w-3" /> Click cell to explain with AI
+        </span>
+        <span className="font-mono text-faint">Physics Grounded</span>
+      </div>
     </div>,
     document.body
   );

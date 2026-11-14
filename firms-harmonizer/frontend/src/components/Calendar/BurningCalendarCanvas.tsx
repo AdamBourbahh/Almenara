@@ -435,7 +435,13 @@ export function BurningCalendarCanvas() {
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const loc = locate(e);
-    if (loc) setSelectedYear(loc.year);
+    if (loc) {
+      setSelectedYear(loc.year);
+      const cell = useAnalysisStore.getState().calendarIndex.get(calendarKey(loc.year, loc.doy));
+      if (cell) {
+        useAnalysisStore.getState().openCopilot({ day: cell });
+      }
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {

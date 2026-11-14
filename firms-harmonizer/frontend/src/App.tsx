@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Flame } from "lucide-react";
+import { Flame, Sparkles } from "lucide-react";
 import { useAnalysisStore } from "./store/useAnalysisStore";
 import { MapPage } from "./views/MapPage";
 import { CalendarPage } from "./views/CalendarPage";
 import { TrendsPage } from "./views/TrendsPage";
 import { ImpactPage } from "./views/ImpactPage";
+import { FireCopilotDrawer } from "./components/Audit/FireCopilotDrawer";
 
 const SECTIONS = [
   { key: "map", label: "Map" },
@@ -20,6 +21,7 @@ export default function App() {
   const viewMode = useAnalysisStore((s) => s.viewMode);
   const setViewMode = useAnalysisStore((s) => s.setViewMode);
   const executeAnalysis = useAnalysisStore((s) => s.executeAnalysis);
+  const openCopilot = useAnalysisStore((s) => s.openCopilot);
 
   const booted = useRef(false);
   useEffect(() => {
@@ -56,6 +58,16 @@ export default function App() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => openCopilot()}
+              className="flex items-center gap-1.5 border border-rule px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-paper transition-colors"
+              title="Open Fire AI Copilot"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-reference" />
+              <span className="hidden sm:inline">Fire Copilot</span>
+            </button>
+
             <div className="inline-flex border border-rule text-xs">
               <button
                 type="button"
@@ -85,6 +97,8 @@ export default function App() {
         {section === "trends" && <TrendsPage />}
         {section === "impact" && <ImpactPage />}
       </main>
+
+      <FireCopilotDrawer />
     </div>
   );
 }
