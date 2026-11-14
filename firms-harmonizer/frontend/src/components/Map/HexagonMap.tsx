@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DeckGL from "@deck.gl/react";
-import { FlyToInterpolator, MapView, type MapViewState, type PickingInfo } from "@deck.gl/core";
+import { FlyToInterpolator, WebMercatorViewport, MapView, type MapViewState, type PickingInfo } from "@deck.gl/core";
 import { PathLayer, PolygonLayer } from "@deck.gl/layers";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import MapLibreMap from "react-map-gl/maplibre";
@@ -8,9 +8,10 @@ import { setWorkerUrl } from "maplibre-gl";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useShallow } from "zustand/react/shallow";
-import { Box, Eye, EyeOff, Square } from "lucide-react";
+import { Box, ChartColumn, Eye, EyeOff, Square } from "lucide-react";
 import type { GeoJSONPolygon, H3MapSummaryHex } from "../../api/types";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
+import { HeatHistoryCard } from "./HeatHistoryCard";
 import { useTheme } from "../../lib/theme";
 
 setWorkerUrl(maplibreWorkerUrl);
@@ -85,7 +86,7 @@ const BASEMAPS: Record<BasemapKey, { label: string; style: unknown }> = {
 };
 
 const INDUSTRIAL_PURPLE: [number, number, number, number] = [106, 61, 154, 235];
-const MAX_ELEVATION_M = 2500;
+const MAX_ELEVATION_M = 1250;
 const PITCH_3D = 35;
 
 type LngLat = [number, number];
@@ -141,7 +142,7 @@ function viewStateForAoi(aoi: GeoJSONPolygon, width: number, height: number, pit
   const spanX = Math.max((east - west) / 360, 1e-6);
   const spanY = Math.max((mercY(north) - mercY(south)) / (2 * Math.PI), 1e-6);
   const usableW = Math.max(200, width) * 0.8;
-  const usableH = Math.max(200, height) * 0.7;
+  const usableH = Math.max(120, height - 290) * 0.88;
   const zoom = Math.min(Math.log2(usableW / (512 * spanX)), Math.log2(usableH / (512 * spanY)));
   return {
     longitude: (west + east) / 2,
@@ -157,6 +158,16 @@ type ViewState = MapViewState;
 export function HexagonMap() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const styleLoadedRef = useRef(false);
+  const pointerOverMap = useRef(false);
+  const reducedMotion = useMemo(() => window.matchMedia("(prefers-reduced-motion: reduce)"), []);
+  const [size, setSize] = useState({ width: 900, height: 600 });
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   const {
     analysisData,
@@ -186,6 +197,7 @@ export function HexagonMap() {
   const [basemap, setBasemap] = useState<BasemapKey>("satelliteRelief");
   const [is3D, setIs3D] = useState(false);
   const [showHeat, setShowHeat] = useState(true);
+  const [historyDismissed, setHistoryDismissed] = useState(false);
   const [basemapAvailable, setBasemapAvailable] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [viewState, setViewState] = useState<ViewState>(() => viewStateForAoi(currentAoi, 900, 600, 0));
   const [dragBox, setDragBox] = useState<{ start: LngLat; end: LngLat } | null>(null);
@@ -196,12 +208,50 @@ export function HexagonMap() {
   }, []);
 
   useEffect(() => {
+    const onMotionChange = () => {
+      if (reducedMotion.matches) setViewState((prev) => ({ ...prev, transitionDuration: 0 }));
+    };
+    reducedMotion.addEventListener("change", onMotionChange);
+    return () => reducedMotion.removeEventListener("change", onMotionChange);
+  }, [reducedMotion]);
+
+  useEffect(() => {
     const el = containerRef.current;
+    setHistoryDismissed(false);
     setViewState((prev) => ({
       ...viewStateForAoi(currentAoi, el?.clientWidth ?? 900, el?.clientHeight ?? 600, prev.pitch ?? 0),
-      transitionDuration: 900,
+      transitionDuration: reducedMotion.matches ? 0 : 900,
       transitionInterpolator: new FlyToInterpolator()
     }));
+  }, [currentAoi, reducedMotion]);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey || (event.target instanceof Element && event.target.closest("[data-map-ui]"))) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? node.clientHeight : 1);
+      setViewState((prev) => ({ ...prev, zoom: Math.max(1, Math.min(18, prev.zoom - delta * .004)), transitionDuration: 0 }));
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (!pointerOverMap.current || !(event.ctrlKey || event.metaKey)) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.matches("input, textarea, select") || target.isContentEditable)) return;
+      if (!["+", "=", "-", "_", "0"].includes(event.key)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setViewState((prev) => event.key === "0"
+        ? { ...viewStateForAoi(currentAoi, node.clientWidth, node.clientHeight, prev.pitch ?? 0), transitionDuration: 0 }
+        : { ...prev, zoom: Math.max(1, Math.min(18, prev.zoom + (["-", "_"].includes(event.key) ? -.5 : .5))), transitionDuration: 0 });
+    };
+    node.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      node.removeEventListener("wheel", onWheel, true);
+      window.removeEventListener("keydown", onKey, true);
+    };
   }, [currentAoi]);
 
   useEffect(() => {
@@ -256,7 +306,7 @@ export function HexagonMap() {
   const toggle3D = () => {
     const next = !is3D;
     setIs3D(next);
-    setViewState((prev) => ({ ...prev, pitch: next ? PITCH_3D : 0, transitionDuration: 400, transitionInterpolator: undefined }));
+    setViewState((prev) => ({ ...prev, pitch: next ? PITCH_3D : 0, transitionDuration: reducedMotion.matches ? 0 : 400, transitionInterpolator: undefined }));
   };
 
   const onDragStart = useCallback(
@@ -319,7 +369,13 @@ export function HexagonMap() {
         wireframe: false,
         filled: true,
         extruded: is3D,
-        coverage: 0.92,
+        coverage: 1,
+        stroked: true,
+        getLineColor: [255, 255, 255, 90],
+        lineWidthUnits: "pixels",
+        getLineWidth: 0.6,
+        autoHighlight: true,
+        highlightColor: [255, 255, 255, 110],
         getHexagon: (d) => d.h3_index,
         getFillColor: (d) => {
           if (highlightIndustrialOnMap && d.is_industrial_site) return INDUSTRIAL_PURPLE;
@@ -380,10 +436,43 @@ export function HexagonMap() {
     [isDrawingAoi, is3D]
   );
 
+  // Keep the dock contextual: selections must occupy a meaningful visible
+  // area. A large region can remain relevant even at a low absolute zoom.
+  const selectionVisible = useMemo(() => {
+    if (isDrawingAoi || size.width < 260 || size.height < 250) return false;
+    const viewport = new WebMercatorViewport({ ...viewState, width: size.width, height: size.height });
+    const points = currentAoi.coordinates[0].map(([lng, lat]) => viewport.project([
+      viewState.longitude + ((lng - viewState.longitude + 540) % 360 - 180), lat
+    ]));
+    if (!points.length || points.some((point) => !point.every(Number.isFinite))) return false;
+    const left = Math.min(...points.map((point) => point[0]));
+    const right = Math.max(...points.map((point) => point[0]));
+    const top = Math.min(...points.map((point) => point[1]));
+    const bottom = Math.max(...points.map((point) => point[1]));
+    const visibleWidth = Math.max(0, Math.min(size.width, right) - Math.max(0, left));
+    const visibleHeight = Math.max(0, Math.min(size.height, bottom) - Math.max(0, top));
+    const fraction = visibleWidth * visibleHeight / (size.width * size.height);
+    return visibleWidth >= 64 && visibleHeight >= 44 && fraction >= .018;
+  }, [viewState, size, currentAoi, isDrawingAoi]);
+  const showHistory = selectionVisible && !historyDismissed;
+
+
   const mapStyle = basemap === "streets" ? (theme === "dark" ? CARTO_DARK : CARTO_LIGHT) : BASEMAPS[basemap].style;
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-paper">
+    <div ref={containerRef} data-map-viewport className="relative h-full w-full overflow-hidden bg-paper"
+      style={{ '--map-bottom-inset': showHistory ? '64px' : '0px' } as React.CSSProperties}
+      onPointerMove={(event) => { pointerOverMap.current = !(event.target instanceof Element && event.target.closest("[data-map-ui]")); }}
+      onPointerEnter={() => { pointerOverMap.current = true; }}
+      onPointerLeave={() => { pointerOverMap.current = false; }}
+      onContextMenuCapture={(event) => {
+        if (event.target instanceof Element && event.target.closest("[data-map-ui], .maplibregl-control-container")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        updateDragBox(null);
+        setDrawingAoi(true);
+      }}
+    >
       {basemapAvailable && (
         <MapLibreMap
           longitude={viewState.longitude}
@@ -406,7 +495,7 @@ export function HexagonMap() {
       <DeckGL
         style={{ position: "absolute", inset: "0" }}
         views={DECK_VIEW}
-        viewState={viewState}
+        viewState={reducedMotion.matches ? { ...viewState, transitionDuration: 0 } : viewState}
         onViewStateChange={({ viewState: next }) => setViewState(next as ViewState)}
         controller={controller}
         layers={layers}
@@ -420,13 +509,17 @@ export function HexagonMap() {
       />
 
       {isDrawingAoi && (
-        <div className="absolute left-1/2 top-4 z-10 -translate-x-1/2 border border-reference bg-panel px-3 py-1.5 text-xs text-reference pointer-events-none">
+        <div role="status" className="absolute left-1/2 bottom-20 z-10 -translate-x-1/2 border border-reference bg-panel px-3 py-1.5 text-xs text-reference pointer-events-none">
           Drag on the map to draw the area. Esc to cancel.
         </div>
       )}
 
-      {/* Right-hand map controls */}
-      <div className="absolute right-3 top-3 z-20 flex flex-col items-end gap-2">
+      {showHistory && <div data-map-ui className="absolute inset-x-0 bottom-0 z-30">
+        <HeatHistoryCard key={JSON.stringify(currentAoi.coordinates)} onClose={() => setHistoryDismissed(true)} />
+      </div>}
+
+      {/* Basemap and layer controls remain clear of the explorer. */}
+      <div data-map-ui className="absolute left-3 z-20 flex flex-wrap items-center gap-2 transition-[bottom] duration-200" style={{ bottom: showHistory ? 88 : 24 }}>
         <select
           value={basemap}
           onChange={(e) => setBasemap(e.target.value as BasemapKey)}
@@ -443,11 +536,12 @@ export function HexagonMap() {
         <button
           type="button"
           onClick={toggle3D}
+          aria-pressed={is3D}
           className="flex items-center gap-1.5 border border-rule bg-panel/95 px-2.5 py-1.5 text-xs text-ink hover:bg-paper"
           title={is3D ? "Switch to flat 2D" : "Switch to 3D relief"}
         >
-          {is3D ? <Square className="h-3.5 w-3.5" /> : <Box className="h-3.5 w-3.5" />}
-          {is3D ? "2D" : "3D"}
+          {is3D ? <Box className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+          {is3D ? "3D" : "2D"}
         </button>
 
         <button
@@ -463,10 +557,11 @@ export function HexagonMap() {
           Heat
           <kbd className="ml-0.5 border border-rule px-1 text-[9px] text-faint">H</kbd>
         </button>
+        {selectionVisible && historyDismissed && <button type="button" onClick={() => setHistoryDismissed(false)} aria-label="Show heat history" className="flex items-center gap-1.5 border border-rule bg-panel/95 px-2.5 py-1.5 text-xs text-ink hover:bg-paper"><ChartColumn className="h-3.5 w-3.5" />History</button>}
       </div>
 
-      {/* Bottom-right legend + status */}
-      <div className="absolute bottom-3 right-3 z-10 max-w-[280px] border border-rule bg-panel/95 px-3 py-2">
+      {/* Legend below the Google Maps-style search toolbar. */}
+      <div data-map-ui className="absolute left-3 top-[76px] z-10 max-w-[280px] rounded-xl shadow-lg border border-rule bg-panel/95 px-3 py-2">
         {showHeat && (
           <div className="mb-2 space-y-1.5">
             <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
-"""Explicit access to Adam's math core (backend/core). No conditional imports, no substitutes.
+"""Validated access to the scientific core through explicit HTTP-boundary adapters.
 
-Every function the API needs is listed in CORE_FUNCTIONS with its agreed signature.
+Every API operation is listed in CORE_FUNCTIONS; adapters declare their underlying scientific dependency.
 * Missing module/function  -> CoreMissingError (routes answer HTTP 503 naming it).
 * Output breaks the contract -> CoreContractViolation (routes answer HTTP 500 naming it).
 `call()` is the only way routes invoke the core: it resolves, times and validates every result.
@@ -17,31 +17,33 @@ from typing import Any, Callable
 
 import numpy as np
 
+from backend.api import science_adapter
+
 CORE_FUNCTIONS: dict[str, tuple[str, str, str]] = {
     "compute_cross_prior": (
-        "backend.core.kalman_rts", "compute_cross_prior",
+        "backend.api.science_adapter", "compute_cross_prior",
         "(doy: int[n], obs: float[n,3] NaN=missing) -> float[366]"),
     "kalman_rts_smooth": (
-        "backend.core.kalman_rts", "kalman_rts_smooth",
-        "(obs: float[n,3], u_spatial: float[n] NaN allowed, prior: float[n]) "
+        "backend.api.science_adapter", "kalman_rts_smooth",
+        "(obs: float[n,3], u_spatial: float[n] NaN allowed, context: KalmanInput) "
         "-> object with .x_smooth float[n] and .p_smooth float[n] >= 0"),
     "fit_von_mises_year": (
-        "backend.core.von_mises", "fit_von_mises_year",
+        "backend.api.science_adapter", "fit_von_mises_year",
         "(doy: int[m], weights: float[m]) -> (mu_doy, kappa, width_days)"),
     "phenology_trend": (
-        "backend.core.von_mises", "phenology_trend",
+        "backend.api.science_adapter", "phenology_trend",
         "(years: int[k], peaks: float[k]) -> (slope_days_per_decade, mann_kendall_p)"),
     "chow_test": (
-        "backend.core.auditor_stats", "chow_test",
+        "backend.api.science_adapter", "chow_test",
         "(values: float[n], years: int[n], doy: int[n]) -> (F, p)"),
     "wasserstein_w1_normalized": (
-        "backend.core.auditor_stats", "wasserstein_w1_normalized",
+        "backend.api.science_adapter", "wasserstein_w1_normalized",
         "(values: float[n], years: int[n]) -> float"),
     "descriptive_r2": (
-        "backend.core.auditor_stats", "descriptive_r2",
+        "backend.api.science_adapter", "descriptive_r2",
         "(x: float[n], y: float[n]) -> float | None"),
     "run_chaos_monkey_simulation": (
-        "backend.core.chaos_monkey", "run_chaos_monkey_simulation",
+        "backend.api.science_adapter", "run_chaos_monkey_simulation",
         "(daily: dict[str, ndarray], target_year, drop_fraction, simulate_dual_blackout, random_seed) "
         "-> dict with ChaosMonkeyResponse fields except data_source"),
 }
@@ -80,7 +82,10 @@ def _resolve(public_name: str) -> Callable:
             f"Missing module {module_name} (needed for {attr}{signature}). "
             "Owner: Adam (backend/core). See CAMBIOS.md.") from exc
     try:
-        return getattr(module, attr)
+        fn = getattr(module, attr)
+        if module_name == "backend.api.science_adapter":
+            science_adapter.dependency(public_name)
+        return fn
     except AttributeError as exc:
         raise CoreMissingError(
             f"Missing {module_name}.{attr} — expected signature {signature}. "
@@ -92,7 +97,11 @@ def _available(public_name: str) -> bool:
     module_name, attr, _ = CORE_FUNCTIONS[public_name]
     if importlib.util.find_spec(module_name) is None:
         return False
-    return callable(getattr(importlib.import_module(module_name), attr, None))
+    available = callable(getattr(importlib.import_module(module_name), attr, None))
+    if available and module_name == "backend.api.science_adapter":
+        dep_module, dep_attr = science_adapter.DEPENDENCIES[public_name]
+        return callable(getattr(importlib.import_module(dep_module), dep_attr, None))
+    return available
 
 
 def require(public_name: str) -> Callable:

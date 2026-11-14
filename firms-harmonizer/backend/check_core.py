@@ -28,6 +28,7 @@ TARGET_YEAR = 2022
 
 def build_inputs() -> dict[str, tuple]:
     """Deterministic positional arguments for every core function (inputs only, never used as results)."""
+    from backend.api.science_adapter import KalmanInput
     from backend.db import duckdb_engine, queries
 
     duckdb_engine.init_engine()
@@ -44,7 +45,7 @@ def build_inputs() -> dict[str, tuple]:
     ok = np.isfinite(burned)
     return {
         "compute_cross_prior": (doy, obs),
-        "kalman_rts_smooth": (obs, daily["neighbor_fre_lag1"], naive),
+        "kalman_rts_smooth": (obs, daily["neighbor_fre_lag1"], KalmanInput(doy, daily["cloud_cover_pct"])),
         "fit_von_mises_year": (doy[in_year], naive[in_year]),
         "phenology_trend": (np.arange(2001, 2027), np.linspace(250.0, 268.75, 26)),
         "chow_test": (naive, years, doy),

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Flame, Moon, Sun } from "lucide-react";
+import { Flame } from "lucide-react";
 import { useAnalysisStore } from "./store/useAnalysisStore";
-import { useTheme } from "./lib/theme";
 import { MapPage } from "./views/MapPage";
 import { CalendarPage } from "./views/CalendarPage";
 import { TrendsPage } from "./views/TrendsPage";
@@ -18,13 +17,9 @@ type SectionKey = (typeof SECTIONS)[number]["key"];
 
 export default function App() {
   const [section, setSection] = useState<SectionKey>("map");
-  const [menuOpen, setMenuOpen] = useState(false);
   const viewMode = useAnalysisStore((s) => s.viewMode);
   const setViewMode = useAnalysisStore((s) => s.setViewMode);
   const executeAnalysis = useAnalysisStore((s) => s.executeAnalysis);
-  const analysisData = useAnalysisStore((s) => s.analysisData);
-  const theme = useTheme((s) => s.theme);
-  const toggleTheme = useTheme((s) => s.toggle);
 
   const booted = useRef(false);
   useEffect(() => {
@@ -33,54 +28,32 @@ export default function App() {
     void executeAnalysis();
   }, [executeAnalysis]);
 
-  const current = SECTIONS.find((s) => s.key === section) ?? SECTIONS[0];
-
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-paper text-ink">
       <header className="relative z-40 shrink-0 border-b border-rule">
-        <div className="flex h-14 items-center gap-3 px-4 md:px-6">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-3 px-3 lg:h-16 lg:flex-nowrap lg:px-6">
+          <div className="flex h-16 shrink-0 items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-ink text-paper">
               <Flame className="h-4 w-4" />
             </span>
-            <span className="font-serif text-base font-semibold text-ink">FIRMS Harmonizer</span>
+            <span className="font-serif text-sm font-semibold text-ink sm:text-base">FIRMS Harmonizer</span>
           </div>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              className="flex items-center gap-1.5 border border-rule px-3 py-1.5 text-xs font-medium text-ink hover:bg-paper"
-            >
-              {current.label}
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
-            </button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
-                <div role="menu" className="absolute left-0 top-full z-50 mt-1 w-44 border border-rule bg-panel py-1">
-                  {SECTIONS.map((s) => (
-                    <button
-                      key={s.key}
-                      role="menuitem"
-                      type="button"
-                      onClick={() => {
-                        setSection(s.key);
-                        setMenuOpen(false);
-                      }}
-                      className={`flex w-full items-center px-3 py-2 text-left text-xs ${
-                        s.key === section ? "bg-paper font-medium text-ink" : "text-muted hover:bg-paper hover:text-ink"
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <nav aria-label="Main sections" className="order-last flex w-full items-stretch justify-between border-t border-rule lg:order-none lg:h-full lg:w-auto lg:flex-1 lg:justify-center lg:border-t-0">
+            {SECTIONS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setSection(item.key)}
+                aria-current={section === item.key ? "page" : undefined}
+                className={`flex-1 border-b-2 px-3 py-3 text-sm font-medium transition-colors lg:flex-none lg:px-7 ${
+                  section === item.key ? "border-reference text-reference" : "border-transparent text-muted hover:bg-panel hover:text-ink"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
 
           <div className="ml-auto flex items-center gap-2">
             <div className="inline-flex border border-rule text-xs">
@@ -88,7 +61,7 @@ export default function App() {
                 type="button"
                 onClick={() => setViewMode("RAW")}
                 aria-pressed={viewMode === "RAW"}
-                className={`px-3 py-1.5 ${viewMode === "RAW" ? "bg-ink text-paper" : "text-muted hover:bg-paper"}`}
+                className={`px-2 py-1.5 sm:px-3 ${viewMode === "RAW" ? "bg-ink text-paper" : "text-muted hover:bg-paper"}`}
               >
                 Raw
               </button>
@@ -96,24 +69,12 @@ export default function App() {
                 type="button"
                 onClick={() => setViewMode("HARMONIZED")}
                 aria-pressed={viewMode === "HARMONIZED"}
-                className={`border-l border-rule px-3 py-1.5 ${viewMode === "HARMONIZED" ? "bg-ink text-paper" : "text-muted hover:bg-paper"}`}
+                className={`border-l border-rule px-2 py-1.5 sm:px-3 ${viewMode === "HARMONIZED" ? "bg-ink text-paper" : "text-muted hover:bg-paper"}`}
               >
                 Harmonized
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              className="border border-rule p-1.5 text-muted hover:bg-paper hover:text-ink"
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-
-            <span className="hidden items-center gap-1 font-mono text-[10px] text-faint md:inline-flex tnum">
-              {analysisData?.execution_time_ms !== undefined ? `${analysisData.execution_time_ms.toFixed(0)} ms` : "—"}
-            </span>
           </div>
         </div>
       </header>

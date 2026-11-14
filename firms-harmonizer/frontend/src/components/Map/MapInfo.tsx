@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useAnalysisStore } from "../../store/useAnalysisStore";
+import { PRESET_REGIONS, useAnalysisStore } from "../../store/useAnalysisStore";
 
 const DESCRIPTIONS: Record<string, string> = {
   CERRADO:
@@ -20,12 +20,10 @@ function fmt(value: number, digits = 0): string {
 }
 
 export function MapInfo() {
-  const { analysisData, selectedPreset, selectedYear, setSelectedYear } = useAnalysisStore(
+  const { analysisData, selectedPreset } = useAnalysisStore(
     useShallow((s) => ({
       analysisData: s.analysisData,
       selectedPreset: s.selectedPreset,
-      selectedYear: s.selectedYear,
-      setSelectedYear: s.setSelectedYear
     }))
   );
 
@@ -37,20 +35,15 @@ export function MapInfo() {
 
   const totalFires = cells.reduce((sum, c) => sum + c.raw_hotspot_count, 0);
   const area = analysisData?.aoi_area_km2 ?? 0;
-  const biomass = analysisData?.audit_metrics?.total_biomass_burned_kt ?? 0;
-  const pm25 = analysisData?.audit_metrics?.total_pm25_emitted_tonnes ?? 0;
+  const biomass = analysisData?.audit_metrics?.total_biomass_burned_kt;
+  const pm25 = analysisData?.audit_metrics?.total_pm25_emitted_tonnes;
 
-  const maxAnnual = Math.max(1, ...annual.map((a) => a.fre));
   const peak = annual.reduce((best, a) => (a.fre > best.fre ? a : best), { year: 0, fre: 0 });
-  const selected = annual.find((a) => a.year === selectedYear);
-  const yearMin = annual.length ? annual[0].year : 2001;
-  const yearMax = annual.length ? annual[annual.length - 1].year : 2026;
-
-  const barWidth = 6;
 
   return (
     <div className="p-4">
       <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-faint">About this area</p>
+      <h3 className="mt-2 font-serif text-lg text-ink">{selectedPreset === "CUSTOM" ? "Selected area" : PRESET_REGIONS[selectedPreset].label}</h3>
       <p className="mt-2 text-xs leading-relaxed text-muted">
         {DESCRIPTIONS[selectedPreset] ?? DESCRIPTIONS.CUSTOM}
       </p>
@@ -70,11 +63,11 @@ export function MapInfo() {
         </div>
         <div>
           <dt className="text-[10px] text-faint">Dry biomass</dt>
-          <dd className="font-serif text-lg text-ink tnum">{fmt(biomass, 1)} kt</dd>
+          <dd className="font-serif text-lg text-ink tnum">{biomass == null ? "—" : `${fmt(biomass, 1)} kt`}</dd>
         </div>
         <div>
           <dt className="text-[10px] text-faint">PM2.5 emitted</dt>
-          <dd className="font-serif text-lg text-ink tnum">{fmt(pm25, 1)} t</dd>
+          <dd className="font-serif text-lg text-ink tnum">{pm25 == null ? "—" : `${fmt(pm25, 1)} t`}</dd>
         </div>
         <div>
           <dt className="text-[10px] text-faint">Years on record</dt>
@@ -82,73 +75,6 @@ export function MapInfo() {
         </div>
       </dl>
 
-      <div className="mt-4 border-t border-rule pt-3">
-        <div className="flex items-baseline justify-between">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-faint">Heat history</p>
-          <p className="font-mono text-[10px] text-faint tnum">GJ per year</p>
-        </div>
-
-        {annual.length > 0 && (
-          <svg
-            viewBox={`0 0 ${annual.length * barWidth} 72`}
-            preserveAspectRatio="none"
-            className="mt-2 h-20 w-full"
-            role="img"
-            aria-label="Annual fire energy for the selected area"
-          >
-            {annual.map((a, i) => {
-              const h = Math.max(2, (a.fre / maxAnnual) * 66);
-              const active = a.year === selectedYear;
-              return (
-                <rect
-                  key={a.year}
-                  x={i * barWidth + 0.5}
-                  y={70 - h}
-                  width={barWidth - 1}
-                  height={h}
-                  fill={active ? "var(--color-thermal-4)" : "var(--color-rule-strong)"}
-                />
-              );
-            })}
-          </svg>
-        )}
-
-        <div className="mt-1 flex justify-between text-[10px] text-faint tnum">
-          <span>{yearMin}</span>
-          <span>{yearMax}</span>
-        </div>
-
-        <label className="mt-3 block text-[11px] text-muted">
-          Inspect year
-          <input
-            type="range"
-            min={yearMin}
-            max={yearMax}
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="mt-1 w-full accent-[#b30000]"
-            aria-label="Inspect year"
-          />
-        </label>
-
-        <p className="mt-1 text-[11px] leading-relaxed text-muted tnum">
-          {selected ? (
-            <>
-              <span className="font-medium text-ink">{selected.year}</span>: {fmt(selected.fre)} GJ
-              {peak.year > 0 && selected.year !== peak.year && (
-                <span className="text-faint"> · {fmt((selected.fre / peak.fre) * 100)}% of the peak</span>
-              )}
-            </>
-          ) : (
-            "No yearly totals for this area."
-          )}
-        </p>
-
-        <p className="mt-2 text-[10px] leading-relaxed text-faint">
-          The map shows the average over the whole period. Year-by-year heat on the map needs the
-          per-hexagon yearly data from the full dataset.
-        </p>
-      </div>
     </div>
   );
 }

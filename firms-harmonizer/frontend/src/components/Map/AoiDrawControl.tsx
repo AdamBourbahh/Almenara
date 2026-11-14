@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Edit3, RefreshCw, XCircle } from "lucide-react";
+import { Edit3, XCircle, Search, MapPin, ChevronDown } from "lucide-react";
 import { PRESET_ORDER, PRESET_REGIONS, useAnalysisStore } from "../../store/useAnalysisStore";
 
 /**
  * Area-of-interest controls for the map panel: case-study tabs, drag-to-draw,
  * latitude/longitude entry and the industrial-heat filter.
  */
-export function AoiDrawControl() {
+export function AoiDrawControl({ placement = "explore" }: { placement?: "search" | "explore" }) {
   const {
     selectedPreset,
     currentAoi,
@@ -21,10 +21,6 @@ export function AoiDrawControl() {
     highlightIndustrialOnMap,
     setHighlightIndustrialOnMap,
     analysisData,
-    loading,
-    error,
-    isSynthetic,
-    executeAnalysis
   } = useAnalysisStore(
     useShallow((s) => ({
       selectedPreset: s.selectedPreset,
@@ -38,10 +34,6 @@ export function AoiDrawControl() {
       highlightIndustrialOnMap: s.highlightIndustrialOnMap,
       setHighlightIndustrialOnMap: s.setHighlightIndustrialOnMap,
       analysisData: s.analysisData,
-      loading: s.loading,
-      error: s.error,
-      isSynthetic: s.isSynthetic,
-      executeAnalysis: s.executeAnalysis
     }))
   );
 
@@ -57,6 +49,22 @@ export function AoiDrawControl() {
   }, [currentAoi]);
 
   const [showCoords, setShowCoords] = useState(false);
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const matches = PRESET_ORDER.filter((key) => `${PRESET_REGIONS[key].label} ${PRESET_REGIONS[key].context}`.toLowerCase().includes(query.toLowerCase()));
+  const applySearch = (event: FormEvent) => {
+    event.preventDefault();
+    const pair = query.trim().split(/[,\s]+/).map(Number);
+    if (query.trim() && pair.length === 2 && pair.every(Number.isFinite) && Math.abs(pair[0]) + .2 <= 85 && Math.abs(pair[1]) + .2 <= 180) {
+      void setCustomBbox(pair[1] - .2, pair[0] - .2, pair[1] + .2, pair[0] + .2);
+      setSearchOpen(false); setQuery(""); setSearchError("");
+    } else if (matches.length === 1) {
+      void loadPresetRegion(matches[0]); setSearchOpen(false); setQuery(""); setSearchError("");
+    } else {
+      setSearchError("Choose a pilot region, or enter latitude, longitude."); setSearchOpen(true);
+    }
+  };
   const [lat, setLat] = useState(center.lat.toFixed(2));
   const [lng, setLng] = useState(center.lng.toFixed(2));
   const [radius, setRadius] = useState("0.4");
@@ -71,65 +79,35 @@ export function AoiDrawControl() {
     const latitude = Number(lat);
     const longitude = Number(lng);
     const half = Math.min(Math.abs(Number(radius)) || 0.4, 5);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) + half > 85 || Math.abs(longitude) + half > 180) return;
     void setCustomBbox(longitude - half, latitude - half, longitude + half, latitude + half);
+    setShowCoords(false);
   };
 
-  return (
-    <div className="border-b border-rule p-4">
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-faint">Area of interest</p>
-        <span className="font-mono text-[10px] text-faint tnum">
-          {analysisData ? analysisData.total_h3_cells.toLocaleString("en-US") : "—"} cells
-        </span>
+  if (placement === "search") return (
+    <div className="pointer-events-auto">
+      <div className="flex items-center overflow-hidden rounded-full border border-rule bg-panel text-ink shadow-xl">
+        <form role="search" onSubmit={applySearch} className="flex min-w-0 flex-1 items-center">
+          <button aria-label="Search selected area" type="submit" className="p-3"><Search className="h-4 w-4 text-muted" /></button>
+          <input type="search" aria-label="Search pilot regions or latitude, longitude" placeholder={selectedPreset === "CUSTOM" ? "Search regions or lat, lon" : PRESET_REGIONS[selectedPreset].label}
+            value={query} onChange={(e) => { setQuery(e.target.value); setSearchOpen(true); setSearchError(""); }} onFocus={() => setSearchOpen(true)}
+            onKeyDown={(e) => { if (e.key === "Escape") setSearchOpen(false); }} className="min-w-0 flex-1 rounded-sm bg-transparent py-3 text-xs focus-visible:outline-2 focus-visible:outline-reference focus-visible:-outline-offset-2" />
+        </form>
+        <button type="button" onClick={() => { setShowCoords((value) => !value); setSearchOpen(false); }} aria-expanded={showCoords} aria-label="Area of interest controls"
+          className="flex shrink-0 items-center gap-1 border-l border-rule px-3 py-3 text-xs text-muted hover:bg-paper"><MapPin className="h-4 w-4" /><span className="hidden sm:inline">Area of interest</span><ChevronDown className="h-3 w-3" /></button>
       </div>
-
-      <div role="tablist" aria-label="Case studies" className="mt-3 grid grid-cols-2 gap-1.5">
-        {PRESET_ORDER.map((key) => {
-          const active = selectedPreset === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => void loadPresetRegion(key)}
-              className={`border px-2 py-2 text-left ${active ? "border-ink bg-paper" : "border-rule hover:bg-paper"}`}
-            >
-              <span className={`block text-xs font-medium ${active ? "text-ink" : "text-muted"}`}>
-                {PRESET_REGIONS[key].label}
-              </span>
-              <span className="mt-0.5 block text-[10px] leading-snug text-faint">
-                {PRESET_REGIONS[key].context}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setDrawingAoi(!isDrawingAoi)}
-          aria-pressed={isDrawingAoi}
-          className={`flex items-center gap-1.5 border px-2.5 py-1.5 text-xs ${
-            isDrawingAoi ? "border-reference bg-reference/10 text-reference" : "border-rule text-muted hover:bg-paper"
-          }`}
-        >
-          {isDrawingAoi ? <XCircle className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
-          {isDrawingAoi ? "Drawing (Esc)" : "Draw area"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowCoords((value) => !value)}
-          aria-expanded={showCoords}
-          className="border border-rule px-2.5 py-1.5 text-xs text-muted hover:bg-paper"
-        >
-          {showCoords ? "Hide coordinates" : "Enter coordinates"}
-        </button>
-      </div>
-
-      {showCoords && (
+      {searchOpen && <>
+        <button aria-label="Close search suggestions" onClick={() => setSearchOpen(false)} className="fixed inset-0 -z-10 cursor-default" />
+        <div className="mt-2 overflow-hidden rounded-2xl border border-rule bg-panel p-2 shadow-xl">
+          <p className="px-3 py-2 text-[10px] uppercase tracking-widest text-faint">Pilot regions · or search by coordinates</p>
+          {matches.map((key) => <button key={key} type="button" onClick={() => { void loadPresetRegion(key); setSearchOpen(false); setQuery(""); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs text-ink hover:bg-paper"><MapPin className="h-4 w-4 text-muted" /><span>{PRESET_REGIONS[key].label}<span className="block text-[10px] text-faint">{PRESET_REGIONS[key].context}</span></span></button>)}
+          {searchError && <p role="status" className="px-3 py-2 text-xs text-terracotta">{searchError}</p>}
+          {!matches.length && !searchError && <p className="px-3 py-2 text-xs text-muted">Enter latitude, longitude and press Enter.</p>}
+        </div>
+      </>}
+      {showCoords && <div className="mt-2 rounded-2xl border border-rule bg-panel p-3 shadow-xl">
+        <div className="mb-2 flex items-center justify-between"><span className="text-xs font-medium text-ink">Area of interest</span><button type="button" onClick={() => setShowCoords(false)} aria-label="Close area controls" className="p-1 text-muted"><XCircle className="h-4 w-4" /></button></div>
+        <button type="button" aria-pressed={isDrawingAoi} onClick={() => { setDrawingAoi(!isDrawingAoi); setShowCoords(false); }} className="flex w-full items-center justify-center gap-2 rounded-lg border border-rule px-3 py-2 text-xs text-ink hover:bg-paper"><Edit3 className="h-4 w-4" />{isDrawingAoi ? "Cancel drawing" : "Draw an area on the map"}</button>
         <form onSubmit={applyCoords} className="mt-2 border border-rule p-2">
           <div className="grid grid-cols-3 gap-2">
             <label className="flex flex-col gap-0.5">
@@ -172,7 +150,42 @@ export function AoiDrawControl() {
             Analyse this area
           </button>
         </form>
-      )}
+      </div>}
+    </div>
+  );
+
+  return (
+    <div className="border-b border-rule p-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-faint">Pilot regions</p>
+        <span className="font-mono text-[10px] text-faint tnum">
+          {analysisData ? analysisData.total_h3_cells.toLocaleString("en-US") : "—"} cells
+        </span>
+      </div>
+
+      <div role="tablist" aria-label="Case studies" className="mt-3 grid grid-cols-2 gap-1.5">
+        {PRESET_ORDER.map((key) => {
+          const active = selectedPreset === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => void loadPresetRegion(key)}
+              className={`border px-2 py-2 text-left ${active ? "border-ink bg-paper" : "border-rule hover:bg-paper"}`}
+            >
+              <span className={`block text-xs font-medium ${active ? "text-ink" : "text-muted"}`}>
+                {PRESET_REGIONS[key].label}
+              </span>
+              <span className="mt-0.5 block text-[10px] leading-snug text-faint">
+                {PRESET_REGIONS[key].context}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
 
       <div className="mt-3 space-y-1.5 border-t border-rule pt-3">
         <label className="flex cursor-pointer items-start gap-2 text-[11px] text-muted">
@@ -198,30 +211,6 @@ export function AoiDrawControl() {
         </label>
       </div>
 
-      <div className="mt-3 flex items-center justify-between border-t border-rule pt-2 text-[10px] text-faint">
-        {isSynthetic && !loading ? (
-          <span className="text-terracotta">synthetic data</span>
-        ) : error ? (
-          <span className="max-w-[14rem] truncate text-bias" title={error}>
-            {error}
-          </span>
-        ) : (
-          <span className="tnum">
-            {analysisData && analysisData.execution_time_ms !== undefined
-              ? `${analysisData.execution_time_ms.toFixed(0)} ms`
-              : "—"}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={() => void executeAnalysis()}
-          disabled={loading}
-          aria-label="Refresh analysis"
-          className="border border-rule p-1 text-muted hover:bg-paper disabled:opacity-40"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-        </button>
-      </div>
     </div>
   );
 }

@@ -122,3 +122,10 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Map attribution rises with the history dock, keeping tile credits readable. */
+[data-map-viewport] .maplibregl-ctrl-bottom-right,
+[data-map-viewport] .maplibregl-ctrl-bottom-left {
+  bottom: var(--map-bottom-inset, 0px);
+  transition: bottom 200ms ease;
+}

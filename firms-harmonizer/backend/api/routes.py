@@ -13,6 +13,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import JSONResponse
 
+from backend.api.science_adapter import KalmanInput
 from backend.api import core_contract
 from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE, CachedJSON, geometry_key, make_cache_key
 from backend.api.schemas import AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse
@@ -168,7 +169,8 @@ def analyze(req: AnalyzeRequest) -> Response:
     obs = np.column_stack([daily[c] for c in OBS_COLUMNS])
     prior366 = _call(timer, "compute_cross_prior", doy, obs)
     prior_t = prior366[doy - 1]
-    smoothed = _call(timer, "kalman_rts_smooth", obs, daily["neighbor_fre_lag1"], prior_t)
+    smoothed = _call(timer, "kalman_rts_smooth", obs, daily["neighbor_fre_lag1"],
+                     KalmanInput(doy, daily["cloud_cover_pct"]))
 
     finite = np.isfinite(obs)
     no_obs = ~finite.any(axis=1)
@@ -176,7 +178,7 @@ def analyze(req: AnalyzeRequest) -> Response:
         x = smoothed.x_smooth
         sd = np.sqrt(smoothed.p_smooth)
         lower, upper = np.maximum(0.0, x - CI_Z_95 * sd), x + CI_Z_95 * sd
-        unc = np.where(np.abs(x) > 1e-8, 100.0 * CI_Z_95 * sd / np.maximum(np.abs(x), 1e-8), 0.0)
+        unc = np.clip(100.0 * CI_Z_95 * sd / (x + 1.0), 1.0, 99.9)
         filled = (daily["gap_status_mask"] > 0) | no_obs
     else:
         x = _naive_mean(obs)
@@ -218,34 +220,42 @@ def analyze(req: AnalyzeRequest) -> Response:
         phenology.append(dict(year=yr, peak_doy_mu=mu, peak_date_label=_peak_label(yr, mu),
                               concentration_kappa=kappa, season_width_days=width,
                               total_annual_fre_gj=float(x[sel].sum() * area / 1000.0)))
-        peaks.append(mu)
-        pheno_years.append(yr)
+        if np.sum(x[sel]) > 0 and kappa > 1e-12:
+            peaks.append(mu)
+            pheno_years.append(yr)
     slope, mk_p = _call(timer, "phenology_trend", np.asarray(pheno_years), np.asarray(peaks))
 
-    raw_f = raw_count.astype(np.float64)
-    chow_raw = _call(timer, "chow_test", raw_f, years, doy)
-    chow_harm = _call(timer, "chow_test", x, years, doy)
-    w_raw = _call(timer, "wasserstein_w1_normalized", raw_f, years)
-    w_harm = _call(timer, "wasserstein_w1_normalized", x, years)
-    if "burned_area_ha_mcd64" in missing:
-        r2_raw = r2_harm = None
-    else:
-        ok = np.isfinite(daily["burned_area_ha_mcd64"])
-        burned = daily["burned_area_ha_mcd64"][ok]
-        r2_raw = _call(timer, "descriptive_r2", raw_f[ok], burned)
-        r2_harm = _call(timer, "descriptive_r2", x[ok], burned)
-
+    annual_years = np.unique(years)
+    audit_available = (len(annual_years) > 4 and np.sum(annual_years < 2012) >= 2
+                       and np.sum(annual_years >= 2012) >= 2)
     source = duckdb_engine.data_source()
-    spans_2012 = bool((years < 2012).any() and (years >= 2012).any())
-    audit = dict(
-        chow_test_f_stat_raw=chow_raw[0], chow_test_p_val_raw=chow_raw[1],
-        chow_test_f_stat_harm=chow_harm[0], chow_test_p_val_harm=chow_harm[1],
-        wasserstein_w1_raw=w_raw, wasserstein_w1_harm=w_harm,
-        burned_area_r2_raw=r2_raw, burned_area_r2_harm=r2_harm,
-        phenology_shift_days_per_decade=slope, mann_kendall_p_value=mk_p,
-        industrial_false_positives_removed=agg.industrial_false_positives_removed,
-        total_biomass_burned_kt=float(biomass_t.sum() / 1000.0), total_pm25_emitted_tonnes=None,
-        executive_verdict_en=_verdict(source, chow_raw, chow_harm, w_raw, w_harm, missing, spans_2012))
+    audit = None
+    if audit_available:
+        raw_f = raw_count.astype(np.float64)
+        chow_raw = _call(timer, "chow_test", raw_f, years, doy)
+        chow_harm = _call(timer, "chow_test", x, years, doy)
+        w_raw = _call(timer, "wasserstein_w1_normalized", raw_f, years)
+        w_harm = _call(timer, "wasserstein_w1_normalized", x, years)
+        if "burned_area_ha_mcd64" in missing:
+            r2_raw = r2_harm = None
+        else:
+            _, annual_index = np.unique(years, return_inverse=True)
+            burned = np.bincount(annual_index, weights=daily["burned_area_ha_mcd64"])
+            annual_raw = np.bincount(annual_index, weights=raw_f)
+            annual_harm = np.bincount(annual_index, weights=x)
+            r2_raw = _call(timer, "descriptive_r2", annual_raw, burned)
+            r2_harm = _call(timer, "descriptive_r2", annual_harm, burned)
+
+        spans_2012 = bool((years < 2012).any() and (years >= 2012).any())
+        audit = dict(
+            chow_test_f_stat_raw=chow_raw[0], chow_test_p_val_raw=chow_raw[1],
+            chow_test_f_stat_harm=chow_harm[0], chow_test_p_val_harm=chow_harm[1],
+            wasserstein_w1_raw=w_raw, wasserstein_w1_harm=w_harm,
+            burned_area_r2_raw=r2_raw, burned_area_r2_harm=r2_harm,
+            phenology_shift_days_per_decade=slope, mann_kendall_p_value=mk_p,
+            industrial_false_positives_removed=agg.industrial_false_positives_removed,
+            total_biomass_burned_kt=float(biomass_t.sum() / 1000.0), total_pm25_emitted_tonnes=None,
+            executive_verdict_en=_verdict(source, chow_raw, chow_harm, w_raw, w_harm, missing, spans_2012))
     payload = dict(
         data_source=source, query_hash=key, aoi_area_km2=area, total_h3_cells=len(agg.hexagons),
         calendar_series=calendar, forecast_series=None, phenology_by_year=phenology,
@@ -259,6 +269,8 @@ def chaos_monkey(req: ChaosMonkeyRequest) -> ChaosMonkeyResponse:
     agg = fetch_aoi_aggregated_data(r4, r7, FULL_RANGE[0], FULL_RANGE[1], True)
     if len(agg.daily["epoch_day"]) == 0:
         raise HTTPException(status_code=404, detail="No non-industrial fire data inside the AOI")
+    if not np.any(agg.daily["year"] == req.target_year):
+        raise HTTPException(status_code=404, detail="No fire data in the requested target year")
     out = _call(StageTimer(), "run_chaos_monkey_simulation", agg.daily, req.target_year, req.drop_fraction,
                 req.simulate_dual_blackout, req.random_seed)
     return ChaosMonkeyResponse.model_validate({**out, "data_source": duckdb_engine.data_source()})

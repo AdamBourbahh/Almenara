@@ -101,3 +101,12 @@ Ejecuta cada función con entradas deterministas del cubo (Cerrado, 2001–2026,
 | POST en frío completo / hit de caché (incluye gzip-1 y HTTP) | ≈ 224 / ≈ 42 |
 
 Con el objetivo de `execution_time_ms < 250 ms`, quedan **unos 150 ms para todas las llamadas al core en una petición**: 1 prior, 1 Kalman con n = 9496, 26 von Mises, 1 tendencia, 2 Chow, 2 W1 y 2 R². `check_core` muestra cuánto tarda cada una.
+
+
+## 2026-11-14 — Real scientific API adapter
+
+`backend/api/science_adapter.py` translates the existing eight analysis operations to the implemented scientific core; no public Python/TypeScript schema or frozen test file changes. `core_contract` resolves and checks the actual underlying dependencies, so missing science still returns HTTP 503. Kalman receives explicit per-request DOY and cloud fractions through `KalmanInput`, and its state, covariance and uncertainty are preserved. Phenology uses the circular model and unwrapped trends. Chow uses annual means; descriptive R2 uses complete annual totals. Requests with insufficient years across 2012 return nullable audit metrics instead of invented significance.
+
+Chaos Monkey extracts the requested year, supplies the full retrospective calibration history and converts the core Pydantic result to the HTTP shape. The HTTP response uses the selected cube's provenance. Its reference is the intact smoother; full-history use is retrospective and is not held-out independent validation. Forecast, PM2.5 and tooltip HTTP fields retain their deferred nullable behavior.
+
+Verification: 148 backend tests passed (including four new actual-core HTTP integration cases); all four frozen test hashes match; `python -m backend.check_core --synthetic` passes all eight operations; `python -m backend.validation_report --synthetic` completes all four pilot regions. The artifact is synthetic: real-data scientific validation and latency targets remain separate acceptance gates.

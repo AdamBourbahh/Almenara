@@ -6,7 +6,7 @@
 
 **Source of truth** — [AGENTS.md](AGENTS.md) governs ownership and guardrails. [SPECS.md](SPECS.md) governs scientific methods and contracts. [ETL_SPEC.md](firms-harmonizer/data/ETL_SPEC.md) documents the ETL implementation. [CAMBIOS.md](firms-harmonizer/CAMBIOS.md) documents the approved contract updates, the API/core interface and known discrepancies.
 
-**Status baseline** — 2026-11-14, scientific integration merge `920d3d3` on `main`, combining the fetched `origin/main` at `5424d74` with scientific work at `b589a86`. The merge retained both histories without Git conflicts. The full backend gate passes **144 tests**; the real scientific API adapter remains incomplete. Check a task when its deliverable is present and supported by inspection or a passing check. Reopen a task when a regression invalidates that evidence. A phase is **Complete** only when all its acceptance tasks are checked. Record the date, command, result and data source as tasks close. Run backend commands from `firms-harmonizer/`.
+**Status baseline** — 2026-11-14, scientific integration merge `920d3d3` on `main`, combining the fetched `origin/main` at `5424d74` with scientific work at `b589a86`. The merge retained both histories without Git conflicts. The scientific merge passed 144 tests; the subsequent local API adaptation now passes **148 tests** and actual-core conformance. See the current adapter verification below. Check a task when its deliverable is present and supported by inspection or a passing check. Reopen a task when a regression invalidates that evidence. A phase is **Complete** only when all its acceptance tasks are checked. Record the date, command, result and data source as tasks close. Run backend commands from `firms-harmonizer/`.
 
 | Block | Complete | In progress | Pending |
 | --- | --- | --- | --- |
@@ -23,6 +23,15 @@
 - Integrated all pending scientific work through `science-core-integration-20261114`, then merged it into the updated `main`. Preserved incoming ETL publication, UTC epoch alignment, frontend changes and Phase 5 evidence. Public Python/TypeScript schemas and the four frozen DB/API test files were not changed by this integration; their SHA-256 checks pass.
 - All seven science modules now have implementations. The 49 mathematical cases include the seven named acceptance tests, a 1,460-day seasonal record with a ten-day blackout, a fourteen-day forecast, a fifteen-year +1.5 days/year peak shift, a raw 4.5x sensor jump, and deterministic Chaos Monkey recovery. Models returned by phenology, audit and Chaos Monkey are the exact frozen Pydantic classes.
 - The science functions requested in the implementation prompts differ from the callable names and argument/result shapes in `backend/api/core_contract.py`. This is an integration gap, not a Git conflict. Keep the tested scientific interfaces and adapt the API boundary deliberately; do not rename working functions or report simulated-core HTTP tests as actual scientific API validation.
+
+## API adapter verification — 2026-11-14 (current)
+
+The missing-signature integration gap recorded above is now resolved locally. `backend/api/science_adapter.py` preserves the eight operation names at the HTTP boundary while calling the implemented science functions. Explicit per-request calendar/cloud inputs reach Kalman; dependency checks still report absent core functions. Public response schemas and frozen tests remain unchanged. `backend/tests/test_science_integration.py` verifies actual-core analysis, cache equivalence, short-range nullable audit, seeded Chaos Monkey, health and a missing-dependency 503.
+
+- `pytest backend/tests -q --tb=short`: **148 passed in 14.05s** (49 math, 37 ETL/cube, 58 existing DB/API checks, four actual-core HTTP cases). Existing dependency/test-helper deprecation warnings remain.
+- `python -m backend.check_core --synthetic`: **exit 0**, all eight operations pass. The measured 9,496-day Kalman adapter call was about **126 ms** in this environment; the original millisecond-scale target is not established.
+- `python -m backend.validation_report --synthetic`: **exit 0**, analysis and Chaos Monkey complete for all four pilot regions. Input provenance is synthetic and the computational core is real. Burned-area R2 targets are not established by these fixtures. Real-data acceptance remains open.
+- `sha256sum -c backend/tests/FROZEN_TESTS.sha256`: **four files OK**. No frozen schema changes. Forecast, smoke and tooltip fields retain their deferred nullable HTTP behavior.
 
 ## Shared acceptance rules
 
@@ -108,7 +117,7 @@
 - [x] Wire `compute_cross_prior(doy, obs)` and `kalman_rts_smooth(obs, u_spatial, prior)` into the API using three observation channels and a dense daily input. The call and shape validation are covered by tests with a simulated core.
 - [x] Implement and unit-test `build_cross_sensor_historical_prior` and `rts_kalman_smoother_with_cross_guard`. The 366-bin circular prior calibrates overlapping sensors; Joseph updates, forward/backward jitter, missing observations, finite/nonnegative outputs and the covariance floor are tested. RTS estimates agree with an independent batch Gaussian posterior. The 1,460-day seasonal acceptance case preserves more than 35% of peak FRE throughout a ten-day total blackout.
 - [x] Implement the requested extended-timeline RTS forecast and exact thirteen-key result contract: fourteen forecast steps, modulo-365 forecast DOY, cloud fraction 0.25, state-dependent spatial forcing, ordered 95% bands and uncertainty clipped to 1–99.9%. This is a core capability; API forecast fields remain deferred until the adapter and HTTP integration are completed.
-- [ ] Expose the API-compatible signatures `compute_cross_prior(doy, obs)` and `kalman_rts_smooth(obs, u_spatial, prior)` around those routines. Verify the finite 366-day prior and length-matched `x_smooth` and nonnegative `p_smooth` outputs on a populated AOI, including variance 40.0 on all-missing historical days, denominator jitter of `1e-8`, and ordered 95% intervals. The API checker still reports both required entry points missing when supplied a compatible fixture.
+- [x] Adapt the existing Kalman operations through `science_adapter`, carrying actual DOY/cloud inputs in a request-local `KalmanInput`. Real-core conformance and HTTP state/covariance comparisons pass; the scientific functions retain their tested signatures.
 
 ### Phase 10 — Circular phenology and decadal trends · In progress
 
@@ -116,7 +125,7 @@
 
 - [x] Wire `fit_von_mises_year(doy, weights)` and `phenology_trend(years, peaks)` and validate the response shapes with a simulated core.
 - [x] Implement `best_fisher_kappa`, `doy_to_date_label` and `compute_circular_phenology`. Tests cover the Best & Fisher branches, English leap-calendar labels, annual energy in GJ, zero-energy cases and December/January unwrapping. A fifteen-year synthetic +1.5 days/year shift is recovered within 0.2 days/decade of 15, with Kendall p < 1e-6. Results are `VonMisesPhenologyYear` instances.
-- [ ] Adapt the API's `fit_von_mises_year` and `phenology_trend` calls to the implemented science interface. The checker still reports those two legacy names missing. Keep undefined zero-energy directions out of trend fitting; label conventions use leap-year 2000 and are not acquisition dates.
+- [x] Adapt annual circular fits and unwrapped peak trends at the API boundary. Both operations pass actual-core conformance and populated HTTP integration.
 
 ### Phase 11 — Scientific audit and Chaos Monkey · In progress
 
@@ -125,7 +134,7 @@
 - [x] Wire the audit calls and `POST /api/chaos-monkey`. The analysis route computes Wooster biomass with 0.368 kg/MJ. The CLI reports Chow, Wasserstein, burned-area cross-validation when available, and a seasonal-prior stress baseline.
 - [x] Implement `compute_wooster_biomass_and_smoke`, `compute_chow_structural_break_test` and `compute_scientific_audit_metrics`. Tests verify exact biomass/PM2.5 units, Chow against an independent nested-regression calculation, a raw 4.5x jump with p < 1e-4 and a continuous harmonized series with p > 0.10. The audit returns `ScientificAuditMetrics`; missing or constant burned-area data produce nullable R2, not fabricated validation.
 - [x] Implement seeded **25%** VIIRS removal and a bounded ten-day peak blackout in `run_chaos_monkey_simulation`. Tests verify reproducibility, no input mutation, boundary/short-series behavior, fixed external historical priors, lower Kalman RMSE than naive RMSE, and seasonal energy recovery above 90% on the deterministic acceptance fixture. Chaos Monkey reuses the same RTS filter through an internal fixed-prior helper; the public smoother signature and output contract are preserved.
-- [ ] Adapt API audit calls (`chow_test`, `wasserstein_w1_normalized`, `descriptive_r2`) and the legacy Chaos Monkey `(daily, target_year, ...) -> dict` interface to the implemented functions and Pydantic result. The prompt-specific Chaos Monkey signature accepts dates and observation arrays and labels its experiment `synthetic` because input provenance is not supplied. Source provenance must be coordinated at the API boundary.
+- [x] Adapt Chow, normalized Wasserstein, annual descriptive R2 and Chaos Monkey to the scientific implementation. Exact response schemas and cube provenance are preserved. Full-range and short-range requests have actual-core regression coverage; insufficient annual audit data produces `null`.
 - [ ] Validate the actual audit against genuine annual MCD64A1 data and evaluate the scientific targets on independent observations. Current R2 is descriptive squared annual correlation; W1 normalizes each complete daily record by its overall mean. Chow uses annual means and requires sufficient annual data across 2012. Seasonal recovery is reconstructed/reference energy and can exceed 100% when overestimated. The intact smoother is the stress-test reference, not observed physical truth. None of the synthetic acceptance results establishes real-world independent validation.
 
 ### Phase 12 — HTTP, canonical cache and release verification · In progress
@@ -137,11 +146,12 @@
 - [x] Restore the DB, HTTP and core validation regression gates using the aligned synthetic fixture. The full 144-test backend run passes, including populated analysis and Chaos Monkey payloads and cache/error paths. The HTTP scientific calls in these tests use the existing simulated core; this does not close actual science integration.
 - [ ] Restore the frozen TypeScript mirror and parity coverage against `backend/api/schemas.py` and the mock. The frontend merge removed `data_source` from both response types, removed `dates` from Chaos Monkey, and changed or removed other fields including daily `biomass_burned_tonnes` and approved nullability. Require explicit opt-in for synthetic fallback and propagate backend provenance into frontend state. The new client currently generates synthetic responses on connectivity or gateway errors and marks successful HTTP responses as non-synthetic, including responses from an opted-in synthetic backend.
 - [x] Pass the 49-case `pytest backend/tests/test_math_core.py -v` gate, including all seven named scientific acceptance tests. This integration also passes the full backend regression gate.
-- [ ] Pass `python -m backend.check_core --synthetic` and `python -m backend.validation_report --synthetic` using the actual adapted core. Then run `python -m backend.validation_report` and smoke-test the HTTP routes on real local data with networking disabled. Verify startup behavior and provenance in both source modes, including an uncached analysis, a repeated request and a Chaos Monkey run. Record timings by stage and compare them to the project query target.
+- [x] Pass `python -m backend.check_core --synthetic` and `python -m backend.validation_report --synthetic` with the actual adapted core.
+- [ ] Validate real local cubes, offline operation and scientific/performance targets with the adapted core. This integration run used only the explicitly opted-in synthetic cube.
 
 ## Next backend step
 
-Implement the science/API adapter for phases 9–11 while preserving both the frozen response schemas and tested scientific entry points. Then rerun actual-core conformance and the validation report, and verify a known UTC date through the API on the real Chilecito cube to close phase 8. Keep frontend provenance/parity and real-data scientific/performance acceptance open until independently verified.
+Verify real-cube date/provenance behavior and run real-data scientific and latency acceptance. The science/API adapter and synthetic actual-core conformance now pass; independent burned-area validation, frontend offline/provenance behavior, and the production latency target remain open.
 
 ## Verification after scientific integration — 2026-11-14
 
