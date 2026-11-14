@@ -3,7 +3,7 @@
 **Author:** Migue (frontend track, cross-track integration on explicit request)
 **Repository:** `AdamBourbahh/Almenara`
 **Date:** 2026-11-14
-**State at publication:** `main` = `front-end` = `5efd8e2`
+**State at publication:** `5efd8e2`; after the 2026-11-14 pull and gate repair, `main` and `front-end` share `df19a04` plus the frozen-hash fix (see Section 13).
 **Companion documents:** `AGENTS.md` (ownership and guardrails), `SPECS.md` (scientific methods), `Implementation_backend_plan.md` (phase-by-phase plan and evidence), `firms-harmonizer/frontendExpects.md` (frontend expectations), `firms-harmonizer/CAMBIOS.md` (approved contract changes).
 
 ---
@@ -116,12 +116,12 @@ The real cube was rebuilt offline from `data/raw/` through scripts `01 → 02 �
 
 | Metric | Value |
 | :--- | :--- |
-| Staged detections | 1,574,092 |
-| Footprint contributions | 1,870,624 |
-| Published rows | **761,801** |
-| Coverage | 2000-11-01 → 2026-11-01 |
-| Row groups | 24 (ZSTD) |
-| Size | ~10.9 MB |
+| Staged detections | 2,376,587 |
+| Footprint contributions | 2,803,055 |
+| Published rows | **927,542** |
+| Coverage | 2000-11-01 → 2026-11-14 |
+| Row groups | 29 (ZSTD) |
+| Size | ~13.9 MB |
 
 The synthetic fixture is separate (`fire_cube_synthetic.parquet`) and opt-in only.
 
@@ -180,18 +180,18 @@ Run on the published `main` (`5efd8e2`):
 
 | Gate | Command | Result |
 | :--- | :--- | :--- |
-| Backend suite | `pytest backend/tests -q` | **271 passed** |
+| Backend suite | `pytest backend/tests -q` | **361 passed, 1 skipped** (optional `rasterio` for the MCD64A1 fetch test) |
 | Frozen contracts | `sha256sum -c backend/tests/FROZEN_TESTS.sha256` | **4 files OK** |
 | Core conformance | `python -m backend.check_core` | **exit 0**, 8/8 operations |
 | Real audit | `python -m backend.validation_report` | **exit 0**, four populated regions |
 | CLI benchmark | `python scripts/05_cli_benchmark.py` | exit 1 (R², recovery, Iberia P95 out of target) |
 | Frontend types | `npx tsc --noEmit` | **0 errors** |
 | Frontend build | `npm run build` | **OK** |
-| Frontend tests | `node --test frontend/tests/*.test.mjs` | **12/12** |
-| API health | `GET /api/health` | `data_source=real`, 761,801 rows, 8/8 core |
+| Frontend tests | `node --test frontend/tests/*.test.mjs` | **19/19** |
+| API health | `GET /api/health` | `data_source=real`, 927,542 rows, 8/8 core |
 | Browser smoke | MCP browser | no console errors; calendar marker, copilot-open navigation |
 
-`validation_report` real-mode summary (harmonized Chow / W1 reduction / Chaos recovery): Chilecito 0.534 / 83.4% / 95.5%; Orlando 0.00036 / 75.4% / 100.1%; Manaus 0.028 / 90.5% / 93.9%; Iberia 0.522 / 81.5% / 94.4%.
+`validation_report` real-mode summary (harmonized Chow / W1 reduction / Chaos recovery): Chilecito 0.562 / 83.3% / 95.7%; Orlando 0.000388 / 75.8% / 100.0%; Manaus 0.0303 / 90.5% / 93.9%; Cerrado 0.43 / 89.8% / 98.6%; California 0.777 / 75.0% / 91.1%; Iberia 0.516 / 81.4% / 94.4%. Cerrado and California now have real rows after the pull; only Niger Delta remains without local CSVs.
 
 ---
 
@@ -199,9 +199,9 @@ Run on the published `main` (`5efd8e2`):
 
 | Item | Status | Why |
 | :--- | :--- | :--- |
-| MCD64A1 burned-area validation (Phase 11) | **Blocked** | `data/lookup/cell_day_ancillary.parquet` absent; requires Earthdata download |
+| MCD64A1 burned-area validation (Phase 11) | **Blocked** | `data/lookup/cell_day_ancillary.parquet` is still absent; `scripts/07_fetch_mcd64a1_ancillary.py` now exists but needs Earthdata credentials |
 | Cloud reanalysis and swath evidence (Phase 5) | **Blocked** | Same ancillary file and external swath data |
-| Cerrado, California, Niger Delta presets | **Blocked** | No local FIRMS CSVs for those regions |
+| Niger Delta preset | **Blocked** | The only preset without local FIRMS CSVs; Cerrado and California now have real rows |
 | PM2.5, tooltip narratives, 14-day forecast in the API | **Deferred** | MVP scope and frozen nullable contract |
 | `FIRMS_MAP_KEY` in git history | **Action needed** | Rotate the key in NASA FIRMS, then use the new poller |
 | NumPy timedelta warning in `tests/conftest.py` | **Accepted** | The file is frozen by `FROZEN_TESTS.sha256` |
@@ -292,3 +292,20 @@ USE_SYNTHETIC_CUBE=1 uvicorn backend.api.main:app --port 8001
 | 2026-11-14 | Implement `nrt_poller.py` instead of deleting it | The zero-placeholder rule; the file is referenced in the ownership table and `.env.example` |
 | 2026-11-14 | Fast-forward `main` to `front-end` | `origin/main` was an ancestor, so no merge commit or conflict resolution was needed |
 | 2026-11-14 | Do not fabricate MCD64A1 data | Independent validation must not be simulated; the field stays `null` until real data arrives |
+
+---
+
+## 13. Pull refresh — 2026-11-14 (evening)
+
+`origin/main` advanced from `b24d00a` to `df19a04`; because the local branch was an ancestor, the pull was a **fast-forward** with no conflicts. Incoming work included the FIRMS NRT sync (`CubeSyncWidget`, `/api/cube/sync`, `/api/cube/sync-status`), the **Risk AI** tab and prediction panel, `scripts/07_fetch_mcd64a1_ancillary.py`, the phase 7 benchmark, `ddgs` copilot grounding, and new real raw CSVs.
+
+Post-pull actions:
+
+- **Frontend dependencies:** `npm install` after the pull (the `deck.gl` umbrella package was removed in favour of `@deck.gl/*`, with `@loaders.gl/*` overrides). `npx tsc --noEmit` and `npm run build` pass; `node --test` reports 19/19.
+- **Cube rebuilt** from the refreshed raw data: 2,376,587 detections → **927,542 rows**, 29 ZSTD row groups, ~13.9 MB, coverage through 2026-11-14. Cerrado and California now publish real rows, leaving only Niger Delta without local CSVs.
+- **Deterministic LUT:** the regenerated lookup has **37 models** and matches the committed file exactly (git reports no change), confirming the determinism fix holds on the new data.
+- **Frozen gate repaired:** commit `319ac09` extended `backend/tests/test_api_contract.py` (cube-sync endpoint assertions) without regenerating `FROZEN_TESTS.sha256`. The hash was regenerated and the change recorded in `CAMBIOS.md`; the edit is additive and removes no prior assertion.
+- **Backend suite:** 361 passed, 1 skipped (`rasterio` is only installed by `scripts/requirements-acquisition.txt` for the MCD64A1 fetch test). `sha256sum -c FROZEN_TESTS.sha256` now passes for all four files.
+- **API:** `GET /api/health` → `data_source=real`, 927,542 rows, 8/8 core operations; the browser loads the new header ("FIRMS data through Nov 14, 2026"), the Risk AI tab and the map with no console errors.
+
+No scientific method or frozen public contract was changed by this refresh.
