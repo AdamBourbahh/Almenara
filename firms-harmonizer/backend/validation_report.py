@@ -1,0 +1,132 @@
+"""Validation report: prints measured latencies and scientific diagnostics exactly as they come out.
+
+This is NOT a test: nothing is asserted and no threshold changes the exit code except a missing core.
+Usage:  python -m backend.validation_report [--synthetic]
+Exit codes: 0 = report complete, 2 = Adam's backend/core functions are missing (latencies still shown).
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import statistics
+import sys
+from pathlib import Path
+from time import perf_counter
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+PRESETS = {  # specs.md PRESET_REGIONS (±1° rectangles)
+    "cerrado_brazil": (-48.0, -16.0),
+    "california_usa": (-121.0, 39.0),
+    "iberia_med": (-5.0, 39.0),
+    "niger_delta_flaring": (6.0, 5.0),
+}
+TARGET_QUERY_MS = 12.0
+TARGET_ANALYZE_MS = 250.0
+
+
+def rectangle(lon: float, lat: float, d: float = 1.0) -> list:
+    return [[[lon - d, lat - d], [lon + d, lat - d], [lon + d, lat + d], [lon - d, lat + d], [lon - d, lat - d]]]
+
+
+def timed(fn, repeats: int = 9) -> tuple[float, float]:
+    """(first call ms, median of the following `repeats` calls ms)."""
+    t0 = perf_counter()
+    fn()
+    first = (perf_counter() - t0) * 1000
+    rest = []
+    for _ in range(repeats):
+        t0 = perf_counter()
+        fn()
+        rest.append((perf_counter() - t0) * 1000)
+    return first, statistics.median(rest)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--synthetic", action="store_true", help="set USE_SYNTHETIC_CUBE=1")
+    args = parser.parse_args()
+    if args.synthetic:
+        os.environ["USE_SYNTHETIC_CUBE"] = "1"
+
+    from fastapi.testclient import TestClient
+
+    from backend.api import core_contract
+    from backend.api.cache import ANALYZE_CACHE
+    from backend.api.main import app
+    from backend.db import duckdb_engine, queries
+
+    duckdb_engine.init_engine()
+    print(f"Cube: {duckdb_engine.cube_path()}  data_source={duckdb_engine.data_source()}  "
+          f"rows={duckdb_engine.get_row_count()}  missing_columns={duckdb_engine.missing_columns()}")
+
+    print("\n== Latency (first call | median of next 9) ==")
+    print(f"   reference targets: query <{TARGET_QUERY_MS} ms, analyze <{TARGET_ANALYZE_MS} ms (not gates)")
+    for name, (lon, lat) in PRESETS.items():
+        coords = rectangle(lon, lat)
+        f_first, f_med = timed(lambda: queries.get_hierarchical_h3_filter(coords))
+        r4, r7, _ = queries.get_hierarchical_h3_filter(coords)
+
+        def daily_query():
+            with duckdb_engine.get_db_cursor() as cur:
+                queries.query_daily_rows(cur, r4, r7, 2001, 2026, True)
+
+        q_first, q_med = timed(daily_query)
+        a_first, a_med = timed(lambda: queries.fetch_aoi_aggregated_data(r4, r7, 2001, 2026, True))
+        print(f"{name:22s} h3 filter {f_first:7.2f} | {f_med:7.2f}   query_daily_rows {q_first:7.2f} | "
+              f"{q_med:7.2f}   fetch_aoi_aggregated_data {a_first:7.2f} | {a_med:7.2f}   "
+              f"(R7={len(r7)}, R4={len(r4)})")
+
+    status = core_contract.core_status()
+    print("\n== backend.core availability ==")
+    for fn, ok in status.items():
+        print(f"   {fn:30s} {'present' if ok else 'MISSING'}")
+    if not all(status.values()):
+        print("\nScientific diagnostics need Adam's backend/core. Missing functions listed above "
+              "(signatures in CAMBIOS.md).")
+        return 2
+
+    print("\n== Scientific diagnostics (printed as measured; real core) ==")
+    with TestClient(app) as client:
+        for name, (lon, lat) in PRESETS.items():
+            body = {"aoi": {"type": "Polygon", "coordinates": rectangle(lon, lat)}}
+            ANALYZE_CACHE.clear()
+            t0 = perf_counter()
+            r = client.post("/api/analyze", json=body)
+            cold = (perf_counter() - t0) * 1000
+            t0 = perf_counter()
+            client.post("/api/analyze", json=body)
+            hit = (perf_counter() - t0) * 1000
+            if r.status_code != 200:
+                print(f"{name}: analyze HTTP {r.status_code} {r.text[:300]}")
+                continue
+            data = r.json()
+            a = data["audit_metrics"]
+            print(f"\n[{name}] data_source={data['data_source']} cells={data['total_h3_cells']} "
+                  f"execution_time_ms={data['execution_time_ms']:.1f} wall cold={cold:.1f} ms, cache hit={hit:.1f} ms")
+            if a is None:
+                print("   no data in AOI (audit_metrics is null)")
+                continue
+            for k in ("chow_test_f_stat_raw", "chow_test_p_val_raw", "chow_test_f_stat_harm",
+                      "chow_test_p_val_harm", "wasserstein_w1_raw", "wasserstein_w1_harm",
+                      "burned_area_r2_raw", "burned_area_r2_harm", "phenology_shift_days_per_decade",
+                      "mann_kendall_p_value", "industrial_false_positives_removed"):
+                print(f"   {k:34s} {a[k]}")
+            if a["wasserstein_w1_raw"]:
+                print(f"   {'w1_reduction_pct':34s} {100 * (1 - a['wasserstein_w1_harm'] / a['wasserstein_w1_raw'])}")
+            print(f"   verdict: {a['executive_verdict_en']}")
+            c = client.post("/api/chaos-monkey", json=body)
+            if c.status_code == 200:
+                cm = c.json()
+                print(f"   chaos: recovered={cm['seasonal_energy_recovered_pct']} naive_rmse={cm['naive_rmse']} "
+                      f"kalman_rmse={cm['kalman_rmse']} dropped={cm['dropped_days_count']}")
+            else:
+                print(f"   chaos: HTTP {c.status_code} {c.text[:200]}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
