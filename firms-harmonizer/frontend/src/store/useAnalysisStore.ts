@@ -167,6 +167,8 @@ interface AnalysisState {
   // Interactive UI controls
   splitCurtainPct: number; // 0..100, "2012 Time-Machine" curtain
   selectedYear: number;
+  /** True once the user explicitly chose a year/month/day; until then the latest data year is shown. */
+  hasChosenYear: boolean;
   hoveredDay: HoveredDay | null;
   selectedMonth: number | null;
   selectedDay: number | null;
@@ -299,6 +301,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   splitCurtainPct: 50,
   selectedYear: 2022, // Critical year by default (VIIRS SNPP outage, Jul-Aug 2022)
+  hasChosenYear: false,
   hoveredDay: null,
   selectedMonth: null, selectedDay: null, selectedDoy: null, selectedDate: null,
   hoveredDate: null, hoveredCell: null, isDatePinned: false,
@@ -363,7 +366,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const candidate = isoDate(clamped, get().selectedMonth ?? 1, get().selectedDay ?? 1);
     const bounded = candidate < (minDate ?? candidate) ? minDate! : candidate > (maxDate ?? candidate) ? maxDate! : candidate;
     const selection = previous ? dateSelection(bounded) : {};
-    set({ ...selection, dateRiskPrompt: null, hoveredDate: null, hoveredCell: null, hoveredDay: null, selectedYear: clamped, chaosData: null });
+    set({ ...selection, dateRiskPrompt: null, hoveredDate: null, hoveredCell: null, hoveredDay: null, selectedYear: clamped, hasChosenYear: true, chaosData: null });
     if (pin) get().attachCopilotContext();
     scheduleMapLoad();
   },
@@ -372,14 +375,14 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     if (month !== null && (!Number.isInteger(month) || month < 1 || month > 12)) return;
     if (month === get().selectedMonth && !get().selectedDate) { if (pin) get().attachCopilotContext(); return; }
     set({ dateRiskPrompt: null, selectedMonth: month, selectedDay: null, selectedDoy: null, selectedDate: null,
-      isDatePinned: false, hoveredCell: null, hoveredDate: null, hoveredDay: null });
+      isDatePinned: false, hasChosenYear: true, hoveredCell: null, hoveredDate: null, hoveredDay: null });
     if (pin) get().attachCopilotContext();
     scheduleMapLoad();
   },
   setSelectedDate: (iso, pin = true) => {
     if (iso === null) {
       if (!get().selectedDate) return;
-      set({ dateRiskPrompt: null, selectedDate: null, selectedDay: null, selectedDoy: null, isDatePinned: false, hoveredDay: null, hoveredCell: null, hoveredDate: null });
+      set({ dateRiskPrompt: null, selectedDate: null, selectedDay: null, selectedDoy: null, isDatePinned: false, hasChosenYear: true, hoveredDay: null, hoveredCell: null, hoveredDate: null });
       if (pin) get().attachCopilotContext();
       scheduleMapLoad();
       return;
@@ -391,7 +394,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const bounded = [iso, minDate ?? `${startYear}-01-01`].sort()[1];
     const date = [bounded, maxDate ?? `${endYear}-12-31`].sort()[0];
     const changed = get().selectedDate !== date;
-    set({ ...dateSelection(date), dateRiskPrompt: null, isDatePinned: pin, hoveredDay: null, hoveredCell: null, hoveredDate: null, chaosData: null });
+    set({ ...dateSelection(date), dateRiskPrompt: null, isDatePinned: pin, hasChosenYear: true, hoveredDay: null, hoveredCell: null, hoveredDate: null, chaosData: null });
     if (pin) get().attachCopilotContext();
     if (changed) scheduleMapLoad();
   },
@@ -541,7 +544,11 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     try {
       const { data } = await analyzeAoi(requestPayload, controller.signal);
       if (seq !== analysisSeq) return; // a newer request superseded this one
-      set({ ...chronologyIndexes(data), analysisData: data, calendarIndex: buildCalendarIndex(data), isSynthetic: data.data_source === "synthetic", loading: false, hoveredDay: null });
+      const indexes = chronologyIndexes(data);
+      // First load shows the most recent year with data; the user's own year choice is preserved.
+      const latestYear = indexes.maxDate ? Number(indexes.maxDate.slice(0, 4)) : get().selectedYear;
+      const nextYear = get().hasChosenYear ? get().selectedYear : latestYear;
+      set({ ...indexes, selectedYear: nextYear, analysisData: data, calendarIndex: buildCalendarIndex(data), isSynthetic: data.data_source === "synthetic", loading: false, hoveredDay: null });
       await get().loadMapYear();
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;

@@ -16,7 +16,10 @@ export function summarizeMappedYear(cells: H3MapSummaryHex[], hideIndustrial: bo
   return { hexagons, energyGJ, footprintKm2, detections };
 }
 
-/** Logarithmic, shared cross-year scale; reference is an all-years upper bound. */
+/** Logarithmic, shared cross-year scale; reference is an all-years upper bound.
+ *  Any non-zero value keeps a visible floor so small fires never vanish next to a mega-fire. */
 export function colorIntensity(value: number, reference: number): number {
-  return Math.min(1, Math.log1p(Math.max(0, value)) / Math.log1p(Math.max(1, reference)));
+  if (!(value > 0)) return 0;
+  const t = Math.log1p(value) / Math.log1p(Math.max(1, reference));
+  return Math.min(1, Math.max(0.22, t));
 }

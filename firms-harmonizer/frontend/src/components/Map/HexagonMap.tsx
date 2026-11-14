@@ -382,7 +382,7 @@ export function HexagonMap() {
         getFillColor: (d) => {
           if (highlightIndustrialOnMap && d.is_industrial_site) return INDUSTRIAL_PURPLE;
           const t = colorIntensity(viewMode === "RAW" ? d.raw_pixel_count : d.mean_annual_fre, viewMode === "RAW" ? maxRaw : maxFre);
-          const alpha = 120 + 130 * t;
+          const alpha = 155 + 95 * t;
           if (viewMode === "RAW") return rampColor(theme === "dark" ? RAW_DARK : RAW_LIGHT, t, alpha);
           return rampColor(THERMAL_LIGHT, t, alpha);
         },
