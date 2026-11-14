@@ -71,7 +71,7 @@ All commands are run from `firms-harmonizer/` unless stated otherwise.
 
 | Fix | Detail |
 | :--- | :--- |
-| **Copilot drawer blocked navigation** | The slide-over used `inset-y-0` and covered the last header buttons on desktop, swallowing clicks on "Observations". It now starts at `lg:top-16`, below the header. Verified in the browser with the drawer open. |
+| **Copilot drawer blocked navigation** | The slide-over used `fixed inset-y-0` and covered the header controls on desktop, swallowing navigation clicks. It now renders as an `absolute` panel inside a content wrapper that begins below the header (with a `z-30` mobile backdrop), so the header stays fully clickable at every breakpoint. Verified in the browser with the drawer open: "Calendar" navigates and the header remains visible. |
 | **Misleading 2022 outage** | The calendar, offline generator and tooltip narratives hard-coded "MODIS Aqua safe mode" (2022-07-31..08-16). The validated outage is **VIIRS SNPP, 2022-07-27..2022-08-10** (15 days). Replaced with `SNPP_OUTAGE`/`SNPP_MARKER` (DOY 208–222), corrected sensor availability and copy. |
 | **Double-encoded copy (mojibake)** | `client.ts` contained `MJ/kmÂ²`, `Â±`, `Îºâ‰ˆ3.1Ã—`, `tâˆ’1`, `MODISâ€“VIIRS`. Corrected to `MJ/km²`, `±`, `κ≈3.1×`, `t−1`, `MODIS–VIIRS`. |
 
@@ -307,5 +307,6 @@ Post-pull actions:
 - **Frozen gate repaired:** commit `319ac09` extended `backend/tests/test_api_contract.py` (cube-sync endpoint assertions) without regenerating `FROZEN_TESTS.sha256`. The hash was regenerated and the change recorded in `CAMBIOS.md`; the edit is additive and removes no prior assertion.
 - **Backend suite:** 361 passed, 1 skipped (`rasterio` is only installed by `scripts/requirements-acquisition.txt` for the MCD64A1 fetch test). `sha256sum -c FROZEN_TESTS.sha256` now passes for all four files.
 - **API:** `GET /api/health` → `data_source=real`, 927,542 rows, 8/8 core operations; the browser loads the new header ("FIRMS data through Nov 14, 2026"), the Risk AI tab and the map with no console errors.
+- **Drawer regression re-fixed:** the pulled `7c4ca2b` removed the earlier `lg:top-16` offset when it changed the header to wrap at `2xl`, so the drawer covered the header again. The panel is now `absolute` inside a content wrapper below the header (mobile backdrop at `z-30`), which is breakpoint-independent. Verified: with the Copilot open, the header stays clickable and navigation works.
 
 No scientific method or frozen public contract was changed by this refresh.
