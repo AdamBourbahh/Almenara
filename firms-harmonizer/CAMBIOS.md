@@ -4,6 +4,9 @@ Cada fila es un cambio hecho por Moha (dueño de `backend/db/` y `backend/api/`)
 
 | Fecha | Archivo | Dueño original | Cambio | Motivo | Afecta a |
 |---|---|---|---|---|---|
+| 2026-11-14 | `backend/api/schemas.py` | Adam | Añadidos `CitationReference`, `ExplainSpikeRequest` y `ExplainSpikeResponse` | Contratos para endpoint `/api/explain-spike` (grounding web y citas científicas) | Frontend, Backend |
+| 2026-11-14 | `frontend/src/api/types.ts` | Mohammed | Espejo de `CitationReference`, `ExplainSpikeRequest` y `ExplainSpikeResponse` | Tipos TypeScript sincronizados con backend | Frontend |
+| 2026-11-14 | `backend/api/routes.py` | Moha | Implementado endpoint síncrono `POST /api/explain-spike` con triaje físico y grounding web en cascada | Explicación científica de anomalías con citas [1]..[5] y [W1]..[W3] | Frontend, Demo |
 | 2026-11-14 | `backend/api/schemas.py` | Adam | `AnalyzeResponse.data_source` y `ChaosMonkeyResponse.data_source: Literal["real","synthetic"]` (nuevos, obligatorios) | Toda respuesta debe decir si los datos son reales o sintéticos | Frontend (Mohammed, Migue) |
 | 2026-11-14 | `backend/api/schemas.py` | Adam | Pasan a nullable: `DailyCalendarCell.pm25_emitted_kg`, `DailyCalendarCell.tooltip_narrative`, `AnalyzeResponse.forecast_series`, `ScientificAuditMetrics.total_pm25_emitted_tonnes` | Forecast a 14 días, PM2.5 y tooltip quedan fuera del MVP y se devuelven como `null`. PM2.5 necesita un factor de emisión por bioma con fuente citada | Frontend: hay que gestionar `null` |
 | 2026-11-14 | `backend/api/schemas.py` | Adam | Pasan a nullable: `ScientificAuditMetrics.burned_area_r2_raw/harm` y `AnalyzeResponse.audit_metrics` | `null` si falta la columna `burned_area_ha_mcd64` o si la AOI no tiene datos (respuesta 200 con listas vacías) | Frontend |

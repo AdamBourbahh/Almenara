@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Flame } from "lucide-react";
+import { Flame, Sparkles } from "lucide-react";
 import { PRESET_ORDER, PRESET_REGIONS, useAnalysisStore } from "./store/useAnalysisStore";
 import { MapPage } from "./views/MapPage";
 import { BurningCalendarCanvas } from "./components/Calendar/BurningCalendarCanvas";
+import { FireCopilotDrawer } from "./components/Audit/FireCopilotDrawer";
 
 export default function App() {
   const [section, setSection] = useState("map");
@@ -12,6 +13,11 @@ export default function App() {
   const execute = useAnalysisStore((s) => s.executeAnalysis);
   const loading = useAnalysisStore((s) => s.loading);
   const error = useAnalysisStore((s) => s.error);
+  const openCopilot = useAnalysisStore((s) => s.openCopilot);
+  const isCopilotOpen = useAnalysisStore((s) => s.isCopilotOpen);
+  const toggleCopilot = useAnalysisStore((s) => s.toggleCopilot);
+  const activeSpikeDay = useAnalysisStore((s) => s.activeSpikeDay);
+
   const booted = useRef(false);
   useEffect(() => { if (!booted.current) { booted.current = true; void execute(); } }, [execute]);
   const exportCsv = () => {
@@ -31,7 +37,23 @@ export default function App() {
         {["map", "calendar"].map((key) => <button key={key} onClick={() => setSection(key)} aria-current={section === key ? "page" : undefined} className={`border border-rule px-3 py-2 text-xs ${section === key ? "bg-ink text-paper" : ""}`}>{key === "map" ? "Map" : "Daily record"}</button>)}
       </nav>
       <span className="text-xs text-muted" role="status">{loading ? "Loading real observations…" : data ? `${data.total_detections.toLocaleString("en-US")} satellite detections · real data` : "Observations unavailable"}</span>
-      <button onClick={exportCsv} disabled={!data?.daily.length || loading} className="ml-auto border border-rule px-3 py-2 text-xs disabled:opacity-40">Export observations CSV</button>
+      <div className="ml-auto flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => (toggleCopilot ? toggleCopilot() : openCopilot())}
+          className={`inline-flex items-center gap-1.5 border border-rule px-2.5 py-2 text-xs font-medium transition-colors ${
+            isCopilotOpen ? "bg-ink text-paper" : "hover:bg-paper"
+          }`}
+          title="Toggle Fire Copilot AI Inspector"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-terracotta" />
+          <span>Fire Copilot</span>
+          {activeSpikeDay && (
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" title="Active spike context" />
+          )}
+        </button>
+        <button onClick={exportCsv} disabled={!data?.daily.length || loading} className="border border-rule px-3 py-2 text-xs disabled:opacity-40">Export observations CSV</button>
+      </div>
     </header>
     {error && <div role="alert" className="flex items-center gap-3 border-b border-rule bg-panel px-4 py-3 text-sm text-bias"><span>Could not load real observations: {error}</span><button className="underline" onClick={() => void execute()}>Retry</button></div>}
     {!loading && data && !data.daily.length && <p role="status" className="border-b border-rule px-4 py-3 text-sm">No reported detections inside this area. This does not establish zero fire activity.</p>}
@@ -39,5 +61,6 @@ export default function App() {
       <div className={section === "map" ? "h-full" : "invisible absolute inset-0 pointer-events-none"}><MapPage /></div>
       {section === "calendar" && <div className="h-full overflow-y-auto px-4 py-6"><div className="mx-auto max-w-[1400px]"><h2 className="font-serif text-2xl">Daily satellite detections</h2><p className="my-3 text-sm text-muted">{data?.first_observed_date ?? "—"} to {data?.last_observed_date ?? "—"}. Counts are satellite detections, not individual fires. Blank days have no reported detections; observation coverage is unknown.</p><BurningCalendarCanvas /></div></div>}
     </main>
+    <FireCopilotDrawer />
   </div>;
 }

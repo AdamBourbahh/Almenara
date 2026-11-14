@@ -134,3 +134,34 @@ class ChaosMonkeyResponse(ContractModel):
     naive_rmse: float
     kalman_rmse: float
     seasonal_energy_recovered_pct: float
+
+
+class CitationReference(ContractModel):
+    id: str
+    source_type: Literal["NASA_DATASET", "PEER_REVIEWED", "WEB_NEWS_REPORT"] = "PEER_REVIEWED"
+    title: str
+    authors_or_agency: str
+    year: int
+    dataset_or_doi: str
+    url: str | None = None
+    relevance_note: str
+
+
+class ExplainSpikeRequest(ContractModel):
+    region_name: str = "Unknown Region"
+    selected_day: DailyCalendarCell | None = None
+    selected_hex: H3MapSummaryHex | None = None
+    user_question: str = ""
+    aoi: GeoJSONPolygon | None = None
+    confidence_level: Literal["low", "nominal", "high"] = "nominal"
+
+
+class ExplainSpikeResponse(ContractModel):
+    physical_classification: str
+    explanation_markdown: str
+    citations: list[CitationReference] = Field(default_factory=list)
+    web_search_used: bool = False
+    search_query_executed: str | None = None
+    model_used: str = "deterministic-fallback"
+    data_source: Literal["real", "synthetic"] = "synthetic"
+

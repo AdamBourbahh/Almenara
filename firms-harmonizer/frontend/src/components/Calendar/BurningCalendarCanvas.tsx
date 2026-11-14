@@ -49,6 +49,35 @@ export function BurningCalendarCanvas() {
       const date=new Date(Date.UTC(years[row],0,day+1)); if(date.getUTCFullYear()!==years[row])return;
       const iso=date.toISOString().slice(0,10), value=days.get(iso);
       setHover(value ? `${iso}: ${value.detection_count.toLocaleString("en-US")} detections; summed instantaneous FRP ${value.raw_frp_mw.toFixed(2)} MW; ${value.sensors.join(", ")}.` : `${iso}: no reported detections; coverage unknown.`);
+    }} onClick={(event)=>{
+      const rect=event.currentTarget.getBoundingClientRect();const row=Math.floor((event.clientY-rect.top)/rowH);const day=Math.floor((event.clientX-rect.left-left)/((width-left)/366));
+      if(row<0||row>=years.length||day<0||day>=366)return;
+      const date=new Date(Date.UTC(years[row],0,day+1)); if(date.getUTCFullYear()!==years[row])return;
+      const iso=date.toISOString().slice(0,10), value=days.get(iso);
+      if (value) {
+        useAnalysisStore.getState().openCopilot({
+          day: {
+            date: iso,
+            year: value.year,
+            doy: value.doy,
+            raw_hotspot_count: value.detection_count,
+            raw_frp_mw: value.raw_frp_mw,
+            harmonized_fre_mj_km2: value.raw_frp_mw * 0.01,
+            historical_cross_prior_fre: 0,
+            ci_95_lower: 0,
+            ci_95_upper: 0,
+            uncertainty_pct: 10,
+            biomass_burned_tonnes: value.raw_frp_mw * 0.368,
+            pm25_emitted_kg: null,
+            z_score_anomaly: 1.0,
+            is_gap_filled: false,
+            is_forecast: false,
+            gap_reason: null,
+            active_sensors: value.sensors,
+            tooltip_narrative: null
+          }
+        });
+      }
     }} /></div>
     <p role="status" className="min-h-10 text-sm text-muted">{hover}</p>
     <label className="flex items-center gap-3 text-sm">Inspect year <select aria-label="Inspect observation year" value={selectedYear} onChange={(e)=>setYear(Number(e.target.value))} className="border border-rule bg-paper p-2">{years.map((y)=><option key={y}>{y}</option>)}</select></label>

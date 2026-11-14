@@ -114,6 +114,36 @@ export interface ChaosMonkeyResponse {
   seasonal_energy_recovered_pct: number;
 }
 
+export interface CitationReference {
+  id: string;
+  source_type: "NASA_DATASET" | "PEER_REVIEWED" | "WEB_NEWS_REPORT";
+  title: string;
+  authors_or_agency: string;
+  year: number;
+  dataset_or_doi: string;
+  url?: string | null;
+  relevance_note: string;
+}
+
+export interface ExplainSpikeRequest {
+  region_name?: string;
+  selected_day?: DailyCalendarCell | null;
+  selected_hex?: H3MapSummaryHex | null;
+  user_question?: string;
+  aoi?: GeoJSONPolygon | null;
+  confidence_level?: ConfidenceLevel;
+}
+
+export interface ExplainSpikeResponse {
+  physical_classification: string;
+  explanation_markdown: string;
+  citations: Array<CitationReference>;
+  web_search_used: boolean;
+  search_query_executed?: string | null;
+  model_used?: string;
+  data_source?: "real" | "synthetic";
+}
+
 /** Pilot regions = SPECS.md §5.3 bounds (the synthetic cube places its cells inside them). */
 export const PRESET_REGIONS = {
   cerrado_brazil: {
