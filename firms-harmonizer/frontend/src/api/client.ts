@@ -261,8 +261,8 @@ export function exportToIpccCsv(data: AnalyzeResponse): void {
 // ============================================================================
 // DETERMINISTIC OFFLINE FALLBACK
 // Same request => byte-identical calendar/map/metrics (seeded PRNG, UTC dates).
-// Physically plausible: VIIRS detection jump from Jan 2012, MODIS Aqua safe mode
-// (31 Jul - 16 Aug 2022), cloud occlusion, swath gaps, phenology drift.
+// Physically plausible: VIIRS detection jump from Jan 2012, VIIRS SNPP outage
+// (27 Jul - 10 Aug 2022), cloud occlusion, swath gaps, phenology drift.
 // ============================================================================
 
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -276,7 +276,7 @@ const TERRA_START: DayRef = { year: 2000, doy: 306 }; // 2000-11-01
 const AQUA_START: DayRef = { year: 2002, doy: 185 }; // 2002-07-04
 const SNPP_START: DayRef = { year: 2012, doy: 20 }; // 2012-01-20 (VIIRS 375 m operational)
 const NOAA20_START: DayRef = { year: 2018, doy: 5 };
-const AQUA_SAFE_MODE = { year: 2022, startDoy: 212, endDoy: 228 }; // 2022-07-31 .. 2022-08-16
+const SNPP_OUTAGE = { year: 2022, startDoy: 208, endDoy: 222 }; // 2022-07-27 .. 2022-08-10 (15 days)
 
 const WOOSTER_BIOMASS_KG_PER_MJ = 0.368;
 const PM25_EMISSION_FACTOR_G_PER_KG = 7.17; // Representative savanna/grassland emission factor
@@ -565,13 +565,13 @@ function narrativeFor(
   }
   switch (reason) {
     case "SENSOR_OUTAGE":
-      return `${head} Reconstructed via RTS Kalman smoother: MODIS Aqua in safe mode; estimated from MODIS Terra (diurnal scaling Îºâ‰ˆ3.1Ã—) + VIIRS.`;
+      return `${head} Reconstructed via RTS Kalman smoother: VIIRS SNPP outage; estimated from MODIS Terra and Aqua (diurnal scaling Îºâ‰ˆ3.1Ã—) + VIIRS NOAA-20.`;
     case "CLOUD_OCCLUSION":
       return `${head} Reconstructed via RTS Kalman + historical cross-guard: >80% cloud cover blocked every optical sensor.`;
     case "SWATH_GAP":
       return `${head} Equatorial swath gap: partial coverage gap-filled from neighboring H3 cells (tâˆ’1).`;
     case "MULTI_FACTOR":
-      return `${head} Multi-factor gap (MODIS Aqua safe mode + cloud occlusion): reconstructed from the historical cross-guard prior with widened CI.`;
+      return `${head} Multi-factor gap (VIIRS SNPP outage + cloud occlusion): reconstructed from the historical cross-guard prior with widened CI.`;
     default:
       return head;
   }
@@ -615,9 +615,9 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
       const trueFre = peakFre * amplitude * vonMisesShape(doy, yearPeak, VON_MISES_KAPPA, yearLength) * Math.exp(0.35 * gaussian(rng)) + 0.5;
       trueAnnualFre.set(year, (trueAnnualFre.get(year) ?? 0) + trueFre);
 
-      const aquaSafeMode = year === AQUA_SAFE_MODE.year && doy >= AQUA_SAFE_MODE.startDoy && doy <= AQUA_SAFE_MODE.endDoy;
-      const aqua = isOnOrAfter(day, AQUA_START) && !aquaSafeMode;
-      const snpp = isOnOrAfter(day, SNPP_START);
+      const snppOutage = year === SNPP_OUTAGE.year && doy >= SNPP_OUTAGE.startDoy && doy <= SNPP_OUTAGE.endDoy;
+      const aqua = isOnOrAfter(day, AQUA_START);
+      const snpp = isOnOrAfter(day, SNPP_START) && !snppOutage;
       const noaa20 = isOnOrAfter(day, NOAA20_START);
       const sensors = ["MODIS_TERRA", ...(aqua ? ["MODIS_AQUA"] : []), ...(snpp ? ["VIIRS_SNPP"] : []), ...(noaa20 ? ["VIIRS_NOAA20"] : [])];
 
@@ -625,7 +625,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
       const cloud = r < 0.035;
       const swath = !cloud && tropical && r < 0.05;
       const gapReason: GapReason =
-        cloud && aquaSafeMode ? "MULTI_FACTOR" : cloud ? "CLOUD_OCCLUSION" : aquaSafeMode ? "SENSOR_OUTAGE" : swath ? "SWATH_GAP" : "NONE";
+        cloud && snppOutage ? "MULTI_FACTOR" : cloud ? "CLOUD_OCCLUSION" : snppOutage ? "SENSOR_OUTAGE" : swath ? "SWATH_GAP" : "NONE";
       const detectionFactor = cloud ? 0 : swath ? 0.5 : 1;
 
       // Raw counts: VIIRS 375 m detects ~4.5x more pixels than MODIS 1 km -> artificial jump from Jan 2012.

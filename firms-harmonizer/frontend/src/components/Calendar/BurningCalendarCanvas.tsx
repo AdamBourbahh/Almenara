@@ -13,7 +13,7 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 const FONT = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 const VIIRS_MARKER = { year: 2012, label: "Jan 2012 · VIIRS comes online", color: "#b45309" };
-const AQUA_MARKER = { year: 2022, startDoy: 212, endDoy: 228, label: "Aug 2022 · MODIS Aqua safe mode", color: "#b91c1c" };
+const SNPP_MARKER = { year: 2022, startDoy: 208, endDoy: 222, label: "Jul-Aug 2022 · VIIRS SNPP outage (15 d)", color: "#b91c1c" };
 
 const FLAG_DATA = 1;
 const FLAG_GAP = 2;
@@ -342,7 +342,7 @@ export function BurningCalendarCanvas() {
     for (let r = 0; r < L.rows; r++) {
       const year = L.startYear + r;
       const isSelected = year === selectedYear;
-      if (r % step !== 0 && !isSelected && year !== VIIRS_MARKER.year && year !== AQUA_MARKER.year) continue;
+      if (r % step !== 0 && !isSelected && year !== VIIRS_MARKER.year && year !== SNPP_MARKER.year) continue;
       ctx.font = `${isSelected ? "bold " : ""}9px ${FONT}`;
       ctx.fillStyle = isSelected ? "#b30000" : yearLabel;
       ctx.textAlign = "right";
@@ -369,20 +369,20 @@ export function BurningCalendarCanvas() {
       ctx.stroke();
       labelBox(ctx, VIIRS_MARKER.label, L.gridX + L.gridW - 2, y - 2, VIIRS_MARKER.color, labelBg, "right");
     }
-    const aquaRow = AQUA_MARKER.year - L.startYear;
-    if (aquaRow >= 0 && aquaRow < L.rows) {
-      const x = L.gridX + (AQUA_MARKER.startDoy - 1) * L.cellW;
-      const w = (AQUA_MARKER.endDoy - AQUA_MARKER.startDoy + 1) * L.cellW;
-      const y = L.gridY + aquaRow * L.cellH;
-      ctx.strokeStyle = AQUA_MARKER.color;
+    const snppRow = SNPP_MARKER.year - L.startYear;
+    if (snppRow >= 0 && snppRow < L.rows) {
+      const x = L.gridX + (SNPP_MARKER.startDoy - 1) * L.cellW;
+      const w = (SNPP_MARKER.endDoy - SNPP_MARKER.startDoy + 1) * L.cellW;
+      const y = L.gridY + snppRow * L.cellH;
+      ctx.strokeStyle = SNPP_MARKER.color;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([3, 2]);
       ctx.strokeRect(x - 2, y - 2, w + 4, L.cellH + 4);
       ctx.setLineDash([]);
       ctx.font = `9px ${FONT}`;
-      const labelWidth = ctx.measureText(AQUA_MARKER.label).width + 8;
+      const labelWidth = ctx.measureText(SNPP_MARKER.label).width + 8;
       const fitsRight = x + w + 6 + labelWidth < L.gridX + L.gridW;
-      labelBox(ctx, AQUA_MARKER.label, fitsRight ? x + w + 6 : x - 6, y + L.cellH / 2 + 3, AQUA_MARKER.color, labelBg, fitsRight ? "left" : "right");
+      labelBox(ctx, SNPP_MARKER.label, fitsRight ? x + w + 6 : x - 6, y + L.cellH / 2 + 3, SNPP_MARKER.color, labelBg, fitsRight ? "left" : "right");
     }
 
     if (viewMode === "HARMONIZED") {

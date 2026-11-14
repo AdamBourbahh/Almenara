@@ -206,7 +206,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   isDrawingAoi: false,
 
   splitCurtainPct: 50,
-  selectedYear: 2022, // Critical year by default (MODIS Aqua safe mode)
+  selectedYear: 2022, // Critical year by default (VIIRS SNPP outage, Jul-Aug 2022)
   hoveredDay: null,
   selectedMonth: null, selectedDay: null, selectedDoy: null, selectedDate: null,
   hoveredDate: null, hoveredCell: null, isDatePinned: false,
