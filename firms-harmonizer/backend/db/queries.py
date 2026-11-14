@@ -7,12 +7,14 @@ values are bound parameters: no user value is ever placed in SQL text.
 
 from __future__ import annotations
 
+import json
 from typing import NamedTuple
 
 import h3.api.basic_int as h3i
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
+import pyarrow.parquet as pq
 
 from backend.api.schemas import H3MapSummaryHex
 from backend.db import duckdb_engine
@@ -187,12 +189,18 @@ def _scan_sql(missing: set[str]) -> str:
     return "SELECT " + ", ".join(parts) + _SPATIAL_FILTER
 
 
-def query_aoi_rows(cur, cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int) -> pa.Table:
+def query_aoi_rows(cur, cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int,
+                   epoch_range: tuple[int, int] | None = None) -> pa.Table:
     """Single scan: every cube row of the AOI and year range (no grouping), as Arrow."""
     missing = set(duckdb_engine.missing_columns())
     _register_cells(cur, cells_r4, cells_r7)
     try:
-        return cur.sql(_scan_sql(missing), params=[int(start_year), int(end_year)]).to_arrow_table()
+        sql = _scan_sql(missing)
+        params = [int(start_year), int(end_year)]
+        if epoch_range is not None:
+            sql += " AND epoch_day BETWEEN ? AND ?"
+            params.extend(epoch_range)
+        return cur.sql(sql, params=params).to_arrow_table()
     finally:
         _unregister_cells(cur)
 
@@ -347,3 +355,149 @@ def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_ye
         removed = 0
         used = [h.h3_index for h in hexagons]
     return AoiAggregate(daily, hexagons, removed, len(used), used)
+
+
+def fetch_map_period(cells_r4: list[int], cells_r7: list[int], year: int,
+                     epoch_range: tuple[int, int], exclude_industrial: bool) -> list[H3MapSummaryHex]:
+    """Observed per-cell energy and counts for an inclusive period within one year.
+
+    The legacy ``mean_annual_fre`` field contains the selected period's integrated
+    density here; no annual extrapolation or regional gap filling is applied.
+    """
+    if not cells_r4 or not cells_r7:
+        return []
+    with duckdb_engine.get_db_cursor() as cur:
+        table = query_aoi_rows(cur, cells_r4, cells_r7, year, year, epoch_range)
+        if exclude_industrial:
+            table = table.filter(pc.less(table["industrial_prob"], INDUSTRIAL_THRESHOLD))
+        if table.num_rows == 0:
+            return []
+        cols = {"h3_r7": table.column("h3_r7").to_numpy()}
+        for name in ("epoch_day", "year", "raw_modis_cnt", "raw_viirs_cnt"):
+            cols[name] = _int_col(table, name)
+        for name in ("industrial_prob",) + OBS_COLUMNS:
+            cols[name] = _float_col(table, name)
+        hexagons, _, _ = _summarize_hexagons(
+            cur, cols, np.asarray(sorted(cells_r7), dtype=np.uint64), year, year)
+    return [h for h in hexagons if h.raw_pixel_count > 0 or h.mean_annual_fre > 0]
+
+def fetch_observed_detections(cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int) -> dict:
+    """Aggregate accepted FIRMS detection centers, without calibration or imputation."""
+    path = duckdb_engine.ROOT / 'data/processed/staged_firms.parquet'
+    if not path.is_file():
+        raise FileNotFoundError('Raw observations are unavailable. Run scripts/01_ingest_firms.py.')
+    if duckdb_engine.data_source() != 'real':
+        raise ValueError('The observations viewer requires a real cube; disable USE_SYNTHETIC_CUBE.')
+    if not cells_r7:
+        return {'daily': [], 'map_hexagons': []}
+    with duckdb_engine.get_db_cursor() as cur:
+        _register_cells(cur, cells_r4, cells_r7)
+        try:
+            rows = cur.sql("""SELECT acq_date, h3_r7, satellite, frp FROM read_parquet(?)
+                WHERE is_center AND h3_r4 IN (SELECT h3_r4 FROM aoi_r4)
+                AND h3_r7 IN (SELECT h3_r7 FROM aoi_r7)
+                AND acq_date BETWEEN make_date(?,1,1) AND make_date(?,12,31)""",
+                params=[str(path), start_year, end_year]).to_arrow_table()
+            cur.register('selected_observations', rows)
+            daily = cur.sql("""SELECT acq_date::VARCHAR AS date,
+                year(acq_date)::INTEGER AS year, dayofyear(acq_date)::INTEGER AS doy,
+                count(*) AS detection_count, sum(frp) AS raw_frp_mw,
+                list_sort(list(DISTINCT satellite)) AS sensors
+                FROM selected_observations GROUP BY acq_date ORDER BY acq_date""").to_arrow_table().to_pylist()
+            hexagons = cur.sql("""SELECT printf('%x', h3_r7) AS h3_index,
+                count(*) AS detection_count, sum(frp) AS raw_frp_mw
+                FROM selected_observations GROUP BY h3_r7 ORDER BY h3_r7""").to_arrow_table().to_pylist()
+            return {'daily': daily, 'map_hexagons': hexagons}
+        finally:
+            _unregister_cells(cur)
+
+
+def fetch_risk_daily(cells_r4: list[int], cells_r7: list[int], start_year: int,
+                     end_year: int, cutoff_epoch: int) -> dict[str, np.ndarray]:
+    """Aggregate causal FRP features without reusing retrospective ETL classifications."""
+    if not cells_r7:
+        return {}
+    missing = set(duckdb_engine.missing_columns())
+    metadata = pq.read_schema(duckdb_engine.cube_path()).metadata or {}
+    coverage = json.loads(metadata.get(b"ancillary_coverage", b"{}"))
+    cloud_coverage = coverage.get("cloud_cover_pct", {})
+    # The current cube has a zero sentinel. Use cloud only when zero can be trusted.
+    has_cloud = ("cloud_cover_pct" not in missing and cloud_coverage.get("observed_rows", 0) > 0
+                 and cloud_coverage.get("missing_rows", 1) == 0)
+    cloud = "cloud_cover_pct" if has_cloud else "NULL::DOUBLE"
+    gap = "gap_status_mask" if "gap_status_mask" not in missing else "0"
+    query_sql = (
+        "WITH source AS ("
+        "    SELECT h3_r7, epoch_day, greatest(raw_frp_mw, 0)::DOUBLE AS frp, "
+        + cloud + " AS cloud, " + gap + " AS gap, "
+        "           month(DATE '1970-01-01' + epoch_day::INTEGER) AS month_idx "
+        + _SPATIAL_FILTER + " AND epoch_day <= ?"
+        "), history AS ("
+        "    SELECT *, count(*) FILTER (WHERE frp > 0) OVER prior AS past_days, "
+        "           bit_count(bit_or(1 << month_idx) FILTER (WHERE frp > 0) OVER prior) AS past_months, "
+        "           avg(ln(1 + frp)) FILTER (WHERE frp > 0) OVER prior AS baseline, "
+        "           stddev_pop(ln(1 + frp)) FILTER (WHERE frp > 0) OVER prior AS spread "
+        "    FROM source WINDOW prior AS ("
+        "        PARTITION BY h3_r7 ORDER BY epoch_day RANGE BETWEEN 365 PRECEDING AND 1 PRECEDING"
+        "    )"
+        ") "
+        "SELECT h3_r7, epoch_day, frp, cloud, gap, "
+        "       coalesce(past_days >= 12 AND past_months >= 9 AND spread <= 0.8, false) AS persistent, "
+        "       greatest(0, (ln(1 + frp) - baseline) / greatest(0.25, spread)) AS excursion "
+        "FROM history"
+    )
+    with duckdb_engine.get_db_cursor() as cur:
+        _register_cells(cur, cells_r4, cells_r7)
+        try:
+            classified = cur.sql(query_sql, params=[start_year, end_year, cutoff_epoch]).to_arrow_table()
+        finally:
+            _unregister_cells(cur)
+        if not classified.num_rows:
+            return {}
+
+        cur.register("risk_rows", classified)
+        try:
+            by_day = cur.sql("""
+                SELECT epoch_day, sum(frp) FILTER (WHERE NOT persistent) AS vegetation_frp,
+                       sum(frp) FILTER (WHERE persistent) / nullif(sum(frp), 0) AS persistent_share,
+                       max(excursion) FILTER (WHERE persistent AND frp > 0) AS industrial_z,
+                       avg(cloud) AS cloud, bit_or(gap) AS gap
+                FROM risk_rows GROUP BY epoch_day ORDER BY epoch_day
+            """).to_arrow_table()
+            cells = cur.sql("SELECT DISTINCT h3_r7 FROM risk_rows WHERE NOT persistent AND frp > 0").fetchnumpy()["h3_r7"]
+            origins, neighbors = [], []
+            cell_set = set(cells.tolist())
+            for cell in cell_set:
+                for neighbor in h3i.grid_disk(cell, 1):
+                    if neighbor != cell and neighbor in cell_set:
+                        origins.append(cell)
+                        neighbors.append(neighbor)
+            cur.register("risk_neighbors", pa.table({
+                "origin": pa.array(origins, type=pa.uint64()),
+                "neighbor": pa.array(neighbors, type=pa.uint64()),
+            }))
+            try:
+                spatial = cur.sql("""
+                    SELECT a.epoch_day, avg(b.frp) AS neighbor_frp
+                    FROM risk_rows a JOIN risk_neighbors n ON n.origin = a.h3_r7
+                    JOIN risk_rows b ON b.h3_r7 = n.neighbor
+                      AND b.epoch_day::INTEGER = a.epoch_day::INTEGER - 1
+                    WHERE NOT a.persistent AND NOT b.persistent AND b.frp > 0
+                    GROUP BY a.epoch_day
+                """).to_arrow_table()
+            finally:
+                cur.unregister("risk_neighbors")
+        finally:
+            cur.unregister("risk_rows")
+
+    days = _int_col(by_day, "epoch_day")
+    epoch = np.arange(days[0], days[-1] + 1, dtype=np.int64)
+    result = {"epoch_day": epoch}
+    for name in ("vegetation_frp", "persistent_share", "industrial_z", "cloud", "gap"):
+        values = np.full(len(epoch), np.nan if name == "cloud" else 0.0)
+        rows = _float_col(by_day, name)
+        values[days - epoch[0]] = rows if name == "cloud" else np.nan_to_num(rows)
+        result[name] = values
+    result["neighbor_frp"] = np.zeros(len(epoch))
+    result["neighbor_frp"][_int_col(spatial, "epoch_day") - epoch[0]] = _float_col(spatial, "neighbor_frp")
+    return result

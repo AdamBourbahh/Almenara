@@ -1,9 +1,33 @@
 # CAMBIOS — registro de cambios que afectan a otros integrantes
 
+## 2026-11-14 — Exact daily and monthly map observations
+
+User-authorized integration across API, DuckDB and frontend: added synchronous
+`POST /api/map-period` with inclusive date bounds, source provenance, bounded caching,
+industrial filtering and per-cell energy/count aggregation from the local cube.
+The frozen `schemas.py` and `types.ts` contracts are unchanged. The new endpoint reuses
+the existing hexagon shape: its legacy `mean_annual_fre` field contains the selected
+period's integrated energy density, without annual extrapolation or regional gap filling.
+See root `SPECS.md` §5.4 for the additional endpoint contract.
+
+Day/month selection now reloads map cells with cancellation, stale-response protection
+and period-aware caching. Map tooltips, the chronology dock and the right panel identify
+the same period. Colors retain a shared reference; empty dates show no observations.
+The first satellite detection must not be described as an exact ignition time.
+Regression coverage includes leap days, month totals, empty periods, industrial filtering,
+date validation, cache isolation and late responses.
+
 Cada fila es un cambio hecho por Moha (dueño de `backend/db/` y `backend/api/`) sobre un archivo compartido o de otra persona. Motivo general: implementar la API sin datos falsos ni sustitutos silenciosos (plan v2).
 
 | Fecha | Archivo | Dueño original | Cambio | Motivo | Afecta a |
 |---|---|---|---|---|---|
+| 2026-11-14 | `backend/db/nrt_poller.py` | Moha | Implementación 100% lista para producción del poller NRT (ADR-03) con soporte offline y test en `test_nrt_poller.py` | Eliminar archivo vacío (0 bytes); regla ZERO PLACEHOLDERS de AGENTS.md | Backend, DuckDB |
+| 2026-11-14 | `backend/api/main.py` | Moha | Integrado `start_nrt_poller()` y `stop_nrt_poller()` en lifespan de FastAPI | Gestión del ciclo de vida del poller NRT en background | Backend |
+| 2026-11-14 | `backend/db/queries.py` | Moha | Corregido f-string SQL en `fetch_risk_daily` y sustituido `.execute().to_arrow_table()` por `.sql().to_arrow_table()` | Cumplimiento del guardarraíl AST de SQL y eliminación de advertencias UserWarning por copia extra de filas | Backend, DuckDB |
+| 2026-11-14 | `backend/api/routes.py` | Moha | Actualizado `duckduckgo_search` a `ddgs` e incluido estado de NRT en `/api/health` | Eliminar RuntimeWarning de paquete renombrado y enriquecer healthcheck | Backend, Health |
+| 2026-11-14 | `backend/api/schemas.py` | Adam | Añadidos `CitationReference`, `ExplainSpikeRequest` y `ExplainSpikeResponse` | Contratos para endpoint `/api/explain-spike` (grounding web y citas científicas) | Frontend, Backend |
+| 2026-11-14 | `frontend/src/api/types.ts` | Mohammed | Espejo de `CitationReference`, `ExplainSpikeRequest` y `ExplainSpikeResponse` | Tipos TypeScript sincronizados con backend | Frontend |
+| 2026-11-14 | `backend/api/routes.py` | Moha | Implementado endpoint síncrono `POST /api/explain-spike` con triaje físico y grounding web en cascada | Explicación científica de anomalías con citas [1]..[5] y [W1]..[W3] | Frontend, Demo |
 | 2026-11-14 | `backend/api/schemas.py` | Adam | `AnalyzeResponse.data_source` y `ChaosMonkeyResponse.data_source: Literal["real","synthetic"]` (nuevos, obligatorios) | Toda respuesta debe decir si los datos son reales o sintéticos | Frontend (Mohammed, Migue) |
 | 2026-11-14 | `backend/api/schemas.py` | Adam | Pasan a nullable: `DailyCalendarCell.pm25_emitted_kg`, `DailyCalendarCell.tooltip_narrative`, `AnalyzeResponse.forecast_series`, `ScientificAuditMetrics.total_pm25_emitted_tonnes` | Forecast a 14 días, PM2.5 y tooltip quedan fuera del MVP y se devuelven como `null`. PM2.5 necesita un factor de emisión por bioma con fuente citada | Frontend: hay que gestionar `null` |
 | 2026-11-14 | `backend/api/schemas.py` | Adam | Pasan a nullable: `ScientificAuditMetrics.burned_area_r2_raw/harm` y `AnalyzeResponse.audit_metrics` | `null` si falta la columna `burned_area_ha_mcd64` o si la AOI no tiene datos (respuesta 200 con listas vacías) | Frontend |
@@ -110,3 +134,76 @@ Con el objetivo de `execution_time_ms < 250 ms`, quedan **unos 150 ms para todas
 Chaos Monkey extracts the requested year, supplies the full retrospective calibration history and converts the core Pydantic result to the HTTP shape. The HTTP response uses the selected cube's provenance. Its reference is the intact smoother; full-history use is retrospective and is not held-out independent validation. Forecast, PM2.5 and tooltip HTTP fields retain their deferred nullable behavior.
 
 Verification: 148 backend tests passed (including four new actual-core HTTP integration cases); all four frozen test hashes match; `python -m backend.check_core --synthetic` passes all eight operations; `python -m backend.validation_report --synthetic` completes all four pilot regions. The artifact is synthetic: real-data scientific validation and latency targets remain separate acceptance gates.
+
+## 2026-11-14 — Real observations viewer
+
+The default frontend now uses additive `POST /api/observations` with a GeoJSON polygon body. Responses contain `data_source: "real"`, `daily` (UTC date/year/DOY, detection_count, raw_frp_mw, sensors), `map_hexagons` (15-character H3 hex, detection_count, raw_frp_mw), total detections, first/last observed dates, execution time and a method description. Values come exclusively from accepted staging detection centers, without calibration or imputation. Missing staging or synthetic backend mode returns 503. The endpoint uses hierarchical R4/R7 filtering, request-local cursors, Arrow cell tables and bound SQL parameters. Counts and FRP are additive across map cells and days; no scientific validation or energy interpretation is implied.
+
+The UI reads its four study envelopes from data/regions.json, displays observed counts, raw FRP, all five instruments and explicit missing-day semantics, and exports an observations CSV. It has no automatic synthetic fallback, gap-filling control, forecast or emissions/audit claims. Calendar gaps remain blank. Map colors summarize the full observed period; the history year control only selects the inspected annual count. The map stays mounted across tabs. Legacy scientific API contracts and their TypeScript mirror are unchanged.
+
+## 2026-11-14 — Main integration conflict resolution
+
+Merged upstream observations, ETL updates and Physics-First Fire Copilot while retaining
+the integrated chronology dock and exact daily/monthly energy maps. The Observations
+section exposes accepted FIRMS records and CSV export separately from calibrated energy.
+The upstream observations and explanation endpoints and their additive contracts are retained.
+Validation: 73 backend tests, 8 frontend tests and the production build passed.
+
+## 2026-11-14 — Evidence-first Fire Copilot (`computo`)
+
+The chatbot now queries accepted FIRMS detection centers for the question's place and
+exact dates, instead of explaining whichever region happened to be selected in the UI.
+`backend/api/fire_copilot.py` separates scope resolution, parameterized observation
+retrieval, candidate web reports, bounded model calls and deterministic local answers.
+Local numerical summaries remain available without network access. Model failure no
+longer becomes an invented extreme fire or a remote/undocumented burn. Counts are not
+fire events; power is not energy; high entropy is not proof of gas flaring; a date in
+2012 is not proof of an instrumentation artifact.
+
+Coordinated contract addition: `CopilotTurn` and optional `conversation` (default empty,
+at most 12 turns, each at most 6,000 characters), `period_start` and `period_end` (default
+null) are mirrored in `backend/api/schemas.py`, `frontend/src/api/types.ts` and the
+frozen-contract excerpt in root `SPECS.md`. Existing fields and types are unchanged.
+The user's instruction granting full freedom for chatbot improvements authorizes the
+backend/frontend integration across the usual file-ownership tracks.
+
+The frontend supplies geometry, chronology and bounded conversation history, prevents
+concurrent duplicate sends, cancels cleared requests and ignores stale responses.
+Citation markers open their actual sources. Source labels distinguish retrieved web
+results from verified incident matches, and synthetic provenance remains visible.
+Backend outages surface errors instead of fabricated client-side explanations.
+
+Groq defaults to `openai/gpt-oss-120b` with `openai/gpt-oss-20b` as fallback; both can be
+overridden. The previously preferred Llama model returned HTTP 404 for the configured
+account. Authentication and quota failures are not retried across models. The retired
+`duckduckgo-search` dependency is replaced by `ddgs`, with bounded search fallback and
+10-minute in-memory caching of successful queries. Optional Tavily remains supported.
+`COPILOT_OFFLINE=1` prevents all assistant provider requests.
+
+`backend/tests/test_explain_spike.py` now tests grounded behavior without network access.
+It no longer requires scientifically unsupported classifications or unmeasured biomass
+claims. The four files listed in `FROZEN_TESTS.sha256` are unchanged. Frontend copilot
+regressions cover context transmission, provenance, cancellation and unavailable backend
+behavior. `scripts/06_validate_copilot.py` exercises Madrid/Sierra Oeste (2026-07-24),
+Careiro (2024-09-13), Autazes (2023-10-09), monthly Manaus observations and a next-day
+follow-up against the real local archive, saving complete responses and source links.
+
+Validation completed on 2026-11-14: 255 backend tests passed (35 copilot regressions),
+12 frontend tests passed, and the production frontend build passed. All four frozen
+test hashes match. Real-data offline and live numerical checks passed for all five
+cases and the next-day follow-up; full snapshots are in
+`data/processed/copilot_validation_{offline,live}.json`. Live model prose was also
+checked against retrieved reports; free search availability and provider quotas varied,
+so the snapshots explicitly record whether each response used a model or local fallback.
+These automated checks establish numerical consistency, not independent certification
+of every generated narrative. The missing real cube was rebuilt locally from existing
+staging and lookup files; generated Parquet remains ignored by git.
+
+## 2026-11-14 — Main integration
+
+Retained the offline predictor and date-specific map alongside the upstream modular
+Fire Copilot. The FIRMS NRT CLI and background ingestion share the validated area
+client. Background polling requires `NRT_POLLING=1`, stays idle in offline or synthetic
+mode, and writes to a separate in-memory table through an isolated DuckDB cursor.
+The health endpoint exposes polling status. Offline and mocked tests cover the path;
+live FIRMS ingestion was not exercised during the merge.

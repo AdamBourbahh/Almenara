@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:.*has been renamed to.*:RuntimeWarning",
+    "ignore:.*Arrow output on a DB-API result.*:UserWarning",
+]

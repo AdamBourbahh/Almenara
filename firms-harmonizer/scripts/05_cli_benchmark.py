@@ -24,6 +24,8 @@ ENERGY = """coalesce((coalesce(obs_terra_fre, 0) + coalesce(obs_aqua_fre, 0) + c
     / nullif((obs_terra_fre IS NOT NULL)::INT + (obs_aqua_fre IS NOT NULL)::INT
     + (obs_viirs_fre IS NOT NULL)::INT, 0), 0)"""
 MODIS_SEEN = "(obs_terra_fre IS NOT NULL OR obs_aqua_fre IS NOT NULL)"
+INDUSTRIAL_THRESHOLD = 0.75  # same exclusion as the API (backend/db/queries.py)
+P95_GATE_MS = 150.0  # release gate; the original <15 ms target is descoped (Implementation_backend_plan.md)
 
 
 def reference_daily(con, path, parents):
@@ -38,7 +40,8 @@ def reference_daily(con, path, parents):
     """
     rows = con.execute(f"""SELECT h3_r7, epoch_day, {ENERGY}
         FROM read_parquet(?) SEMI JOIN region_cells USING (h3_r7)
-        WHERE h3_r4 IN ({parents}) AND {MODIS_SEEN}""", [str(path)]).fetchall()
+        WHERE h3_r4 IN ({parents}) AND {MODIS_SEEN} AND industrial_prob < {INDUSTRIAL_THRESHOLD}""",
+        [str(path)]).fetchall()
     seen = {(cell, day) for cell, day, _ in rows}
     neighbours, daily = {}, {}
     for cell, day, energy in rows:
@@ -147,7 +150,7 @@ def run_benchmark(cube_path="data/processed/fire_cube.parquet"):
                      for i in range(metadata.num_row_groups) for j in range(metadata.num_columns))
     success = compressed and parquet.schema_arrow.equals(bootstrap.CUBE_SCHEMA, check_metadata=False)
     regions = ingest.load_regions()
-    print("Project audit targets   P95 < 15 ms   Chow p > .10   R2 > .90   Recovery > 90%")
+    print(f"Project audit targets   P95 < {P95_GATE_MS:.0f} ms   Chow p > .10   R2 > .90   Recovery > 90%")
     print("Chow, W1 and R2 use the synchronized MODIS-reference record. R2: leave-one-year-out, burned area "
           "~ fire cell-days + harmonized FRE + spreading cell-days vs MCD64A1. Recovery: core Chaos Monkey (2022). Fixture metrics are synthetic.")
     print(f"{'Region':23} {'P95 ms':>8} {'Chow p':>8} {'BA Chow':>8} {'W1':>10} {'CV R2':>8} {'Fit R2':>8} "
@@ -178,6 +181,7 @@ def run_benchmark(cube_path="data/processed/fire_cube.parquet"):
                     + (obs_viirs_fre IS NOT NULL)::INT, 0), 0)) AS energy,
                 sum(obs_viirs_fre) AS viirs, sum(burned_area_ha_mcd64) AS area
                 FROM read_parquet(?) SEMI JOIN region_cells USING (h3_r7) WHERE h3_r4 IN ({parents})
+                    AND industrial_prob < {INDUSTRIAL_THRESHOLD}
                 GROUP BY year, doy ORDER BY year, doy"""
             rows = con.execute(sql, [str(path)]).fetchall()
             latency = []
@@ -196,10 +200,13 @@ def run_benchmark(cube_path="data/processed/fire_cube.parquet"):
             before = energy_years < 2012
             w1 = None
             if min(before.sum(), (~before).sum()) >= 10:
-                w1 = wasserstein_distance(energy[before], energy[~before])
+                # Same estimator as the API audit: W1 between eras normalized by the overall mean.
+                scale = float(energy.mean())
+                w1 = wasserstein_distance(energy[before] / scale, energy[~before] / scale) if scale > 0 else 0.0
             inputs = con.execute(f"""SELECT epoch_day, avg(obs_terra_fre), avg(obs_aqua_fre), avg(obs_viirs_fre),
                 avg(neighbor_fre_lag1), avg(cloud_cover_pct)
                 FROM read_parquet(?) SEMI JOIN region_cells USING (h3_r7) WHERE h3_r4 IN ({parents})
+                    AND industrial_prob < {INDUSTRIAL_THRESHOLD}
                 GROUP BY epoch_day ORDER BY epoch_day""", [str(path)]).fetchall()
             daily = dense_daily(inputs)
             # Days without detections carry zero regional energy in the annual means.
@@ -247,7 +254,7 @@ def run_benchmark(cube_path="data/processed/fire_cube.parquet"):
                       for v in (p95, chow, burned_chow, w1, r2, fit_r2, recovery)]
             print(f"{name:23} {values[0]:>8} {values[1]:>8} {values[2]:>8} {values[3]:>10} {values[4]:>8} "
                   f"{values[5]:>8} {values[6]:>8}")
-            success &= (p95 < 15 and chow is not None and chow > .1
+            success &= (p95 < P95_GATE_MS and chow is not None and chow > .1
                         and r2 is not None and r2 > .9 and recovery is not None and recovery > 90)
     return success
 

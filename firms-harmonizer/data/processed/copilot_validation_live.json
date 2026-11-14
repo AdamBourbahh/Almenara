@@ -1,0 +1,289 @@
+{
+  "created_at": "2026-11-14T18:32:14.528481+00:00",
+  "mode": "live",
+  "cases": [
+    {
+      "id": "madrid_2026",
+      "question": "¿Qué pasó en el incendio de Madrid del 24 de julio de 2026?",
+      "elapsed_ms": 5527.0,
+      "expected_detections": 1384,
+      "expected_summed_frp_mw": 87121.19,
+      "checks": {
+        "real_provenance": true,
+        "count_matches_archive": true,
+        "power_matches_archive": true,
+        "requested_date_present": true,
+        "no_stale_chilecito_scope": true,
+        "not_labeled_extreme_from_counts": true,
+        "sources_linked": true
+      },
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "The local FIRMS archive contains **1,384 satellite detections** in the **Madrid study envelope, Spain** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\nSummed instantaneous FRP across those detections: **87,121.19 MW**; strongest individual detection: **1,237.50 MW**. This sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.\n\nThe available evidence does not establish which named incident these detections belong to or its ignition cause. A matching incident report or fire perimeter would be needed to link them. No relevant web results were retrieved; this does not imply an undocumented fire.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": "¿Qué pasó en el incendio de Madrid del 24 de julio de 2026? Madrid study envelope, Spain 2026-07-24 wildfire incendio queimadas",
+        "model_used": "deterministic-offline-science",
+        "data_source": "real"
+      }
+    },
+    {
+      "id": "sierra_oeste_2026",
+      "question": "What happened near San Martín de Valdeiglesias on 24 July 2026?",
+      "elapsed_ms": 5891.8,
+      "expected_detections": 1626,
+      "expected_summed_frp_mw": 103052.76,
+      "checks": {
+        "real_provenance": true,
+        "count_matches_archive": true,
+        "power_matches_archive": true,
+        "requested_date_present": true,
+        "no_stale_chilecito_scope": true,
+        "not_labeled_extreme_from_counts": true,
+        "sources_linked": true
+      },
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "The local FIRMS archive contains **1,626 satellite detections** in the **Sierra Oeste study envelope, Spain** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\nSummed instantaneous FRP across those detections: **103,052.76 MW**; strongest individual detection: **1,509.70 MW**. This sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.\n\nThe available evidence does not establish which named incident these detections belong to or its ignition cause. A matching incident report or fire perimeter would be needed to link them. No relevant web results were retrieved; this does not imply an undocumented fire.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": "What happened near San Martín de Valdeiglesias on 24 July 2026? Sierra Oeste study envelope, Spain 2026-07-24 wildfire incendio queimadas",
+        "model_used": "deterministic-offline-science",
+        "data_source": "real"
+      }
+    },
+    {
+      "id": "careiro_2024",
+      "question": "Investigate the fires near Careiro, Amazonas on 13 September 2024.",
+      "elapsed_ms": 5366.8,
+      "expected_detections": 834,
+      "expected_summed_frp_mw": 10189.18,
+      "checks": {
+        "real_provenance": true,
+        "count_matches_archive": true,
+        "power_matches_archive": true,
+        "requested_date_present": true,
+        "no_stale_chilecito_scope": true,
+        "not_labeled_extreme_from_counts": true,
+        "sources_linked": true
+      },
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "The local FIRMS archive contains **834 satellite detections** in the **Careiro study envelope, Amazonas, Brazil** for **2024-09-13** (Aqua, N20, N21, SNPP, Terra). [5]\n\nSummed instantaneous FRP across those detections: **10,189.18 MW**; strongest individual detection: **182.02 MW**. This sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.\n\nThe available evidence does not establish which named incident these detections belong to or its ignition cause. A matching incident report or fire perimeter would be needed to link them. No relevant web results were retrieved; this does not imply an undocumented fire.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": "Investigate the fires near Careiro, Amazonas on 13 September 2024. Careiro study envelope, Amazonas, Brazil 2024-09-13 wildfire incendio queimadas | fallback: Careiro incendio September 2024",
+        "model_used": "deterministic-offline-science",
+        "data_source": "real"
+      }
+    },
+    {
+      "id": "autazes_2023",
+      "question": "What happened near Autazes, Amazonas on 9 October 2023?",
+      "elapsed_ms": 7502.1,
+      "expected_detections": 1115,
+      "expected_summed_frp_mw": 12381.62,
+      "checks": {
+        "real_provenance": true,
+        "count_matches_archive": true,
+        "power_matches_archive": true,
+        "requested_date_present": true,
+        "no_stale_chilecito_scope": true,
+        "not_labeled_extreme_from_counts": true,
+        "sources_linked": true
+      },
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "The local FIRMS archive contains **1,115 satellite detections** in the **Autazes study envelope, Amazonas, Brazil** for **2023-10-09** (Aqua, N20, N21, SNPP, Terra). [5]\n\nSummed instantaneous FRP across those detections: **12,381.62 MW**; strongest individual detection: **361.60 MW**. This sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.\n\nThe available evidence does not establish which named incident these detections belong to or its ignition cause. A matching incident report or fire perimeter would be needed to link them.\n\nCandidate reports to check for a matching location and date:\n- Autazes, 11 de outubro de 2023 - Atualização Novo Céu, km 10 ... [W1]\n- Prefeitura de Autazes reconhece mais incêndios no município e ... [W2]\n- Incêndio devasta vegetação e invade estrada de Autazes, veja ... [W3]\n- Fogo queima mata no Novo Céu, em Autazes, e gera pânico nos ... [W4]",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          },
+          {
+            "id": "[W1]",
+            "source_type": "WEB_NEWS_REPORT",
+            "title": "Autazes, 11 de outubro de 2023 - Atualização Novo Céu, km 10 ...",
+            "authors_or_agency": "www.facebook.com",
+            "year": 2026,
+            "dataset_or_doi": "Search result; publication date unverified",
+            "url": "https://www.facebook.com/prefeituradeautazes/videos/autazes-11-de-outubro-de-2023-atualização-novo-céu-km-10-fomos-surpreendidos-com/305378732349554/",
+            "relevance_note": "Autazes, 11 de outubro de 2023 - Atualização Novo Céu, km 10. Fomos surpreendidos com 6 focos de incêndio de grandes proporções, que invadiu,..."
+          },
+          {
+            "id": "[W2]",
+            "source_type": "WEB_NEWS_REPORT",
+            "title": "Prefeitura de Autazes reconhece mais incêndios no município e ...",
+            "authors_or_agency": "www.portalmarcossantos.com.br",
+            "year": 2023,
+            "dataset_or_doi": "Search result; publication date unverified",
+            "url": "https://www.portalmarcossantos.com.br/2023/10/12/prefeitura-de-autazes-reconhece-mais-incendios-no-municipio-e-afirma-atuar-desde-junho-para-amenizar-danos/",
+            "relevance_note": "Oct 12, 2023 · O município de Autazes (a 112 km de Manaus) é um dos mais atingidos pelas queimadas, provenientes de ações criminosas, que estão espalhando fumaça para os municípios próximos e colocando em risco a saúde da população."
+          },
+          {
+            "id": "[W3]",
+            "source_type": "WEB_NEWS_REPORT",
+            "title": "Incêndio devasta vegetação e invade estrada de Autazes, veja ...",
+            "authors_or_agency": "www.portaldoholanda.com.br",
+            "year": 2023,
+            "dataset_or_doi": "Search result; publication date unverified",
+            "url": "https://www.portaldoholanda.com.br/amazonas/incendio-devasta-vegetacao-e-invade-estrada-de-autazes-veja-video",
+            "relevance_note": "Oct 11, 2023 · Manaus/AM - Um incêndio de grandes proporções que se alastrou rapidamente por uma área de mata foi registrado nesta quarta-feira (11), ao longo da rodovia AM-254, que liga Manaus ao município de Autazes."
+          },
+          {
+            "id": "[W4]",
+            "source_type": "WEB_NEWS_REPORT",
+            "title": "Fogo queima mata no Novo Céu, em Autazes, e gera pânico nos ...",
+            "authors_or_agency": "bncamazonas.com.br",
+            "year": 2023,
+            "dataset_or_doi": "Search result; publication date unverified",
+            "url": "https://bncamazonas.com.br/municipios/fogo-queima-mata-no-novo-ceu-em-autazes-e-gera-panico-nos-moradores/",
+            "relevance_note": "Oct 10, 2023 · Nos últimos meses, desde que o verão amazônico apertou no Amazonas, uns oito municípios lideram os focos de calor no estado devido às queimadas da floresta. Entre eles está Autazes, a pouco mais de 100 quilômetros de Manaus."
+          }
+        ],
+        "web_search_used": true,
+        "search_query_executed": "What happened near Autazes, Amazonas on 9 October 2023? Autazes study envelope, Amazonas, Brazil 2023-10-09 wildfire incendio queimadas | fallback: Autazes incendio October 2023",
+        "model_used": "deterministic-offline-science",
+        "data_source": "real"
+      }
+    },
+    {
+      "id": "manaus_month",
+      "question": "Which days had the most detections near Manaus in September 2024?",
+      "elapsed_ms": 88.9,
+      "expected_detections": 19123,
+      "expected_summed_frp_mw": 265757.4,
+      "checks": {
+        "real_provenance": true,
+        "count_matches_archive": true,
+        "power_matches_archive": true,
+        "requested_date_present": true,
+        "no_stale_chilecito_scope": true,
+        "not_labeled_extreme_from_counts": true,
+        "sources_linked": true
+      },
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "The local FIRMS archive contains **19,123 satellite detections** in the **Amazonas / Manaus study envelope, Brazil** for **2024-09-01 to 2024-09-30** (Aqua, N20, N21, SNPP, Terra). [5]\n\nSummed instantaneous FRP across those detections: **265,757.40 MW**; strongest individual detection: **6,548.20 MW**. This sum is not energy, burned area or the number of fires.\n\nThe busiest day by detection count was **2024-09-12** with **2,659 detections**. First/last detections in this query: 2024-09-01 / 2024-09-29.\n\nDays with the most detections:\n\n| Date (UTC) | Detections | Summed FRP (MW) |\n| --- | ---: | ---: |\n| 2024-09-12 | 2,659 | 50,918.97 |\n| 2024-09-13 | 2,163 | 27,023.25 |\n| 2024-09-21 | 1,382 | 12,281.32 |\n| 2024-09-22 | 1,336 | 13,742.46 |\n| 2024-09-23 | 1,161 | 13,505.72 |\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-local-observations",
+        "data_source": "real"
+      }
+    }
+  ],
+  "limits": "Numerical and contract checks are automated. Event narrative quality and source correspondence require human review. Study envelopes are not municipalities, incident perimeters or proof that a detection belongs to a reported fire.",
+  "followup": {
+    "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+    "explanation_markdown": "The local FIRMS archive contains **2,283 satellite detections** in the **Madrid study envelope, Spain** for **2026-07-25** (Aqua, N20, N21, SNPP, Terra). [5]\n\nSummed instantaneous FRP across those detections: **36,223.87 MW**; strongest individual detection: **1,898.50 MW**. This sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.\n\nThe available evidence does not establish which named incident these detections belong to or its ignition cause. A matching incident report or fire perimeter would be needed to link them.\n\nCandidate reports to check for a matching location and date:\n- Madrid's Worst Wildfire Forces 60,000 to Flee Sierra Oeste [W1]\n- ‘It felt like the end of the world’: Spanish wildfire ... [W2]\n- Worst Wildfire In Madrid's History Forces 60,000 To Flee Homes [W3]\n- Spain fights to 'save lives' as wildfire evacuees shelter in ... [W4]",
+    "citations": [
+      {
+        "id": "[5]",
+        "source_type": "NASA_DATASET",
+        "title": "NASA FIRMS active fire observations",
+        "authors_or_agency": "NASA EOSDIS LANCE",
+        "year": 2026,
+        "dataset_or_doi": "NASA Earthdata / FIRMS",
+        "url": "https://firms.modaps.eosdis.nasa.gov/",
+        "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+      },
+      {
+        "id": "[W1]",
+        "source_type": "WEB_NEWS_REPORT",
+        "title": "Madrid's Worst Wildfire Forces 60,000 to Flee Sierra Oeste",
+        "authors_or_agency": "easternherald.com",
+        "year": 2026,
+        "dataset_or_doi": "Search result; publication date unverified",
+        "url": "https://easternherald.com/2026/07/25/madrid-sierra-oeste-wildfire-spain-evacuations/",
+        "relevance_note": "Jul 25, 2026 · The Sierra Oeste fire marks an escalation of the wildfire crisis that Spain first declared an emergency over on Thursday. Spain’s emergency declaration was part of a broader southern European catastrophe that also claimed the lives of firefighters in France and Italy on the same day."
+      },
+      {
+        "id": "[W2]",
+        "source_type": "WEB_NEWS_REPORT",
+        "title": "‘It felt like the end of the world’: Spanish wildfire ...",
+        "authors_or_agency": "www.theguardian.com",
+        "year": 2026,
+        "dataset_or_doi": "Search result; publication date unverified",
+        "url": "https://www.theguardian.com/world/2026/jul/25/wildfire-evacuees-spanish-sports-centre",
+        "relevance_note": "Jul 26, 2026 · The people of Robledo near Madrid witnessed unearthly scenes of devastation as their town was consumed by fire. When David Olivares went to bed on Thursday night, tired from a four-hour..."
+      },
+      {
+        "id": "[W3]",
+        "source_type": "WEB_NEWS_REPORT",
+        "title": "Worst Wildfire In Madrid's History Forces 60,000 To Flee Homes",
+        "authors_or_agency": "www.hngn.com",
+        "year": 2026,
+        "dataset_or_doi": "Search result; publication date unverified",
+        "url": "https://www.hngn.com/articles/272331/20260725/worst-wildfire-madrids-history-forces-60000-flee-blaze-rages-out-control.htm",
+        "relevance_note": "Jul 25, 2026 · An aerial picture taken the morning of July 25, 2026, shows the burnt landscape amid a wildfire in the Fresnedillas area near El Escorial, roughly 60 kilometers northwest of Madrid."
+      },
+      {
+        "id": "[W4]",
+        "source_type": "WEB_NEWS_REPORT",
+        "title": "Spain fights to 'save lives' as wildfire evacuees shelter in ...",
+        "authors_or_agency": "www.france24.com",
+        "year": 2026,
+        "dataset_or_doi": "Search result; publication date unverified",
+        "url": "https://www.france24.com/en/live-news/20260725-spain-fights-to-save-lives-as-wildfires-rage-near-madrid",
+        "relevance_note": "Jul 25, 2026 · Spain's Prime Minister Pedro Sanchez said Saturday firefighters were working to \"save lives\" in the blazes raging west of Madrid, as authorities said a separate fire in the east killed one..."
+      }
+    ],
+    "web_search_used": true,
+    "search_query_executed": "And on the next day? Madrid study envelope, Spain 2026-07-25 wildfire incendio queimadas",
+    "model_used": "deterministic-offline-science",
+    "data_source": "real"
+  },
+  "followup_correct_date": true,
+  "passed": true
+}

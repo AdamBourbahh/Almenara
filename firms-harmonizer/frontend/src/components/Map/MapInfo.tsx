@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { PRESET_REGIONS, useAnalysisStore } from "../../store/useAnalysisStore";
+import { PRESET_REGIONS, selectedMapPeriod, useAnalysisStore } from "../../store/useAnalysisStore";
 import { summarizeMappedYear } from "./mapMetrics";
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -14,13 +14,13 @@ function fmt(value: number, digits = 0): string {
   return Number.isFinite(value) ? value.toLocaleString("en-US", { maximumFractionDigits: digits }) : "—";
 }
 export function MapInfo() {
-  const { analysisData, selectedPreset, selectedYear, mapHexagons, mapYear, mapLoading, mapError, excludeIndustrial, loading } = useAnalysisStore(
+  const { analysisData, selectedPreset, requestedPeriod, mapHexagons, mapPeriod, mapLoading, mapError, excludeIndustrial, loading } = useAnalysisStore(
     useShallow((s) => ({ analysisData: s.analysisData, selectedPreset: s.selectedPreset,
-      selectedYear: s.selectedYear, mapHexagons: s.mapHexagons, mapYear: s.mapYear,
+      requestedPeriod: selectedMapPeriod(s), mapHexagons: s.mapHexagons, mapPeriod: s.mapPeriod,
       mapLoading: s.mapLoading, mapError: s.mapError, excludeIndustrial: s.excludeIndustrial, loading: s.loading }))
   );
   const mapped = useMemo(() => summarizeMappedYear(mapHexagons, excludeIndustrial), [mapHexagons, excludeIndustrial]);
-  const ready = !loading && !mapLoading && !mapError && mapYear === selectedYear;
+  const ready = !loading && !mapLoading && !mapError && mapPeriod === requestedPeriod;
   const cells = analysisData?.calendar_series ?? [];
   const totalDetections = cells.reduce((sum, c) => sum + c.raw_hotspot_count, 0);
   const countsByYear = new Map<number, number>();
@@ -35,8 +35,8 @@ export function MapInfo() {
       <h3 className="mt-2 font-serif text-lg text-ink">{selectedPreset === "CUSTOM" ? "Selected area" : PRESET_REGIONS[selectedPreset].label}</h3>
       <p className="mt-2 text-xs leading-relaxed text-muted">{DESCRIPTIONS[selectedPreset] ?? DESCRIPTIONS.CUSTOM}</p>
       <p className="mt-3 text-xs text-muted">{analysisData?.data_source === "real" ? "Source: local FIRMS observations" : analysisData?.data_source === "synthetic" ? "Source: synthetic demonstration" : "Source: awaiting analysis"}</p>
-      <h4 className="mt-4 text-xs font-medium text-ink">Visible map · {selectedYear}</h4>
-      {mapError && <p role="status" className="text-xs text-terracotta">Annual map unavailable</p>}
+      <h4 className="mt-4 text-xs font-medium text-ink">Visible map · {requestedPeriod}</h4>
+      {mapError && <p role="status" className="text-xs text-terracotta">Map period unavailable</p>}
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-rule pt-3">
         <div><dt className="text-[10px] text-faint">Mapped detections</dt><dd className="font-serif text-lg text-ink tnum">{value(mapped.detections)}</dd></div>
         <div><dt className="text-[10px] text-faint">Active grid cells</dt><dd className="font-serif text-lg text-ink tnum">{value(mapped.hexagons.length)}</dd></div>
@@ -45,7 +45,7 @@ export function MapInfo() {
         <div><dt className="text-[10px] text-faint">Estimated dry biomass</dt><dd className="font-serif text-lg text-ink tnum">{ready ? `${fmt(mappedBiomassKt, 2)} kt` : "—"}</dd></div>
         <div><dt className="text-[10px] text-faint">PM2.5 estimate</dt><dd className="font-serif text-lg text-ink tnum">Not computed</dd></div>
       </dl>
-      <p className="mt-2 text-[10px] leading-relaxed text-muted">Detections are satellite pixels, not separate fires. Energy uses the calibrated one-hour proxy; biomass applies 0.368 kg/MJ to that same energy and is not an independent measurement. Cell footprint is not burned area. Missing cells are not proof of zero fire.</p>
+      <p className="mt-2 text-[10px] leading-relaxed text-muted">Detections are satellite pixels, not separate fires. Energy uses the calibrated one-hour proxy; biomass applies 0.368 kg/MJ to that same energy and is not an independent measurement. Cell footprint is not burned area. Missing cells are not proof of zero fire. The first satellite detection is not necessarily the ignition date.</p>
       <h4 className="mt-4 text-xs font-medium text-ink">Full record · {cells[0]?.year ?? "—"}–{cells[cells.length - 1]?.year ?? "—"}</h4>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-rule pt-3">
         <div><dt className="text-[10px] text-faint">Recorded detections</dt><dd className="font-serif text-lg text-ink tnum">{loading || !analysisData ? "—" : fmt(totalDetections)}</dd></div>

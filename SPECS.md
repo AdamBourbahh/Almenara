@@ -296,6 +296,44 @@ class ChaosMonkeyResponse(ContractModel):
     naive_rmse: float
     kalman_rmse: float
     seasonal_energy_recovered_pct: float
+
+
+class CitationReference(ContractModel):
+    id: str
+    source_type: Literal["NASA_DATASET", "PEER_REVIEWED", "WEB_NEWS_REPORT"] = "PEER_REVIEWED"
+    title: str
+    authors_or_agency: str
+    year: int
+    dataset_or_doi: str
+    url: str | None = None
+    relevance_note: str
+
+
+class CopilotTurn(ContractModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=6000)
+
+
+class ExplainSpikeRequest(ContractModel):
+    region_name: str = "Unknown Region"
+    selected_day: DailyCalendarCell | None = None
+    selected_hex: H3MapSummaryHex | None = None
+    user_question: str = ""
+    aoi: GeoJSONPolygon | None = None
+    confidence_level: Literal["low", "nominal", "high"] = "nominal"
+    conversation: list[CopilotTurn] = Field(default_factory=list, max_length=12)
+    period_start: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    period_end: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class ExplainSpikeResponse(ContractModel):
+    physical_classification: str
+    explanation_markdown: str
+    citations: list[CitationReference] = Field(default_factory=list)
+    web_search_used: bool = False
+    search_query_executed: str | None = None
+    model_used: str = "deterministic-fallback"
+    data_source: Literal["real", "synthetic"] = "synthetic"
 ```
 
 ### 5.3 Preset Pilot Regions (`frontend/src/api/types.ts`)
@@ -303,3 +341,112 @@ class ChaosMonkeyResponse(ContractModel):
 2. **`california_usa` (Sierra Nevada, California):** `lon: -121.2 to -119.5, lat: 38.0 to 40.2` (Demonstrates von Mises phenological shift $+19$ days and the synthetic Aug 2022 Aqua-blackout RTS reconstruction scenario).
 3. **`iberia_med` (Iberian Peninsula / Mediterranean):** `lon: -6.5 to -3.2, lat: 37.2 to 39.8` (Demonstrates hierarchical `H3_r4` $\to$ `H3_r7` coastal precision and local operational impact).
 4. **`niger_delta_flaring` (Niger Delta Gas Flaring Control):** `lon: 5.6 to 7.2, lat: 4.6 to 5.8` (Demonstrates Shannon temporal entropy filter $H_{\text{temp}} > 0.75$ removing $95\%$ of stationary oil flares).
+
+### 5.4 Exact spatial map periods (2026-11-14 integration)
+
+`POST /api/map-period?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` accepts the existing
+`AnalyzeRequest` body without changing the frozen analysis contracts. Dates are inclusive,
+must belong to the same year, and must lie inside the body's requested year range.
+The response contains `data_source`, `start_date`, `end_date`, `map_hexagons` and
+`execution_time_ms`. Each hexagon retains the existing `H3MapSummaryHex` shape; on this
+endpoint, the legacy field `mean_annual_fre` is the integrated observed energy density
+over the requested dates, in MJ/km², with no annual extrapolation or regional Kalman
+gap filling. `raw_pixel_count` counts detections within those dates only.
+
+The query uses the same R7 polygon fill and unique R4 parents, registered Arrow cell
+tables, bound year and epoch-day parameters, request-local DuckDB cursors, and hexadecimal
+H3 serialization as annual analysis. Industrial observations are filtered before temporal
+aggregation when requested. Empty periods return an empty map, never an annual substitute.
+Responses are cached by geometry, exact dates, industrial filter and cube modification time.
+
+The chronology's selected day takes precedence over month, which takes precedence over
+year. Changing any of them reloads spatial observations with cancellation and stale-response
+protection. Map colors use one fixed reference across dates; tooltips and visible-map totals
+describe that same selected period. Missing observations do not establish absence of fire;
+the first satellite detection does not establish the actual ignition time.
+
+### 5.5 Observations viewer (current scope, 2026-11-14)
+
+The current UI displays accepted, deduplicated FIRMS detection centers from the real staging dataset. `POST /api/observations` accepts a `GeoJSONPolygon` directly and returns real provenance, daily counts, summed instantaneous FRP in MW, all five instrument labels, per-R7 counts/FRP, first/last detection dates and the aggregation method. It never calls the scientific core, fills missing dates, estimates emissions or forecasts. No detections on a date does not establish zero fire activity or complete observation coverage. Counts are detections, not distinct fire events. Staging retains the ingestion quality and SAMA/date filters; raw FRP is not footprint-corrected or EQM-adjusted.
+
+The active region catalogue is `firms-harmonizer/data/regions.json`: entries with declared `coverage` are offered by the frontend. Current regions are Orlando, Manaus, Chilecito and the full Iberia study rectangle. Rectangles are study envelopes, not administrative boundaries. Section 5.3 and the frozen TypeScript preset helper describe legacy scientific demo cases and are not the active observations catalogue. Existing `/api/analyze` and `/api/chaos-monkey` contracts remain unchanged and are not used by the observations UI.
+
+### 5.6 Offline satellite thermal event predictor
+
+`POST /api/predict-risk` accepts an AOI polygon, optional `start_year` and `end_year`
+(default 2001–2026), and an optional UTC `as_of_date` inside those years. The forecast origin
+is the latest local cube row within the requested period. Horizons 1, 7 and 14 cover the
+following UTC days. The response includes `data_source`, the target identifier
+`satellite_thermal_event_proxy`, nullable `assessment` and `unavailable_reason`,
+`model_time_ms` and `execution_time_ms`. Existing analysis contracts remain compatible.
+
+The cube has no confirmed ignition, spread or industrial accident labels. Fields named
+`wildfire_prob_*` estimate high **non-persistent satellite heat** and fields named
+`accident_prob_*` estimate a **persistent-source thermal excursion**. The combined
+target is the occurrence of either event within the horizon. These are observation
+probabilities after the stated origin, and are conditioned on the local record and its
+sensor coverage. The vegetation event threshold is the 90th percentile of positive
+summed FRP in the first fifth of the record. A persistent cell has observations on at
+least 12 days and across nine calendar months within its preceding 365 days, with a
+log-FRP standard deviation at most 0.8. An excursion is at least 2.5 standard deviations
+above that trailing log-FRP mean, with a 0.25 scale floor. Persistence is a thermal
+pattern and cannot identify the physical source by itself.
+
+The feature matrix uses raw daily FRP from the cube, same-AOI previous-day H3 neighbors,
+trailing 3/7-day means and 14-day maximum, prior-years Gaussian-smoothed seasonal
+climatology, circular phase and mean direction, anomaly, quiet-spell interaction,
+persistent-source share/excursion and observation-gap features. Cloud enters only when
+the cube confirms complete ancillary coverage. In the supplied real cube it is absent.
+The full-history EQM/LUT, retrospective industrial entropy and RTS backward-smoothed
+estimates would leak later information and are excluded. A day between recorded
+observations without a cube row has no reported detection. This convention and changing
+sensor coverage limit what the forecast can infer about real fire activity.
+
+The first 60% supplies base-model fit data, the next 20% calibrates stacked logistic,
+boosted-stump and Gaussian naive Bayes outputs, and the final 20% supplies held-out
+forecasts and validation. Label windows may not cross those boundaries or extend past
+the record; flagged or explicitly missing windows are excluded from scoring. Metrics
+cover each target and horizon separately. At least five events and five non-events
+are required in both fitting and calibration. Unlearnable targets and undefined
+ROC-AUC return null. Reliability bins compare forecast means to observed frequencies.
+The combined estimate is trained on the union and constrained by its marginals.
+The severity badge denotes the combined 24-hour proxy likelihood, with boundaries at
+25%, 50% and 75%. Driver bars show shares of absolute standardized logistic log-odds,
+not causal effects or ensemble probability changes.
+
+All computation runs locally. The geometry/date/cube-keyed LRU caches completed results.
+Cold timings include database aggregation and new model fitting. The risk endpoint stays
+separate from map, chronology and the existing nullable FRE forecast series.
+
+### 5.7 Evidence-first Fire Copilot (2026-11-14)
+
+`POST /api/explain-spike` retains its existing fields and response shape. Additive,
+optional request fields `conversation` (at most 12 user/assistant turns, 6,000
+characters each), `period_start` and `period_end` (ISO date strings or null) carry
+follow-up context and the selected map period. Existing clients remain compatible.
+The Python/TypeScript contracts and CAMBIOS.md record these additions together.
+
+Question place/date override UI context. Supported names resolve to documented study
+envelopes; arbitrary AOIs preserve their geometry. Madrid, Sierra Oeste, Careiro and
+Autazes are geographic envelopes, not administrative polygons or known fire perimeters.
+Unknown places can use web evidence but never model-generated coordinates or SQL.
+Exact-day/date-range/year filtering of accepted staging detection centers uses R7
+polygon filling, unique R4 parents, registered Arrow filters, bound parameters and
+request-local DuckDB cursors. Synthetic mode never queries real staging for a real-event
+claim. Observed counts, summed instantaneous FRP, individual maxima and busiest days
+are calculated locally; counts do not identify distinct fires, severity or ignition.
+
+Groq model selection is configurable. Offline operation (`COPILOT_OFFLINE=1`), provider
+failure and invalid model output return useful deterministic local evidence. Quantitative
+questions use local calculations. Search results are candidate contextual reports;
+publication dates are not invented from the event date. `web_search_used` means relevant
+web results were retrieved, not that an incident was confirmed. Only citations actually
+used in an answer are returned, and the UI links their markers to the supplied sources.
+The model cannot introduce links or cite unknown source IDs. Missing search results do
+not establish a remote or undocumented fire. Entropy, reconstruction flags and a 2012
+date alone cannot confirm gas flaring, an actual fire or a fixed sensor artifact.
+
+`python scripts/06_validate_copilot.py` verifies real-data numerical answers offline;
+`--live` additionally exercises configured model and search providers and saves full
+answers for narrative/source review. Regression tests mock network services and cover
+scope precedence, follow-ups, exact dates, provenance, concurrency and provider failures.

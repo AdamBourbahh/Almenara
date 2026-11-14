@@ -33,7 +33,8 @@ def fit(samples, biome_id=None):
 def generate_eqm_gpd_lut(output_path="data/lookup/eqm_gpd_lut.json", staged=STAGED):
     models = {}
     if (ROOT / staged).exists():
-        with duckdb.connect() as con:
+        # Single-threaded so floating-point aggregation order, and therefore the LUT, is reproducible.
+        with duckdb.connect(config={"threads": 1}) as con:
             rows = con.execute("""WITH daytime AS (
                 SELECT * FROM read_parquet(?)
                 WHERE acq_date BETWEEN DATE '2012-01-01' AND DATE '2025-12-31'
@@ -41,10 +42,16 @@ def generate_eqm_gpd_lut(output_path="data/lookup/eqm_gpd_lut.json", staged=STAG
             ), aqua AS (
                 SELECT h3_r7, acq_date, sum(corrected_frp) AS frp
                 FROM daytime WHERE satellite = 'Aqua' GROUP BY ALL
+            ), viirs_counts AS (
+                SELECT h3_r7, acq_date, igbp_biome, scan_bin,
+                       count(*) AS n, sum(corrected_frp) AS frp
+                FROM daytime WHERE satellite = 'SNPP'
+                GROUP BY h3_r7, acq_date, igbp_biome, scan_bin
             ), viirs AS (
-                SELECT h3_r7, acq_date, any_value(igbp_biome) AS biome,
-                       mode(scan_bin)::INTEGER AS angle, sum(corrected_frp) AS frp
-                FROM daytime WHERE satellite = 'SNPP' GROUP BY h3_r7, acq_date
+                SELECT h3_r7, acq_date, min(igbp_biome) AS biome,
+                       arg_max(scan_bin, n * 10 - scan_bin)::INTEGER AS angle,
+                       sum(frp) AS frp
+                FROM viirs_counts GROUP BY h3_r7, acq_date
             )
             SELECT biome, angle, aqua.frp, viirs.frp
             FROM aqua JOIN viirs USING (h3_r7, acq_date)

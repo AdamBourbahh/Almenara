@@ -11,6 +11,7 @@ import pytest
 from scipy.stats import multivariate_normal
 
 from backend.core import footprint_h3 as footprint
+from backend.core.risk_predictor import build_causal_features, predict_risk
 from backend.core.eqm_harmonizer import RadiometricHarmonizer
 from backend.api.schemas import ChaosMonkeyResponse, ScientificAuditMetrics, VonMisesPhenologyYear
 from backend.core.von_mises import best_fisher_kappa, doy_to_date_label, compute_circular_phenology
@@ -565,3 +566,79 @@ def test_chaos_full_history_drives_fixed_prior_and_empty_input_is_defined():
         run_chaos_monkey_simulation(*arrays, full_doy_history=history_doy)
     with pytest.raises(ValueError):
         run_chaos_monkey_simulation(*arrays, drop_fraction=1.1)
+
+
+def _risk_fixture(n=1800):
+    rng = np.random.default_rng(114)
+    t = np.arange(n)
+    seasonal = np.maximum(0, np.cos(2 * np.pi * t / 365.25))
+    vegetation = 2 + 75 * seasonal + rng.uniform(0, 5, n)
+    excursion = np.where(t % 53 < 4, 5.0, 0.0)
+    return dict(
+        epoch_day=18628 + t, vegetation_frp=vegetation, neighbor_frp=vegetation * 0.9,
+        industrial_z=excursion, persistent_share=np.full(n, 0.1),
+        cloud=np.full(n, np.nan), gap=np.zeros(n),
+    )
+
+
+def test_risk_predictor_probability_bounds_and_types():
+    result = predict_risk(_risk_fixture())
+    assert result is not None
+    assert [h["days"] for h in result["horizons"]] == [1, 7, 14]
+    for key in ("wildfire_prob_pct", "accident_prob_pct", "combined_risk_pct"):
+        values = [h[key] for h in result["horizons"]]
+        assert all(isinstance(p, float) and 0 <= p <= 100 for p in values)
+        assert values == sorted(values)
+    assert result["model_metrics"]["samples"] > 0
+    assert 0 <= result["model_metrics"]["brier_score"] <= 1
+    assert 0 <= result["model_metrics"]["roc_auc"] <= 1
+    for horizon in result["horizons"]:
+        assert horizon["combined_risk_pct"] >= max(horizon["wildfire_prob_pct"], horizon["accident_prob_pct"])
+
+
+def test_risk_predictor_spatial_contagion_and_seasonal_sensitivity():
+    history = _risk_fixture()
+    active = {k: v.copy() for k, v in history.items()}
+    quiet = {k: v.copy() for k, v in history.items()}
+    for name in ("vegetation_frp", "neighbor_frp"):
+        active[name][-14:] = 100.0
+        quiet[name][-14:] = 2.0
+    assert predict_risk(active)["wildfire_prob_24h_pct"] > 70
+    assert predict_risk(quiet)["wildfire_prob_24h_pct"] < 15
+
+
+def test_risk_predictor_industrial_accident_separation():
+    daily = _risk_fixture()
+    daily["industrial_z"][-5:] = 8.0
+    daily["persistent_share"][-5:] = 0.98
+    daily["vegetation_frp"][-14:] = 0.1
+    result = predict_risk(daily)
+    assert result["industrial_accident_prob_pct"] > result["wildfire_prob_24h_pct"]
+
+
+def test_risk_predictor_no_temporal_leakage_and_nan_resilience():
+    daily = _risk_fixture(9000)
+    daily["vegetation_frp"][55:99] = np.nan
+    daily["neighbor_frp"][8:19] = np.nan
+    daily["gap"][56:99] = 1
+    prefix = {k: v[:4500] for k, v in daily.items()}
+    features = build_causal_features(daily)
+    assert np.isfinite(features).all()
+    np.testing.assert_array_equal(features[:4500], build_causal_features(prefix))
+    original = predict_risk(daily)
+    modified = {k: v.copy() for k, v in daily.items()}
+    modified["vegetation_frp"][-30:] *= 10
+    revised = predict_risk(modified)
+    assert original["vegetation_event_threshold_mw"] == revised["vegetation_event_threshold_mw"]
+    np.testing.assert_array_equal(original["daily_probability_series"][:-30],
+                                  revised["daily_probability_series"][:-30])
+    assert predict_risk(_risk_fixture(50)) is None
+
+
+def test_risk_predictor_withholds_unlearnable_targets():
+    daily = _risk_fixture()
+    daily["industrial_z"][:] = 0
+    result = predict_risk(daily)
+    assert result["industrial_accident_prob_pct"] is None
+    assert result["combined_risk_pct"] is None
+    assert result["horizons"][0]["accident_validation"]["roc_auc"] is None

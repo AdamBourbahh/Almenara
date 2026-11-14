@@ -1,6 +1,9 @@
+import { FireCopilotDrawer } from "./components/Audit/FireCopilotDrawer";
+import { ObservationsPage } from "./views/ObservationsPage";
 import { useEffect, useRef, useState } from "react";
-import { Flame } from "lucide-react";
+import { Flame, Sparkles } from "lucide-react";
 import { useAnalysisStore } from "./store/useAnalysisStore";
+import { HeatHistoryCard } from "./components/Map/HeatHistoryCard";
 import { MapPage } from "./views/MapPage";
 import { CalendarPage } from "./views/CalendarPage";
 import { TrendsPage } from "./views/TrendsPage";
@@ -10,7 +13,8 @@ const SECTIONS = [
   { key: "map", label: "Map" },
   { key: "calendar", label: "Calendar" },
   { key: "trends", label: "Trends" },
-  { key: "impact", label: "Impact" }
+  { key: "impact", label: "Impact" },
+  { key: "observations", label: "Observations" }
 ] as const;
 
 type SectionKey = (typeof SECTIONS)[number]["key"];
@@ -56,6 +60,7 @@ export default function App() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+<button type="button" onClick={() => useAnalysisStore.getState().toggleCopilot()} className="flex items-center gap-1 border border-rule px-2 py-1.5 text-xs"><Sparkles className="h-4 w-4" />Fire Copilot</button>
             <div className="inline-flex border border-rule text-xs">
               <button
                 type="button"
@@ -79,12 +84,25 @@ export default function App() {
         </div>
       </header>
 
-      <main className="relative min-h-0 flex-1">
+      <main className="relative min-h-0 flex-1" onKeyDown={(e) => {
+        if (e.target instanceof HTMLElement && e.target.closest("input, select, textarea, [contenteditable=true]")) return;
+        const state = useAnalysisStore.getState();
+        const direction = e.key === "ArrowLeft" || e.key === "[" || e.key === "ArrowUp" ? -1 : 1;
+        if (["ArrowLeft", "ArrowRight", "[", "]", "ArrowUp", "ArrowDown"].includes(e.key)) {
+          e.preventDefault();
+          state.stepChronology(e.key === "[" || e.key === "]" ? "month" : e.key === "ArrowUp" || e.key === "ArrowDown" ? "year" : "day", direction);
+        } else if (e.key === "Escape") {
+          e.preventDefault(); state.setSelectedMonth(null); state.setHoveredDay(null);
+        }
+      }}>
         {section === "map" && <MapPage />}
         {section === "calendar" && <CalendarPage />}
         {section === "trends" && <TrendsPage />}
         {section === "impact" && <ImpactPage />}
+        {section === "observations" && <ObservationsPage />}
       </main>
+      <HeatHistoryCard />
+      <FireCopilotDrawer />
     </div>
   );
 }

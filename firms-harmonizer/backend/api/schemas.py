@@ -1,5 +1,6 @@
 """Frozen, JSON-safe public API contracts; mirrored in frontend/src/api/types.ts."""
 
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -41,6 +42,87 @@ class AnalyzeRequest(ContractModel):
         if self.start_year > self.end_year:
             raise ValueError("start_year must not exceed end_year.")
         return self
+
+
+class RiskPredictionRequest(ContractModel):
+    aoi: GeoJSONPolygon
+    start_year: int = Field(default=2001, ge=2001, le=2026)
+    end_year: int = Field(default=2026, ge=2001, le=2026)
+    as_of_date: date | None = None
+
+    @model_validator(mode="after")
+    def validate_period(self) -> "RiskPredictionRequest":
+        if self.start_year > self.end_year:
+            raise ValueError("start_year must not exceed end_year.")
+        if self.as_of_date and not self.start_year <= self.as_of_date.year <= self.end_year:
+            raise ValueError("as_of_date must fall inside the requested years.")
+        return self
+
+
+class RiskReliabilityBin(ContractModel):
+    samples: int = Field(ge=1)
+    mean_predicted_pct: float = Field(ge=0, le=100)
+    observed_pct: float = Field(ge=0, le=100)
+
+
+class RiskValidation(ContractModel):
+    samples: int = Field(ge=0)
+    positives: int = Field(ge=0)
+    brier_score: float | None = Field(ge=0, le=1)
+    roc_auc: float | None = Field(ge=0, le=1)
+    reliability: list[RiskReliabilityBin]
+
+
+class RiskModelMetrics(RiskValidation):
+    model_weights: dict[str, float]
+
+
+class RiskDailyProbability(ContractModel):
+    date: date
+    wildfire_prob_pct: float | None = Field(ge=0, le=100)
+    accident_prob_pct: float | None = Field(ge=0, le=100)
+
+
+class RiskHorizon(ContractModel):
+    days: Literal[1, 7, 14]
+    wildfire_prob_pct: float | None = Field(ge=0, le=100)
+    accident_prob_pct: float | None = Field(ge=0, le=100)
+    combined_risk_pct: float | None = Field(ge=0, le=100)
+    wildfire_validation: RiskValidation
+    accident_validation: RiskValidation
+    combined_validation: RiskValidation
+
+
+class RiskFactor(ContractModel):
+    feature: str
+    impact_pct: float = Field(ge=0, le=100)
+    direction: Literal["raises", "lowers"]
+    description: str
+
+
+class AIRiskAssessment(ContractModel):
+    as_of_date: date
+    validation_start_date: date
+    wildfire_prob_24h_pct: float | None = Field(ge=0, le=100)
+    wildfire_prob_7d_pct: float | None = Field(ge=0, le=100)
+    industrial_accident_prob_pct: float | None = Field(ge=0, le=100)
+    combined_risk_pct: float | None = Field(ge=0, le=100)
+    overall_hazard_level: Literal["LOW", "MODERATE", "HIGH", "CRITICAL"] | None
+    vegetation_event_threshold_mw: float = Field(gt=0)
+    horizons: list[RiskHorizon]
+    model_metrics: RiskModelMetrics
+    top_risk_factors: list[RiskFactor]
+    industrial_risk_factors: list[RiskFactor]
+    daily_probability_series: list[RiskDailyProbability]
+
+
+class RiskPredictionResponse(ContractModel):
+    data_source: Literal["real", "synthetic"]
+    target: Literal["satellite_thermal_event_proxy"] = "satellite_thermal_event_proxy"
+    assessment: AIRiskAssessment | None
+    unavailable_reason: str | None = None
+    model_time_ms: float = Field(ge=0)
+    execution_time_ms: float = Field(ge=0)
 
 
 class DailyCalendarCell(ContractModel):
@@ -134,3 +216,42 @@ class ChaosMonkeyResponse(ContractModel):
     naive_rmse: float
     kalman_rmse: float
     seasonal_energy_recovered_pct: float
+
+
+class CitationReference(ContractModel):
+    id: str
+    source_type: Literal["NASA_DATASET", "PEER_REVIEWED", "WEB_NEWS_REPORT"] = "PEER_REVIEWED"
+    title: str
+    authors_or_agency: str
+    year: int
+    dataset_or_doi: str
+    url: str | None = None
+    relevance_note: str
+
+
+class CopilotTurn(ContractModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=6000)
+
+
+class ExplainSpikeRequest(ContractModel):
+    region_name: str = "Unknown Region"
+    selected_day: DailyCalendarCell | None = None
+    selected_hex: H3MapSummaryHex | None = None
+    user_question: str = ""
+    aoi: GeoJSONPolygon | None = None
+    confidence_level: Literal["low", "nominal", "high"] = "nominal"
+    conversation: list[CopilotTurn] = Field(default_factory=list, max_length=12)
+    period_start: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    period_end: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class ExplainSpikeResponse(ContractModel):
+    physical_classification: str
+    explanation_markdown: str
+    citations: list[CitationReference] = Field(default_factory=list)
+    web_search_used: bool = False
+    search_query_executed: str | None = None
+    model_used: str = "deterministic-fallback"
+    data_source: Literal["real", "synthetic"] = "synthetic"
+

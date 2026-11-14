@@ -11,6 +11,63 @@ export interface GeoJSONPolygon {
   coordinates: Array<Array<Array<number>>>;
 }
 
+export interface RiskPredictionRequest {
+  aoi: GeoJSONPolygon;
+  start_year?: number;
+  end_year?: number;
+  as_of_date?: string;
+}
+
+export interface RiskValidation {
+  samples: number;
+  positives: number;
+  brier_score: number | null;
+  roc_auc: number | null;
+  reliability: { samples: number; mean_predicted_pct: number; observed_pct: number }[];
+}
+
+export interface RiskHorizon {
+  days: 1 | 7 | 14;
+  wildfire_prob_pct: number | null;
+  accident_prob_pct: number | null;
+  combined_risk_pct: number | null;
+  wildfire_validation: RiskValidation;
+  accident_validation: RiskValidation;
+  combined_validation: RiskValidation;
+}
+
+export interface RiskFactor {
+  feature: string;
+  impact_pct: number;
+  direction: "raises" | "lowers";
+  description: string;
+}
+
+export interface AIRiskAssessment {
+  as_of_date: string;
+  validation_start_date: string;
+  wildfire_prob_24h_pct: number | null;
+  wildfire_prob_7d_pct: number | null;
+  industrial_accident_prob_pct: number | null;
+  combined_risk_pct: number | null;
+  overall_hazard_level: "LOW" | "MODERATE" | "HIGH" | "CRITICAL" | null;
+  vegetation_event_threshold_mw: number;
+  horizons: RiskHorizon[];
+  model_metrics: RiskValidation & { model_weights: Record<string, number> };
+  top_risk_factors: RiskFactor[];
+  industrial_risk_factors: RiskFactor[];
+  daily_probability_series: { date: string; wildfire_prob_pct: number | null; accident_prob_pct: number | null }[];
+}
+
+export interface RiskPredictionResponse {
+  data_source: "real" | "synthetic";
+  target: "satellite_thermal_event_proxy";
+  assessment: AIRiskAssessment | null;
+  unavailable_reason: string | null;
+  model_time_ms: number;
+  execution_time_ms: number;
+}
+
 export interface AnalyzeRequest {
   aoi: GeoJSONPolygon;
   start_year?: number;
@@ -113,3 +170,77 @@ export interface ChaosMonkeyResponse {
   kalman_rmse: number;
   seasonal_energy_recovered_pct: number;
 }
+
+export interface CitationReference {
+  id: string;
+  source_type: "NASA_DATASET" | "PEER_REVIEWED" | "WEB_NEWS_REPORT";
+  title: string;
+  authors_or_agency: string;
+  year: number;
+  dataset_or_doi: string;
+  url?: string | null;
+  relevance_note: string;
+}
+
+export interface CopilotTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ExplainSpikeRequest {
+  region_name?: string;
+  selected_day?: DailyCalendarCell | null;
+  selected_hex?: H3MapSummaryHex | null;
+  user_question?: string;
+  aoi?: GeoJSONPolygon | null;
+  confidence_level?: ConfidenceLevel;
+  conversation?: CopilotTurn[];
+  period_start?: string | null;
+  period_end?: string | null;
+}
+
+export interface ExplainSpikeResponse {
+  physical_classification: string;
+  explanation_markdown: string;
+  citations: Array<CitationReference>;
+  web_search_used: boolean;
+  search_query_executed?: string | null;
+  model_used?: string;
+  data_source?: "real" | "synthetic";
+}
+
+/** Pilot regions = SPECS.md §5.3 bounds (the synthetic cube places its cells inside them). */
+export const PRESET_REGIONS = {
+  cerrado_brazil: {
+    name: "Cerrado & Pantanal, Brazil",
+    center: [-56.2, -16.9],
+    aoi: { type: "Polygon", coordinates: [[
+      [-57.2, -17.8], [-55.2, -17.8], [-55.2, -16], [-57.2, -16], [-57.2, -17.8],
+    ]] },
+  },
+  california_usa: {
+    name: "Sierra Nevada, California",
+    center: [-120.35, 39.1],
+    aoi: { type: "Polygon", coordinates: [[
+      [-121.2, 38], [-119.5, 38], [-119.5, 40.2], [-121.2, 40.2], [-121.2, 38],
+    ]] },
+  },
+  iberia_med: {
+    name: "Mediterranean Iberia",
+    center: [-4.85, 38.5],
+    aoi: { type: "Polygon", coordinates: [[
+      [-6.5, 37.2], [-3.2, 37.2], [-3.2, 39.8], [-6.5, 39.8], [-6.5, 37.2],
+    ]] },
+  },
+  niger_delta_flaring: {
+    name: "Niger Delta gas flaring",
+    center: [6.4, 5.2],
+    aoi: { type: "Polygon", coordinates: [[
+      [5.6, 4.6], [7.2, 4.6], [7.2, 5.8], [5.6, 5.8], [5.6, 4.6],
+    ]] },
+  },
+} as const satisfies Record<string, {
+  name: string;
+  center: [number, number];
+  aoi: GeoJSONPolygon;
+}>;

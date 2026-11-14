@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { AnalyzeResponse } from "../../api/types";
-import { calendarKey, useAnalysisStore, type HoveredDay } from "../../store/useAnalysisStore";
+import { useAnalysisStore, type HoveredDay } from "../../store/useAnalysisStore";
 import { getHatchPattern, hatchCss } from "./HatchPatternDefs";
 import { useTheme } from "../../lib/theme";
 
@@ -13,7 +13,7 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 const FONT = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 const VIIRS_MARKER = { year: 2012, label: "Jan 2012 · VIIRS comes online", color: "#b45309" };
-const AQUA_MARKER = { year: 2022, startDoy: 212, endDoy: 228, label: "Aug 2022 · MODIS Aqua safe mode", color: "#b91c1c" };
+const SNPP_MARKER = { year: 2022, startDoy: 208, endDoy: 222, label: "Jul-Aug 2022 · VIIRS SNPP outage (15 d)", color: "#b91c1c" };
 
 const FLAG_DATA = 1;
 const FLAG_GAP = 2;
@@ -192,13 +192,14 @@ function labelBox(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
 export function BurningCalendarCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const overlayRef = useRef<HTMLCanvasElement | null>(null);
+  const baseRef = useRef<HTMLCanvasElement | null>(null);
+  const hoverFrame = useRef<number | null>(null);
   const offscreenRef = useRef<HTMLCanvasElement | null>(null);
   const layoutRef = useRef<Layout | null>(null);
   const [width, setWidth] = useState(0);
 
   const theme = useTheme((s) => s.theme);
-  const { analysisData, viewMode, splitCurtainPct, setSplitCurtainPct, selectedYear, setSelectedYear, setHoveredDay, startYear, endYear } =
+  const { analysisData, viewMode, splitCurtainPct, setSplitCurtainPct, selectedYear, selectedMonth, setHoveredDay, startYear, endYear } =
     useAnalysisStore(
       useShallow((s) => ({
         analysisData: s.analysisData,
@@ -206,7 +207,7 @@ export function BurningCalendarCanvas() {
         splitCurtainPct: s.splitCurtainPct,
         setSplitCurtainPct: s.setSplitCurtainPct,
         selectedYear: s.selectedYear,
-        setSelectedYear: s.setSelectedYear,
+        selectedMonth: s.selectedMonth,
         setHoveredDay: s.setHoveredDay,
         startYear: s.startYear,
         endYear: s.endYear
@@ -224,11 +225,19 @@ export function BurningCalendarCanvas() {
   }, []);
 
   const drawOverlay = useCallback((hovered: HoveredDay | null) => {
-    const canvas = overlayRef.current;
+    const canvas = canvasRef.current;
     const L = layoutRef.current;
     if (!canvas || !L) return;
-    const ctx = prepareCanvas(canvas, L);
-    if (!ctx || !hovered) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !baseRef.current) return;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, L.width, L.height);
+    ctx.drawImage(baseRef.current, 0, 0, L.width, L.height);
+    const state = useAnalysisStore.getState();
+    const active = state.isDatePinned && state.selectedDate ? state.dateIndex.get(state.selectedDate) : state.hoveredCell;
+    if (active) hovered = { year: active.year, doy: active.doy, clientX: 0, clientY: 0 };
+    if (!hovered) return;
     const row = hovered.year - L.startYear;
     const col = hovered.doy - 1;
     if (row < 0 || row >= L.rows || col < 0 || col >= DAY_COLUMNS) return;
@@ -291,6 +300,17 @@ export function BurningCalendarCanvas() {
     octx.putImageData(image, 0, 0);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(offscreen, L.gridX, L.gridY, L.gridW, L.gridH);
+    if (selectedMonth !== null) {
+      ctx.fillStyle = isDark ? "rgba(0,0,0,0.60)" : "rgba(255,255,255,0.65)";
+      for (let row = 0; row < grid.rows; row++) {
+        const year = grid.startYear + row;
+        const offset = Date.UTC(year, 0, 1);
+        const left = (Date.UTC(year, selectedMonth - 1, 1) - offset) / 86400000;
+        const right = (Date.UTC(year, selectedMonth, 1) - offset) / 86400000;
+        ctx.fillRect(L.gridX, L.gridY + row * L.cellH, left * L.cellW, L.cellH);
+        ctx.fillRect(L.gridX + right * L.cellW, L.gridY + row * L.cellH, (DAY_COLUMNS - right) * L.cellW, L.cellH);
+      }
+    }
 
     if (L.cellH >= 6) {
       ctx.fillStyle = gridLine;
@@ -298,7 +318,8 @@ export function BurningCalendarCanvas() {
     }
     ctx.font = `9px ${FONT}`;
     ctx.textAlign = "left";
-    MONTH_START_DOY.forEach((doy, m) => {
+    const monthStarts = MONTH_START_DOY.map((_, m) => 1 + (Date.UTC(selectedYear, m, 1) - Date.UTC(selectedYear, 0, 1)) / 86400000);
+    monthStarts.forEach((doy, m) => {
       const x = L.gridX + (doy - 1) * L.cellW;
       ctx.fillStyle = guideLine;
       ctx.fillRect(x, L.gridY, 1, L.gridH);
@@ -321,7 +342,7 @@ export function BurningCalendarCanvas() {
     for (let r = 0; r < L.rows; r++) {
       const year = L.startYear + r;
       const isSelected = year === selectedYear;
-      if (r % step !== 0 && !isSelected && year !== VIIRS_MARKER.year && year !== AQUA_MARKER.year) continue;
+      if (r % step !== 0 && !isSelected && year !== VIIRS_MARKER.year && year !== SNPP_MARKER.year) continue;
       ctx.font = `${isSelected ? "bold " : ""}9px ${FONT}`;
       ctx.fillStyle = isSelected ? "#b30000" : yearLabel;
       ctx.textAlign = "right";
@@ -348,20 +369,20 @@ export function BurningCalendarCanvas() {
       ctx.stroke();
       labelBox(ctx, VIIRS_MARKER.label, L.gridX + L.gridW - 2, y - 2, VIIRS_MARKER.color, labelBg, "right");
     }
-    const aquaRow = AQUA_MARKER.year - L.startYear;
-    if (aquaRow >= 0 && aquaRow < L.rows) {
-      const x = L.gridX + (AQUA_MARKER.startDoy - 1) * L.cellW;
-      const w = (AQUA_MARKER.endDoy - AQUA_MARKER.startDoy + 1) * L.cellW;
-      const y = L.gridY + aquaRow * L.cellH;
-      ctx.strokeStyle = AQUA_MARKER.color;
+    const snppRow = SNPP_MARKER.year - L.startYear;
+    if (snppRow >= 0 && snppRow < L.rows) {
+      const x = L.gridX + (SNPP_MARKER.startDoy - 1) * L.cellW;
+      const w = (SNPP_MARKER.endDoy - SNPP_MARKER.startDoy + 1) * L.cellW;
+      const y = L.gridY + snppRow * L.cellH;
+      ctx.strokeStyle = SNPP_MARKER.color;
       ctx.lineWidth = 1.5;
       ctx.setLineDash([3, 2]);
       ctx.strokeRect(x - 2, y - 2, w + 4, L.cellH + 4);
       ctx.setLineDash([]);
       ctx.font = `9px ${FONT}`;
-      const labelWidth = ctx.measureText(AQUA_MARKER.label).width + 8;
+      const labelWidth = ctx.measureText(SNPP_MARKER.label).width + 8;
       const fitsRight = x + w + 6 + labelWidth < L.gridX + L.gridW;
-      labelBox(ctx, AQUA_MARKER.label, fitsRight ? x + w + 6 : x - 6, y + L.cellH / 2 + 3, AQUA_MARKER.color, labelBg, fitsRight ? "left" : "right");
+      labelBox(ctx, SNPP_MARKER.label, fitsRight ? x + w + 6 : x - 6, y + L.cellH / 2 + 3, SNPP_MARKER.color, labelBg, fitsRight ? "left" : "right");
     }
 
     if (viewMode === "HARMONIZED") {
@@ -396,8 +417,11 @@ export function BurningCalendarCanvas() {
       ctx.textAlign = "left";
     }
 
+    const base = (baseRef.current ??= document.createElement("canvas"));
+    base.width = canvas.width; base.height = canvas.height;
+    base.getContext("2d")?.drawImage(canvas, 0, 0);
     drawOverlay(useAnalysisStore.getState().hoveredDay);
-  }, [grid, viewMode, splitCurtainPct, selectedYear, width, drawOverlay, theme]);
+  }, [grid, viewMode, splitCurtainPct, selectedYear, selectedMonth, width, drawOverlay, theme]);
 
   useEffect(() => {
     renderCalendar();
@@ -406,7 +430,7 @@ export function BurningCalendarCanvas() {
   useEffect(
     () =>
       useAnalysisStore.subscribe((state, prev) => {
-        if (state.hoveredDay !== prev.hoveredDay) drawOverlay(state.hoveredDay);
+        if (state.hoveredDay !== prev.hoveredDay || state.hoveredCell !== prev.hoveredCell || state.selectedDate !== prev.selectedDate || state.isDatePinned !== prev.isDatePinned) drawOverlay(state.hoveredDay);
       }),
     [drawOverlay]
   );
@@ -426,23 +450,36 @@ export function BurningCalendarCanvas() {
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const loc = locate(e);
-    if (loc && useAnalysisStore.getState().calendarIndex.has(calendarKey(loc.year, loc.doy))) {
-      setHoveredDay({ ...loc, clientX: e.clientX, clientY: e.clientY });
-    } else {
-      setHoveredDay(null);
-    }
+    const point = loc ? { ...loc, clientX: e.clientX, clientY: e.clientY } : null;
+    if (hoverFrame.current !== null) cancelAnimationFrame(hoverFrame.current);
+    hoverFrame.current = requestAnimationFrame(() => {
+      hoverFrame.current = null;
+      setHoveredDay(point && useAnalysisStore.getState().yearDoyIndex.has(`${point.year}-${point.doy}`) ? point : null);
+    });
   };
+  useEffect(() => () => { if (hoverFrame.current !== null) cancelAnimationFrame(hoverFrame.current); }, []);
 
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const loc = locate(e);
-    if (loc) setSelectedYear(loc.year);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
-    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelectedYear(selectedYear + (e.key === "ArrowUp" ? -1 : 1));
+    const L = layoutRef.current;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const state = useAnalysisStore.getState();
+    if (L) {
+      const x = (e.clientX - rect.left) * L.width / rect.width;
+      const y = (e.clientY - rect.top) * L.height / rect.height;
+      if (y < L.gridY && x >= L.gridX && x < L.gridX + L.gridW) {
+        const doy = Math.floor((x - L.gridX) / L.cellW) + 1;
+        const month = new Date(Date.UTC(selectedYear, 0, doy)).getUTCMonth() + 1;
+        state.setSelectedMonth(state.selectedMonth === month ? null : month);
+        return;
+      }
     }
+    const loc = locate(e);
+    const cell = loc ? state.yearDoyIndex.get(`${loc.year}-${loc.doy}`) : null;
+    if (!cell) return;
+    const unpin = state.isDatePinned && state.selectedDate === cell.date;
+    state.setSelectedDate(null);
+    state.setHoveredDay({ year: cell.year, doy: cell.doy, clientX: e.clientX, clientY: e.clientY });
+    if (!unpin) state.setSelectedDate(cell.date, true);
   };
 
   const curtainDisabled = viewMode === "RAW";
@@ -488,10 +525,8 @@ export function BurningCalendarCanvas() {
           onClick={handleClick}
           onMouseMove={handleMouseMove}
           onMouseLeave={() => setHoveredDay(null)}
-          onKeyDown={handleKeyDown}
           className="absolute inset-0 h-full w-full cursor-crosshair bg-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-reference"
         />
-        <canvas ref={overlayRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-muted">
