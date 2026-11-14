@@ -19,7 +19,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="FIRMS Harmonizer API", version="0.1.0", lifespan=lifespan)
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=1)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
-                   expose_headers=["X-Cache"])
+                   expose_headers=["X-Cache", "Server-Timing"])
 app.include_router(router)

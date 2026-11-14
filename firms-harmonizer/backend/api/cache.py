@@ -52,4 +52,27 @@ class LRUCache:
             return len(self._data)
 
 
+def geometry_key(coords: list) -> str:
+    """BLAKE2b of the polygon coordinates, for the H3 filter cache."""
+    return hashlib.blake2b(orjson.dumps(coords), digest_size=32).hexdigest()
+
+
+class CachedJSON:
+    """Serialized response split around the top-level execution_time_ms value, so a hit only splices."""
+
+    __slots__ = ("head", "tail")
+    FIELD = b'"execution_time_ms":'
+
+    def __init__(self, body: bytes) -> None:
+        start = body.index(self.FIELD) + len(self.FIELD)
+        end = start
+        while body[end:end + 1] not in (b",", b"}"):
+            end += 1
+        self.head, self.tail = body[:start], body[end:]
+
+    def render(self, execution_time_ms: float) -> bytes:
+        return self.head + orjson.dumps(float(execution_time_ms)) + self.tail
+
+
 ANALYZE_CACHE = LRUCache(DEFAULT_MAXSIZE)
+GEOMETRY_CACHE = LRUCache(DEFAULT_MAXSIZE)
