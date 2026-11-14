@@ -308,6 +308,23 @@ documented in SPECS. The panel omits undefined diagnostics and marks each prior
 estimate. Selecting an area opens a dismissible shortcut to Risk AI and computes
 the new forecast on demand, without mounting an additional map.
 
+## Cambios de contrato pendientes (auditoría 2026-11-14)
+
+Estos puntos están congelados hoy por `FROZEN_TESTS.sha256`. Solo pueden cambiar
+por acuerdo del equipo, modificando la aserción afectada y regenerando el hash:
+
+| Punto | Test que lo fija | Cuándo cambiarlo |
+| :--- | :--- | :--- |
+| `forecast_series` siempre `null` | `test_api_contract.py:63` | Si se implementa el pronóstico de 14 días |
+| `pm25_emitted_kg` / `tooltip_narrative` `null` y `total_pm25_emitted_tonnes` `null` | `test_api_contract.py:64-65` | Si se implementa PM2.5 con factor de emisión citado y narrativas |
+| CORS `allow_origins == ["*"]` | `test_api_contract.py:140` | Si se restringe CORS por seguridad |
+
+Procedimiento: (1) acordar el cambio con el dueño del test y de `schemas.py`;
+(2) modificar solo la aserción afectada, sin debilitar el resto; (3) regenerar
+`sha256sum backend/tests/<fichero>` en `FROZEN_TESTS.sha256`; (4) registrar el
+cambio en esta tabla con fecha, autor y motivo. El hash regenerado el 2026-11-14
+tras los tests de sincronización del cubo es el último cambio aprobado.
+
 ## Historical forecast origins and blackout validation
 
 Risk AI and Impact share the timeline cutoff. The additive assessment field
