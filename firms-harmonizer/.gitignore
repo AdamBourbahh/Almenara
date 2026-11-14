@@ -1,31 +1,13 @@
-# Python
 __pycache__/
 *.py[cod]
-.pytest_cache/
 .venv/
 venv/
-*.egg-info/
-.coverage
-htmlcov/
-# Node
-node_modules/
-dist/
-*.tsbuildinfo
-# Local secrets and editor files
-.env
-.env.*
-!.env.example
-.DS_Store
-.idea/
-.vscode/
-# Rebuildable cubes and heavy source archives; keep the bounded JSON mock
-data/raw/**/*.csv
-data/raw/**/*.csv.*
+.pytest_cache/
+frontend/node_modules/
+frontend/dist/
 data/raw/*.csv
-data/raw/*.csv.*
-data/processed/*.parquet
-data/cache/
-# Aider local history
-.aider.chat.history.md
-.aider.input.history
-.aider.tags.cache.v*/
+data/raw/*.parquet
+data/cache/*
+.DS_Store
+.env
+!data/mock/mock_analyze_response.json

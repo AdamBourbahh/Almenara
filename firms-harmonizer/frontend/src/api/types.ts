@@ -1,7 +1,7 @@
-/** Frozen API contracts. Dates are ISO YYYY-MM-DD; H3 indices are hex strings. */
+/** Frozen API contracts. Dates are ISO YYYY-MM-DD; H3 indices are lowercase hex strings. */
 
 export interface GeoJSONPolygon {
-  type?: "Polygon";
+  type: "Polygon";
   coordinates: Array<Array<Array<number>>>;
 }
 
@@ -30,8 +30,14 @@ export interface DailyCalendarCell {
   pm25_emitted_kg: number | null;
   z_score_anomaly: number;
   is_gap_filled: boolean;
-  is_forecast: boolean;
-  gap_reason: string | null;
+  is_forecast?: boolean;
+  gap_reason:
+    | "NONE"
+    | "SENSOR_OUTAGE"
+    | "CLOUD_OCCLUSION"
+    | "SWATH_GAP"
+    | "DUAL_SENSOR_BLACKOUT"
+    | "FORECAST_GUARD";
   active_sensors: Array<string>;
   tooltip_narrative: string | null;
 }
@@ -63,7 +69,7 @@ export interface ScientificAuditMetrics {
 }
 
 export interface H3MapSummaryHex {
-  h3_index?: string;
+  h3_index: string;
   mean_annual_fre: number;
   raw_pixel_count: number;
   trend_slope: number;
@@ -108,37 +114,82 @@ export interface ChaosMonkeyResponse {
   seasonal_energy_recovered_pct: number;
 }
 
-export const PRESET_REGIONS = {
+export interface PresetRegionConfig {
+  key: string;
+  name: string;
+  subtitle: string;
+  center: [number, number];
+  zoom: number;
+  polygon: GeoJSONPolygon;
+}
+
+export const PRESET_REGIONS: Record<string, PresetRegionConfig> = {
   cerrado_brazil: {
+    key: "cerrado_brazil",
     name: "Brazilian Cerrado",
-    center: [-48, -16],
-    aoi: { type: "Polygon", coordinates: [[
-      [-49, -17], [-47, -17], [-47, -15], [-49, -15], [-49, -17],
-    ]] },
+    subtitle: "Cerrado and Pantanal harmonization pilot",
+    center: [-56.2, -16.9],
+    zoom: 6.5,
+    polygon: {
+      type: "Polygon",
+      coordinates: [[
+        [-57.2, -17.8],
+        [-55.2, -17.8],
+        [-55.2, -16.0],
+        [-57.2, -16.0],
+        [-57.2, -17.8],
+      ]],
+    },
   },
   california_usa: {
+    key: "california_usa",
     name: "California, USA",
-    center: [-121, 39],
-    aoi: { type: "Polygon", coordinates: [[
-      [-122, 38], [-120, 38], [-120, 40], [-122, 40], [-122, 38],
-    ]] },
+    subtitle: "Sierra Nevada phenology and outage pilot",
+    center: [-120.35, 39.1],
+    zoom: 6.8,
+    polygon: {
+      type: "Polygon",
+      coordinates: [[
+        [-121.2, 38.0],
+        [-119.5, 38.0],
+        [-119.5, 40.2],
+        [-121.2, 40.2],
+        [-121.2, 38.0],
+      ]],
+    },
   },
   iberia_med: {
+    key: "iberia_med",
     name: "Mediterranean Iberia",
-    center: [-5, 39],
-    aoi: { type: "Polygon", coordinates: [[
-      [-6, 38], [-4, 38], [-4, 40], [-6, 40], [-6, 38],
-    ]] },
+    subtitle: "Iberian Peninsula operational precision pilot",
+    center: [-4.85, 38.5],
+    zoom: 6.2,
+    polygon: {
+      type: "Polygon",
+      coordinates: [[
+        [-6.5, 37.2],
+        [-3.2, 37.2],
+        [-3.2, 39.8],
+        [-6.5, 39.8],
+        [-6.5, 37.2],
+      ]],
+    },
   },
   niger_delta_flaring: {
+    key: "niger_delta_flaring",
     name: "Niger Delta flaring",
-    center: [6, 5],
-    aoi: { type: "Polygon", coordinates: [[
-      [5, 4], [7, 4], [7, 6], [5, 6], [5, 4],
-    ]] },
+    subtitle: "Industrial flaring exclusion pilot",
+    center: [6.4, 5.2],
+    zoom: 7.2,
+    polygon: {
+      type: "Polygon",
+      coordinates: [[
+        [5.6, 4.6],
+        [7.2, 4.6],
+        [7.2, 5.8],
+        [5.6, 5.8],
+        [5.6, 4.6],
+      ]],
+    },
   },
-} as const satisfies Record<string, {
-  name: string;
-  center: [number, number];
-  aoi: GeoJSONPolygon;
-}>;
+};

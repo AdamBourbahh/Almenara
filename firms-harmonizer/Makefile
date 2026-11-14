@@ -2,14 +2,12 @@ PYTHON ?= python3
 PYTEST ?= $(PYTHON) -m pytest
 
 .PHONY: bootstrap test api frontend sync-rules check-all
+
 bootstrap:
 	$(PYTHON) scripts/00_bootstrap_synthetic_cube.py
 
 test: bootstrap
-	$(PYTEST) backend/tests/test_cube_schema.py
-	$(PYTEST) backend/tests/test_math_core.py -v
-	$(PYTEST) backend/tests/test_db_layer.py -v
-	$(PYTEST) backend/tests/test_api_contract.py -v
+	$(PYTEST) backend/tests/ -v
 
 api:
 	$(PYTHON) -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000
