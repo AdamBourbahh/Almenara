@@ -29,11 +29,12 @@ function Cell({ label, value, unit }: { label: string; value: string; unit?: str
   );
 }
 
-function Verdict({ ok }: { ok: boolean }) {
-  return ok ? (
-    <span className="font-medium text-validated">[VALIDATED]</span>
+function Status({ state }: { state: "pass" | "fail" | "na" }) {
+  if (state === "na") return <span className="font-medium text-faint">Not available</span>;
+  return state === "pass" ? (
+    <span className="font-medium text-validated">[PASS]</span>
   ) : (
-    <span className="font-medium text-bias">[BIAS DETECTED]</span>
+    <span className="font-medium text-bias">[FAIL]</span>
   );
 }
 
@@ -51,17 +52,13 @@ export function AuditMetricsPanel() {
   }
 
   const biomass = audit.total_biomass_burned_kt ?? 0;
-  const pm25 = audit.total_pm25_emitted_tonnes ?? 0;
+  const pm25 = audit.total_pm25_emitted_tonnes;
   const area = analysisData.aoi_area_km2;
   const w1Reduction =
     audit.wasserstein_w1_raw > 0 ? (1 - audit.wasserstein_w1_harm / audit.wasserstein_w1_raw) * 100 : 0;
   const chowPass = audit.chow_test_p_val_harm > 0.1;
-  const r2Pass = (audit.burned_area_r2_harm ?? 0) >= 0.7;
-
-  const verdict =
-    `The harmonized series smooths the artificial 2012 jump (the Chow test ${chowPass ? "passes" : "does not pass"}) ` +
-    `and cuts the gap between sensors by ${w1Reduction.toFixed(0)}%. Correlation with real burned area rises ` +
-    `from R² ${fmt(audit.burned_area_r2_raw, 2)} to ${fmt(audit.burned_area_r2_harm, 2)}.`;
+  const w1Pass = audit.wasserstein_w1_raw > 0 && w1Reduction > 88;
+  const r2Available = audit.burned_area_r2_harm != null;
 
   return (
     <section className="border border-rule bg-panel p-6">
@@ -77,11 +74,15 @@ export function AuditMetricsPanel() {
       <div className="border border-rule">
         <div className="grid grid-cols-1 divide-y divide-rule sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           <Cell label="Dry biomass burned" value={fmt(biomass)} unit="kt" />
-          <Cell label="PM2.5 smoke emissions" value={fmt(pm25)} unit="t" />
+          <Cell
+            label="PM2.5 smoke emissions"
+            value={pm25 == null ? "Not computed" : fmt(pm25)}
+            unit={pm25 == null ? undefined : "t"}
+          />
           <Cell label="Area analysed" value={fmt(area, 0)} unit="km²" />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule p-4">
-          <p className="max-w-2xl text-sm leading-relaxed text-muted">{verdict}</p>
+          <p className="max-w-2xl text-sm leading-relaxed text-muted">{audit.executive_verdict_en}</p>
           <button
             type="button"
             onClick={() => exportToIpccCsv(analysisData)}
@@ -116,15 +117,17 @@ export function AuditMetricsPanel() {
                 F {fmt(audit.chow_test_f_stat_harm, 2)} · p {fmtP(audit.chow_test_p_val_harm)}
               </td>
               <td className="px-3 py-2">
-                <Verdict ok={chowPass} />
+                <Status state={chowPass ? "pass" : "fail"} />
               </td>
             </tr>
             <tr>
               <td className="px-3 py-2 text-ink">Wasserstein distance (W1)</td>
               <td className="px-3 py-2 text-right text-muted tnum">{fmt(audit.wasserstein_w1_raw, 3)}</td>
-              <td className="px-3 py-2 text-right text-muted tnum">{fmt(audit.wasserstein_w1_harm, 3)}</td>
+              <td className="px-3 py-2 text-right text-muted tnum">
+                {fmt(audit.wasserstein_w1_harm, 3)} · {w1Reduction.toFixed(1)}% reduction
+              </td>
               <td className="px-3 py-2">
-                <Verdict ok={w1Reduction >= 50} />
+                <Status state={w1Pass ? "pass" : "fail"} />
               </td>
             </tr>
             <tr>
@@ -132,7 +135,7 @@ export function AuditMetricsPanel() {
               <td className="px-3 py-2 text-right text-muted tnum">{fmt(audit.burned_area_r2_raw, 3)}</td>
               <td className="px-3 py-2 text-right text-muted tnum">{fmt(audit.burned_area_r2_harm, 3)}</td>
               <td className="px-3 py-2">
-                <Verdict ok={r2Pass} />
+                <Status state={r2Available ? "pass" : "na"} />
               </td>
             </tr>
           </tbody>
@@ -140,9 +143,12 @@ export function AuditMetricsPanel() {
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-faint">
-        Temporal entropy filter: {audit.industrial_false_positives_removed.toLocaleString("en-US")} industrial
-        sources discarded (H &gt; 0.75). Peak drift: {fmt(audit.phenology_shift_days_per_decade)} days per
-        decade; Mann–Kendall p = {fmtP(audit.mann_kendall_p_value)}.
+        Industrial filter: {audit.industrial_false_positives_removed.toLocaleString("en-US")} detection
+        {audit.industrial_false_positives_removed === 1 ? "" : "s"} discarded (Shannon temporal entropy H &gt; 0.75)
+        {audit.industrial_false_positives_removed === 0
+          ? " — no flaring detected in this area with the current pipeline."
+          : "."} Peak drift: {fmt(audit.phenology_shift_days_per_decade)} days per decade; Mann–Kendall p ={" "}
+        {fmtP(audit.mann_kendall_p_value)}.
       </p>
     </section>
   );

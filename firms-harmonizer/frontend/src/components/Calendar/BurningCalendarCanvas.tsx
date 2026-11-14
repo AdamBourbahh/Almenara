@@ -542,10 +542,12 @@ export function BurningCalendarCanvas() {
           <span className="inline-block h-2.5 w-4 border border-rule" style={{ background: hatchCss("gapFilled") }} />
           Repaired (Kalman)
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-4 border border-rule" style={{ background: hatchCss("forecast") }} />
-          14-day forecast
-        </span>
+        {(analysisData?.forecast_series?.length ?? 0) > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-4 border border-rule" style={{ background: hatchCss("forecast") }} />
+            14-day forecast
+          </span>
+        )}
       </div>
     </div>
   );
