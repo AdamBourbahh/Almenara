@@ -13,31 +13,15 @@ export interface PresetRegion {
 }
 
 export const PRESET_REGIONS = {
-  CERRADO: {
-    label: "Cerrado & Pantanal",
-    context: "Brazil: the 2012 sensor jump",
-    coordinates: [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0], [-57.2, -16.0], [-57.2, -17.8]]]
-  },
-  SIERRA_NEVADA: {
-    label: "Sierra Nevada",
-    context: "California: when the season starts earlier",
-    coordinates: [[[-121.2, 38.0], [-119.5, 38.0], [-119.5, 40.2], [-121.2, 40.2], [-121.2, 38.0]]]
-  },
-  IBERIA: {
-    label: "Iberian Peninsula",
-    context: "Spain and Portugal: coast and mountain detail",
-    coordinates: [[[-6.5, 37.2], [-3.2, 37.2], [-3.2, 39.8], [-6.5, 39.8], [-6.5, 37.2]]]
-  },
-  NIGER_DELTA: {
-    label: "Niger Delta",
-    context: "Nigeria: oil flares versus wildfires",
-    coordinates: [[[5.6, 4.6], [7.2, 4.6], [7.2, 5.8], [5.6, 5.8], [5.6, 4.6]]]
-  }
+  chilecito_la_rioja: { label: "Chilecito, La Rioja (Argentina)", context: "Argentina: real FIRMS observations", coordinates: [[[-69.5, -31], [-65.5, -31], [-65.5, -27.5], [-69.5, -27.5], [-69.5, -31]]] },
+  iberia_med: { label: "Iberian Peninsula / Mediterranean (Spain)", context: "Spain and Portugal: real FIRMS observations", coordinates: [[[-9.5, 36], [4, 36], [4, 44], [-9.5, 44], [-9.5, 36]]] },
+  orlando_florida: { label: "Orlando, Florida (USA)", context: "Florida: real FIRMS observations", coordinates: [[[-82.0, 28.0], [-80.7, 28.0], [-80.7, 29.3], [-82.0, 29.3], [-82.0, 28.0]]] },
+  amazonas_manaus: { label: "Amazonas / Manaus (Brazil)", context: "Brazil: real FIRMS observations", coordinates: [[[-62.0, -5.0], [-58.0, -5.0], [-58.0, -1.0], [-62.0, -1.0], [-62.0, -5.0]]] }
 } satisfies Record<string, PresetRegion>;
 
 export type PresetKey = keyof typeof PRESET_REGIONS;
 export type RegionSelection = PresetKey | "CUSTOM";
-export const PRESET_ORDER: PresetKey[] = ["CERRADO", "SIERRA_NEVADA", "IBERIA", "NIGER_DELTA"];
+export const PRESET_ORDER = Object.keys(PRESET_REGIONS) as PresetKey[];
 
 /** Minimum side of a custom bounding box (degrees) to avoid accidental click-sized AOIs. */
 export const MIN_BBOX_SIDE_DEG = 0.02;
@@ -128,8 +112,8 @@ let chaosSeq = 0;
 
 export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   viewMode: "HARMONIZED",
-  selectedPreset: "CERRADO",
-  currentAoi: polygonFromPreset("CERRADO"),
+  selectedPreset: "chilecito_la_rioja",
+  currentAoi: polygonFromPreset("chilecito_la_rioja"),
   startYear: 2001,
   endYear: 2026,
   excludeIndustrial: true,
@@ -236,9 +220,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     };
 
     try {
-      const { data, isSynthetic } = await analyzeAoi(requestPayload, controller.signal);
+      const { data } = await analyzeAoi(requestPayload, controller.signal);
       if (seq !== analysisSeq) return; // a newer request superseded this one
-      set({ analysisData: data, calendarIndex: buildCalendarIndex(data), isSynthetic, loading: false, hoveredDay: null });
+      set({ analysisData: data, calendarIndex: buildCalendarIndex(data), isSynthetic: data.data_source === "synthetic", loading: false, hoveredDay: null });
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
       set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false });
@@ -257,12 +241,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     set({ chaosLoading: true, chaosError: null });
 
     try {
-      const { data, isSynthetic } = await runChaosMonkey(
+      const { data } = await runChaosMonkey(
         { aoi: state.currentAoi, target_year: state.selectedYear, drop_fraction: 0.25, random_seed: 42 },
         controller.signal
       );
       if (seq !== chaosSeq) return;
-      set({ chaosData: data, chaosIsSynthetic: isSynthetic, chaosLoading: false });
+      set({ chaosData: data, chaosIsSynthetic: data.data_source === "synthetic", chaosLoading: false });
     } catch (err: unknown) {
       if (seq !== chaosSeq || isAbortError(err)) return;
       set({ chaosError: err instanceof Error ? err.message : "Chaos Monkey simulation failed", chaosLoading: false });

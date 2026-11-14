@@ -1,0 +1,124 @@
+{
+  "platform": "Windows-11-10.0.26300-SP0",
+  "processor": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "regions": {
+    "chilecito_la_rioja": {
+      "raw_center_detections": 108072,
+      "r4": 115,
+      "r7": 9879,
+      "dates": [
+        "2000-11-05",
+        "2026-11-01"
+      ],
+      "raw_bounds": [
+        -69.4997,
+        -30.99993,
+        -65.5,
+        -27.50002
+      ],
+      "cube_cell_days": 48246,
+      "query_r7": 32349,
+      "query_p95_ms": 33.22267999938048,
+      "api_cells": 9760,
+      "calendar_days": 9496,
+      "execution_ms": 302.18429999877117,
+      "http_uncached_ms": 532.1589999985008,
+      "http_cached_ms": 120.23290000070119,
+      "x_cache": "MISS",
+      "x_cache_hit": "HIT",
+      "server_timing": "h3;dur=11.77, db;dur=141.15, build;dur=41.98, core;dur=107.28, validate;dur=54.23, serialize;dur=33.79",
+      "server_timing_hit": "h3;dur=11.60, cache;dur=0.85",
+      "chaos_ms": 163.82180000073276,
+      "recovery_pct": 95.29757595101924,
+      "confidence_level": "high"
+    },
+    "orlando_florida": {
+      "raw_center_detections": 52943,
+      "r4": 20,
+      "r7": 3261,
+      "dates": [
+        "2000-11-01",
+        "2026-10-30"
+      ],
+      "raw_bounds": [
+        -82.0,
+        28.0,
+        -80.7,
+        29.2999
+      ],
+      "cube_cell_days": 30381,
+      "query_r7": 3891,
+      "query_p95_ms": 22.68848000039725,
+      "api_cells": 3123,
+      "calendar_days": 9496,
+      "execution_ms": 187.52650000169524,
+      "http_uncached_ms": 309.9937000006321,
+      "http_cached_ms": 71.33240000257501,
+      "x_cache": "MISS",
+      "x_cache_hit": "HIT",
+      "server_timing": "h3;dur=8.90, db;dur=60.92, build;dur=24.65, core;dur=93.06, validate;dur=34.25, serialize;dur=21.84",
+      "server_timing_hit": "h3;dur=1.41, cache;dur=0.81",
+      "chaos_ms": 81.11970000027213,
+      "recovery_pct": 99.85949877654046
+    },
+    "amazonas_manaus": {
+      "raw_center_detections": 390954,
+      "r4": 126,
+      "r7": 13176,
+      "dates": [
+        "2000-11-01",
+        "2026-11-01"
+      ],
+      "raw_bounds": [
+        -61.99994,
+        -4.9991,
+        -58.0,
+        -1.00065
+      ],
+      "cube_cell_days": 220891,
+      "query_r7": 36927,
+      "query_p95_ms": 31.42474999822298,
+      "api_cells": 13104,
+      "calendar_days": 9496,
+      "execution_ms": 500.415399998019,
+      "http_uncached_ms": 671.7135999970196,
+      "http_cached_ms": 102.16869999931077,
+      "x_cache": "MISS",
+      "x_cache_hit": "HIT",
+      "server_timing": "h3;dur=69.69, db;dur=290.97, build;dur=46.71, core;dur=93.05, validate;dur=50.87, serialize;dur=30.44",
+      "server_timing_hit": "h3;dur=11.34, cache;dur=0.88",
+      "chaos_ms": 263.2067999984429,
+      "recovery_pct": 93.47217512006006
+    },
+    "iberia_med": {
+      "raw_center_detections": 1022123,
+      "r4": 450,
+      "r7": 71567,
+      "dates": [
+        "2000-11-01",
+        "2026-11-01"
+      ],
+      "raw_bounds": [
+        -9.49359,
+        36.0,
+        4.0,
+        43.99997
+      ],
+      "cube_cell_days": 462283,
+      "query_r7": 193839,
+      "query_p95_ms": 100.19044499968004,
+      "api_cells": 71439,
+      "calendar_days": 9496,
+      "execution_ms": 1826.3802000001306,
+      "http_uncached_ms": 2328.839900001185,
+      "http_cached_ms": 291.9311000005109,
+      "x_cache": "MISS",
+      "x_cache_hit": "HIT",
+      "server_timing": "h3;dur=401.11, db;dur=1138.49, build;dur=184.23, core;dur=102.55, validate;dur=163.75, serialize;dur=80.91",
+      "server_timing_hit": "h3;dur=93.32, cache;dur=2.12",
+      "chaos_ms": 1312.8452000019024,
+      "recovery_pct": 94.1762288522776
+    }
+  },
+  "cube_rows": 761801
+}

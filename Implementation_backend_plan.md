@@ -1,5 +1,9 @@
 # Backend Implementation Plan
 
+## Real-data cutover execution — 2026-11-14
+
+Authorized cross-track integration uses the current real scientific adapter and the frozen wire schema. Plan: audit and rebuild the real cube when stale; test populated-region presets and explicit synthetic opt-in; align the client and store; run backend conformance, real HTTP and browser smoke checks; record measured latency and remaining scientific limitations. Region IDs and geometry come from `data/regions.json`. Keep the synthetic fixture available only by explicit opt-in. Preserve concurrent scientific work already committed on main.
+
 **Goal** — Build and verify the offline FIRMS ETL pipeline and the on-demand API for harmonized daily fire radiative energy (FRE).
 
 **Architecture** — Python, H3, DuckDB and PyArrow prepare the local Parquet cube. FastAPI queries it through DuckDB and delegates scientific analysis to the NumPy/SciPy core. The API delivers gzip-compressed JSON serialized with orjson.
@@ -11,7 +15,7 @@
 | Block | Complete | In progress | Pending |
 | --- | --- | --- | --- |
 | Offline ETL | 1, 2, 3, 4 | 5, 6, 7 | — |
-| Online API | 8 | 9, 10, 11, 12 | — |
+| Online API | 8, 9, 10 | 11, 12 | — |
 
 ## Earlier pull review (historical context)
 
@@ -97,7 +101,7 @@ The missing-signature integration gap recorded above is now resolved locally. `b
 
 - [x] Implement the atomic, ZSTD-compressed master builder and verify the synthetic artifact's 18-field layout and unique ascending `(h3_r4, epoch_day, h3_r7)` keys. ZSTD level 9 and 128,000-row groups remain tuning candidates from the attachment.
 - [x] Separate fixture and master publication. Script 00 and script 04 with `--bootstrap` default to `fire_cube_synthetic.parquet`. Script 04 builds a real-only master and preserves an existing output when staging is missing. The tracked synthetic master was removed. The local staged dataset produced **510,529** unique real cell-days, with zero fixture rows and consistent year and day-of-year values.
-- [ ] Coordinate the 1970-01-01 epoch migration with Moha. Both generators, DuckDB and the API now follow `SPECS.md` §5.1. The API tests and core checker use the aligned Cerrado AOI. Verify NOAA-21 masks and smoke-test both cube modes before replacing deployed cubes. Distinguish missing ancillary inputs from observed zero.
+- [x] Verify the 1970-01-01 epoch, NOAA-21 masks, explicit synthetic and real modes, and ancillary provenance on 2026-11-14. Rebuilt the real-only cube: 761,801 rows. Chilecito UTC 2022-08-10 returns nine raw detections matching DB aggregation; both conformance modes pass. Missing ancillary values remain documented as sentinels with coverage metadata.
 - [ ] Complete the real-data benchmark and scientific acceptance. The current artifact covers Chilecito and Iberia. Warmed query P95 was **17.64 ms** and **55.59 ms**, respectively, with no independent burned-area R². The three other benchmark regions have no real rows.
 
 ## Block II — On-demand API
@@ -110,7 +114,7 @@ The missing-signature integration gap recorded above is now resolved locally. `b
 - [x] Implement aggregation by UTC day, a dense calendar with NaN observations for missing measurements, cursor isolation and cursor closure on failure.
 - [x] Restore the DB regression gate with a freshly generated fixture after phase 7 aligns dates and regions. Verify populated Cerrado results, R7 filtering inside an R4 parent, industrial inclusion/exclusion, dense calendar length and 15-character H3 IDs. All 21 DB integration tests pass (`pytest backend/tests/test_db_layer.py -v`). Confirmed API date against known UTC observations in the real master cube covering Chilecito, Iberia, Orlando and Amazonas (761,801 rows, 4,338 real hotspots in 2026 across 905 active hexagons in Chilecito).
 
-### Phase 9 — RTS Kalman smoother and historical guard · In progress
+### Phase 9 — RTS Kalman smoother and historical guard · Complete
 
 **Owners** — Adam for `backend/core/kalman_rts.py`; Moha for `backend/api/core_contract.py` and `backend/api/routes.py`. **Specification** — [SPECS.md](SPECS.md) §3.4, [AGENTS.md](AGENTS.md) guardrail 5, and [CAMBIOS.md](firms-harmonizer/CAMBIOS.md) core interface.
 
@@ -119,7 +123,7 @@ The missing-signature integration gap recorded above is now resolved locally. `b
 - [x] Implement the requested extended-timeline RTS forecast and exact thirteen-key result contract: fourteen forecast steps, modulo-365 forecast DOY, cloud fraction 0.25, state-dependent spatial forcing, ordered 95% bands and uncertainty clipped to 1–99.9%. This is a core capability; API forecast fields remain deferred until the adapter and HTTP integration are completed.
 - [x] Adapt the existing Kalman operations through `science_adapter`, carrying actual DOY/cloud inputs in a request-local `KalmanInput`. Real-core conformance and HTTP state/covariance comparisons pass; the scientific functions retain their tested signatures.
 
-### Phase 10 — Circular phenology and decadal trends · In progress
+### Phase 10 — Circular phenology and decadal trends · Complete
 
 **Owners** — Adam for `backend/core/von_mises.py`; Moha for API integration. **Specification** — [SPECS.md](SPECS.md) §3.6 and [CAMBIOS.md](firms-harmonizer/CAMBIOS.md) core interface.
 
@@ -144,10 +148,11 @@ The missing-signature integration gap recorded above is now resolved locally. `b
 - [x] Expose synchronous `POST /api/analyze` and `POST /api/chaos-monkey`, plus `GET /api/health`. Serve orjson and GZipMiddleware for HTTP. Arrow stays internal to the query path; the proposed `/api/hexagons.arrow` endpoint and disk cache are outside this plan. The in-memory LRU uses BLAKE2b over sorted unique R7 cells, request parameters and cube modification time. `X-Cache` and `Server-Timing` expose cache and stage timings.
 - [x] Retain HTTP tests for invalid geometry, empty AOIs, cache and core adapter error paths.
 - [x] Restore the DB, HTTP and core validation regression gates using the aligned synthetic fixture. The full 144-test backend run passes, including populated analysis and Chaos Monkey payloads and cache/error paths. The HTTP scientific calls in these tests use the existing simulated core; this does not close actual science integration.
-- [ ] Restore the frozen TypeScript mirror and parity coverage against `backend/api/schemas.py` and the mock. The frontend merge removed `data_source` from both response types, removed `dates` from Chaos Monkey, and changed or removed other fields including daily `biomass_burned_tonnes` and approved nullability. Require explicit opt-in for synthetic fallback and propagate backend provenance into frontend state. The new client currently generates synthetic responses on connectivity or gateway errors and marks successful HTTP responses as non-synthetic, including responses from an opted-in synthetic backend.
+- [x] Verify frozen TypeScript response fields/types against Pydantic and existing mock validation; require explicit fixture fallback opt-in and propagate backend provenance. Verified 2026-11-14: seven backend source/type-parity cases and three compiled frontend client/store cases pass. Live populated-region selection and charts pass Playwright smoke checks.
 - [x] Pass the 49-case `pytest backend/tests/test_math_core.py -v` gate, including all seven named scientific acceptance tests. This integration also passes the full backend regression gate.
 - [x] Pass `python -m backend.check_core --synthetic` and `python -m backend.validation_report --synthetic` with the actual adapted core.
-- [ ] Validate real local cubes, offline operation and scientific/performance targets with the adapted core. This integration run used only the explicitly opted-in synthetic cube.
+- [x] Validate functional real-cube startup, health, analysis and Chaos Monkey using actual science on all four populated regions; real provenance, cache headers and 15-character H3 IDs pass (2026-11-14).
+- [ ] Complete airplane-mode basemap verification and meet scientific/performance targets. Local real queries work; SQL P95 remains above 15 ms and independent MCD64A1/cloud evidence is absent.
 
 ## Next backend step
 
@@ -188,3 +193,9 @@ Checks used Python 3.12.3 and the temporary `/tmp/almenara-cube-venv` environmen
 Earlier reports of 101 backend tests and missing/empty science modules belong to previous revisions. The current results above supersede those test counts and implementation status; real-data acceptance and API conformance remain separate gates.
 
 Close the backend when the real-only cube passes the publication checks, the actual science core passes its own and the API's contracts, real and explicit synthetic modes work offline, and the measured scientific and latency results are recorded against the project targets.
+
+## Real-data cutover verified — 2026-11-14
+
+[Full commands, coverage, timings, screenshot and differential review](docs/verification/2026-11-14-real-cutover/README.md). Requested five-file gate: **193 passed in 23.76s**; final entire backend: **204 passed in 20.45s**. Frontend client/store: **3 passed**; TypeScript and production build pass. `python -m backend.check_core --synthetic` and real `python -m backend.validation_report` exit 0. The latter now selects declared real regions rather than empty fixture demo AOIs. All eight scientific adapter operations were already implemented and pass; no mathematical rewrite was needed.
+
+Real rows: Chilecito **48,246**, Iberia **462,283**, Orlando **30,381**, Amazonas/Manaus **220,891**; total **761,801**, zero synthetic rows. Warmed SQL P95 / API processing / cached HTTP in milliseconds: Chilecito **33.22 / 302.18 / 120.23**; Iberia **100.19 / 1826.38 / 291.93**; Orlando **22.69 / 187.53 / 71.33**; Amazonas **31.42 / 500.42 / 102.17**. These measured misses keep performance acceptance open. Real scientific R2 and calibration acceptance remain open. Frontend defaults to Chilecito and exposes exactly the four populated regions with English labels. No API wire schema was changed.

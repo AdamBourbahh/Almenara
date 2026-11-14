@@ -19,13 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-PRESETS = {  # SPECS.md §5.3 bounds (west, south, east, north) = types.ts PRESET_REGIONS
-    "cerrado_brazil": (-57.2, -17.8, -55.2, -16.0),
-    "california_usa": (-121.2, 38.0, -119.5, 40.2),
-    "iberia_med": (-6.5, 37.2, -3.2, 39.8),
-    "niger_delta_flaring": (5.6, 4.6, 7.2, 5.8),
-}
-TARGET_QUERY_MS = 12.0
+TARGET_QUERY_MS = 15.0
 TARGET_ANALYZE_MS = 250.0
 
 
@@ -66,7 +60,7 @@ def main() -> int:
 
     print("\n== Latency (first call | median of next 9) ==")
     print(f"   reference targets: query <{TARGET_QUERY_MS} ms, analyze <{TARGET_ANALYZE_MS} ms (not gates)")
-    for name, bounds in PRESETS.items():
+    for name, bounds in check_core.validation_regions().items():
         coords = rectangle(*bounds)
         f_first, f_med = timed(lambda: queries.get_hierarchical_h3_filter(coords))
         r4, r7, _ = queries.get_hierarchical_h3_filter(coords)
@@ -90,7 +84,7 @@ def main() -> int:
 
     print("\n== Scientific diagnostics (printed as measured; real core) ==")
     with TestClient(app) as client:
-        for name, bounds in PRESETS.items():
+        for name, bounds in check_core.validation_regions().items():
             body = {"aoi": {"type": "Polygon", "coordinates": rectangle(*bounds)}}
             ANALYZE_CACHE.clear()
             GEOMETRY_CACHE.clear()
