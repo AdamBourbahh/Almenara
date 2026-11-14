@@ -1,5 +1,11 @@
 /** Frozen API contracts. Dates are ISO YYYY-MM-DD; H3 indices are hex strings. */
 
+/** UI-only helpers (not part of the wire contract). */
+export type ViewMode = "RAW" | "HARMONIZED";
+export type ConfidenceLevel = "low" | "nominal" | "high";
+/** Codes used by the frontend's offline generator. The API itself sends `gap_reason` as free text or null. */
+export type GapReason = "NONE" | "SENSOR_OUTAGE" | "CLOUD_OCCLUSION" | "SWATH_GAP" | "MULTI_FACTOR";
+
 export interface GeoJSONPolygon {
   type?: "Polygon";
   coordinates: Array<Array<Array<number>>>;
@@ -12,7 +18,7 @@ export interface AnalyzeRequest {
   exclude_industrial_flaring?: boolean;
   enable_kalman_gap_filling?: boolean;
   forecast_days?: number;
-  confidence_level?: "low" | "nominal" | "high";
+  confidence_level?: ConfidenceLevel;
 }
 
 export interface DailyCalendarCell {
@@ -63,7 +69,7 @@ export interface ScientificAuditMetrics {
 }
 
 export interface H3MapSummaryHex {
-  h3_index?: string;
+  h3_index: string;
   mean_annual_fre: number;
   raw_pixel_count: number;
   trend_slope: number;
