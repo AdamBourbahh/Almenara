@@ -1,4 +1,5 @@
 import { AuditMetricsPanel } from "../components/Audit/AuditMetricsPanel";
+import { FireRiskCard } from "../components/Audit/FireRiskCard";
 import { PageShell } from "./PageShell";
 
 export function ImpactPage() {
@@ -9,6 +10,7 @@ export function ImpactPage() {
       intro="First the physical impact in plain terms. Below it, the tests that show the harmonized record holds up against independent data."
     >
       <AuditMetricsPanel />
+      <FireRiskCard />
     </PageShell>
   );
 }

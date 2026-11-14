@@ -12,13 +12,18 @@ from fastapi.middleware.gzip import GZipMiddleware
 load_dotenv()
 
 from backend.api.routes import router
+from backend.db import nrt_poller
 from backend.db.duckdb_engine import init_engine
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_engine()  # raises CubeNotAvailableError with a clear message -> server does not start
-    yield
+    nrt_poller.start_nrt_poller()
+    try:
+        yield
+    finally:
+        nrt_poller.stop_nrt_poller()
 
 
 app = FastAPI(title="FIRMS Harmonizer API", version="0.1.0", lifespan=lifespan)

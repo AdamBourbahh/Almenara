@@ -9,6 +9,8 @@ import type {
   ExplainSpikeResponse,
   GapReason,
   H3MapSummaryHex,
+  RiskPredictionRequest,
+  RiskPredictionResponse,
   ScientificAuditMetrics,
   VonMisesPhenologyYear
 } from "./types";
@@ -83,6 +85,10 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
     clearTimeout(timeoutId);
     signal?.removeEventListener("abort", forwardAbort);
   }
+}
+
+export function fetchRiskPrediction(request: RiskPredictionRequest, signal?: AbortSignal): Promise<RiskPredictionResponse> {
+  return postJson<RiskPredictionResponse>("/predict-risk", request, signal);
 }
 
 export async function analyzeAoi(request: AnalyzeRequest, signal?: AbortSignal): Promise<ApiResult<AnalyzeResponse>> {

@@ -6,39 +6,43 @@ All calls into Adam's core go through core_contract.call (resolution + output va
 
 from __future__ import annotations
 
-from datetime import date
-
 import calendar
 import json
 import os
 import urllib.parse
+from datetime import date
 from time import perf_counter
 from typing import Literal
 
+import warnings
 from dotenv import load_dotenv
 
 load_dotenv()
+warnings.filterwarnings("ignore", category=RuntimeWarning, message=r".*duckduckgo_search.*")
+warnings.filterwarnings("ignore", category=RuntimeWarning, message=r".*ddgs.*")
 
 import h3
 import h3.api.basic_int as h3i
 import httpx
 import numpy as np
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from backend.api.science_adapter import KalmanInput
 from backend.api import core_contract
-from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE, CachedJSON, geometry_key, make_cache_key
+from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE, CachedJSON, LRUCache, geometry_key, make_cache_key
 from backend.api.schemas import (AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse,
                                  CitationReference, DailyCalendarCell, ExplainSpikeRequest, ExplainSpikeResponse,
-                                 GeoJSONPolygon, H3MapSummaryHex)
-from backend.db import duckdb_engine, queries
+                                 GeoJSONPolygon, H3MapSummaryHex, RiskPredictionRequest, RiskPredictionResponse)
+from backend.core.risk_predictor import predict_risk as fit_risk_predictor
+from backend.db import duckdb_engine, nrt_poller, queries
 from backend.db.queries import (OBS_COLUMNS, AoiAggregate, fetch_aoi_aggregated_data,
                                 get_hierarchical_h3_filter, validate_polygon_topology)
 
 router = APIRouter(prefix="/api")
+RISK_CACHE = LRUCache(16)
 
 WOOSTER_KG_PER_MJ = 0.368          # biomass combustion factor (Wooster et al. 2005)
 CI_Z_95 = 1.96
@@ -218,6 +222,40 @@ def _empty_payload(key: str, agg: AoiAggregate) -> dict:
 
 # ---------------------------------------------------------------- routes
 
+@router.post("/predict-risk", response_model=RiskPredictionResponse)
+def predict_risk(req: RiskPredictionRequest) -> Response:
+    """Train and validate on local AOI history and issue a dated thermal proxy forecast."""
+    t0 = perf_counter()
+    timer = StageTimer()
+    cutoff = req.as_of_date or date(req.end_year, 12, 31)
+    cube = duckdb_engine.cube_path()
+    key = f"{geometry_key(req.aoi.coordinates)}:{req.start_year}:{req.end_year}:{cutoff}:{cube.stat().st_mtime_ns}:{cube}"
+    cached = RISK_CACHE.get(key)
+    if cached is not None:
+        timer.lap("cache")
+        return _json_response(cached.render((perf_counter() - t0) * 1000), "HIT", timer)
+    r4, r7, _ = _filter_or_422(req.aoi.coordinates)
+    timer.lap("h3")
+    daily = queries.fetch_risk_daily(r4, r7, req.start_year, req.end_year, (cutoff - date(1970, 1, 1)).days)
+    timer.lap("db")
+    model_start = perf_counter()
+    result = fit_risk_predictor(daily) if daily else None
+    model_time = (perf_counter() - model_start) * 1000
+    timer.lap("model")
+    reason = None
+    if not daily:
+        reason = "No local observations in the selected area and date range."
+    elif result is None:
+        reason = "Insufficient historical coverage or event examples to calibrate a forecast."
+    payload = RiskPredictionResponse(
+        data_source=duckdb_engine.data_source(), assessment=result, unavailable_reason=reason,
+        model_time_ms=model_time, execution_time_ms=(perf_counter() - t0) * 1000,
+    )
+    body = payload.model_dump_json().encode()
+    RISK_CACHE.put(key, CachedJSON(body))
+    return _json_response(body, "MISS", timer)
+
+
 class MapPeriodResponse(BaseModel):
     """Spatial observations only; legacy hex energy field is summed over these dates."""
 
@@ -394,7 +432,7 @@ def health():
         return {"status": "ok", "duckdb": "ok", "row_count": duckdb_engine.get_row_count(),
                 "data_source": duckdb_engine.data_source(), "cube_path": str(duckdb_engine.cube_path()),
                 "missing_columns": duckdb_engine.missing_columns(), "core": core_contract.core_status(),
-                "core_signatures": core_contract.signature_issues()}
+                "core_signatures": core_contract.signature_issues(), "nrt": nrt_poller.get_nrt_status()}
     except Exception as exc:  # report, never hide, engine failures
         return JSONResponse(status_code=503, content={"status": "degraded", "duckdb": str(exc)})
 
@@ -487,8 +525,10 @@ def _search_fire_web_context(
 
     if not raw_results:
         try:
-            with DDGS(timeout=3.5) as ddgs:
-                raw_results = list(ddgs.text(query, max_results=3))
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                with DDGS(timeout=3.5) as ddgs:
+                    raw_results = list(ddgs.text(query, max_results=3))
         except Exception:
             raw_results = []
 

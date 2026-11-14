@@ -11,6 +11,63 @@ export interface GeoJSONPolygon {
   coordinates: Array<Array<Array<number>>>;
 }
 
+export interface RiskPredictionRequest {
+  aoi: GeoJSONPolygon;
+  start_year?: number;
+  end_year?: number;
+  as_of_date?: string;
+}
+
+export interface RiskValidation {
+  samples: number;
+  positives: number;
+  brier_score: number | null;
+  roc_auc: number | null;
+  reliability: { samples: number; mean_predicted_pct: number; observed_pct: number }[];
+}
+
+export interface RiskHorizon {
+  days: 1 | 7 | 14;
+  wildfire_prob_pct: number | null;
+  accident_prob_pct: number | null;
+  combined_risk_pct: number | null;
+  wildfire_validation: RiskValidation;
+  accident_validation: RiskValidation;
+  combined_validation: RiskValidation;
+}
+
+export interface RiskFactor {
+  feature: string;
+  impact_pct: number;
+  direction: "raises" | "lowers";
+  description: string;
+}
+
+export interface AIRiskAssessment {
+  as_of_date: string;
+  validation_start_date: string;
+  wildfire_prob_24h_pct: number | null;
+  wildfire_prob_7d_pct: number | null;
+  industrial_accident_prob_pct: number | null;
+  combined_risk_pct: number | null;
+  overall_hazard_level: "LOW" | "MODERATE" | "HIGH" | "CRITICAL" | null;
+  vegetation_event_threshold_mw: number;
+  horizons: RiskHorizon[];
+  model_metrics: RiskValidation & { model_weights: Record<string, number> };
+  top_risk_factors: RiskFactor[];
+  industrial_risk_factors: RiskFactor[];
+  daily_probability_series: { date: string; wildfire_prob_pct: number | null; accident_prob_pct: number | null }[];
+}
+
+export interface RiskPredictionResponse {
+  data_source: "real" | "synthetic";
+  target: "satellite_thermal_event_proxy";
+  assessment: AIRiskAssessment | null;
+  unavailable_reason: string | null;
+  model_time_ms: number;
+  execution_time_ms: number;
+}
+
 export interface AnalyzeRequest {
   aoi: GeoJSONPolygon;
   start_year?: number;

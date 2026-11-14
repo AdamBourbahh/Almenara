@@ -21,6 +21,10 @@ Cada fila es un cambio hecho por Moha (dueño de `backend/db/` y `backend/api/`)
 
 | Fecha | Archivo | Dueño original | Cambio | Motivo | Afecta a |
 |---|---|---|---|---|---|
+| 2026-11-14 | `backend/db/nrt_poller.py` | Moha | Implementación 100% lista para producción del poller NRT (ADR-03) con soporte offline y test en `test_nrt_poller.py` | Eliminar archivo vacío (0 bytes); regla ZERO PLACEHOLDERS de AGENTS.md | Backend, DuckDB |
+| 2026-11-14 | `backend/api/main.py` | Moha | Integrado `start_nrt_poller()` y `stop_nrt_poller()` en lifespan de FastAPI | Gestión del ciclo de vida del poller NRT en background | Backend |
+| 2026-11-14 | `backend/db/queries.py` | Moha | Corregido f-string SQL en `fetch_risk_daily` y sustituido `.execute().to_arrow_table()` por `.sql().to_arrow_table()` | Cumplimiento del guardarraíl AST de SQL y eliminación de advertencias UserWarning por copia extra de filas | Backend, DuckDB |
+| 2026-11-14 | `backend/api/routes.py` | Moha | Actualizado `duckduckgo_search` a `ddgs` e incluido estado de NRT en `/api/health` | Eliminar RuntimeWarning de paquete renombrado y enriquecer healthcheck | Backend, Health |
 | 2026-11-14 | `backend/api/schemas.py` | Adam | Añadidos `CitationReference`, `ExplainSpikeRequest` y `ExplainSpikeResponse` | Contratos para endpoint `/api/explain-spike` (grounding web y citas científicas) | Frontend, Backend |
 | 2026-11-14 | `frontend/src/api/types.ts` | Mohammed | Espejo de `CitationReference`, `ExplainSpikeRequest` y `ExplainSpikeResponse` | Tipos TypeScript sincronizados con backend | Frontend |
 | 2026-11-14 | `backend/api/routes.py` | Moha | Implementado endpoint síncrono `POST /api/explain-spike` con triaje físico y grounding web en cascada | Explicación científica de anomalías con citas [1]..[5] y [W1]..[W3] | Frontend, Demo |

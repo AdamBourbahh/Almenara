@@ -357,8 +357,55 @@ protection. Map colors use one fixed reference across dates; tooltips and visibl
 describe that same selected period. Missing observations do not establish absence of fire;
 the first satellite detection does not establish the actual ignition time.
 
-### 5.4 Observations viewer (current scope, 2026-11-14)
+### 5.5 Observations viewer (current scope, 2026-11-14)
 
 The current UI displays accepted, deduplicated FIRMS detection centers from the real staging dataset. `POST /api/observations` accepts a `GeoJSONPolygon` directly and returns real provenance, daily counts, summed instantaneous FRP in MW, all five instrument labels, per-R7 counts/FRP, first/last detection dates and the aggregation method. It never calls the scientific core, fills missing dates, estimates emissions or forecasts. No detections on a date does not establish zero fire activity or complete observation coverage. Counts are detections, not distinct fire events. Staging retains the ingestion quality and SAMA/date filters; raw FRP is not footprint-corrected or EQM-adjusted.
 
 The active region catalogue is `firms-harmonizer/data/regions.json`: entries with declared `coverage` are offered by the frontend. Current regions are Orlando, Manaus, Chilecito and the full Iberia study rectangle. Rectangles are study envelopes, not administrative boundaries. Section 5.3 and the frozen TypeScript preset helper describe legacy scientific demo cases and are not the active observations catalogue. Existing `/api/analyze` and `/api/chaos-monkey` contracts remain unchanged and are not used by the observations UI.
+
+### 5.6 Offline satellite thermal event predictor
+
+`POST /api/predict-risk` accepts an AOI polygon, optional `start_year` and `end_year`
+(default 2001–2026), and an optional UTC `as_of_date` inside those years. The forecast origin
+is the latest local cube row within the requested period. Horizons 1, 7 and 14 cover the
+following UTC days. The response includes `data_source`, the target identifier
+`satellite_thermal_event_proxy`, nullable `assessment` and `unavailable_reason`,
+`model_time_ms` and `execution_time_ms`. Existing analysis contracts remain compatible.
+
+The cube has no confirmed ignition, spread or industrial accident labels. Fields named
+`wildfire_prob_*` estimate high **non-persistent satellite heat** and fields named
+`accident_prob_*` estimate a **persistent-source thermal excursion**. The combined
+target is the occurrence of either event within the horizon. These are observation
+probabilities after the stated origin, and are conditioned on the local record and its
+sensor coverage. The vegetation event threshold is the 90th percentile of positive
+summed FRP in the first fifth of the record. A persistent cell has observations on at
+least 12 days and across nine calendar months within its preceding 365 days, with a
+log-FRP standard deviation at most 0.8. An excursion is at least 2.5 standard deviations
+above that trailing log-FRP mean, with a 0.25 scale floor. Persistence is a thermal
+pattern and cannot identify the physical source by itself.
+
+The feature matrix uses raw daily FRP from the cube, same-AOI previous-day H3 neighbors,
+trailing 3/7-day means and 14-day maximum, prior-years Gaussian-smoothed seasonal
+climatology, circular phase and mean direction, anomaly, quiet-spell interaction,
+persistent-source share/excursion and observation-gap features. Cloud enters only when
+the cube confirms complete ancillary coverage. In the supplied real cube it is absent.
+The full-history EQM/LUT, retrospective industrial entropy and RTS backward-smoothed
+estimates would leak later information and are excluded. A day between recorded
+observations without a cube row has no reported detection. This convention and changing
+sensor coverage limit what the forecast can infer about real fire activity.
+
+The first 60% supplies base-model fit data, the next 20% calibrates stacked logistic,
+boosted-stump and Gaussian naive Bayes outputs, and the final 20% supplies held-out
+forecasts and validation. Label windows may not cross those boundaries or extend past
+the record; flagged or explicitly missing windows are excluded from scoring. Metrics
+cover each target and horizon separately. At least five events and five non-events
+are required in both fitting and calibration. Unlearnable targets and undefined
+ROC-AUC return null. Reliability bins compare forecast means to observed frequencies.
+The combined estimate is trained on the union and constrained by its marginals.
+The severity badge denotes the combined 24-hour proxy likelihood, with boundaries at
+25%, 50% and 75%. Driver bars show shares of absolute standardized logistic log-odds,
+not causal effects or ensemble probability changes.
+
+All computation runs locally. The geometry/date/cube-keyed LRU caches completed results.
+Cold timings include database aggregation and new model fitting. The risk endpoint stays
+separate from map, chronology and the existing nullable FRE forecast series.
