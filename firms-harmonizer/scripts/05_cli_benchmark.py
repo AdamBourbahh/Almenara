@@ -1,6 +1,7 @@
 """Benchmark regional Parquet queries and report project audit targets."""
 
 import argparse
+import sys
 from importlib import import_module
 from pathlib import Path
 from time import perf_counter
@@ -14,6 +15,9 @@ from scipy.stats import wasserstein_distance
 bootstrap = import_module("00_bootstrap_synthetic_cube")
 ingest = import_module("01_ingest_firms")
 ROOT = ingest.ROOT
+
+sys.path.insert(0, str(ROOT))
+from backend.core.auditor_stats import compute_chow_structural_break_test  # noqa: E402
 
 
 def cross_validated_r2(energy, area):
@@ -85,6 +89,7 @@ def run_benchmark(cube_path="data/processed/fire_cube.parquet"):
                     + (obs_viirs_fre IS NOT NULL)::INT, 0), 0)) AS energy,
                 sum(obs_viirs_fre) AS viirs, sum(burned_area_ha_mcd64) AS area
                 FROM read_parquet(?) SEMI JOIN region_cells USING (h3_r7) WHERE h3_r4 IN ({parents})
+                    AND industrial_prob < 0.75
                 GROUP BY year, doy ORDER BY year, doy"""
             rows = con.execute(sql, [str(path)]).fetchall()
             latency = []
@@ -97,9 +102,17 @@ def run_benchmark(cube_path="data/processed/fire_cube.parquet"):
             years, doy = years.astype(int), doy.astype(int)
             before = years < 2012
             chow = w1 = None
+            unique_years, inverse, counts = np.unique(years, return_inverse=True, return_counts=True)
             if min(before.sum(), (~before).sum()) >= 10:
-                _, chow = bootstrap._chow(energy, years, doy)
-                w1 = wasserstein_distance(energy[before], energy[~before])
+                # Same estimators as the API audit: annual means for Chow and W1 normalized by the overall mean.
+                annual = np.bincount(inverse, weights=energy, minlength=len(unique_years)) / counts
+                try:
+                    _, chow = compute_chow_structural_break_test(unique_years, annual)
+                except ValueError:
+                    chow = None
+                scale = float(energy.mean())
+                if scale > 0:
+                    w1 = wasserstein_distance(energy[before] / scale, energy[~before] / scale)
             unique = np.unique(years)
             # Real-region validation requires independent burned-area input.
             # Fixture remnants outside declared coverage cannot supply that input.

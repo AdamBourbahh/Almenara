@@ -152,46 +152,8 @@ export async function explainSpike(
   request: ExplainSpikeRequest,
   signal?: AbortSignal
 ): Promise<ApiResult<ExplainSpikeResponse>> {
-  try {
-    return { data: await postJson<ExplainSpikeResponse>("/explain-spike", request, signal), isSynthetic: false };
-  } catch (error) {
-    if (!isBackendUnavailable(error)) throw error;
-    console.warn("[firms-harmonizer] Backend unreachable. Using fallback for /explain-spike.", error);
-    return {
-      data: {
-        physical_classification: "EXTREME_VEGETATION_FIRE",
-        explanation_markdown:
-          "### Offline Fallback Explanation\n\nThermal spike detected by NASA sensors. Live backend connection currently unreachable; displaying deterministic physics grounding.",
-        citations: [
-          {
-            id: "[1]",
-            source_type: "PEER_REVIEWED",
-            title: "Retrieval of biomass combustion rates and totals from fire radiative power observations",
-            authors_or_agency: "Wooster, M. J., et al.",
-            year: 2005,
-            dataset_or_doi: "10.1029/2005JD006318",
-            url: "https://doi.org/10.1029/2005JD006318",
-            relevance_note: "Biomass combustion factor beta = 0.368 kg/MJ.",
-          },
-          {
-            id: "[5]",
-            source_type: "NASA_DATASET",
-            title: "Fire Information for Resource Management System (FIRMS)",
-            authors_or_agency: "NASA EOSDIS LANCE",
-            year: 2026,
-            dataset_or_doi: "NASA Earthdata / FIRMS",
-            url: "https://firms.modaps.eosdis.nasa.gov/",
-            relevance_note: "Active fire hot spots and FRP telemetry.",
-          },
-        ],
-        web_search_used: false,
-        search_query_executed: null,
-        model_used: "deterministic-offline-client",
-        data_source: "synthetic",
-      },
-      isSynthetic: true,
-    };
-  }
+  const data = await postJson<ExplainSpikeResponse>("/explain-spike", request, signal);
+  return { data, isSynthetic: data.data_source === "synthetic" };
 }
 
 // ============================================================================
@@ -250,7 +212,7 @@ export function exportToIpccCsv(data: AnalyzeResponse): void {
       .join(",")
   );
 
-  // BOM so Excel opens UTF-8 (kmÂ², Â±, Ïƒ) correctly.
+  // BOM so Excel opens UTF-8 (km², ±, σ) correctly.
   const csvContent = "ï»¿" + [headers.join(","), ...rows].join("\r\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -267,8 +229,8 @@ export function exportToIpccCsv(data: AnalyzeResponse): void {
 // ============================================================================
 // DETERMINISTIC OFFLINE FALLBACK
 // Same request => byte-identical calendar/map/metrics (seeded PRNG, UTC dates).
-// Physically plausible: VIIRS detection jump from Jan 2012, MODIS Aqua safe mode
-// (31 Jul - 16 Aug 2022), cloud occlusion, swath gaps, phenology drift.
+// Physically plausible: VIIRS detection jump from Jan 2012, VIIRS SNPP outage
+// (27 Jul - 10 Aug 2022), cloud occlusion, swath gaps, phenology drift.
 // ============================================================================
 
 const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -282,7 +244,7 @@ const TERRA_START: DayRef = { year: 2000, doy: 306 }; // 2000-11-01
 const AQUA_START: DayRef = { year: 2002, doy: 185 }; // 2002-07-04
 const SNPP_START: DayRef = { year: 2012, doy: 20 }; // 2012-01-20 (VIIRS 375 m operational)
 const NOAA20_START: DayRef = { year: 2018, doy: 5 };
-const AQUA_SAFE_MODE = { year: 2022, startDoy: 212, endDoy: 228 }; // 2022-07-31 .. 2022-08-16
+const SNPP_OUTAGE = { year: 2022, startDoy: 208, endDoy: 222 }; // 2022-07-27 .. 2022-08-10 (15 days)
 
 const WOOSTER_BIOMASS_KG_PER_MJ = 0.368;
 const PM25_EMISSION_FACTOR_G_PER_KG = 7.17; // Representative savanna/grassland emission factor
@@ -563,7 +525,7 @@ function narrativeFor(
   gapFilled: boolean,
   sensors: string[]
 ): string {
-  const head = `${dayLabel(year, doy)}: harmonized FRE ${fre.toFixed(1)} MJ/kmÂ² (Â±${unc.toFixed(1)}%, 95% CI).`;
+  const head = `${dayLabel(year, doy)}: harmonized FRE ${fre.toFixed(1)} MJ/km² (±${unc.toFixed(1)}%, 95% CI).`;
   if (!gapFilled) {
     return reason === "NONE"
       ? `${head} Clean multi-sensor observation (${sensors.join(" + ")}).`
@@ -571,13 +533,13 @@ function narrativeFor(
   }
   switch (reason) {
     case "SENSOR_OUTAGE":
-      return `${head} Reconstructed via RTS Kalman smoother: MODIS Aqua in safe mode; estimated from MODIS Terra (diurnal scaling Îºâ‰ˆ3.1Ã—) + VIIRS.`;
+      return `${head} Reconstructed via RTS Kalman smoother: VIIRS SNPP outage; estimated from MODIS Terra and Aqua (diurnal scaling κ≈3.1×) + VIIRS NOAA-20.`;
     case "CLOUD_OCCLUSION":
       return `${head} Reconstructed via RTS Kalman + historical cross-guard: >80% cloud cover blocked every optical sensor.`;
     case "SWATH_GAP":
-      return `${head} Equatorial swath gap: partial coverage gap-filled from neighboring H3 cells (tâˆ’1).`;
+      return `${head} Equatorial swath gap: partial coverage gap-filled from neighboring H3 cells (t−1).`;
     case "MULTI_FACTOR":
-      return `${head} Multi-factor gap (MODIS Aqua safe mode + cloud occlusion): reconstructed from the historical cross-guard prior with widened CI.`;
+      return `${head} Multi-factor gap (VIIRS SNPP outage + cloud occlusion): reconstructed from the historical cross-guard prior with widened CI.`;
     default:
       return head;
   }
@@ -621,9 +583,9 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
       const trueFre = peakFre * amplitude * vonMisesShape(doy, yearPeak, VON_MISES_KAPPA, yearLength) * Math.exp(0.35 * gaussian(rng)) + 0.5;
       trueAnnualFre.set(year, (trueAnnualFre.get(year) ?? 0) + trueFre);
 
-      const aquaSafeMode = year === AQUA_SAFE_MODE.year && doy >= AQUA_SAFE_MODE.startDoy && doy <= AQUA_SAFE_MODE.endDoy;
-      const aqua = isOnOrAfter(day, AQUA_START) && !aquaSafeMode;
-      const snpp = isOnOrAfter(day, SNPP_START);
+      const snppOutage = year === SNPP_OUTAGE.year && doy >= SNPP_OUTAGE.startDoy && doy <= SNPP_OUTAGE.endDoy;
+      const aqua = isOnOrAfter(day, AQUA_START);
+      const snpp = isOnOrAfter(day, SNPP_START) && !snppOutage;
       const noaa20 = isOnOrAfter(day, NOAA20_START);
       const sensors = ["MODIS_TERRA", ...(aqua ? ["MODIS_AQUA"] : []), ...(snpp ? ["VIIRS_SNPP"] : []), ...(noaa20 ? ["VIIRS_NOAA20"] : [])];
 
@@ -631,7 +593,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
       const cloud = r < 0.035;
       const swath = !cloud && tropical && r < 0.05;
       const gapReason: GapReason =
-        cloud && aquaSafeMode ? "MULTI_FACTOR" : cloud ? "CLOUD_OCCLUSION" : aquaSafeMode ? "SENSOR_OUTAGE" : swath ? "SWATH_GAP" : "NONE";
+        cloud && snppOutage ? "MULTI_FACTOR" : cloud ? "CLOUD_OCCLUSION" : snppOutage ? "SENSOR_OUTAGE" : swath ? "SWATH_GAP" : "NONE";
       const detectionFactor = cloud ? 0 : swath ? 0.5 : 1;
 
       // Raw counts: VIIRS 375 m detects ~4.5x more pixels than MODIS 1 km -> artificial jump from Jan 2012.
@@ -663,7 +625,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
         uncertainty = 100;
       }
       harmonized = Math.max(0, harmonized);
-      const halfWidth = harmonized * (uncertainty / 100); // uncertainty_pct = 1.96Â·Ïƒ / x Â· 100
+      const halfWidth = harmonized * (uncertainty / 100); // uncertainty_pct = 1.96·σ / x · 100
       const biomassKg = harmonized * areaKm2 * WOOSTER_BIOMASS_KG_PER_MJ;
 
       calendar_series.push({
@@ -718,7 +680,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
       historical_cross_prior_fre: round(prior),
       biomass_burned_tonnes: round(biomassKg / 1000, 1),
       pm25_emitted_kg: round((biomassKg * PM25_EMISSION_FACTOR_G_PER_KG) / 1000, 1),
-      tooltip_narrative: `${dayLabel(year, doy)}: operational forecast day ${k}/${FORECAST_DAYS} from the Kalman state transition. Expected FRE ${fre.toFixed(1)} MJ/kmÂ² (Â±${uncertainty.toFixed(1)}%); CI widens with horizon.`
+      tooltip_narrative: `${dayLabel(year, doy)}: operational forecast day ${k}/${FORECAST_DAYS} from the Kalman state transition. Expected FRE ${fre.toFixed(1)} MJ/km² (±${uncertainty.toFixed(1)}%); CI widens with horizon.`
     });
   }
 
@@ -821,7 +783,7 @@ export function generateSyntheticAnalyzeResponse(request: AnalyzeRequest): Analy
     total_pm25_emitted_tonnes: round(totalPm25Tonnes, 1),
     executive_verdict_en:
       `[OFFLINE SYNTHETIC] Raw pixel counts show a structural break at Jan 2012 (Chow p=${chowRaw.p.toExponential(1)}); ` +
-      `harmonized FRE is homogeneous (p=${chowHarm.p.toFixed(2)}). MODISâ€“VIIRS W1 divergence reduced by ${w1Reduction.toFixed(0)}%. ` +
+      `harmonized FRE is homogeneous (p=${chowHarm.p.toFixed(2)}). MODIS–VIIRS W1 divergence reduced by ${w1Reduction.toFixed(0)}%. ` +
       `Fire-season peak drifting ${shiftPerDecade >= 0 ? "+" : ""}${shiftPerDecade.toFixed(1)} days/decade.`
   };
 
@@ -878,7 +840,7 @@ export function generateSyntheticChaosResponse(request: ChaosMonkeyRequest): Cha
 
   const naive = truth.map((v, i) => (dropped.has(i) ? 0 : v));
 
-  // RTS-like reconstruction: local observed/prior ratio (Â±15 d) scaled onto the cross-guard prior.
+  // RTS-like reconstruction: local observed/prior ratio (±15 d) scaled onto the cross-guard prior.
   const reconstructed = truth.map((v, i) => {
     if (!dropped.has(i)) return v;
     let num = 0;

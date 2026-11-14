@@ -22,7 +22,7 @@ import type { CitationReference } from "../../api/types";
 // Markdown & Inline Formatting Helpers
 // ============================================================================
 
-function parseInlineFormatting(text: string): React.ReactNode[] {
+function parseInlineFormatting(text: string, citations: CitationReference[] = []): React.ReactNode[] {
   // Regex matches:
   // 1. Markdown links: [label](url)
   // 2. Bold text: **bold**
@@ -38,6 +38,7 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
     const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (linkMatch) {
       const [, label, url] = linkMatch;
+      if (!/^https?:\/\//i.test(url)) return label;
       return (
         <a
           key={i}
@@ -78,9 +79,15 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
     if (citMatch) {
       const id = citMatch[1];
       const isWeb = id.startsWith("W");
+      const source = citations.find((citation) => citation.id === `[${id}]`);
+      if (!source?.url || !/^https?:\/\//i.test(source.url)) return part;
       return (
-        <span
+        <a
           key={i}
+          href={source.url}
+          title={source.title}
+          target="_blank"
+          rel="noopener noreferrer"
           className={`inline-block mx-0.5 rounded px-1 py-0.2 text-[10px] font-mono font-medium ${
             isWeb
               ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30"
@@ -88,7 +95,7 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
           }`}
         >
           [{id}]
-        </span>
+        </a>
       );
     }
 
@@ -96,7 +103,7 @@ function parseInlineFormatting(text: string): React.ReactNode[] {
   });
 }
 
-function renderMarkdownBlocks(content: string): React.ReactNode {
+function renderMarkdownBlocks(content: string, citations: CitationReference[] = []): React.ReactNode {
   const lines = content.split("\n");
   const elements: React.ReactNode[] = [];
   let inTable = false;
@@ -124,7 +131,7 @@ function renderMarkdownBlocks(content: string): React.ReactNode {
               <tr key={rIdx} className="hover:bg-paper/30">
                 {row.map((val, cIdx) => (
                   <td key={cIdx} className="px-2.5 py-1.5 text-muted">
-                    {parseInlineFormatting(val.trim())}
+                    {parseInlineFormatting(val.trim(), citations)}
                   </td>
                 ))}
               </tr>
@@ -160,25 +167,25 @@ function renderMarkdownBlocks(content: string): React.ReactNode {
     if (line.startsWith("### ")) {
       elements.push(
         <h4 key={idx} className="mt-3.5 mb-1.5 font-serif text-base font-semibold text-ink">
-          {parseInlineFormatting(line.slice(4))}
+          {parseInlineFormatting(line.slice(4), citations)}
         </h4>
       );
     } else if (line.startsWith("#### ")) {
       elements.push(
         <h5 key={idx} className="mt-2.5 mb-1 text-xs font-semibold uppercase tracking-wider text-faint">
-          {parseInlineFormatting(line.slice(5))}
+          {parseInlineFormatting(line.slice(5), citations)}
         </h5>
       );
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
       elements.push(
         <li key={idx} className="ml-4 list-disc text-xs leading-relaxed text-muted">
-          {parseInlineFormatting(line.slice(2))}
+          {parseInlineFormatting(line.slice(2), citations)}
         </li>
       );
     } else {
       elements.push(
         <p key={idx} className="my-1.5 text-xs leading-relaxed text-muted">
-          {parseInlineFormatting(line)}
+          {parseInlineFormatting(line, citations)}
         </p>
       );
     }
@@ -212,7 +219,7 @@ const CitationCard: React.FC<CitationCardProps> = ({ citation }) => {
     : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400";
 
   const sourceLabel = isWeb
-    ? "Web News Report"
+    ? "Web Report"
     : isNasa
     ? "NASA Dataset"
     : "Peer-Reviewed";
@@ -232,7 +239,7 @@ const CitationCard: React.FC<CitationCardProps> = ({ citation }) => {
           </span>
         </div>
         <span className="font-mono text-[10px] text-faint">
-          {citation.authors_or_agency} ({citation.year})
+          {citation.authors_or_agency} · {citation.dataset_or_doi.includes("unverified") ? "publication date unverified" : citation.year}
         </span>
       </div>
 
@@ -333,7 +340,7 @@ export function FireCopilotDrawer() {
       {/* Slide-over Drawer */}
       <aside
         aria-label="Fire AI Copilot"
-        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-rule bg-panel shadow-2xl transition-transform"
+        className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-rule bg-panel shadow-2xl transition-transform lg:top-16"
       >
         {/* Header */}
         <header className="flex shrink-0 items-center justify-between border-b border-rule px-4 py-3.5">
@@ -346,11 +353,11 @@ export function FireCopilotDrawer() {
                 <h3 className="font-serif text-base font-semibold text-ink">Fire AI Copilot</h3>
                 <span className="inline-flex items-center gap-1 rounded-full bg-validated/10 px-2 py-0.5 text-[10px] font-medium text-validated border border-validated/25">
                   <Radio className="h-2.5 w-2.5 animate-pulse" />
-                  Physics Grounded
+                  Evidence first
                 </span>
               </div>
               <p className="text-[11px] text-faint">
-                NASA Space Apps · Multi-Sensor Physical Triage & Web Retrieval
+                Explore satellite detections and attributed fire reports
               </p>
             </div>
           </div>
@@ -414,11 +421,11 @@ export function FireCopilotDrawer() {
                 <Sparkles className="h-6 w-6" />
               </div>
               <h4 className="font-serif text-lg font-semibold text-ink">
-                Physics-First Web Grounding
+                Investigate a fire
               </h4>
               <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted">
-                Click any cell on the 26-year calendar or any H3 hexagon on the map to trigger an
-                instant physical triage and live web news retrieval.
+                Ask about a place and date, or inspect the selected map area. Answers distinguish
+                satellite detections, reported events and what remains unknown. Follow-up questions keep the conversation context.
               </p>
 
               <div className="mt-6 w-full space-y-2 text-left">
@@ -426,10 +433,10 @@ export function FireCopilotDrawer() {
                   Suggested inquiries:
                 </p>
                 {[
-                  "Why did raw hotspot counts jump in January 2012?",
-                  "Explain the August 2020 extreme fire surge in Cerrado",
-                  "Why is this thermal point classified as industrial gas flaring?",
-                  "How does the RTS Kalman Smoother reconstruct blackout days?"
+                  "What happened near Madrid on 24 July 2026?",
+                  "Investigate the fires near Careiro, Amazonas on 13 September 2024.",
+                  "Which days had the most detections near Manaus in September 2024?",
+                  "Can satellite FRP tell us the cause or burned area?"
                 ].map((q, i) => (
                   <button
                     key={i}
@@ -465,22 +472,22 @@ export function FireCopilotDrawer() {
                       {/* Provider Badge */}
                       {msg.response?.model_used && (
                         <span className="rounded border border-rule bg-paper px-1.5 py-0.5 font-mono text-[10px] text-faint">
-                          {msg.response.model_used}
+                          {msg.response.model_used.startsWith("deterministic") ? "Local evidence" : "AI assisted"}
                         </span>
                       )}
 
                       {/* Physical Classification Badge */}
                       {msg.response?.physical_classification && (
                         <span className="rounded border border-rule px-1.5 py-0.5 font-mono text-[10px] text-muted">
-                          {msg.response.physical_classification}
+                          {msg.response.physical_classification.replaceAll("_", " ").toLowerCase()}
                         </span>
                       )}
 
-                      {/* Live Web Grounded Badge */}
+                      {/* Web results retrieved Badge */}
                       {msg.response?.web_search_used && (
                         <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
                           <Globe className="h-3 w-3" />
-                          Live Web Grounded
+                          Web results retrieved
                         </span>
                       )}
                     </div>
@@ -495,8 +502,11 @@ export function FireCopilotDrawer() {
                       </div>
                     )}
 
+                    {msg.response?.data_source === "synthetic" && (
+                      <p className="mb-2 text-xs font-medium text-bias">Synthetic demo data · cannot verify real fires</p>
+                    )}
                     {/* Markdown Body */}
-                    <div className="text-xs text-ink">{renderMarkdownBlocks(msg.content)}</div>
+                    <div className="text-xs text-ink">{renderMarkdownBlocks(msg.content, msg.response?.citations)}</div>
 
                     {/* Verifiable References List */}
                     {msg.response?.citations && msg.response.citations.length > 0 && (
@@ -504,9 +514,9 @@ export function FireCopilotDrawer() {
                         <div className="mb-2 flex items-center justify-between">
                           <h5 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-faint">
                             <ShieldCheck className="h-3.5 w-3.5 text-validated" />
-                            Verifiable References & Ground Truth ({msg.response.citations.length})
+                            Sources ({msg.response.citations.length})
                           </h5>
-                          <span className="text-[10px] text-faint">Clickable DOIs & News URLs</span>
+                          <span className="text-[10px] text-faint">Open a source to check its scope</span>
                         </div>
 
                         <ul className="space-y-2">
@@ -525,7 +535,7 @@ export function FireCopilotDrawer() {
           {copilotLoading && (
             <div className="flex items-center gap-2 rounded border border-rule bg-panel p-3 text-xs text-muted">
               <Sparkles className="h-4 w-4 animate-spin text-reference" />
-              <span>Running physical triage, sensor cross-check & web grounding…</span>
+              <span>Checking local observations and relevant reports…</span>
             </div>
           )}
 
@@ -546,8 +556,10 @@ export function FireCopilotDrawer() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about this spike, 2012 jump, or news reports…"
+              placeholder="Ask about a place, date or follow-up…"
               disabled={copilotLoading}
+              maxLength={6000}
+              aria-label="Question for Fire Copilot"
               className="flex-1 rounded border border-rule bg-paper px-3 py-2 text-xs text-ink placeholder:text-faint focus:border-reference focus:outline-none focus:ring-1 focus:ring-reference"
             />
             <button

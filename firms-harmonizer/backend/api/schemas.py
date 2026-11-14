@@ -229,6 +229,11 @@ class CitationReference(ContractModel):
     relevance_note: str
 
 
+class CopilotTurn(ContractModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=6000)
+
+
 class ExplainSpikeRequest(ContractModel):
     region_name: str = "Unknown Region"
     selected_day: DailyCalendarCell | None = None
@@ -236,6 +241,9 @@ class ExplainSpikeRequest(ContractModel):
     user_question: str = ""
     aoi: GeoJSONPolygon | None = None
     confidence_level: Literal["low", "nominal", "high"] = "nominal"
+    conversation: list[CopilotTurn] = Field(default_factory=list, max_length=12)
+    period_start: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    period_end: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
 
 class ExplainSpikeResponse(ContractModel):

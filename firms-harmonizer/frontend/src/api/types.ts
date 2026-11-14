@@ -182,6 +182,11 @@ export interface CitationReference {
   relevance_note: string;
 }
 
+export interface CopilotTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface ExplainSpikeRequest {
   region_name?: string;
   selected_day?: DailyCalendarCell | null;
@@ -189,6 +194,9 @@ export interface ExplainSpikeRequest {
   user_question?: string;
   aoi?: GeoJSONPolygon | null;
   confidence_level?: ConfidenceLevel;
+  conversation?: CopilotTurn[];
+  period_start?: string | null;
+  period_end?: string | null;
 }
 
 export interface ExplainSpikeResponse {
