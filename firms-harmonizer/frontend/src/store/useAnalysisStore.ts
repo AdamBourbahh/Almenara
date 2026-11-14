@@ -1,6 +1,16 @@
 import { create } from "zustand";
-import type { AnalyzeRequest, AnalyzeResponse, ChaosMonkeyResponse, DailyCalendarCell, GeoJSONPolygon, H3MapSummaryHex, ViewMode } from "../api/types";
-import { analyzeAoi, runChaosMonkey } from "../api/client";
+import regions from "../../../data/regions.json";
+import type { Observations } from "../api/client";
+import type {
+  AnalyzeResponse,
+  ChaosMonkeyResponse,
+  DailyCalendarCell,
+  ExplainSpikeResponse,
+  GeoJSONPolygon,
+  H3MapSummaryHex,
+  ViewMode
+} from "../api/types";
+import { explainSpike, fetchObservations, runChaosMonkey } from "../api/client";
 
 // ============================================================================
 // Official pilot regions for the jury demo
@@ -12,16 +22,20 @@ export interface PresetRegion {
   coordinates: number[][][];
 }
 
-export const PRESET_REGIONS = {
-  chilecito_la_rioja: { label: "Chilecito, La Rioja (Argentina)", context: "Argentina: real FIRMS observations", coordinates: [[[-69.5, -31], [-65.5, -31], [-65.5, -27.5], [-69.5, -27.5], [-69.5, -31]]] },
-  iberia_med: { label: "Iberian Peninsula / Mediterranean (Spain)", context: "Spain and Portugal: real FIRMS observations", coordinates: [[[-9.5, 36], [4, 36], [4, 44], [-9.5, 44], [-9.5, 36]]] },
-  orlando_florida: { label: "Orlando, Florida (USA)", context: "Florida: real FIRMS observations", coordinates: [[[-82.0, 28.0], [-80.7, 28.0], [-80.7, 29.3], [-82.0, 29.3], [-82.0, 28.0]]] },
-  amazonas_manaus: { label: "Amazonas / Manaus (Brazil)", context: "Brazil: real FIRMS observations", coordinates: [[[-62.0, -5.0], [-58.0, -5.0], [-58.0, -1.0], [-62.0, -1.0], [-62.0, -5.0]]] }
-} satisfies Record<string, PresetRegion>;
-
-export type PresetKey = keyof typeof PRESET_REGIONS;
-export type RegionSelection = PresetKey | "CUSTOM";
-export const PRESET_ORDER = Object.keys(PRESET_REGIONS) as PresetKey[];
+const labels: Record<string, string> = {
+  orlando_florida: "Orlando, Florida", amazonas_manaus: "Manaus, Amazonas",
+  chilecito_la_rioja: "Chilecito, La Rioja", iberia_med: "Iberia study area"
+};
+export const PRESET_REGIONS: Record<string, PresetRegion> = Object.fromEntries(
+  Object.entries(regions).filter(([, value]) => "coverage" in value).map(([key, value]) => {
+    const [w, s, e, n] = value.bounds;
+    return [key, { label: labels[key] ?? key.replaceAll("_", " "), context: "NASA FIRMS observations",
+      coordinates: [[[w,s],[e,s],[e,n],[w,n],[w,s]]] }];
+  })
+);
+export type PresetKey = string;
+export type RegionSelection = string;
+export const PRESET_ORDER = Object.keys(PRESET_REGIONS);
 
 /** Minimum side of a custom bounding box (degrees) to avoid accidental click-sized AOIs. */
 export const MIN_BBOX_SIDE_DEG = 0.02;
@@ -37,25 +51,24 @@ export interface HoveredDay {
 /** O(1) key for calendar lookups: 2022 / 226 -> 2022226. */
 export const calendarKey = (year: number, doy: number) => year * 1000 + doy;
 
-function buildCalendarIndex(data: AnalyzeResponse): Map<number, DailyCalendarCell> {
-  const index = new Map<number, DailyCalendarCell>();
-  for (const cell of data.calendar_series) index.set(calendarKey(cell.year, cell.doy), cell);
-  for (const cell of data.forecast_series ?? []) {
-    const key = calendarKey(cell.year, cell.doy);
-    if (!index.has(key)) index.set(key, { ...cell, is_forecast: true });
-  }
-  return index;
-}
-
 const polygonFromPreset = (key: PresetKey): GeoJSONPolygon => ({ type: "Polygon", coordinates: PRESET_REGIONS[key].coordinates });
 
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === "AbortError";
+
+export interface CopilotMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+  response?: ExplainSpikeResponse;
+}
 
 // ============================================================================
 // State
 // ============================================================================
 
 interface AnalysisState {
+  observationData: Observations | null;
   // Parameters & selection
   viewMode: ViewMode;
   selectedPreset: RegionSelection;
@@ -76,11 +89,6 @@ interface AnalysisState {
   loading: boolean;
   error: string | null;
   analysisData: AnalyzeResponse | null;
-  mapHexagons: H3MapSummaryHex[];
-  mapYear: number | null;
-  mapLoading: boolean;
-  mapError: string | null;
-  loadMapYear: () => Promise<void>;
   /** year/doy -> cell (observed + forecast). Rebuilt once per response; used for O(1) hover. */
   calendarIndex: Map<number, DailyCalendarCell>;
   isSynthetic: boolean;
@@ -90,6 +98,14 @@ interface AnalysisState {
   chaosError: string | null;
   chaosData: ChaosMonkeyResponse | null;
   chaosIsSynthetic: boolean;
+
+  // Fire Copilot (Physics-First Web Grounding)
+  isCopilotOpen: boolean;
+  copilotLoading: boolean;
+  copilotError: string | null;
+  copilotMessages: CopilotMessage[];
+  activeSpikeDay: DailyCalendarCell | null;
+  activeSpikeHex: H3MapSummaryHex | null;
 
   // Actions
   setViewMode: (mode: ViewMode) => void;
@@ -107,26 +123,28 @@ interface AnalysisState {
   executeAnalysis: () => Promise<void>;
   triggerChaosMonkey: () => Promise<void>;
   resetChaosMonkey: () => void;
+  openCopilot: (spike?: { day?: DailyCalendarCell | null; hex?: H3MapSummaryHex | null }) => void;
+  closeCopilot: () => void;
+  toggleCopilot: () => void;
+  askCopilot: (question: string) => Promise<void>;
+  clearCopilotMessages: () => void;
 }
 
 // Request bookkeeping lives outside the state: it never drives rendering.
 let analysisController: AbortController | null = null;
 let analysisSeq = 0;
-let mapController: AbortController | null = null;
-let mapSeq = 0;
-let mapTimer: ReturnType<typeof setTimeout> | undefined;
-const annualMapCache = new Map<string, H3MapSummaryHex[]>();
 let chaosController: AbortController | null = null;
 let chaosSeq = 0;
 
 export const useAnalysisStore = create<AnalysisState>((set, get) => ({
-  viewMode: "HARMONIZED",
-  selectedPreset: "chilecito_la_rioja",
-  currentAoi: polygonFromPreset("chilecito_la_rioja"),
-  startYear: 2001,
+  observationData: null,
+  viewMode: "RAW",
+  selectedPreset: "orlando_florida",
+  currentAoi: polygonFromPreset("orlando_florida"),
+  startYear: 2000,
   endYear: 2026,
-  excludeIndustrial: true,
-  enableKalman: true,
+  excludeIndustrial: false,
+  enableKalman: false,
   highlightIndustrialOnMap: false,
   isDrawingAoi: false,
 
@@ -137,10 +155,6 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   loading: false,
   error: null,
   analysisData: null,
-  mapHexagons: [],
-  mapYear: null,
-  mapLoading: false,
-  mapError: null,
   calendarIndex: new Map(),
   isSynthetic: false,
 
@@ -148,6 +162,13 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   chaosError: null,
   chaosData: null,
   chaosIsSynthetic: false,
+
+  isCopilotOpen: false,
+  copilotLoading: false,
+  copilotError: null,
+  copilotMessages: [],
+  activeSpikeDay: null,
+  activeSpikeHex: null,
 
   setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -158,12 +179,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setSelectedYear: (year) => {
     const { startYear, endYear, selectedYear } = get();
     const clamped = Math.min(endYear, Math.max(startYear, Math.round(year)));
-    if (clamped === selectedYear) return;
-    mapController?.abort();
-    mapSeq++;
-    clearTimeout(mapTimer);
-    set({ selectedYear: clamped, chaosData: null, mapHexagons: [], mapYear: null, mapLoading: true, mapError: null });
-    mapTimer = setTimeout(() => { void get().loadMapYear(); }, 120);
+    if (clamped !== selectedYear) set({ selectedYear: clamped, chaosData: null });
   },
 
   // Called on every pointer move: only notify subscribers when the hovered cell actually changes.
@@ -219,72 +235,22 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     await get().setCustomAoi([[[w, s], [e, s], [e, n], [w, n], [w, s]]]);
   },
 
-  loadMapYear: async () => {
-    const state = get();
-    if (state.loading || !state.analysisData) return;
-    mapController?.abort();
-    const controller = new AbortController();
-    mapController = controller;
-    const seq = ++mapSeq;
-    const year = state.selectedYear;
-    const request: AnalyzeRequest = {
-      aoi: state.currentAoi, start_year: year, end_year: year,
-      exclude_industrial_flaring: state.excludeIndustrial,
-      enable_kalman_gap_filling: state.enableKalman, confidence_level: "nominal"
-    };
-    const key = JSON.stringify(request);
-    const cached = annualMapCache.get(key);
-    if (cached) {
-      set({ mapHexagons: cached, mapYear: year, mapLoading: false, mapError: null });
-      return;
-    }
-    set({ mapLoading: true, mapError: null });
-    try {
-      const { data } = await analyzeAoi(request, controller.signal);
-      if (seq !== mapSeq) return;
-      const hexagons = data.map_hexagons ?? [];
-      if (annualMapCache.size >= 32) annualMapCache.delete(annualMapCache.keys().next().value!);
-      annualMapCache.set(key, hexagons);
-      set({ mapHexagons: hexagons, mapYear: year, mapLoading: false,
-        isSynthetic: data.data_source === "synthetic" });
-    } catch (err: unknown) {
-      if (seq !== mapSeq || isAbortError(err)) return;
-      set({ mapHexagons: [], mapYear: null, mapLoading: false,
-        mapError: err instanceof Error ? err.message : "Annual map unavailable" });
-    }
-  },
-
   executeAnalysis: async () => {
-    mapController?.abort();
-    mapSeq++;
-    clearTimeout(mapTimer);
-    annualMapCache.clear();
-    set({ mapHexagons: [], mapYear: null, mapLoading: true, mapError: null });
     analysisController?.abort();
     const controller = new AbortController();
     analysisController = controller;
     const seq = ++analysisSeq;
 
     const state = get();
-    set({ loading: true, error: null });
-
-    const requestPayload: AnalyzeRequest = {
-      aoi: state.currentAoi,
-      start_year: state.startYear,
-      end_year: state.endYear,
-      exclude_industrial_flaring: state.excludeIndustrial,
-      enable_kalman_gap_filling: state.enableKalman,
-      confidence_level: "nominal"
-    };
+    set({ loading: true, error: null, observationData: null, analysisData: null, calendarIndex: new Map() });
 
     try {
-      const { data } = await analyzeAoi(requestPayload, controller.signal);
-      if (seq !== analysisSeq) return; // a newer request superseded this one
-      set({ analysisData: data, calendarIndex: buildCalendarIndex(data), isSynthetic: data.data_source === "synthetic", loading: false, hoveredDay: null });
-      await get().loadMapYear();
+      const data = await fetchObservations(state.currentAoi, controller.signal);
+      if (seq !== analysisSeq) return;
+      set({ observationData: data, isSynthetic: false, loading: false, hoveredDay: null });
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
-      set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false, mapLoading: false });
+      set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false });
     } finally {
       if (analysisController === controller) analysisController = null;
     }
@@ -300,12 +266,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     set({ chaosLoading: true, chaosError: null });
 
     try {
-      const { data } = await runChaosMonkey(
+      const { data, isSynthetic } = await runChaosMonkey(
         { aoi: state.currentAoi, target_year: state.selectedYear, drop_fraction: 0.25, random_seed: 42 },
         controller.signal
       );
       if (seq !== chaosSeq) return;
-      set({ chaosData: data, chaosIsSynthetic: data.data_source === "synthetic", chaosLoading: false });
+      set({ chaosData: data, chaosIsSynthetic: isSynthetic, chaosLoading: false });
     } catch (err: unknown) {
       if (seq !== chaosSeq || isAbortError(err)) return;
       set({ chaosError: err instanceof Error ? err.message : "Chaos Monkey simulation failed", chaosLoading: false });
@@ -318,5 +284,123 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     chaosController?.abort();
     chaosSeq++;
     set({ chaosData: null, chaosLoading: false, chaosError: null });
-  }
+  },
+
+  openCopilot: (spike) => {
+    const state = get();
+    const day = spike?.day !== undefined ? spike.day : state.activeSpikeDay;
+    const hex = spike?.hex !== undefined ? spike.hex : state.activeSpikeHex;
+    set({
+      isCopilotOpen: true,
+      activeSpikeDay: day,
+      activeSpikeHex: hex,
+      copilotError: null
+    });
+
+    if (spike && (spike.day || spike.hex)) {
+      const regionName =
+        state.selectedPreset !== "CUSTOM" && state.selectedPreset in PRESET_REGIONS
+          ? PRESET_REGIONS[state.selectedPreset as PresetKey].label
+          : "Analyzed Area of Interest";
+
+      const promptLabel = spike.day
+        ? `Explain thermal spike on ${spike.day.date} (${spike.day.harmonized_fre_mj_km2.toFixed(1)} MJ/km²)`
+        : `Explain thermal characteristics of selected H3 hex`;
+
+      const userMsg: CopilotMessage = {
+        id: `user-${Date.now()}`,
+        role: "user",
+        content: promptLabel,
+        timestamp: Date.now()
+      };
+
+      set((s) => ({
+        copilotMessages: [...s.copilotMessages, userMsg],
+        copilotLoading: true,
+        copilotError: null
+      }));
+
+      explainSpike({
+        region_name: regionName,
+        selected_day: day,
+        selected_hex: hex,
+        user_question: promptLabel
+      })
+        .then((res) => {
+          const assistantMsg: CopilotMessage = {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: res.data.explanation_markdown,
+            timestamp: Date.now(),
+            response: res.data
+          };
+          set((s) => ({
+            copilotMessages: [...s.copilotMessages, assistantMsg],
+            copilotLoading: false
+          }));
+        })
+        .catch((err: unknown) => {
+          set({
+            copilotLoading: false,
+            copilotError: err instanceof Error ? err.message : "Failed to explain thermal spike."
+          });
+        });
+    }
+  },
+
+  closeCopilot: () => set({ isCopilotOpen: false }),
+
+  toggleCopilot: () => set((s) => ({ isCopilotOpen: !s.isCopilotOpen })),
+
+  askCopilot: async (question: string) => {
+    const trimmed = question.trim();
+    if (!trimmed) return;
+    const state = get();
+    const regionName =
+      state.selectedPreset !== "CUSTOM" && state.selectedPreset in PRESET_REGIONS
+        ? PRESET_REGIONS[state.selectedPreset as PresetKey].label
+        : "Analyzed Area of Interest";
+
+    const userMsg: CopilotMessage = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: trimmed,
+      timestamp: Date.now()
+    };
+
+    set((s) => ({
+      copilotMessages: [...s.copilotMessages, userMsg],
+      copilotLoading: true,
+      copilotError: null
+    }));
+
+    try {
+      const res = await explainSpike({
+        region_name: regionName,
+        selected_day: state.activeSpikeDay,
+        selected_hex: state.activeSpikeHex,
+        user_question: trimmed
+      });
+
+      const assistantMsg: CopilotMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: res.data.explanation_markdown,
+        timestamp: Date.now(),
+        response: res.data
+      };
+
+      set((s) => ({
+        copilotMessages: [...s.copilotMessages, assistantMsg],
+        copilotLoading: false
+      }));
+    } catch (err: unknown) {
+      set({
+        copilotLoading: false,
+        copilotError: err instanceof Error ? err.message : "Failed to obtain AI explanation."
+      });
+    }
+  },
+
+  clearCopilotMessages: () => set({ copilotMessages: [], copilotError: null })
 }));

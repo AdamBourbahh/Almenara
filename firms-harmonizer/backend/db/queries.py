@@ -347,3 +347,34 @@ def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_ye
         removed = 0
         used = [h.h3_index for h in hexagons]
     return AoiAggregate(daily, hexagons, removed, len(used), used)
+
+
+def fetch_observed_detections(cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int) -> dict:
+    """Aggregate accepted FIRMS detection centers, without calibration or imputation."""
+    path = duckdb_engine.ROOT / 'data/processed/staged_firms.parquet'
+    if not path.is_file():
+        raise FileNotFoundError('Raw observations are unavailable. Run scripts/01_ingest_firms.py.')
+    if duckdb_engine.data_source() != 'real':
+        raise ValueError('The observations viewer requires a real cube; disable USE_SYNTHETIC_CUBE.')
+    if not cells_r7:
+        return {'daily': [], 'map_hexagons': []}
+    with duckdb_engine.get_db_cursor() as cur:
+        _register_cells(cur, cells_r4, cells_r7)
+        try:
+            rows = cur.execute("""SELECT acq_date, h3_r7, satellite, frp FROM read_parquet(?)
+                WHERE is_center AND h3_r4 IN (SELECT h3_r4 FROM aoi_r4)
+                AND h3_r7 IN (SELECT h3_r7 FROM aoi_r7)
+                AND acq_date BETWEEN make_date(?,1,1) AND make_date(?,12,31)""",
+                [str(path), start_year, end_year]).to_arrow_table()
+            cur.register('selected_observations', rows)
+            daily = cur.execute("""SELECT acq_date::VARCHAR AS date,
+                year(acq_date)::INTEGER AS year, dayofyear(acq_date)::INTEGER AS doy,
+                count(*) AS detection_count, sum(frp) AS raw_frp_mw,
+                list_sort(list(DISTINCT satellite)) AS sensors
+                FROM selected_observations GROUP BY acq_date ORDER BY acq_date""").to_arrow_table().to_pylist()
+            hexagons = cur.execute("""SELECT printf('%x', h3_r7) AS h3_index,
+                count(*) AS detection_count, sum(frp) AS raw_frp_mw
+                FROM selected_observations GROUP BY h3_r7 ORDER BY h3_r7""").to_arrow_table().to_pylist()
+            return {'daily': daily, 'map_hexagons': hexagons}
+        finally:
+            _unregister_cells(cur)

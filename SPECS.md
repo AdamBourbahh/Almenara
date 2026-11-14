@@ -13,7 +13,7 @@
 | **1. Impact** | - Continuous 26-year climate record (2000–2026).<br>- Physical conversion of $\text{FRE}$ to dry biomass burned and smoke emissions ($\text{PM}_{2.5} / \text{CO}_2$, Wooster factor $0.368\text{ kg}\cdot\text{MJ}^{-1}$).<br>- 14-day operational predictor (*Forecast Guard*) and one-click IPCC/Firefighter CSV export. | Transforms noisy raw satellite detections into actionable 14-day early warnings and audited carbon/smoke accounting for civil protection, policymakers, and climate scientists (*Galactic Impact & Local Impact*). |
 | **2. Creativity** | - **Cross-Sensor Historical Guard** ($\text{MODIS}+\text{VIIRS}$) embedded inside the Rauch-Tung-Striebel (RTS) Kalman Smoother for dual-sensor blackouts.<br>- Live interactive **Chaos Monkey** sabotage simulator.<br>- Circular von Mises Phenology Clock.<br>- Interactive **2012 Time-Machine Split-Screen Curtain**. | Breaks the naive paradigm of counting raw points on a map. Introduces a stochastic smoother with an inter-calibrated climatological prior that judges can actively sabotage live on stage (*Best Use of Technology*). |
 | **3. Validity** | - Live Statistical Peer-Review Panel: **Chow Structural Break F-Test** at Jan 2012 ($p > 0.10$), **Wasserstein-1 Distance ($W_1$)**, and cross-validation $R^2$ against independent Burned Area (`MCD64A1`).<br>- Analytical $95\%$ confidence intervals ($\pm 1.96\sqrt{P_{t\vert{}T}}$) via Joseph stabilized covariance form. | Judges do not need to trust our math blindly: the platform proves in real time that it eliminates the $+420\%$ artificial 2012 jump and reaches $R^2 > 0.90$ correlation against real burn scars (*Best Use of Science*). |
-| **4. Relevance** | - Deep physical fusion of 5 official NASA products: `MCD14ML` (Terra/Aqua), `VNP14IMG` (SNPP), `VJ114IMG` (NOAA-20/21), `MCD12Q1` (17 IGBP biomes), and `MCD64A1` (Burned Area).<br>- Explicit handling of the South Atlantic Magnetic Anomaly (SAMA) and the Aug 2022 *MODIS Aqua Safe Mode* outage. | Directly resolves the geometric ($1\text{ km}$ vs. $375\text{ m}$ bow-tie deformation) and radiometric ($8\text{ MW}$ vs. $0.5\text{ MW}$ detection threshold) disparity between MODIS and VIIRS (*Best Use of Data*). |
+| **4. Relevance** | - Deep physical fusion of 5 official NASA products: `MCD14ML` (Terra/Aqua), `VNP14IMG` (SNPP), `VJ114IMG` (NOAA-20/21), `MCD12Q1` (17 IGBP biomes), and `MCD64A1` (Burned Area).<br>- Explicit handling of the South Atlantic Magnetic Anomaly (SAMA) and the measured 2022-07-27..08-10 *Suomi NPP VIIRS* global outage (zero FIRMS detections; Aqua, Terra and NOAA-20 nominal). | Directly resolves the geometric ($1\text{ km}$ vs. $375\text{ m}$ bow-tie deformation) and radiometric ($8\text{ MW}$ vs. $0.5\text{ MW}$ detection threshold) disparity between MODIS and VIIRS (*Best Use of Data*). |
 | **5. Presentation** | - 60 FPS NASA Mission Control Dark UI (Deck.gl GPU + HTML5 2D `<canvas>` with offscreen diagonal hatch patterns for imputed/forecasted days).<br>- Automated English **Executive Audit Verdict** banner and 100% offline-ready execution ($< 15\text{ ms}$). | Instant visual storytelling: within 45 seconds, any judge sees the raw data failure in 2012, slides the harmonization curtain, and observes the decadal climate shift of the fire season (*Best Storytelling*). |
 
 ---
@@ -60,10 +60,11 @@
      $$\hat{X}_{\text{harm}} = F_{\text{MODIS}|c,\theta}^{-1}\left(F_{\text{VIIRS}|c,\theta}(X_{\text{VIIRS}})\right)$$
   2. **Left-Tail Censorship Compensation via Generalized Pareto Distribution (GPD):** Compensates energy omitted by MODIS pre-2012 in the sub-threshold interval $[x_{\min}^V, \tau_M(\theta, c)]$:
      $$\Delta E_{\text{sub}}(\theta, c) = \pi_{\text{sub}}(X_M, \theta, c) \int_{x_{\min}^V}^{\tau_M(\theta, c)} x \, f_{\text{GPD}}(x; \xi_c, \sigma_c)\, dx$$
-     Stored in `data/lookup/eqm_gpd_lut.json` ($< 150\text{ KB}$).
+     Stored in `data/lookup/eqm_gpd_lut.json` ($< 150\text{ KB}$). Here $\pi_{\text{sub}}$ is the share of matched VIIRS cell-days in $[0.5, 8)\text{ MW}$ and the integral uses the GPD truncated to that interval, so $\Delta E_{\text{sub}} = \pi_{\text{sub}} \cdot \mathbb{E}_{\text{GPD}}[x \mid 0.5 \le x < 8]$.
+  3. **Application rule (common scale):** Both channels are placed on the sub-threshold-compensated MODIS scale, using daily cell-day power sums before FRE scaling: $\hat{X}_{\text{VIIRS}} = F_{\text{MODIS}}^{-1}(F_{\text{VIIRS}}(X_{\text{VIIRS}})) + \Delta E_{\text{sub}}$ over the full VIIRS distribution (101 empirical knots, endpoint-clamped), and $\hat{X}_{\text{MODIS}} = X_{\text{MODIS}} + \Delta E_{\text{sub}}$ for every detected MODIS cell-day in every year (MODIS omits sub-threshold fires after 2012 too). Zeros and missing values are preserved. The ETL delegates training and application to `RadiometricHarmonizer` (`fit_biome_eqm_gpd`, `harmonize_viirs_to_modis`, `compensate_modis_censoring`); there is no second implementation.
 
 ### 3.4 Module 4: Multi-Satellite RTS Kalman Smoother + Cross-Sensor Historical Guard + 14-Day Predictor (`kalman_rts.py` & `chaos_monkey.py`)
-- **Physical & Operational Problem:** Daily satellite series suffer from: (1) **Single-Sensor Outages** (e.g., *MODIS Aqua Safe Mode* from July 31 to August 16, 2022 due to an SSR anomaly); (2) **Dual-Sensor Blackouts / Total Cloud Occlusion** ($C_{\text{cloud}} > 80\%$), where standard autoregressive filters ($x_t = \phi x_{t-1}$) decay exponentially to zero ($\phi^k \to 0$); and (3) **Latitudinal Orbital Revisit Bias**: the daily revisit density grows toward the poles as $\pi_{\text{orb}}(\phi_h) \propto \sec(\phi_h) = 1/\cos(\phi_h)$.
+- **Physical & Operational Problem:** Daily satellite series suffer from: (1) **Single-Sensor Outages** (e.g., the *Suomi NPP VIIRS* outage from July 27 to August 10, 2022: 15 days with zero global FIRMS detections, measured in `data/lookup/global_daily_counts.csv`, while Aqua, Terra and NOAA-20 stayed nominal. The earlier "MODIS Aqua Safe Mode, July 31 to August 16, 2022" is contradicted by the FIRMS archive and is not applied to real data); (2) **Dual-Sensor Blackouts / Total Cloud Occlusion** ($C_{\text{cloud}} > 80\%$), where standard autoregressive filters ($x_t = \phi x_{t-1}$) decay exponentially to zero ($\phi^k \to 0$); and (3) **Latitudinal Orbital Revisit Bias**: the daily revisit density grows toward the poles as $\pi_{\text{orb}}(\phi_h) \propto \sec(\phi_h) = 1/\cos(\phi_h)$.
 - **Equations Implemented:**
   1. **Horvitz-Thompson Orbital Weighting & Diurnal Scaling:** Morning MODIS Terra observations ($10\text{:}30\text{ LT}$) are scaled to the afternoon thermal peak ($13\text{:}30\text{ LT}$ of Aqua/VIIRS) via $\kappa(\tau_s) = \text{FRP}_{13:30} / \text{FRP}_{10:30}$. All sensor energies are then weighted by the **inverse** of the relative orbital sampling probability (resolved 2026-11-14; the weight is $\cos(\phi_h)$, not $\sec(\phi_h)$):
      - *Revisit model.* For sun-synchronous polar orbiters ($i \approx 98.2^\circ$), swath convergence makes the daily revisit density at H3 R7 centroid latitude $\phi_h$
@@ -123,7 +124,7 @@
 1. **GPU 3D/2D Hexagonal Map (`HexagonMap.tsx` + `AoiDrawControl.tsx`):** Deck.gl `H3HexagonLayer` + MapLibre GL JS (with offline fallback grid), 4 preset pilot region buttons, freehand bounding-box drawing tool, latency badge, and a **"Reveal Gas Flaring ($H_{\text{temp}} > 0.75$)"** toggle highlighting industrial cells in neon magenta `[255, 0, 200, 235]`.
 2. **2D `<canvas>` Burning Calendar with "2012 Time-Machine Split Curtain" (`BurningCalendarCanvas.tsx` + `HatchPatternDefs.ts` + `CalendarTooltip.tsx`):** Renders $26\text{ years} \times 366\text{ days} = 9,516$ cells plus the 14-day forecast band in $< 1.5\text{ ms}$. Overlays a $45^\circ$ diagonal hatch pattern (`OffscreenCanvas`) on `is_gap_filled === true` and gold hatching on `is_forecast === true`. Includes a vertical split-screen slider comparing Raw Counts (left) vs. Harmonized FRE (right).
 3. **Circular von Mises Phenology Clock (`PolarVonMisesClock.tsx`):** Polar SVG clock ($[0, 2\pi)$) plotting annual vectors $(\hat{\mu}_y, \hat{\kappa}_y)$ from 2001 (cyan) to 2026 (fiery orange/red) with Theil-Sen shift in days/decade.
-4. **Kalman Uncertainty Band Chart & Chaos Monkey View (`KalmanUncertaintyBandChart.tsx` + `ChaosMonkeyButton.tsx`):** Plots daily series for `selectedYear` with shaded $95\%$ CI bands, amber dotted Cross-Sensor Historical Prior curve, cyan outage highlights (Aug 2022 Aqua Safe Mode), 14-day forecast cone, and live Chaos Monkey reconstruction overlay.
+4. **Kalman Uncertainty Band Chart & Chaos Monkey View (`KalmanUncertaintyBandChart.tsx` + `ChaosMonkeyButton.tsx`):** Plots daily series for `selectedYear` with shaded $95\%$ CI bands, amber dotted Cross-Sensor Historical Prior curve, cyan outage highlights (`gap_status_mask` bit 1; real data: the Jul 27 to Aug 10, 2022 SNPP outage; the synthetic fixture keeps an Aqua blackout stress scenario), 14-day forecast cone, and live Chaos Monkey reconstruction overlay.
 5. **Live Scientific Audit & Climate Export Panel (`AuditMetricsPanel.tsx`):** Traffic-light cards for Chow F-Test, Wasserstein $W_1$, `MCD64A1` $R^2$, Shannon industrial filter count, Wooster biomass/$\text{PM}_{2.5}$ totals, English `executive_verdict_en` banner, and **"Export IPCC-Ready CSV"** button.
 
 ---
@@ -148,7 +149,7 @@ Sorted physically by `ORDER BY h3_r4 ASC, epoch_day ASC, h3_r7 ASC` with `ZSTD` 
 | `raw_viirs_cnt` | `USMALLINT` (`uint16`) | Pixels | `NOT NULL` | Uncorrected VIIRS 375 m count ($+420\%$ jump in 2012). |
 | `raw_frp_mw` | `FLOAT` (`float32`) | MW | `NOT NULL` | Uncorrected raw FRP sum. |
 | `obs_terra_fre` | `FLOAT` (`float32`) | $\text{MJ}\cdot\text{km}^{-2}\cdot\text{d}^{-1}$ | `NULLABLE` | Diurnally scaled Terra FRE (`NaN` if outage/cloud). |
-| `obs_aqua_fre` | `FLOAT` (`float32`) | $\text{MJ}\cdot\text{km}^{-2}\cdot\text{d}^{-1}$ | `NULLABLE` | Reference Aqua FRE (`NaN` during Aug 2022 Safe Mode). |
+| `obs_aqua_fre` | `FLOAT` (`float32`) | $\text{MJ}\cdot\text{km}^{-2}\cdot\text{d}^{-1}$ | `NULLABLE` | Reference Aqua FRE (`NaN` on Aqua outage days; none are documented in the real archive, while the synthetic fixture blanks Aqua on 2022-07-31..08-16 as a stress scenario). |
 | `obs_viirs_fre` | `FLOAT` (`float32`) | $\text{MJ}\cdot\text{km}^{-2}\cdot\text{d}^{-1}$ | `NULLABLE` | EQM + GPD harmonized VIIRS FRE. |
 | `neighbor_fre_lag1` | `FLOAT` (`float32`) | $\text{MJ}\cdot\text{km}^{-2}\cdot\text{d}^{-1}$ | `NOT NULL` | Spatial contagion $u_{\text{spatial}, t}$ at $t-1$. |
 | `industrial_prob` | `FLOAT` (`float32`) | $[0.0, 1.0]$ | `NOT NULL` | Shannon entropy industrial score ($H_{\text{temp}} > 0.75$). |
@@ -295,10 +296,45 @@ class ChaosMonkeyResponse(ContractModel):
     naive_rmse: float
     kalman_rmse: float
     seasonal_energy_recovered_pct: float
+
+
+class CitationReference(ContractModel):
+    id: str
+    source_type: Literal["NASA_DATASET", "PEER_REVIEWED", "WEB_NEWS_REPORT"] = "PEER_REVIEWED"
+    title: str
+    authors_or_agency: str
+    year: int
+    dataset_or_doi: str
+    url: str | None = None
+    relevance_note: str
+
+
+class ExplainSpikeRequest(ContractModel):
+    region_name: str = "Unknown Region"
+    selected_day: DailyCalendarCell | None = None
+    selected_hex: H3MapSummaryHex | None = None
+    user_question: str = ""
+    aoi: GeoJSONPolygon | None = None
+    confidence_level: Literal["low", "nominal", "high"] = "nominal"
+
+
+class ExplainSpikeResponse(ContractModel):
+    physical_classification: str
+    explanation_markdown: str
+    citations: list[CitationReference] = Field(default_factory=list)
+    web_search_used: bool = False
+    search_query_executed: str | None = None
+    model_used: str = "deterministic-fallback"
+    data_source: Literal["real", "synthetic"] = "synthetic"
 ```
 
 ### 5.3 Preset Pilot Regions (`frontend/src/api/types.ts`)
 1. **`cerrado_brazil` (Cerrado & Pantanal, Brazil):** `lon: -57.2 to -55.2, lat: -17.8 to -16.0` (Demonstrates the $+420\%$ Jan 2012 raw count jump vs. Chow Test pass and `MCD64A1` $R^2 = 0.91$).
-2. **`california_usa` (Sierra Nevada, California):** `lon: -121.2 to -119.5, lat: 38.0 to 40.2` (Demonstrates von Mises phenological shift $+19$ days and Aug 2022 *MODIS Aqua Safe Mode* RTS reconstruction).
+2. **`california_usa` (Sierra Nevada, California):** `lon: -121.2 to -119.5, lat: 38.0 to 40.2` (Demonstrates von Mises phenological shift $+19$ days and the synthetic Aug 2022 Aqua-blackout RTS reconstruction scenario).
 3. **`iberia_med` (Iberian Peninsula / Mediterranean):** `lon: -6.5 to -3.2, lat: 37.2 to 39.8` (Demonstrates hierarchical `H3_r4` $\to$ `H3_r7` coastal precision and local operational impact).
 4. **`niger_delta_flaring` (Niger Delta Gas Flaring Control):** `lon: 5.6 to 7.2, lat: 4.6 to 5.8` (Demonstrates Shannon temporal entropy filter $H_{\text{temp}} > 0.75$ removing $95\%$ of stationary oil flares).
+### 5.4 Observations viewer (current scope, 2026-11-14)
+
+The current UI displays accepted, deduplicated FIRMS detection centers from the real staging dataset. `POST /api/observations` accepts a `GeoJSONPolygon` directly and returns real provenance, daily counts, summed instantaneous FRP in MW, all five instrument labels, per-R7 counts/FRP, first/last detection dates and the aggregation method. It never calls the scientific core, fills missing dates, estimates emissions or forecasts. No detections on a date does not establish zero fire activity or complete observation coverage. Counts are detections, not distinct fire events. Staging retains the ingestion quality and SAMA/date filters; raw FRP is not footprint-corrected or EQM-adjusted.
+
+The active region catalogue is `firms-harmonizer/data/regions.json`: entries with declared `coverage` are offered by the frontend. Current regions are Orlando, Manaus, Chilecito and the full Iberia study rectangle. Rectangles are study envelopes, not administrative boundaries. Section 5.3 and the frozen TypeScript preset helper describe legacy scientific demo cases and are not the active observations catalogue. Existing `/api/analyze` and `/api/chaos-monkey` contracts remain unchanged and are not used by the observations UI.

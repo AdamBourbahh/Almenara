@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+
+load_dotenv()
 
 from backend.api.routes import router
 from backend.db.duckdb_engine import init_engine
