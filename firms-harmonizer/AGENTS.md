@@ -13,7 +13,7 @@ Build the NASA Space Apps MODIS/VIIRS fire activity calendar with sensor-indepen
 | Owner | Exclusive files |
 |---|---|
 | ADAM — Lead & Math Core | `backend/core/*`, `backend/tests/test_math_core.py`, `backend/api/schemas.py`. Only NumPy/SciPy and the standard library in core; no FastAPI or DuckDB imports. |
-| ANTONIO — DuckDB & FastAPI | `backend/db/*`, `backend/api/main.py`, `backend/api/routes.py`, `backend/api/cache.py`, `backend/tests/test_api_contract.py` |
+| MOHA — DuckDB & FastAPI | `backend/db/*`, `backend/api/main.py`, `backend/api/routes.py`, `backend/api/cache.py`, `backend/api/core_contract.py`, `backend/validation_report.py`, `backend/tests/test_api_contract.py`, `backend/tests/test_db_layer.py`, `backend/tests/conftest.py` |
 | GERMÁN — Offline ETL | `scripts/*`, `data/*`, `backend/tests/test_cube_schema.py` |
 | MOHAMMED — GPU map, store & calendar | `frontend/src/api/*`, `frontend/src/store/*`, `frontend/src/components/Map/*`, `frontend/src/components/Calendar/*` |
 | MIGUE — Charts, audit & shell | `frontend/src/components/Charts/*`, `frontend/src/components/Audit/*`, `frontend/src/App.tsx`, `README.md` |
@@ -24,7 +24,7 @@ Bootstrap explicitly authorizes the shared rules, specs, Makefile, dependency/co
 1. **H3 uint64 precision:** Parquet uses UBIGINT/uint64. Every SQL projection into JSON must use `SELECT printf('%x', h3_r7) AS h3_index`, yielding a 15-character hexadecimal string. Never convert H3 indices to JavaScript Number.
 2. **FastAPI event loop:** CPU-bound `POST /api/analyze` and `POST /api/chaos-monkey` must use synchronous `def`, never `async def`, so FastAPI executes them in its thread pool.
 3. **DuckDB concurrency:** In `backend/db/duckdb_engine.py` retain global `_MASTER_CONN`. Expose `@contextmanager def get_db_cursor():`, create `_MASTER_CONN.cursor()` per request, and close it in `finally`. Never share a cursor between threads.
-4. **Bounded H3 polyfill:** In `backend/db/queries.py` first polyfill at R4 (target <0.4 ms) and filter `WHERE h3_r4 IN (...)` for zone map pruning. Only calculate R7 cells when `len(cells_r4) < 80`. If R4 polyfill is empty, use the centroid's R4 cell and `grid_disk(c, 1)`.
+4. **Hierarchical H3 filter:** In `backend/db/queries.py` polyfill R7 inside the polygon with `polygon_to_cells(..., 7)` (GeoJSON `[lon, lat]` converted explicitly to `(lat, lng)`), derive the unique R4 parents with `cell_to_parent`, and filter `h3_r4` first (zone map pruning) and then `h3_r7`. Never polyfill at R4 directly (it drops border cells) and never use a centroid/`grid_disk` fallback. Cell lists reach DuckDB as registered Arrow tables, never concatenated into SQL.
 5. **Stable RTS Kalman:** Skip an observation whenever `np.isnan(y_obs[t, s])`. For a historical day with all sensors missing, inject the historical cross-sensor guard from specs.md with `R_guard = 40.0`; do not inject it into future forecast days. Use the scalar Joseph form `P_p = ((1.0 - K * h) ** 2) * P_p + (K ** 2) * R_var[s]` (the guard uses its own variance). Add `1e-8` to every forward/backward denominator. The detailed blackout guard is `0.55 * mu_cross + 0.45 * u_spatial`.
 6. **WebGL and calendar:** Keep exactly one mounted singleton `<DeckGL>` in `HexagonMap.tsx`, updating data and updateTriggers. Render the 26 × 366 = 9516 calendar slots in one HTML5 2D `<canvas>`, with OffscreenCanvas / `ctx.createPattern` diagonal hatching for `is_gap_filled` and `is_forecast`; invalid leap-day slots remain blank.
 

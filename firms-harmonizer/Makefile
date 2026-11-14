@@ -8,6 +8,7 @@ bootstrap:
 test: bootstrap
 	$(PYTEST) backend/tests/test_cube_schema.py
 	$(PYTEST) backend/tests/test_math_core.py -v
+	$(PYTEST) backend/tests/test_db_layer.py -v
 	$(PYTEST) backend/tests/test_api_contract.py -v
 
 api:
