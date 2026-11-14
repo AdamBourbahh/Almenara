@@ -306,6 +306,7 @@ export function HexagonMap() {
 
   const onDragStart = useCallback(
     (info: PickingInfo) => {
+      useAnalysisStore.getState().dismissAoiPrompt();
       if (!isDrawingAoi || !info.coordinate) return;
       const p: LngLat = [info.coordinate[0], info.coordinate[1]];
       updateDragBox({ start: p, end: p });
@@ -321,11 +322,14 @@ export function HexagonMap() {
     },
     [isDrawingAoi, updateDragBox]
   );
-  const onDragEnd = useCallback(() => {
+  const onDragEnd = useCallback((info: PickingInfo) => {
     if (!isDrawingAoi) return;
     const box = dragBoxRef.current;
     updateDragBox(null);
-    if (box) void setCustomBbox(box.start[0], box.start[1], box.end[0], box.end[1]);
+    const rect = containerRef.current?.getBoundingClientRect();
+    const point = rect ? { x: rect.left + info.x, y: rect.top + info.y } : undefined;
+    const end = info.coordinate ?? box?.end;
+    if (box && end) void setCustomBbox(box.start[0], box.start[1], end[0], end[1], point);
   }, [isDrawingAoi, setCustomBbox, updateDragBox]);
 
   const layers = useMemo(() => {

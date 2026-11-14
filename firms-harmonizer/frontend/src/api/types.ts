@@ -34,6 +34,7 @@ export interface RiskHorizon {
   wildfire_validation: RiskValidation;
   accident_validation: RiskValidation;
   combined_validation: RiskValidation;
+  prior_targets?: ("wildfire" | "accident" | "combined")[];
 }
 
 export interface RiskFactor {

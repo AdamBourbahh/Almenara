@@ -9,12 +9,16 @@ import { MapPage } from "./views/MapPage";
 import { CalendarPage } from "./views/CalendarPage";
 import { TrendsPage } from "./views/TrendsPage";
 import { ImpactPage } from "./views/ImpactPage";
+import { PageShell } from "./views/PageShell";
+import { RiskPredictionPanel } from "./components/Risk/RiskPredictionPanel";
+import { AoiRiskPrompt } from "./components/Map/AoiRiskPrompt";
 
 const SECTIONS = [
   { key: "map", label: "Map" },
   { key: "calendar", label: "Calendar" },
   { key: "trends", label: "Trends" },
   { key: "impact", label: "Impact" },
+  { key: "risk", label: "Risk AI" },
   { key: "observations", label: "Observations" }
 ] as const;
 
@@ -25,6 +29,12 @@ export default function App() {
   const viewMode = useAnalysisStore((s) => s.viewMode);
   const setViewMode = useAnalysisStore((s) => s.setViewMode);
   const executeAnalysis = useAnalysisStore((s) => s.executeAnalysis);
+  function openSection(next: SectionKey) {
+    const state = useAnalysisStore.getState();
+    state.dismissAoiPrompt();
+    if (next === "risk") void state.fetchRiskPredictionForAoi();
+    setSection(next);
+  }
 
   const booted = useRef(false);
   useEffect(() => {
@@ -49,7 +59,7 @@ export default function App() {
               <button
                 key={item.key}
                 type="button"
-                onClick={() => setSection(item.key)}
+                onClick={() => openSection(item.key)}
                 aria-current={section === item.key ? "page" : undefined}
                 className={`flex-1 border-b-2 px-3 py-3 text-sm font-medium transition-colors lg:flex-none lg:px-7 ${
                   section === item.key ? "border-reference text-reference" : "border-transparent text-muted hover:bg-panel hover:text-ink"
@@ -101,9 +111,18 @@ export default function App() {
         {section === "calendar" && <CalendarPage />}
         {section === "trends" && <TrendsPage />}
         {section === "impact" && <ImpactPage />}
+        {section === "risk" && (
+          <PageShell
+            eyebrow="Classical AI Forecasting"
+            title="Thermal risk forecast"
+          >
+            <RiskPredictionPanel />
+          </PageShell>
+        )}
         {section === "observations" && <ObservationsPage />}
       </main>
       <HeatHistoryCard />
+      {section === "map" && <AoiRiskPrompt onView={() => openSection("risk")} />}
       <FireCopilotDrawer />
     </div>
   );

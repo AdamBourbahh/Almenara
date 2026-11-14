@@ -31,6 +31,8 @@ FEATURES = (
     ("Persistent-source excursion", "Thermal departure from the source's trailing baseline."),
 )
 MODEL_NAMES = ("logistic", "boosted_stumps", "gaussian_naive_bayes")
+PRIOR_DAILY_RATE = 0.005
+PRIOR_STRENGTH = 100
 
 
 def _mean(values, window):
@@ -248,67 +250,101 @@ def _drivers(row, weights):
             for i in np.argsort(-magnitude)[:4] if magnitude[i] > 0]
 
 
+def _prior_prediction(features, labels, known, horizon, test_start, target):
+    """Shrink historical event frequency to a fixed prior, then adjust its log odds."""
+    fit_end = max(0, test_start - horizon)
+    fit = known[:fit_end]
+    prior = 1 - (1 - PRIOR_DAILY_RATE) ** horizon
+    rate = (labels[:fit_end][fit].sum() + PRIOR_STRENGTH * prior) / (fit.sum() + PRIOR_STRENGTH)
+    recent = features[test_start:]
+    # These bounded terms are explicit prior assumptions, independent of the holdout.
+    terms = np.zeros_like(recent)
+    if target in (0, 2):
+        terms[:, 0] = 0.35 * np.tanh(recent[:, 0] / 4)
+        terms[:, 2] = 0.60 * np.tanh(recent[:, 2] / 4)
+        terms[:, 7] = 0.35 * recent[:, 7]
+    if target in (1, 2):
+        terms[:, 12] = 0.40 * np.clip(recent[:, 12], 0, 1)
+        terms[:, 13] = 0.80 * np.tanh(np.maximum(recent[:, 13], 0) / 2.5)
+    probability = expit(logit(rate) + terms.sum(axis=1))
+    drivers = _drivers(terms[-1], np.ones(len(FEATURES)))
+    if not drivers:
+        drivers = [dict(feature="Historical event frequency", impact_pct=100.0,
+                        direction="raises" if rate > 0.5 else "lowers",
+                        description="Baseline log odds from earlier event windows and the fixed prior.")]
+    return probability, drivers
+
+
 def predict_risk(daily: dict[str, np.ndarray]) -> dict | None:
     """Fit on a chronological prefix and score only unseen forecast origins."""
     n = len(daily["epoch_day"])
-    if n < MIN_DAYS:
+    if not n:
         return None
     if n > MAX_DAYS or not np.all(np.diff(daily["epoch_day"]) == 1):
         raise ValueError("Risk features require at most 9,500 consecutive UTC days.")
     features = build_causal_features(daily)
     calibration_start, test_start = int(0.6*n), int(0.8*n)
-    fit_reference = features[30:calibration_start-max(HORIZONS)]
-    z = np.clip((features - fit_reference.mean(axis=0)) / np.maximum(0.01, fit_reference.std(axis=0)), -8, 8)
+    z = None
+    if n >= MIN_DAYS:
+        fit_reference = features[30:calibration_start-max(HORIZONS)]
+        z = np.clip((features - fit_reference.mean(axis=0)) / np.maximum(0.01, fit_reference.std(axis=0)), -8, 8)
     observed = np.isfinite(daily["vegetation_frp"])
     reference = daily["vegetation_frp"][:n//5]
     reference = reference[np.isfinite(reference) & (reference > 0)]
-    if not len(reference):
-        return None
-    threshold = float(np.quantile(reference, 0.9))
+    threshold = float(np.quantile(reference, 0.9)) if len(reference) else 1.0
     valid = observed & (daily["gap"] == 0)
     wildfire = valid & (daily["vegetation_frp"] >= threshold)
     accident = valid & (daily["industrial_z"] >= INDUSTRIAL_EXCURSION)
     events = (wildfire, accident, wildfire | accident)
     predictions = [None, None, None]
-    horizons, first_weights, stack_weights = [], [], []
+    horizons, first_drivers, stack_weights = [], [], []
     first_predictions = None
     for horizon in HORIZONS:
         audits = []
+        prior_targets = []
+        names = ("wildfire", "accident", "combined")
         for index, event in enumerate(events):
             labels, known = _future_event(event, valid, horizon)
-            p, weights, stack = _fit_stack(z, labels, known, horizon, calibration_start, test_start, z[test_start:])
+            p, weights, stack = None, None, None
+            if z is not None and len(reference) > 0:
+                p, weights, stack = _fit_stack(z, labels, known, horizon, calibration_start, test_start, z[test_start:])
+            if p is None:
+                p, drivers = _prior_prediction(features, labels, known, horizon, test_start, index)
+                prior_targets.append(names[index])
+            else:
+                drivers = _drivers(z[-1], weights)
+                if not drivers:
+                    drivers = [dict(feature="Model baseline", impact_pct=100.0,
+                                    direction="raises" if p[-1] > 0.5 else "lowers",
+                                    description="Estimated likelihood at the model's reference feature values.")]
             if horizon == 1:
-                first_weights.append(weights)
+                first_drivers.append(drivers)
                 stack_weights.append(stack)
-            if p is not None and predictions[index] is not None:
+            if predictions[index] is not None:
                 p = np.maximum(p, predictions[index])
             predictions[index] = p
             audits.append((labels[test_start:], known[test_start:]))
         fire_p, accident_p, union_p = predictions
-        if fire_p is not None and accident_p is not None and union_p is not None:
-            predictions[2] = np.clip(union_p, np.maximum(fire_p, accident_p), fire_p + accident_p)
-        else:
-            predictions[2] = None
+        predictions[2] = np.clip(union_p, np.maximum(fire_p, accident_p), fire_p + accident_p)
         if horizon == 1:
             first_predictions = predictions.copy()
-        names = ("wildfire", "accident", "combined")
-        summary = {"days": horizon}
+        summary = {"days": horizon, "prior_targets": prior_targets}
         for name, p, audit in zip(names, predictions, audits):
             peak_key = "combined_risk_pct" if name == "combined" else name + "_prob_pct"
-            summary[peak_key] = None if p is None else float(100 * p[-1])
+            summary[peak_key] = float(100 * p[-1])
             summary[name + "_validation"] = _validation(p, *audit)
         horizons.append(summary)
-    if first_predictions[0] is None and first_predictions[1] is None:
-        return None
     dates = np.datetime_as_string(np.datetime64("1970-01-01") + daily["epoch_day"][test_start:].astype("timedelta64[D]"))
     calibrated = stack_weights[0]
-    model_weights = dict(zip(MODEL_NAMES, map(float, calibrated))) if calibrated is not None else {}
+    model_weights = {"causal_prior": 1.0}
+    if calibrated is not None:
+        model_weights = dict(zip(MODEL_NAMES, map(float, calibrated)))
     metric = horizons[0]["wildfire_validation"]
     risk = horizons[0]["combined_risk_pct"]
-    level = None if risk is None else ("LOW", "MODERATE", "HIGH", "CRITICAL")[np.searchsorted([25, 50, 75], risk, side="right")]
+    level = ("LOW", "MODERATE", "HIGH", "CRITICAL")[np.searchsorted([20, 50, 75], risk, side="right")]
     series = [dict(date=str(day),
-                   wildfire_prob_pct=None if first_predictions[0] is None else float(100*first_predictions[0][i]),
-                   accident_prob_pct=None if first_predictions[1] is None else float(100*first_predictions[1][i]))
+                   wildfire_prob_pct=float(100*first_predictions[0][i]),
+                   accident_prob_pct=float(100*first_predictions[1][i]))
               for i, day in enumerate(dates)]
     return dict(
         as_of_date=str(dates[-1]), validation_start_date=str(dates[0]), horizons=horizons,
@@ -318,7 +354,7 @@ def predict_risk(daily: dict[str, np.ndarray]) -> dict | None:
         combined_risk_pct=risk,
         vegetation_event_threshold_mw=threshold,
         model_metrics=dict(**metric, model_weights=model_weights),
-        top_risk_factors=_drivers(z[-1], first_weights[0]),
-        industrial_risk_factors=_drivers(z[-1], first_weights[1]),
+        top_risk_factors=first_drivers[0],
+        industrial_risk_factors=first_drivers[1],
         daily_probability_series=series,
     )

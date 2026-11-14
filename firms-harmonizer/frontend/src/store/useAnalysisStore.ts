@@ -2,17 +2,21 @@ import { create } from "zustand";
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
+  AIRiskAssessment,
   ChaosMonkeyResponse,
   CubeSyncStatusState,
   DailyCalendarCell,
   GeoJSONPolygon,
   H3MapSummaryHex,
+  RiskPredictionRequest,
+  RiskPredictionResponse,
   ViewMode,
   ExplainSpikeResponse
 } from "../api/types";
 import {
   analyzeAoi,
   fetchMapPeriod,
+  fetchRiskPrediction,
   explainSpike,
   runChaosMonkey,
   triggerCubeSync,
@@ -109,6 +113,8 @@ export interface CopilotMessage {
   response?: ExplainSpikeResponse;
 }
 
+export interface SelectionPoint { x: number; y: number }
+
 interface AnalysisState {
   // Parameters & selection
   viewMode: ViewMode;
@@ -185,9 +191,9 @@ interface AnalysisState {
   setEnableKalman: (enable: boolean) => Promise<void>;
   setHighlightIndustrialOnMap: (highlight: boolean) => void;
   setDrawingAoi: (drawing: boolean) => void;
-  loadPresetRegion: (presetKey: PresetKey) => Promise<void>;
-  setCustomAoi: (coordinates: number[][][]) => Promise<void>;
-  setCustomBbox: (west: number, south: number, east: number, north: number) => Promise<void>;
+  loadPresetRegion: (presetKey: PresetKey, point?: SelectionPoint) => Promise<void>;
+  setCustomAoi: (coordinates: number[][][], point?: SelectionPoint) => Promise<void>;
+  setCustomBbox: (west: number, south: number, east: number, north: number, point?: SelectionPoint) => Promise<void>;
   executeAnalysis: (preserveSelection?: boolean) => Promise<void>;
   triggerChaosMonkey: () => Promise<void>;
   resetChaosMonkey: () => void;
@@ -200,6 +206,16 @@ interface AnalysisState {
   syncError: string | null;
   fetchSyncStatus: () => Promise<void>;
   triggerSync: () => Promise<void>;
+
+  // Classical AI Risk Prediction
+  riskResponse: RiskPredictionResponse | null;
+  riskAssessment: AIRiskAssessment | null;
+  isRiskLoading: boolean;
+  riskError: string | null;
+  fetchRiskPredictionForAoi: (asOfDate?: string) => Promise<void>;
+  clearRiskPrediction: () => void;
+  aoiPromptPopup: (SelectionPoint & { aoiLabel: string }) | null;
+  dismissAoiPrompt: () => void;
 }
 
 // Request bookkeeping lives outside the state: it never drives rendering.
@@ -215,6 +231,9 @@ let chaosController: AbortController | null = null;
 let chaosSeq = 0;
 let copilotController: AbortController | null = null;
 let copilotSeq = 0;
+let riskController: AbortController | null = null;
+let riskSeq = 0;
+let riskRequestKey: string | null = null;
 
 function scheduleMapLoad() {
   mapController?.abort();
@@ -271,6 +290,14 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   coverageDateEnd: null,
   syncSource: null,
   syncError: null,
+
+  // Classical AI Risk Prediction
+  riskResponse: null,
+  riskAssessment: null,
+  isRiskLoading: false,
+  riskError: null,
+  aoiPromptPopup: null,
+  dismissAoiPrompt: () => set({ aoiPromptPopup: null }),
 
   setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -355,25 +382,27 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   setHighlightIndustrialOnMap: (highlight) => set({ highlightIndustrialOnMap: highlight }),
 
-  setDrawingAoi: (drawing) => set({ isDrawingAoi: drawing }),
+  setDrawingAoi: (drawing) => set(drawing ? { isDrawingAoi: true, aoiPromptPopup: null } : { isDrawingAoi: false }),
 
-  loadPresetRegion: async (presetKey) => {
+  loadPresetRegion: async (presetKey, point) => {
     if (!(presetKey in PRESET_REGIONS)) return;
-    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null });
+    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null,
+      aoiPromptPopup: point ? { ...point, aoiLabel: PRESET_REGIONS[presetKey].label } : null });
     await get().executeAnalysis();
   },
 
-  setCustomAoi: async (coordinates) => {
+  setCustomAoi: async (coordinates, point) => {
     const ring = coordinates[0];
     if (!ring || ring.length < 4) {
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
-    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null });
+    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null,
+      aoiPromptPopup: point ? { ...point, aoiLabel: "Custom area" } : null });
     await get().executeAnalysis();
   },
 
-  setCustomBbox: async (west, south, east, north) => {
+  setCustomBbox: async (west, south, east, north, point) => {
     const w = Math.max(-180, Math.min(west, east));
     const e = Math.min(180, Math.max(west, east));
     const s = Math.max(-85, Math.min(south, north));
@@ -383,7 +412,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       return;
     }
     // Counter-clockwise exterior ring (RFC 7946), closed.
-    await get().setCustomAoi([[[w, s], [e, s], [e, n], [w, n], [w, s]]]);
+    await get().setCustomAoi([[[w, s], [e, s], [e, n], [w, n], [w, s]]], point);
   },
 
   loadMapYear: async () => {
@@ -427,6 +456,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   },
 
   executeAnalysis: async (preserveSelection = false) => {
+    get().clearRiskPrediction();
     mapController?.abort();
     mapSeq++;
     clearTimeout(mapTimer);
@@ -625,6 +655,55 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       });
     } finally {
       manualSyncPending = false;
+    }
+  },
+
+  clearRiskPrediction: () => {
+    riskController?.abort();
+    riskSeq++;
+    riskRequestKey = null;
+    set({ riskResponse: null, riskAssessment: null, isRiskLoading: false, riskError: null });
+  },
+
+  fetchRiskPredictionForAoi: async (asOfDate?: string) => {
+    const state = get();
+    const selected = asOfDate ?? state.selectedDate;
+    const targetDate = selected && selected >= isoDate(state.startYear, 1, 1) &&
+      selected <= isoDate(state.endYear, 12, 31) ? selected : undefined;
+    const request: RiskPredictionRequest = {
+      aoi: state.currentAoi,
+      start_year: state.startYear,
+      end_year: state.endYear,
+      ...(targetDate ? { as_of_date: targetDate } : {})
+    };
+    const key = JSON.stringify(request);
+    if (key === riskRequestKey && (state.isRiskLoading || state.riskResponse)) return;
+    riskController?.abort();
+    const controller = new AbortController();
+    riskController = controller;
+    const seq = ++riskSeq;
+    riskRequestKey = key;
+    set({ isRiskLoading: true, riskError: null, riskResponse: null, riskAssessment: null });
+
+    try {
+      const response = await fetchRiskPrediction(request, controller.signal);
+      if (seq !== riskSeq) return;
+      set({
+        riskResponse: response,
+        riskAssessment: response.assessment ?? null,
+        isRiskLoading: false,
+        riskError: null
+      });
+    } catch (err: unknown) {
+      if (seq !== riskSeq || isAbortError(err)) return;
+      set({
+        riskResponse: null,
+        riskAssessment: null,
+        isRiskLoading: false,
+        riskError: err instanceof Error ? err.message : "Failed to compute fire risk prediction"
+      });
+    } finally {
+      if (riskController === controller) riskController = null;
     }
   }
 

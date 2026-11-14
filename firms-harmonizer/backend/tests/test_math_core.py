@@ -632,13 +632,14 @@ def test_risk_predictor_no_temporal_leakage_and_nan_resilience():
     assert original["vegetation_event_threshold_mw"] == revised["vegetation_event_threshold_mw"]
     np.testing.assert_array_equal(original["daily_probability_series"][:-30],
                                   revised["daily_probability_series"][:-30])
-    assert predict_risk(_risk_fixture(50)) is None
+    assert predict_risk(_risk_fixture(50))["horizons"][0]["prior_targets"] == ["wildfire", "accident", "combined"]
 
 
-def test_risk_predictor_withholds_unlearnable_targets():
+def test_risk_predictor_uses_prior_for_unlearnable_targets():
     daily = _risk_fixture()
     daily["industrial_z"][:] = 0
     result = predict_risk(daily)
-    assert result["industrial_accident_prob_pct"] is None
-    assert result["combined_risk_pct"] is None
+    assert result["industrial_accident_prob_pct"] > 0
+    assert result["combined_risk_pct"] >= result["wildfire_prob_24h_pct"]
+    assert "accident" in result["horizons"][0]["prior_targets"]
     assert result["horizons"][0]["accident_validation"]["roc_auc"] is None

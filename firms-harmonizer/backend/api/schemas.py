@@ -91,6 +91,7 @@ class RiskHorizon(ContractModel):
     wildfire_validation: RiskValidation
     accident_validation: RiskValidation
     combined_validation: RiskValidation
+    prior_targets: list[Literal["wildfire", "accident", "combined"]] = Field(default_factory=list)
 
 
 class RiskFactor(ContractModel):

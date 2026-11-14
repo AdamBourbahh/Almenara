@@ -540,12 +540,19 @@ The first 60% supplies base-model fit data, the next 20% calibrates stacked logi
 boosted-stump and Gaussian naive Bayes outputs, and the final 20% supplies held-out
 forecasts and validation. Label windows may not cross those boundaries or extend past
 the record; flagged or explicitly missing windows are excluded from scoring. Metrics
-cover each target and horizon separately. At least five events and five non-events
-are required in both fitting and calibration. Unlearnable targets and undefined
-ROC-AUC return null. Reliability bins compare forecast means to observed frequencies.
+cover each target and horizon separately. The ensemble requires at least five events
+and five non-events in both fitting and calibration, plus 365 days of history.
+With less support, a causal prior shrinks the frequency in earlier complete windows
+toward a declared 0.5% daily prior with the weight of 100 windows. Bounded spatial,
+recent heat, seasonal and persistent-source terms adjust the prior log odds. A
+missing positive FRP reference uses a declared 1 MW threshold. Each horizon lists
+the targets using the prior in the additive `prior_targets` field. An AOI with
+no records receives an unavailable status. Brier score requires complete held-out
+windows and ROC-AUC also requires both classes. Reliability bins compare predicted
+means to observed frequencies.
 The combined estimate is trained on the union and constrained by its marginals.
 The severity badge denotes the combined 24-hour proxy likelihood, with boundaries at
-25%, 50% and 75%. Driver bars show shares of absolute standardized logistic log-odds,
+20%, 50% and 75%. Driver bars show shares of absolute model or prior log-odds contributions,
 not causal effects or ensemble probability changes.
 
 All computation runs locally. The geometry/date/cube-keyed LRU caches completed results.

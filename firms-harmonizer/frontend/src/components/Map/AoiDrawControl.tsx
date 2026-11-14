@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, MouseEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Edit3, XCircle, Search, MapPin, ChevronDown } from "lucide-react";
 import { PRESET_ORDER, PRESET_REGIONS, useAnalysisStore } from "../../store/useAnalysisStore";
+
+function selectionPoint(event: MouseEvent<HTMLElement> | FormEvent<HTMLElement>) {
+  if ("clientX" in event && event.detail > 0) return { x: event.clientX, y: event.clientY };
+  const bounds = event.currentTarget.getBoundingClientRect();
+  return { x: bounds.left + bounds.width / 2, y: bounds.bottom };
+}
 
 /**
  * Area-of-interest controls for the map panel: case-study tabs, drag-to-draw,
@@ -53,14 +59,14 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchError, setSearchError] = useState("");
   const matches = PRESET_ORDER.filter((key) => `${PRESET_REGIONS[key].label} ${PRESET_REGIONS[key].context}`.toLowerCase().includes(query.toLowerCase()));
-  const applySearch = (event: FormEvent) => {
+  const applySearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const pair = query.trim().split(/[,\s]+/).map(Number);
     if (query.trim() && pair.length === 2 && pair.every(Number.isFinite) && Math.abs(pair[0]) + .2 <= 85 && Math.abs(pair[1]) + .2 <= 180) {
-      void setCustomBbox(pair[1] - .2, pair[0] - .2, pair[1] + .2, pair[0] + .2);
+      void setCustomBbox(pair[1] - .2, pair[0] - .2, pair[1] + .2, pair[0] + .2, selectionPoint(event));
       setSearchOpen(false); setQuery(""); setSearchError("");
     } else if (matches.length === 1) {
-      void loadPresetRegion(matches[0]); setSearchOpen(false); setQuery(""); setSearchError("");
+      void loadPresetRegion(matches[0], selectionPoint(event)); setSearchOpen(false); setQuery(""); setSearchError("");
     } else {
       setSearchError("Choose a pilot region, or enter latitude, longitude."); setSearchOpen(true);
     }
@@ -74,13 +80,13 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
     setLng(center.lng.toFixed(2));
   }, [center.lat, center.lng]);
 
-  const applyCoords = (event: FormEvent) => {
+  const applyCoords = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const latitude = Number(lat);
     const longitude = Number(lng);
     const half = Math.min(Math.abs(Number(radius)) || 0.4, 5);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) + half > 85 || Math.abs(longitude) + half > 180) return;
-    void setCustomBbox(longitude - half, latitude - half, longitude + half, latitude + half);
+    void setCustomBbox(longitude - half, latitude - half, longitude + half, latitude + half, selectionPoint(event));
     setShowCoords(false);
   };
 
@@ -100,7 +106,7 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
         <button aria-label="Close search suggestions" onClick={() => setSearchOpen(false)} className="fixed inset-0 -z-10 cursor-default" />
         <div className="mt-2 overflow-hidden rounded-2xl border border-rule bg-panel p-2 shadow-xl">
           <p className="px-3 py-2 text-[10px] uppercase tracking-widest text-faint">Pilot regions · or search by coordinates</p>
-          {matches.map((key) => <button key={key} type="button" onClick={() => { void loadPresetRegion(key); setSearchOpen(false); setQuery(""); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs text-ink hover:bg-paper"><MapPin className="h-4 w-4 text-muted" /><span>{PRESET_REGIONS[key].label}<span className="block text-[10px] text-faint">{PRESET_REGIONS[key].context}</span></span></button>)}
+          {matches.map((key) => <button key={key} type="button" onClick={(event) => { void loadPresetRegion(key, selectionPoint(event)); setSearchOpen(false); setQuery(""); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs text-ink hover:bg-paper"><MapPin className="h-4 w-4 text-muted" /><span>{PRESET_REGIONS[key].label}<span className="block text-[10px] text-faint">{PRESET_REGIONS[key].context}</span></span></button>)}
           {searchError && <p role="status" className="px-3 py-2 text-xs text-terracotta">{searchError}</p>}
           {!matches.length && !searchError && <p className="px-3 py-2 text-xs text-muted">Enter latitude, longitude and press Enter.</p>}
         </div>
@@ -172,7 +178,7 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => void loadPresetRegion(key)}
+              onClick={(event) => void loadPresetRegion(key, selectionPoint(event))}
               className={`border px-2 py-2 text-left ${active ? "border-ink bg-paper" : "border-rule hover:bg-paper"}`}
             >
               <span className={`block text-xs font-medium ${active ? "text-ink" : "text-muted"}`}>

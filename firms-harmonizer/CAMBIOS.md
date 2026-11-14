@@ -207,3 +207,11 @@ client. Background polling requires `NRT_POLLING=1`, stays idle in offline or sy
 mode, and writes to a separate in-memory table through an isolated DuckDB cursor.
 The health endpoint exposes polling status. Offline and mocked tests cover the path;
 live FIRMS ingestion was not exercised during the merge.
+
+## 2026-11-14 — Risk AI completeness and map shortcut
+
+The Python and TypeScript risk horizon contracts add optional `prior_targets` for
+backward compatibility. Forecasts for sparse observed areas use the causal prior
+documented in SPECS. The panel omits undefined diagnostics and marks each prior
+estimate. Selecting an area opens a dismissible shortcut to Risk AI and computes
+the new forecast on demand, without mounting an additional map.
