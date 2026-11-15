@@ -17,10 +17,10 @@ Hugging Face download limits during cold starts.
 | Container images | Artifact Registry | 0.5 GB storage | Holds the image; a cleanup policy keeps the two latest |
 | Runtime data | Hugging Face dataset `andearlla/firms-harmonizer-data` | Free public storage | Cube, accepted detections and ignored lookup tables (about 90 MB) |
 | Continuous deployment | GitHub Actions | 2,000 minutes per month on private repositories | Redeploys after `Verify` passes on `main` (once configured) |
-| Cost guard | Cloud Billing budget | Free | Email alerts at 50%, 90% and 100% of 1 EUR |
+| Cost guard | Cloud Billing budget and the `budget-guard` function | Free | Email alerts at 50%, 90% and 100% of 1 EUR; public access closes automatically at 100% |
 
-The service runs with 2 GiB of memory, 1 vCPU, request-based CPU billing, at most two
-instances and eight concurrent requests each. Measured peak memory is 1.34 GB (a full
+The service runs with 2 GiB of memory, 1 vCPU, request-based CPU billing, at most one
+instance and eight concurrent requests. Measured peak memory is 1.34 GB (a full
 Iberia analysis); idle memory is about 150 MB. Cloud Run bills only while requests are being
 served, so hackathon traffic stays inside the free tier. Activating billing in this account
 required a prepayment, which is kept as account credit.
@@ -76,6 +76,41 @@ python deploy\cloudrun.py --project <project-id> deploy --data-repo <hf-user>/fi
 
 `setup` creates the project, links billing, enables Cloud Run, Artifact Registry and budgets,
 creates the image repository with its cleanup policy, and adds the 1 EUR budget alert.
+
+## Automatic spending cut-off
+
+A budget alert alone does not stop spending. The budget therefore also publishes to the
+Pub/Sub topic `budget-alerts`, which triggers the `budget-guard` function
+(`deploy/budget_guard/`). When the reported cost reaches the budget amount, the function
+removes the public (`allUsers`) invoker binding from the service. Visitors then receive
+HTTP 403 before any instance starts, so request-driven spending stops. Image storage in
+Artifact Registry is not affected and keeps its small storage cost.
+
+Billing data reaches budgets with a delay of several hours, so the cut-off is not
+instantaneous; the single-instance cap bounds what can be spent in the meantime. The
+cut-off was tested on 2026-11-15 with a simulated over-budget notification.
+
+To reopen the service after a cut-off (raise the budget or wait for the next month first):
+
+```powershell
+gcloud run services add-iam-policy-binding firms-harmonizer --region=europe-west1 --project=firms-harmonizer-2026 --member=allUsers --role=roles/run.invoker
+```
+
+Any later deployment also reopens the service, because it deploys with public access.
+A project owner installs the guard once:
+
+```powershell
+$P = "firms-harmonizer-2026"
+$SA = "budget-guard@$P.iam.gserviceaccount.com"
+gcloud services enable pubsub.googleapis.com cloudfunctions.googleapis.com cloudbuild.googleapis.com eventarc.googleapis.com --project=$P
+gcloud pubsub topics create budget-alerts --project=$P
+gcloud pubsub topics add-iam-policy-binding budget-alerts --project=$P --member="serviceAccount:billing-budget-alert@system.gserviceaccount.com" --role=roles/pubsub.publisher
+gcloud iam service-accounts create budget-guard --project=$P
+gcloud run services add-iam-policy-binding firms-harmonizer --region=europe-west1 --project=$P --member="serviceAccount:$SA" --role=roles/run.admin
+gcloud functions deploy budget-guard --gen2 --project=$P --region=europe-west1 --runtime=python312 --source=deploy/budget_guard --entry-point=enforce_budget --trigger-topic=budget-alerts --service-account=$SA --set-env-vars="GUARD_PROJECT=$P,GUARD_REGION=europe-west1,GUARD_SERVICE=firms-harmonizer" --memory=256Mi --max-instances=1 --no-allow-unauthenticated
+gcloud run services add-iam-policy-binding budget-guard --region=europe-west1 --project=$P --member="serviceAccount:$SA" --role=roles/run.invoker
+gcloud billing budgets update <budget-id> --billing-project=$P --notifications-rule-pubsub-topic="projects/$P/topics/budget-alerts"
+```
 
 ## Enabling automatic redeploys
 

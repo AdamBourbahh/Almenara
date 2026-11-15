@@ -149,7 +149,7 @@ def main() -> None:
     first.set_defaults(func=setup)
     release = commands.add_parser("deploy", help="Build, push and deploy the container.")
     release.add_argument("--data-repo", default="andearlla/firms-harmonizer-data")
-    release.add_argument("--max-instances", type=int, default=2)
+    release.add_argument("--max-instances", type=int, default=1)
     release.set_defaults(func=deploy)
     check = commands.add_parser("status", help="Print the service URL and its health.")
     check.set_defaults(func=status)
