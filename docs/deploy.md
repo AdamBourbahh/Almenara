@@ -92,7 +92,7 @@ gcloud run services add-iam-policy-binding firms-harmonizer --region=europe-west
 gcloud artifacts repositories add-iam-policy-binding firms-harmonizer --location=europe-west1 --project=$P --member="serviceAccount:$SA" --role=roles/artifactregistry.writer
 gcloud iam service-accounts add-iam-policy-binding "$N-compute@developer.gserviceaccount.com" --project=$P --member="serviceAccount:$SA" --role=roles/iam.serviceAccountUser
 gcloud iam workload-identity-pools create github --location=global --project=$P
-gcloud iam workload-identity-pools providers create-oidc almenara --workload-identity-pool=github --location=global --project=$P --issuer-uri=https://token.actions.githubusercontent.com --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" --attribute-condition="assertion.repository=='AdamBourbahh/Almenara' && assertion.ref=='refs/heads/main' && assertion.job_workflow_ref=='AdamBourbahh/Almenara/.github/workflows/deploy-cloudrun.yml@refs/heads/main'"
+gcloud iam workload-identity-pools providers create-oidc almenara --workload-identity-pool=github --location=global --project=$P --issuer-uri=https://token.actions.githubusercontent.com --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" --attribute-condition="assertion.repository=='AdamBourbahh/Almenara' && assertion.ref=='refs/heads/main' && assertion.workflow_ref=='AdamBourbahh/Almenara/.github/workflows/deploy-cloudrun.yml@refs/heads/main'"
 gcloud iam service-accounts add-iam-policy-binding $SA --project=$P --role=roles/iam.workloadIdentityUser --member="principalSet://iam.googleapis.com/projects/$N/locations/global/workloadIdentityPools/github/attribute.repository/AdamBourbahh/Almenara"
 ```
 
