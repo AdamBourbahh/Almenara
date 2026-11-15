@@ -201,6 +201,9 @@ def predict_risk(req: RiskPredictionRequest) -> Response:
         result = fit_risk_predictor(series)
         if result:
             result["last_observation_date"] = last_record
+            if isinstance(result.get("intensity"), dict):
+                ratio = queries.fetch_risk_diurnal_ratio(r4, cutoff.month)
+                result["intensity"]["diurnal_amplification_ratio"] = None if ratio is None else round(ratio, 2)
     model_time = (perf_counter() - model_start) * 1000
     timer.lap("model")
     reason = None
