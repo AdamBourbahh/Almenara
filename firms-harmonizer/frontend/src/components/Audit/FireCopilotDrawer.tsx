@@ -381,14 +381,16 @@ function speechChunks(markdown: string): string[] {
     .filter(Boolean);
 }
 
-// The Copilot answers in English: always use an English voice, preferring the
-// most natural one installed (Edge "Natural" / Google voices), then en-US.
+// The Copilot answers in English: always use an English voice. First choice is
+// Chrome's "Google US English" (the Google Translate voice), then Edge's
+// "Natural" neural voices, then any other en-US / en-GB voice.
 function englishVoiceScore(voice: SpeechSynthesisVoice): number {
   const lang = voice.lang.toLowerCase().replace("_", "-");
   if (!lang.startsWith("en")) return -1;
   let score = 0;
+  if (voice.name === "Google US English") score += 16;
+  else if (/google/i.test(voice.name)) score += 10;
   if (/natural|neural|online/i.test(voice.name)) score += 8;
-  if (/google/i.test(voice.name)) score += 4;
   if (lang === "en-us") score += 2;
   else if (lang === "en-gb") score += 1;
   if (voice.localService) score += 0.5;
