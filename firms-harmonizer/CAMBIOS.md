@@ -1,5 +1,24 @@
 # Change log — integration changes
 
+## 2026-11-15 — Explicit model failures and scientific chat audit
+
+Online Copilot failures no longer invoke the local investigator automatically.
+The selected model can use 15 seconds per read; explicit offline operation still
+works. Errors retain the selected period and report insufficient context rather
+than presenting a substitute answer. Public schemas are unchanged.
+
+Added a read-only scientific-audit tool for mapped FRE, Chow, Wasserstein W1,
+supported von Mises fits and gap counts. Server-owned results remain verbatim.
+Nulls and sparse zero energy cannot authorize invented causal explanations.
+Zero-energy annual peak sentinels are omitted, and broad pilot collection labels
+cannot overwrite the selected location in model context.
+
+Live six-zone rounds, failed attempts, independent SQL/statistical/mask oracles
+and held-out checks are retained under
+`../docs/verification/2026-11-15-six-plus-one/`. Certification is limited to the
+recorded queries and actual available evidence, not every chatbot response or
+unmeasured cloud conditions. Regression assertions and frozen hashes are retained.
+
 ## 2026-11-15 — Preserve episode dates during provider fallback
 
 The local investigator now forwards the resolved map/conversation period to the
