@@ -21,11 +21,40 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const ALLOW_SYNTHETIC_FALLBACK = import.meta.env.VITE_ALLOW_SYNTHETIC_FALLBACK === "1";
 /** Gateway statuses that mean "backend not up yet" (e.g. behind a reverse proxy). */
 const BACKEND_DOWN_STATUSES = new Set([502, 503, 504]);
+/** Short retries so a restarting API recovers without a manual reload. */
+const BACKEND_RETRY_DELAYS_MS = [700, 1500, 3000];
 
-function isBackendUnavailable(error: unknown): boolean {
+export function isBackendDown(error: unknown): boolean {
   if (error instanceof ApiError) return BACKEND_DOWN_STATUSES.has(error.status);
   if (error instanceof DOMException) return error.name === "TimeoutError";
   return error instanceof TypeError; // fetch network failure: connection refused, DNS, CORS
+}
+
+const BACKEND_UNAVAILABLE_MESSAGE = "Backend unavailable: the API is not reachable. Retrying shortly.";
+
+function isBackendUnavailable(error: unknown): boolean {
+  return isBackendDown(error);
+}
+
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new DOMException("Aborted", "AbortError")); return; }
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", onAbort); resolve(); }, ms);
+    const onAbort = () => { clearTimeout(timer); reject(new DOMException("Aborted", "AbortError")); };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+async function fetchWithBackendRetry(url: string, init: RequestInit, signal: AbortSignal): Promise<Response> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const response = await fetch(url, init);
+      if (!BACKEND_DOWN_STATUSES.has(response.status) || attempt >= BACKEND_RETRY_DELAYS_MS.length) return response;
+    } catch (error) {
+      if (attempt >= BACKEND_RETRY_DELAYS_MS.length || signal.aborted) throw error;
+    }
+    await delay(BACKEND_RETRY_DELAYS_MS[attempt], signal);
+  }
 }
 
 
@@ -59,7 +88,7 @@ async function requestJson<T>(path: string, init: { method: string; headers: Rec
   signal?.addEventListener("abort", forwardAbort, { once: true });
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, { ...init, signal: controller.signal });
+    const response = await fetchWithBackendRetry(`${API_BASE_URL}${path}`, { ...init, signal: controller.signal }, controller.signal);
     if (!response.ok) {
       let detail = response.statusText;
       try {
@@ -69,6 +98,9 @@ async function requestJson<T>(path: string, init: { method: string; headers: Rec
         }
       } catch {
         /* non-JSON error body: keep statusText */
+      }
+      if (BACKEND_DOWN_STATUSES.has(response.status)) {
+        throw new ApiError(BACKEND_UNAVAILABLE_MESSAGE, response.status);
       }
       throw new ApiError(`HTTP ${response.status}: ${detail}`, response.status);
     }

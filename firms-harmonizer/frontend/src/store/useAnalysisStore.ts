@@ -19,10 +19,12 @@ import {
   fetchMapPeriod,
   fetchRiskPrediction,
   explainSpike,
+  isBackendDown,
   runChaosMonkey,
   triggerCubeSync,
   fetchCubeSyncStatus
 } from "../api/client";
+import { MAX_AOI_AREA_KM2, polygonAreaKm2 } from "../lib/geo";
 
 // ============================================================================
 // Official pilot regions for the jury demo
@@ -254,6 +256,9 @@ let manualSyncPending = false;
 let mapController: AbortController | null = null;
 let mapSeq = 0;
 let mapRetryCount = 0;
+let backendRetryTimer: ReturnType<typeof setTimeout> | undefined;
+let backendRetryCount = 0;
+let backendRetrying = false;
 let mapTimer: ReturnType<typeof setTimeout> | undefined;
 const annualMapCache = new Map<string, H3MapSummaryHex[]>();
 let chaosController: AbortController | null = null;
@@ -443,6 +448,14 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
+    const area = polygonAreaKm2(coordinates);
+    if (area > MAX_AOI_AREA_KM2) {
+      set({
+        isDrawingAoi: false,
+        error: `Area too large: ${Math.round(area).toLocaleString("en-US")} km² exceeds the 1,250,000 km² limit. Draw a smaller area.`
+      });
+      return;
+    }
     set({ isDrawingAoi: false, chaosData: null });
     await get().executeAnalysis(true, { aoi: { type: "Polygon", coordinates }, preset: "CUSTOM" });
   },
@@ -543,6 +556,15 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   },
 
   executeAnalysis: async (preserveSelection = true, override?: { aoi: GeoJSONPolygon; preset: RegionSelection }) => {
+    // An automatic retry repeats the same request, so keep the last rendered map
+    // instead of blanking it during every attempt.
+    const isRetry = backendRetrying;
+    if (!isRetry) {
+      backendRetryCount = 0;
+      // A new user-triggered analysis supersedes any pending automatic retry.
+      clearTimeout(backendRetryTimer);
+    }
+    backendRetrying = false;
     get().clearRiskPrediction();
     mapController?.abort();
     mapSeq++;
@@ -551,7 +573,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const previousMap = get();
     const keepMap = { mapHexagons: previousMap.mapHexagons, mapYear: previousMap.mapYear, mapPeriod: previousMap.mapPeriod };
     set({
-      mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null,
+      ...(isRetry ? {} : { mapHexagons: [], mapYear: null, mapPeriod: null }),
+      mapLoading: true, mapError: null,
       hoveredDay: null, hoveredDate: null, hoveredCell: null,
       ...(preserveSelection ? {} : { selectedRange: null, isDatePinned: false, selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null })
     });
@@ -590,9 +613,35 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         ...(override ? { currentAoi: override.aoi, selectedPreset: override.preset } : {})
       });
       if (override) get().attachCopilotContext({ day: null, hex: null });
+      backendRetryCount = 0;
+      clearTimeout(backendRetryTimer);
       await get().loadMapYear();
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
+      if (isBackendDown(err)) {
+        if (backendRetryCount < 10) {
+          backendRetryCount += 1;
+          backendRetrying = true;
+          set({
+            error: "Backend unavailable: the API is not reachable. Retrying shortly.",
+            loading: false,
+            mapLoading: false,
+            ...keepMap
+          });
+          backendRetryTimer = setTimeout(() => {
+            void useAnalysisStore.getState().executeAnalysis(preserveSelection, override);
+          }, 3000);
+        } else {
+          backendRetryCount = 0;
+          set({
+            error: "Backend unavailable: the API is not reachable. Start the API and reload.",
+            loading: false,
+            mapLoading: false,
+            ...keepMap
+          });
+        }
+        return;
+      }
       // Keep the previous AOI, map and chronology: the requested area was never committed.
       set({
         error: err instanceof Error ? err.message : "Spatial analysis failed",

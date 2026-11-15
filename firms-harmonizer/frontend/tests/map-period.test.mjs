@@ -7,10 +7,10 @@ import ts from 'typescript';
 
 const dir=await mkdtemp(new URL('../node_modules/.period-',import.meta.url));
 after(()=>rm(dir,{recursive:true,force:true}));
-for(const [name,path] of [['client','api/client'],['store','store/useAnalysisStore']]) {
+for(const [name,path] of [['client','api/client'],['store','store/useAnalysisStore'],['geo','lib/geo']]) {
  let source=await readFile(new URL(`../src/${path}.ts`,import.meta.url),'utf8');
  source=source.replace(/import regionRegistry from [^;]+;/, 'const regionRegistry = '+await readFile(new URL('../../data/regions.json', import.meta.url),'utf8')+';');
- source=source.replaceAll('import.meta.env','{}').replace('"../api/client"','"./client.mjs"');
+ source=source.replaceAll('import.meta.env','{}').replace('"../api/client"','"./client.mjs"').replace('"../lib/geo"','"./geo.mjs"');
  await writeFile(join(dir,`${name}.mjs`),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
 }
 const {useAnalysisStore:state,riskForecastDate}=await import(pathToFileURL(join(dir,'store.mjs')).href);
@@ -148,4 +148,14 @@ test('a date chosen while the analysis is loading is applied when it settles', a
  assert.equal(state.getState().mapPeriod, '2026-09-26');
  assert.equal(state.getState().mapHexagons.length, 1);
 });
+
+test('an oversized AOI is rejected before any request', async () => {
+ let calls = 0;
+ globalThis.fetch = async () => { calls += 1; return new Response(JSON.stringify(history)); };
+ state.setState({ error: null });
+ await state.getState().setCustomAoi([[[-100, -50], [50, -50], [50, 50], [-100, 50], [-100, -50]]]);
+ assert.equal(calls, 0);
+ assert.match(state.getState().error, /too large/i);
+});
+
 
