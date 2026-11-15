@@ -117,7 +117,7 @@ function viewStateForAoi(aoi: GeoJSONPolygon, width: number, height: number, pit
   const spanX = Math.max((east - west) / 360, 1e-6);
   const spanY = Math.max((mercY(north) - mercY(south)) / (2 * Math.PI), 1e-6);
   const usableW = Math.max(200, width) * 0.8;
-  const usableH = Math.max(120, height - 290) * 0.88;
+  const usableH = Math.max(320, height - 290) * 0.88;
   const zoom = Math.min(Math.log2(usableW / (512 * spanX)), Math.log2(usableH / (512 * spanY)));
   return {
     longitude: (west + east) / 2,

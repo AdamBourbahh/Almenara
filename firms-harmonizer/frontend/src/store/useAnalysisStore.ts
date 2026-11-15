@@ -225,7 +225,7 @@ interface AnalysisState {
   loadPresetRegion: (presetKey: PresetKey) => Promise<void>;
   setCustomAoi: (coordinates: number[][][]) => Promise<void>;
   setCustomBbox: (west: number, south: number, east: number, north: number) => Promise<void>;
-  executeAnalysis: (preserveSelection?: boolean) => Promise<void>;
+  executeAnalysis: (preserveSelection?: boolean, override?: { aoi: GeoJSONPolygon; preset: RegionSelection }) => Promise<void>;
   triggerChaosMonkey: () => Promise<void>;
   resetChaosMonkey: () => void;
 
@@ -427,9 +427,10 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   loadPresetRegion: async (presetKey) => {
     if (!(presetKey in PRESET_REGIONS)) return;
-    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null });
-    get().attachCopilotContext({ day: null, hex: null });
-    await get().executeAnalysis(true);
+    set({ isDrawingAoi: false, chaosData: null });
+    // The AOI is committed only after the analysis succeeds, so a failed request
+    // leaves the current area and its map data untouched.
+    await get().executeAnalysis(true, { aoi: polygonFromPreset(presetKey), preset: presetKey });
   },
 
   setCustomAoi: async (coordinates) => {
@@ -438,9 +439,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
-    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null });
-    get().attachCopilotContext({ day: null, hex: null });
-    await get().executeAnalysis(true);
+    set({ isDrawingAoi: false, chaosData: null });
+    await get().executeAnalysis(true, { aoi: { type: "Polygon", coordinates }, preset: "CUSTOM" });
   },
 
   setCustomBbox: async (west, south, east, north) => {
@@ -523,7 +523,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }
   },
 
-  executeAnalysis: async (preserveSelection = true) => {
+  executeAnalysis: async (preserveSelection = true, override?: { aoi: GeoJSONPolygon; preset: RegionSelection }) => {
     get().clearRiskPrediction();
     mapController?.abort();
     mapSeq++;
@@ -545,7 +545,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     set({ loading: true, error: null });
 
     const requestPayload: AnalyzeRequest = {
-      aoi: state.currentAoi,
+      aoi: override?.aoi ?? state.currentAoi,
       start_year: state.startYear,
       end_year: state.endYear,
       exclude_industrial_flaring: state.excludeIndustrial,
@@ -560,11 +560,27 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       // First load shows the most recent year with data; the user's own year choice is preserved.
       const latestYear = indexes.maxDate ? Number(indexes.maxDate.slice(0, 4)) : get().selectedYear;
       const nextYear = get().hasChosenYear ? get().selectedYear : latestYear;
-      set({ ...indexes, selectedYear: nextYear, analysisData: data, isSynthetic: data.data_source === "synthetic", loading: false, hoveredDay: null });
+      set({
+        ...indexes,
+        selectedYear: nextYear,
+        analysisData: data,
+        isSynthetic: data.data_source === "synthetic",
+        loading: false,
+        hoveredDay: null,
+        // Commit the new AOI only after the analysis succeeds.
+        ...(override ? { currentAoi: override.aoi, selectedPreset: override.preset } : {})
+      });
+      if (override) get().attachCopilotContext({ day: null, hex: null });
       await get().loadMapYear();
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
-      set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false, mapLoading: false, ...keepMap });
+      // Keep the previous AOI, map and chronology: the requested area was never committed.
+      set({
+        error: err instanceof Error ? err.message : "Spatial analysis failed",
+        loading: false,
+        mapLoading: false,
+        ...keepMap
+      });
     } finally {
       if (analysisController === controller) analysisController = null;
     }
