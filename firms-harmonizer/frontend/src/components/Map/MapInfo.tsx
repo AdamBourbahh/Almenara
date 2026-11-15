@@ -22,7 +22,8 @@ export function MapInfo() {
   const mapped = useMemo(() => summarizeMappedYear(mapHexagons, excludeIndustrial), [mapHexagons, excludeIndustrial]);
   const ready = !loading && !mapLoading && !mapError && mapPeriod === requestedPeriod;
   const cells = analysisData?.calendar_series ?? [];
-  const periodCells=cells.filter(c=>c.date.startsWith(requestedPeriod) && !c.is_forecast);
+  const [rangeStart, rangeEnd] = requestedPeriod.split("..");
+  const periodCells=cells.filter(c=>(rangeEnd ? c.date >= rangeStart && c.date <= rangeEnd : c.date.startsWith(requestedPeriod)) && !c.is_forecast);
   const regionalBiomass=periodCells.reduce((sum,c)=>sum+c.biomass_burned_tonnes,0);
   const regionalEnergy=regionalBiomass/.368;
   const filledDays=periodCells.filter(c=>c.is_gap_filled).length;

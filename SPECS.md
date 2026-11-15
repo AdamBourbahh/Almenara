@@ -809,3 +809,21 @@ The agent receives these estimators as separate nested tool results. Selected qu
 area, observed cell footprint, requested dates and actual archive cutoff remain
 separate quantities. This adds internal tool fields only; frozen public schemas
 and TypeScript API contracts remain unchanged.
+
+
+### Chronology picker and inclusive ranges (2026-11-15)
+
+The chronology dock retains a 56 px detection histogram. Clicking the date summary
+opens Day, Month, Year and Date range controls with corresponding native fields;
+Apply dates commits the draft, while Cancel and Escape preserve the current period.
+Previous/next keep the selected granularity. Hovering bars does not change selection.
+Daily bars cover the selected month, monthly bars the selected year, and annual bars
+the full record. Date ranges use inclusive UTC bounds, including across years.
+
+Internally, selectedRange overrides the single day/month/year for map requests,
+regional totals and Copilot context; its end is the risk forecast origin. Selecting
+any single period clears that range. Cross-year ranges split into same-year requests
+to the existing map-period endpoint, with at most four concurrent requests, then sum
+observed energy densities and detection counts per H3 cell. They preserve cancellation,
+stale-response protection and real/synthetic provenance. No API contracts changed.
+Appearance is available inside Settings as a persisted Dark mode switch.

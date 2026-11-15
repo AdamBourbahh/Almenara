@@ -444,3 +444,14 @@ same observed map total for comparison. Matched biomass, date coverage, selected
 area and observed footprint are labeled explicitly. No public contract fields or
 types changed. Tests compare mapped GJ with an independent sparse-cell area sum
 and the actual map-period API; the model receives distinct estimator objects.
+
+
+## 2026-11-15 — Simpler chronology and appearance settings
+
+Moved the persisted Dark mode switch inside Settings. Replaced the mixed date/precision
+controls with an explicit Day / Month / Year / Date range picker and Apply/Cancel.
+The histogram is 56 px tall and changes dates only on click or drag. Previous/next
+preserves the period type. Inclusive cross-year ranges use existing same-year map
+requests in batches of four, merge H3 observations and update regional totals and
+chat context. Invalid and reversed ranges are rejected; stale requests cannot replace
+newer selections. Frozen public contracts remain unchanged.

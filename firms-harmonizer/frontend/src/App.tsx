@@ -79,7 +79,7 @@ export default function App() {
       </header>
 
       <div className="relative flex min-h-0 flex-1 flex-col">
-        <main className="relative min-h-0 flex-1" onKeyDown={(e) => {
+        <main className="relative z-0 min-h-0 flex-1" onKeyDown={(e) => {
           if (e.target instanceof HTMLElement && e.target.closest("input, select, textarea, [contenteditable=true]")) return;
           const state = useAnalysisStore.getState();
           const direction = e.key === "ArrowLeft" || e.key === "[" || e.key === "ArrowUp" ? -1 : 1;

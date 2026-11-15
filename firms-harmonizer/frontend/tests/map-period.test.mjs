@@ -12,7 +12,7 @@ for(const [name,path] of [['client','api/client'],['store','store/useAnalysisSto
  source=source.replaceAll('import.meta.env','{}').replace('"../api/client"','"./client.mjs"');
  await writeFile(join(dir,`${name}.mjs`),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
 }
-const {useAnalysisStore:state}=await import(pathToFileURL(join(dir,'store.mjs')).href);
+const {useAnalysisStore:state,riskForecastDate}=await import(pathToFileURL(join(dir,'store.mjs')).href);
 const pause=()=>new Promise(resolve=>setTimeout(resolve,250));
 const history={data_source:'real',calendar_series:[],forecast_series:null,map_hexagons:[]};
 
@@ -82,4 +82,52 @@ test('risk forecast follows day, month and year and keeps the date when the area
  await store.fetchRiskPredictionForAoi();
  await pause();
  assert.deepEqual(dates, ['2020-02-29','2020-12-31','2020-02-17']);
+});
+
+test('inclusive cross-year ranges merge exact observations and attach the same chat dates', async () => {
+ state.setState({analysisData:history,loading:false,minDate:'2001-01-01',maxDate:'2026-11-14',selectedRange:null});
+ const calls=[];
+ globalThis.fetch=async(url,options)=>{
+  const u=new URL(url,'http://localhost');
+  const body=JSON.parse(options.body);calls.push({u,body});
+  const year=body.start_year;
+  return new Response(JSON.stringify({data_source:'real',map_hexagons:[
+   {h3_index:'87754e64dffffff',mean_annual_fre:year===2019?12:30,raw_pixel_count:year===2019?2:5,is_industrial_site:false,shannon_entropy:0.2,trend_slope:0},
+   ...(year===2020?[{h3_index:'87754e649ffffff',mean_annual_fre:8,raw_pixel_count:1,is_industrial_site:false,shannon_entropy:0.1,trend_slope:0}]:[])
+  ]}));
+ };
+ state.getState().setSelectedRange('2019-12-30','2020-01-02');await pause();
+ assert.equal(calls.length,2);
+ assert.deepEqual(calls.map(c=>[c.body.start_year,c.body.end_year,c.u.searchParams.get('start_date'),c.u.searchParams.get('end_date')]),[
+  [2019,2019,'2019-12-30','2019-12-31'],[2020,2020,'2020-01-01','2020-01-02']
+ ]);
+ assert.equal(state.getState().mapPeriod,'2019-12-30..2020-01-02');
+ assert.equal(state.getState().mapHexagons.length,2);
+ assert.equal(state.getState().mapHexagons[0].mean_annual_fre,42);
+ assert.equal(state.getState().mapHexagons[0].raw_pixel_count,7);
+ assert.equal(state.getState().copilotContext.start,'2019-12-30');
+ assert.equal(state.getState().copilotContext.end,'2020-01-02');
+ assert.equal(riskForecastDate(state.getState()),'2020-01-02');
+ assert.equal(state.getState().analysisData,history);
+ const selected=state.getState().selectedRange;
+ for(const dates of [['2020-02-30','2020-03-02'],['2020-03-03','2020-03-02'],['2000-01-01','2020-01-01'],['2026-11-14','2026-11-15']])state.getState().setSelectedRange(...dates);
+ assert.deepEqual(state.getState().selectedRange,selected);
+ state.getState().setSelectedDate('2020-01-02');await pause();
+ assert.equal(state.getState().selectedRange,null);
+ assert.equal(state.getState().mapPeriod,'2020-01-02');
+});
+
+test('a superseded range response cannot overwrite a newer date selection', async () => {
+ const resolveRange=[];
+ state.setState({selectedRange:{start:'2021-12-31',end:'2022-01-01'},selectedYear:2022});
+ globalThis.fetch=()=>new Promise(resolve=>{resolveRange.push(resolve);});
+ const old=state.getState().loadMapYear();
+ state.getState().setSelectedDate('2022-01-03');
+ globalThis.fetch=async()=>new Response(JSON.stringify({data_source:'real',map_hexagons:[]}));
+ await state.getState().loadMapYear();
+ for(const resolve of resolveRange)resolve(new Response(JSON.stringify({data_source:'real',map_hexagons:[{h3_index:'old',mean_annual_fre:99}]})));
+ await old;
+ assert.equal(state.getState().mapPeriod,'2022-01-03');
+ assert.equal(state.getState().selectedRange,null);
+ assert.deepEqual(state.getState().mapHexagons,[]);
 });

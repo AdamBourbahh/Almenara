@@ -79,13 +79,14 @@ export function dateSelection(iso: string) {
   return { selectedDate: iso, selectedYear: date.getUTCFullYear(), selectedMonth: date.getUTCMonth() + 1,
     selectedDay: date.getUTCDate(), selectedDoy: Math.round((date.getTime() - Date.UTC(date.getUTCFullYear(), 0, 1)) / 86400000) + 1 };
 }
-type ChronologySelection = { selectedYear: number; selectedMonth: number | null; selectedDate: string | null };
+type ChronologySelection = { selectedYear: number; selectedMonth: number | null; selectedDate: string | null; selectedRange?: { start: string; end: string } | null };
 
 export function riskForecastDate(state: ChronologySelection): string {
-  return state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 12, 31);
+  return state.selectedRange?.end ?? state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 12, 31);
 }
 
 export function selectedMapPeriod(state: ChronologySelection): string {
+  if (state.selectedRange) return `${state.selectedRange.start}..${state.selectedRange.end}`;
   return state.selectedDate ?? (state.selectedMonth === null ? String(state.selectedYear)
     : `${state.selectedYear}-${String(state.selectedMonth).padStart(2, "0")}`);
 }
@@ -143,8 +144,8 @@ export function liveCopilotSelection(state: AnalysisState): CopilotSelection {
   return {
     label: state.selectedPreset === "CUSTOM" ? areaLocationLabel(state.currentAoi) : PRESET_REGIONS[state.selectedPreset].label,
     aoi: state.currentAoi,
-    start: state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 1, 1),
-    end: state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 12, 31),
+    start: state.selectedRange?.start ?? state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 1, 1),
+    end: state.selectedRange?.end ?? state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 12, 31),
     day: state.selectedDate ? state.dateIndex.get(state.selectedDate) ?? null : null,
     hex: null,
     excludeIndustrial: state.excludeIndustrial,
@@ -174,6 +175,8 @@ interface AnalysisState {
   selectedDay: number | null;
   selectedDoy: number | null;
   selectedDate: string | null;
+  selectedRange: { start: string; end: string } | null;
+  setSelectedRange: (start: string, end: string) => void;
   hoveredDate: string | null;
   hoveredCell: DailyCalendarCell | null;
   isDatePinned: boolean;
@@ -304,6 +307,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   selectedYear: 2022, // Critical year by default (VIIRS SNPP outage, Jul-Aug 2022)
   hasChosenYear: false,
   hoveredDay: null,
+  selectedRange: null,
   selectedMonth: null, selectedDay: null, selectedDoy: null, selectedDate: null,
   hoveredDate: null, hoveredCell: null, isDatePinned: false,
   dateIndex: new Map(), yearDoyIndex: new Map(), minDate: null, maxDate: null,
@@ -363,28 +367,28 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const hi = Math.min(endYear, Number(maxDate?.slice(0, 4) ?? endYear));
     const clamped = Math.min(hi, Math.max(lo, Math.round(year)));
     if (!Number.isFinite(clamped)) return;
-    if (clamped === selectedYear) { if (pin) get().attachCopilotContext(); return; }
+    if (clamped === selectedYear && !get().selectedRange) { if (pin) get().attachCopilotContext(); return; }
     const previous = get().selectedDate;
     const candidate = isoDate(clamped, get().selectedMonth ?? 1, get().selectedDay ?? 1);
     const bounded = candidate < (minDate ?? candidate) ? minDate! : candidate > (maxDate ?? candidate) ? maxDate! : candidate;
     const selection = previous ? dateSelection(bounded) : {};
-    set({ ...selection, dateRiskPrompt: null, hoveredDate: null, hoveredCell: null, hoveredDay: null, selectedYear: clamped, hasChosenYear: true, chaosData: null });
+    set({ ...selection, selectedRange: null, dateRiskPrompt: null, hoveredDate: null, hoveredCell: null, hoveredDay: null, selectedYear: clamped, hasChosenYear: true, chaosData: null });
     if (pin) get().attachCopilotContext();
     scheduleMapLoad();
   },
 
   setSelectedMonth: (month, pin = true) => {
     if (month !== null && (!Number.isInteger(month) || month < 1 || month > 12)) return;
-    if (month === get().selectedMonth && !get().selectedDate) { if (pin) get().attachCopilotContext(); return; }
-    set({ dateRiskPrompt: null, selectedMonth: month, selectedDay: null, selectedDoy: null, selectedDate: null,
+    if (month === get().selectedMonth && !get().selectedDate && !get().selectedRange) { if (pin) get().attachCopilotContext(); return; }
+    set({ selectedRange: null, dateRiskPrompt: null, selectedMonth: month, selectedDay: null, selectedDoy: null, selectedDate: null,
       isDatePinned: false, hasChosenYear: true, hoveredCell: null, hoveredDate: null, hoveredDay: null });
     if (pin) get().attachCopilotContext();
     scheduleMapLoad();
   },
   setSelectedDate: (iso, pin = true) => {
     if (iso === null) {
-      if (!get().selectedDate) return;
-      set({ dateRiskPrompt: null, selectedDate: null, selectedDay: null, selectedDoy: null, isDatePinned: false, hasChosenYear: true, hoveredDay: null, hoveredCell: null, hoveredDate: null });
+      if (!get().selectedDate && !get().selectedRange) return;
+      set({ selectedRange: null, dateRiskPrompt: null, selectedDate: null, selectedDay: null, selectedDoy: null, isDatePinned: false, hasChosenYear: true, hoveredDay: null, hoveredCell: null, hoveredDate: null });
       if (pin) get().attachCopilotContext();
       scheduleMapLoad();
       return;
@@ -395,10 +399,25 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const { minDate, maxDate, startYear, endYear } = get();
     const bounded = [iso, minDate ?? `${startYear}-01-01`].sort()[1];
     const date = [bounded, maxDate ?? `${endYear}-12-31`].sort()[0];
-    const changed = get().selectedDate !== date;
-    set({ ...dateSelection(date), dateRiskPrompt: null, isDatePinned: pin, hasChosenYear: true, hoveredDay: null, hoveredCell: null, hoveredDate: null, chaosData: null });
+    const changed = get().selectedDate !== date || Boolean(get().selectedRange);
+    set({ ...dateSelection(date), selectedRange: null, dateRiskPrompt: null, isDatePinned: pin, hasChosenYear: true, hoveredDay: null, hoveredCell: null, hoveredDate: null, chaosData: null });
     if (pin) get().attachCopilotContext();
     if (changed) scheduleMapLoad();
+  },
+  setSelectedRange: (start, end) => {
+    const valid = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+      && Number.isFinite(Date.parse(`${value}T00:00:00Z`))
+      && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+    const state = get();
+    if (!valid(start) || !valid(end) || start > end
+      || start < (state.minDate ?? `${state.startYear}-01-01`)
+      || end > (state.maxDate ?? `${state.endYear}-12-31`)) return;
+    set({ selectedRange: { start, end }, selectedYear: Number(end.slice(0, 4)),
+      selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null,
+      hasChosenYear: true, isDatePinned: false, dateRiskPrompt: null, chaosData: null,
+      hoveredDay: null, hoveredDate: null, hoveredCell: null });
+    get().attachCopilotContext();
+    scheduleMapLoad();
   },
   stepChronology: (unit, delta) => {
     const state = get();
@@ -498,10 +517,38 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }
     set({ mapLoading: true, mapError: null });
     try {
-      const start = period.length === 10 ? period : `${period}-01`;
-      const end = period.length === 10 ? period : isoDate(year, state.selectedMonth!, 31);
-      const { data } = period.length === 4 ? await analyzeAoi(request, controller.signal)
-        : await fetchMapPeriod(request, start, end, controller.signal);
+      let data: { map_hexagons: H3MapSummaryHex[]; data_source: "real" | "synthetic" };
+      if (state.selectedRange) {
+        const range = state.selectedRange;
+        const merged = new Map<string, H3MapSummaryHex>();
+        const years = Array.from({ length: Number(range.end.slice(0, 4)) - Number(range.start.slice(0, 4)) + 1 }, (_, i) => Number(range.start.slice(0, 4)) + i);
+        let source: "real" | "synthetic" = "real";
+        for (let offset = 0; offset < years.length; offset += 4) {
+          const responses = await Promise.all(years.slice(offset, offset + 4).map(y => fetchMapPeriod(
+            { ...request, start_year: y, end_year: y },
+            range.start > `${y}-01-01` ? range.start : `${y}-01-01`,
+            range.end < `${y}-12-31` ? range.end : `${y}-12-31`, controller.signal)));
+          if (seq !== mapSeq) return;
+          for (const response of responses) {
+            if (response.data.data_source === "synthetic") source = "synthetic";
+            for (const cell of response.data.map_hexagons) {
+              const previous = merged.get(cell.h3_index);
+              merged.set(cell.h3_index, previous ? { ...previous,
+                mean_annual_fre: previous.mean_annual_fre + cell.mean_annual_fre,
+                raw_pixel_count: previous.raw_pixel_count + cell.raw_pixel_count,
+                is_industrial_site: previous.is_industrial_site || cell.is_industrial_site,
+                shannon_entropy: Math.max(previous.shannon_entropy, cell.shannon_entropy), trend_slope: 0
+              } : { ...cell, trend_slope: 0 });
+            }
+          }
+        }
+        data = { map_hexagons: [...merged.values()], data_source: source };
+      } else {
+        const start = period.length === 10 ? period : `${period}-01`;
+        const end = period.length === 10 ? period : isoDate(year, state.selectedMonth!, 31);
+        ({ data } = period.length === 4 ? await analyzeAoi(request, controller.signal)
+          : await fetchMapPeriod(request, start, end, controller.signal));
+      }
       if (seq !== mapSeq) return;
       const hexagons = data.map_hexagons ?? [];
       if (annualMapCache.size >= 32) annualMapCache.delete(annualMapCache.keys().next().value!);
@@ -524,7 +571,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     set({
       mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null,
       hoveredDay: null, hoveredDate: null, hoveredCell: null,
-      ...(preserveSelection ? {} : { isDatePinned: false, selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null })
+      ...(preserveSelection ? {} : { selectedRange: null, isDatePinned: false, selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null })
     });
     analysisController?.abort();
     const controller = new AbortController();
