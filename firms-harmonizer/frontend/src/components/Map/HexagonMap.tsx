@@ -11,7 +11,7 @@ import { useShallow } from "zustand/react/shallow";
 import { Box, Eye, EyeOff, Square } from "lucide-react";
 import type { GeoJSONPolygon, H3MapSummaryHex } from "../../api/types";
 import { selectedMapPeriod, useAnalysisStore } from "../../store/useAnalysisStore";
-import { summarizeMappedYear, colorIntensity } from "./mapMetrics";
+import { summarizeMappedYear, colorIntensity, robustReference } from "./mapMetrics";
 import { useTheme } from "../../lib/theme";
 
 setWorkerUrl(maplibreWorkerUrl);
@@ -161,7 +161,7 @@ export function HexagonMap() {
   const pointerOverMap = useRef(false);
   const reducedMotion = useMemo(() => window.matchMedia("(prefers-reduced-motion: reduce)"), []);
   const {
-    analysisData, mapHexagons, mapPeriod, mapLoading, mapError, requestedPeriod, startYear, endYear,
+    mapHexagons, mapPeriod, mapLoading, mapError, requestedPeriod,
     viewMode,
     highlightIndustrialOnMap,
     excludeIndustrial,
@@ -172,9 +172,8 @@ export function HexagonMap() {
     isSynthetic
   } = useAnalysisStore(
     useShallow((s) => ({
-      analysisData: s.analysisData,
       mapHexagons: s.mapHexagons, mapPeriod: s.mapPeriod, mapLoading: s.mapLoading, mapError: s.mapError,
-      requestedPeriod: selectedMapPeriod(s), startYear: s.startYear, endYear: s.endYear,
+      requestedPeriod: selectedMapPeriod(s),
       viewMode: s.viewMode,
       highlightIndustrialOnMap: s.highlightIndustrialOnMap,
       excludeIndustrial: s.excludeIndustrial,
@@ -289,14 +288,10 @@ export function HexagonMap() {
   }, []);
 
   const hexagons = useMemo(() => summarizeMappedYear(mapHexagons, excludeIndustrial).hexagons, [mapHexagons, excludeIndustrial]);
-  // Keep the same scale across days, months and years; never normalize each frame.
-  const reference = analysisData?.map_hexagons;
-  const span = Math.max(1, endYear - startYear + 1);
-  const maxRaw = useMemo(() => (reference ?? []).reduce((m, h) => Math.max(m, h.raw_pixel_count), 1), [reference]);
-  const maxFre = useMemo(
-    () => (reference ?? []).reduce((m, h) => Math.max(m, h.mean_annual_fre * span), 1),
-    [reference, span]
-  );
+  // Colour scale is relative to the displayed period, so a quiet day, month or year is not
+  // flattened against the largest fire of the whole record. Any positive value stays visible.
+  const maxRaw = useMemo(() => robustReference(hexagons.map((h) => h.raw_pixel_count)), [hexagons]);
+  const maxFre = useMemo(() => robustReference(hexagons.map((h) => h.mean_annual_fre)), [hexagons]);
 
   const toggle3D = () => {
     const next = !is3D;
@@ -382,7 +377,7 @@ export function HexagonMap() {
         getFillColor: (d) => {
           if (highlightIndustrialOnMap && d.is_industrial_site) return INDUSTRIAL_PURPLE;
           const t = colorIntensity(viewMode === "RAW" ? d.raw_pixel_count : d.mean_annual_fre, viewMode === "RAW" ? maxRaw : maxFre);
-          const alpha = 120 + 130 * t;
+          const alpha = 155 + 95 * t;
           if (viewMode === "RAW") return rampColor(theme === "dark" ? RAW_DARK : RAW_LIGHT, t, alpha);
           return rampColor(THERMAL_LIGHT, t, alpha);
         },
@@ -426,7 +421,7 @@ export function HexagonMap() {
         `Period fire energy: ${object.mean_annual_fre.toFixed(1)} MJ/km²`,
         `Period detections: ${object.raw_pixel_count.toLocaleString("en-US")}`,
         "Click to attach this hexagon to Fire Copilot.",
-        "Color: logarithmic scale, fixed across dates",
+        "Color: logarithmic scale, relative to the displayed period (95th percentile)",
         "Satellite observations do not establish the exact ignition time."
       ];
       if (object.is_industrial_site) {

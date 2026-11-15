@@ -2,6 +2,9 @@
 
 This document describes the frontend work delivered by **Migue** (scientific charts, audit panel, Chaos Monkey UI, dashboard shell and pitch presentation) and what the frontend is expected to do. It is written for the team and for reviewers who want to understand the interface without reading every file.
 
+> **Status: historical (superseded 2026-11-14).** The current behavior, presets and known limits are documented in [`../Miguelspecs.md`](../Miguelspecs.md). Statements below about a 14-day forecast, PM2.5 emissions, the industrial flaring filter, the light/dark toggle and the Cerrado / Sierra Nevada / Niger Delta presets no longer match the application.
+
+
 ## 1. What was delivered
 
 The frontend is a React 19 + Vite 8 single-page application built on the frozen API contract in `frontend/src/api/types.ts`. It renders the MODIS + VIIRS harmonized fire record as an interactive, map-first data product. The visual language is editorial and institutional, not a sci-fi dashboard: a paper background, thin rules, serif headings, and clean, accessible data colours.

@@ -178,9 +178,10 @@ export function KalmanUncertaintyBandChart() {
   const xTicks = ticks(count);
   const hoverX = hover !== null ? scaleX(hover, count) : null;
 
+  const forecastAvailable = (analysisData?.forecast_series?.length ?? 0) > 0;
   const legend = isChaos
     ? [
-        { color: TRUTH, label: "Truth" },
+        { color: TRUTH, label: "Intact reference" },
         { color: NAIVE, label: "Naive" },
         { color: GUARD, label: "Baseline" },
         { color: KALMAN, label: "RTS Kalman + 95% CI" }
@@ -188,7 +189,7 @@ export function KalmanUncertaintyBandChart() {
     : [
         { color: MAIN, label: "Harmonized energy" },
         { color: PRIOR, label: "Historical baseline" },
-        { color: FORECAST, label: "14-day forecast" },
+        ...(forecastAvailable ? [{ color: FORECAST, label: "14-day forecast" }] : []),
         { color: GAP_FILL, label: "Repaired days" }
       ];
 
@@ -199,7 +200,7 @@ export function KalmanUncertaintyBandChart() {
       return (
         <div className="pointer-events-none absolute top-2 z-20 w-52 -translate-x-1/2 border border-rule bg-panel p-2 text-[10px] tnum" style={{ left: `${leftPct}%` }}>
           <p className="mb-1 font-serif text-xs text-ink">{fmtDate(dates[hover] ?? "")}</p>
-          <Row label="Truth" value={chaosData.true_harmonized_fre[hover]} color="text-ink" />
+          <Row label="Intact reference" value={chaosData.true_harmonized_fre[hover]} color="text-ink" />
           <Row label="Naive" value={chaosData.corrupted_naive_fre[hover]} color="text-bias" />
           <Row label="Baseline" value={chaosData.historical_cross_guard_fre?.[hover] ?? 0} color="text-terracotta" />
           <Row label="RTS Kalman" value={chaosData.kalman_reconstructed_fre[hover]} color="text-validated" />
@@ -236,9 +237,9 @@ export function KalmanUncertaintyBandChart() {
 
       {active && <p aria-label="Chart active day" className="mb-3 text-xs text-ink tnum">{active.date} · DOY {active.doy} · FRE {active.harmonized_fre_mj_km2.toFixed(1)} MJ/km² · 95% CI [{active.ci_95_lower.toFixed(1)}, {active.ci_95_upper.toFixed(1)}] · Prior {active.historical_cross_prior_fre.toFixed(1)} · Raw {active.raw_hotspot_count}</p>}
       <p className="mb-4 max-w-2xl text-sm leading-relaxed text-muted">
-        The model fills the days without a satellite pass instead of letting them fall to zero. The
-        stress test wipes 25% of the data and simulates ten days of total cloud cover, then shows the
-        energy it can recover.
+        Repaired days are reconstructed from the cross-sensor prior and neighbouring observations when a
+        measurement is missing, instead of letting the series fall to zero. The stress test wipes 25% of the
+        data and simulates ten days of total cloud cover, then shows the energy the smoother recovers.
       </p>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
