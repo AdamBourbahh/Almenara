@@ -3,8 +3,10 @@
 ## 2026-11-15 — Free single-container deployment
 
 Added a root `Dockerfile` (frontend build stage plus Python runtime), `.dockerignore`
-allowlist, `deploy/` tooling and `.github/workflows/deploy-space.yml`. The target is a
-Hugging Face Docker Space with runtime data in a Hugging Face dataset; see `docs/deploy.md`.
+allowlist, `deploy/` tooling and `.github/workflows/deploy-cloudrun.yml`. The app runs on
+Google Cloud Run (`deploy/cloudrun.py`) with runtime data in the Hugging Face dataset
+`andearlla/firms-harmonizer-data` (`deploy/publish.py`); see `docs/deploy.md`. Hugging Face
+Docker Spaces were the first target but now require a PRO subscription.
 
 `backend/api/main.py` now mounts the built frontend at `/` when `FRONTEND_DIST` names a
 directory containing `index.html`. It is mounted after the API router, so `/api/*` keeps

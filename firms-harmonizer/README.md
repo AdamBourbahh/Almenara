@@ -51,9 +51,10 @@ No real cube means startup fails with instructions. Synthetic mode requires expl
 
 ## Deployment
 
-The app deploys for free as one Docker container on Hugging Face Spaces, with runtime data in
-a Hugging Face dataset and redeploys from GitHub Actions. The same container serves the API and
-the built frontend from one origin. See `../docs/deploy.md` for the setup, costs and options.
+Live at <https://firms-harmonizer-612652227111.europe-west1.run.app>. One Docker container on
+Google Cloud Run serves the API and the built frontend from one origin; runtime data is loaded
+from a public Hugging Face dataset at start-up. Traffic stays inside the Cloud Run free tier.
+See `../docs/deploy.md` for operations, costs and automatic redeploys.
 
 ## Observation and ancillary acquisition
 
