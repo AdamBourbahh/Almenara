@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 
@@ -36,3 +38,9 @@ app.add_middleware(CORSMiddleware, allow_origins=os.environ.get(
                    allow_methods=["GET", "POST"], allow_headers=["Content-Type"],
                    expose_headers=["X-Cache", "Server-Timing"])
 app.include_router(router)
+
+# Single-origin deployment: when FRONTEND_DIST points at a Vite build, serve it after the
+# API routes so /api/* keeps precedence and the browser needs no cross-origin requests.
+_frontend_dist = Path(os.environ.get("FRONTEND_DIST", ""))
+if os.environ.get("FRONTEND_DIST") and (_frontend_dist / "index.html").is_file():
+    app.mount("/", StaticFiles(directory=_frontend_dist, html=True), name="frontend")

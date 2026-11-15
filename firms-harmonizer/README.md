@@ -49,6 +49,12 @@ The offline ETL uses retained CSVs and builds nominal/high/all-confidence cubes.
 
 No real cube means startup fails with instructions. Synthetic mode requires explicit `USE_SYNTHETIC_CUBE=1`; the browser fixture separately requires `VITE_ALLOW_SYNTHETIC_FALLBACK=1`. Neither is scientific evidence.
 
+## Deployment
+
+The app deploys for free as one Docker container on Hugging Face Spaces, with runtime data in
+a Hugging Face dataset and redeploys from GitHub Actions. The same container serves the API and
+the built frontend from one origin. See `../docs/deploy.md` for the setup, costs and options.
+
 ## Observation and ancillary acquisition
 
 Public MODIS Terra/Aqua 1 km FireMask products can be acquired without an Earthdata account:
