@@ -12,7 +12,6 @@
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@deck.gl/aggregation-layers": "~9.4.1",
     "@deck.gl/core": "~9.4.1",
     "@deck.gl/geo-layers": "~9.4.1",
     "@deck.gl/layers": "~9.4.1",

@@ -36,7 +36,7 @@ export function HeatHistoryCard() {
   const firstInput = useRef<HTMLInputElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(400);
-  const unavailable = state.loading || !state.data?.calendar_series.length;
+  const unavailable = state.loading || Boolean(state.error) || !state.data?.calendar_series.length;
   const histogramUnit = precision === "range" ? "year" : precision;
   const keyLength = histogramUnit === "day" ? 10 : histogramUnit === "month" ? 7 : 4;
   useEffect(() => {

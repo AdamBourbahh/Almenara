@@ -1,7 +1,6 @@
 import regionRegistry from "../../../data/regions.json";
 import { create } from "zustand";
 import { cellToLatLng } from "h3-js";
-import { cellsFromPolygon, polygonFromCells, removalKeepsConnected } from "../lib/aoiCells";
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
@@ -153,12 +152,6 @@ interface AnalysisState {
   enableKalman: boolean;
   highlightIndustrialOnMap: boolean;
   isDrawingAoi: boolean;
-  /** R7 cells of a cell-traced AOI; null when the AOI is a preset or an untrimmed box. */
-  aoiCells: string[] | null;
-  /** Explicit "Trace cells" mode, so presets can be trimmed too. */
-  isTracingCells: boolean;
-  /** Transient message when a trim click is rejected. */
-  aoiNotice: string | null;
 
   // Interactive UI controls
   splitCurtainPct: number; // 0..100, "2012 Time-Machine" curtain
@@ -230,9 +223,7 @@ interface AnalysisState {
   setHighlightIndustrialOnMap: (highlight: boolean) => void;
   setDrawingAoi: (drawing: boolean) => void;
   loadPresetRegion: (presetKey: PresetKey) => Promise<void>;
-  setCustomAoi: (coordinates: number[][][], cells?: string[] | null) => Promise<void>;
-  setTracingCells: (tracing: boolean) => void;
-  toggleAoiCell: (cell: string) => Promise<void>;
+  setCustomAoi: (coordinates: number[][][]) => Promise<void>;
   setCustomBbox: (west: number, south: number, east: number, north: number) => Promise<void>;
   executeAnalysis: (preserveSelection?: boolean) => Promise<void>;
   triggerChaosMonkey: () => Promise<void>;
@@ -290,9 +281,6 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   enableKalman: true,
   highlightIndustrialOnMap: false,
   isDrawingAoi: false,
-  aoiCells: null,
-  isTracingCells: false,
-  aoiNotice: null,
 
   splitCurtainPct: 50,
   selectedYear: 2022, // Critical year by default (VIIRS SNPP outage, Jul-Aug 2022)
@@ -439,39 +427,18 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   loadPresetRegion: async (presetKey) => {
     if (!(presetKey in PRESET_REGIONS)) return;
-    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, aoiCells: null, aoiNotice: null, chaosData: null });
+    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
     await get().executeAnalysis(true);
   },
 
-  setTracingCells: (tracing) => set({ isTracingCells: tracing, isDrawingAoi: false, aoiNotice: null }),
-
-  setCustomAoi: async (coordinates, cells = null) => {
+  setCustomAoi: async (coordinates) => {
     const ring = coordinates[0];
     if (!ring || ring.length < 4) {
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
-    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, aoiCells: cells, aoiNotice: null, chaosData: null });
-    get().attachCopilotContext({ day: null, hex: null });
-    await get().executeAnalysis(true);
-  },
-
-  toggleAoiCell: async (cell) => {
-    const state = get();
-    const base = state.aoiCells ?? cellsFromPolygon(state.currentAoi);
-    const removing = base.includes(cell);
-    if (removing && !removalKeepsConnected(base, cell)) {
-      set({ aoiNotice: "Removing this cell would split the area. Remove an edge cell instead." });
-      return;
-    }
-    const next = removing ? base.filter((item) => item !== cell) : [...base, cell];
-    const polygon = polygonFromCells(next);
-    if (!polygon) {
-      set({ error: "Keep at least one cell in the area." });
-      return;
-    }
-    set({ selectedPreset: "CUSTOM", currentAoi: polygon, aoiCells: next, isDrawingAoi: false, error: null, aoiNotice: null, chaosData: null });
+    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
     await get().executeAnalysis(true);
   },
@@ -486,9 +453,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       return;
     }
     // Counter-clockwise exterior ring (RFC 7946), closed.
-    const box: number[][][] = [[[w, s], [e, s], [e, n], [w, n], [w, s]]];
-    const cells = cellsFromPolygon({ coordinates: box });
-    await get().setCustomAoi(box, cells);
+    await get().setCustomAoi([[[w, s], [e, s], [e, n], [w, n], [w, s]]]);
   },
 
   loadMapYear: async () => {
@@ -553,8 +518,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         isSynthetic: data.data_source === "synthetic" });
     } catch (err: unknown) {
       if (seq !== mapSeq || isAbortError(err)) return;
-      // Keep the last rendered map instead of blanking it when a period request fails.
-      set({ mapLoading: false, mapError: err instanceof Error ? err.message : "Map period unavailable" });
+      set({ mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: false,
+        mapError: err instanceof Error ? err.message : "Map period unavailable" });
     }
   },
 
@@ -564,8 +529,6 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     mapSeq++;
     clearTimeout(mapTimer);
     annualMapCache.clear();
-    const previousMap = get();
-    const keepMap = { mapHexagons: previousMap.mapHexagons, mapYear: previousMap.mapYear, mapPeriod: previousMap.mapPeriod };
     set({
       mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null,
       hoveredDay: null, hoveredDate: null, hoveredCell: null,
@@ -599,7 +562,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       await get().loadMapYear();
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
-      set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false, mapLoading: false, ...keepMap });
+      set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false, mapLoading: false });
     } finally {
       if (analysisController === controller) analysisController = null;
     }

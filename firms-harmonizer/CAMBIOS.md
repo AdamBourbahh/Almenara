@@ -707,5 +707,5 @@ All branch histories are consolidated in main. Streaming archive ETL, cloud/swat
 
 ## Cell-traced AOI vertex limit (2026-11-15)
 
-A cell-traced AOI follows every hexagon edge, so its boundary has far more positions than a hand-drawn box (395 cells produce about 161 vertices, and medium areas exceeded the previous 512-position limit). That returned HTTP 422 and left the map and chronology empty. The limit is now **20,000 positions and 64 rings**, defined once in `backend/api/schemas.py` and reused by `backend/db/queries.py`; `SPECS.md` is updated. The real guards remain 250,000 R7 cells and 1,250,000 km² geodesic area. `test_polygon_vertex_limit` uses the shared constant, so the boundary test follows the new value. The frontend also keeps the last rendered map and the chronology when an analysis or map-period request fails, and shows the error in the map legend.
+Reintroduced the previous 512-position/16-ring limit together with the removal of the cell-traced AOI: the higher limit existed only to serve that feature. The 250,000 R7 cells and 1,250,000 km² geodesic area guards are unchanged.
 

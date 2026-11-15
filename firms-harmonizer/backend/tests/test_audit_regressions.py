@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.cache import CachedJSON, LRUCache
-from backend.api.schemas import MAX_POLYGON_VERTICES, ExplainSpikeRequest, GeoJSONPolygon
+from backend.api.schemas import ExplainSpikeRequest, GeoJSONPolygon
 from backend.core.emissions import factor, pm25_kg
 from backend.core.energy_forecast import evaluate, project
 from backend.db import queries
@@ -77,8 +77,7 @@ def test_question_and_vertex_limits():
     with pytest.raises(ValueError):
         ExplainSpikeRequest(user_question='x' * 6001)
     with pytest.raises(ValueError):
-        GeoJSONPolygon(coordinates=[[[0., 0.]] * (MAX_POLYGON_VERTICES + 1)])
-    GeoJSONPolygon(coordinates=[[[0., 0.]] * MAX_POLYGON_VERTICES])
+        GeoJSONPolygon(coordinates=[[[0., 0.]] * 513])
 
 
 def test_cache_byte_budget_and_oversized_replacements():
