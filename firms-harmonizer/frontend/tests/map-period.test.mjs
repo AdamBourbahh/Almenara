@@ -13,7 +13,7 @@ for(const [name,path] of [['client','api/client'],['store','store/useAnalysisSto
  source=source.replaceAll('import.meta.env','{}').replace('"../api/client"','"./client.mjs"').replace('"../lib/geo"','"./geo.mjs"');
  await writeFile(join(dir,`${name}.mjs`),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
 }
-const {useAnalysisStore:state,riskForecastDate}=await import(pathToFileURL(join(dir,'store.mjs')).href);
+const {useAnalysisStore:state,riskForecastDate,PRESET_REGIONS}=await import(pathToFileURL(join(dir,'store.mjs')).href);
 const {fetchMapPeriod,isRateLimited,RATE_LIMITED_MESSAGE}=await import(pathToFileURL(join(dir,'client.mjs')).href);
 const pause=()=>new Promise(resolve=>setTimeout(resolve,250));
 const history={data_source:'real',calendar_series:[],forecast_series:null,map_hexagons:[]};
@@ -148,6 +148,33 @@ test('a date chosen while the analysis is loading is applied when it settles', a
  await pause();
  assert.equal(state.getState().mapPeriod, '2026-09-26');
  assert.equal(state.getState().mapHexagons.length, 1);
+});
+
+test('a background refresh keeps the pending region selection', async () => {
+ const chile = state.getState().currentAoi;
+ state.setState({ analysisData: history, loading: false, selectedPreset: 'chilecito_la_rioja',
+  currentAoi: chile, selectedRange: null, selectedDate: null, selectedMonth: 1, selectedYear: 2020,
+  mapHexagons: [], mapError: null, error: null });
+ const bodies = [];
+ const pending = [];
+ globalThis.fetch = (url, options) => {
+  const path = new URL(url, 'http://localhost').pathname;
+  if (path === '/api/analyze') {
+   bodies.push(JSON.parse(options.body));
+   return new Promise(resolve => pending.push(resolve));
+  }
+  return Promise.resolve(new Response(JSON.stringify({ data_source: 'real', map_hexagons: [] })));
+ };
+ const first = state.getState().loadPresetRegion('iberia_med');
+ await pause();
+ const second = state.getState().executeAnalysis(true);
+ await pause();
+ assert.equal(bodies.length, 2);
+ assert.deepEqual(bodies[1].aoi.coordinates, PRESET_REGIONS.iberia_med.coordinates);
+ for (const resolve of pending) resolve(new Response(JSON.stringify({ ...history, calendar_series: [], map_hexagons: [] })));
+ await Promise.allSettled([first, second]);
+ assert.equal(state.getState().selectedPreset, 'iberia_med');
+ assert.deepEqual(state.getState().currentAoi.coordinates, PRESET_REGIONS.iberia_med.coordinates);
 });
 
 test('an oversized AOI is rejected before any request', async () => {

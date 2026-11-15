@@ -260,6 +260,8 @@ let mapSeq = 0;
 let mapRetryCount = 0;
 let mapRateRetryCount = 0;
 let mapInflightKey: string | null = null;
+/** A user-chosen AOI that has not been confirmed by a successful analysis yet. */
+let pendingSelection: { aoi: GeoJSONPolygon; preset: RegionSelection } | null = null;
 let backendRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let backendRetryCount = 0;
 let backendRetrying = false;
@@ -594,6 +596,11 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       clearTimeout(backendRetryTimer);
     }
     backendRetrying = false;
+    if (override) pendingSelection = override;
+    // Hold on to the user's pending AOI: a background refresh must analyse and
+    // commit that selection, never the previous default region.
+    const selection = override ?? pendingSelection;
+    const clearPending = () => { if (pendingSelection === selection) pendingSelection = null; };
     get().clearRiskPrediction();
     mapController?.abort();
     mapController = null;
@@ -619,7 +626,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     set({ loading: true, error: null });
 
     const requestPayload: AnalyzeRequest = {
-      aoi: override?.aoi ?? state.currentAoi,
+      aoi: selection?.aoi ?? state.currentAoi,
       start_year: state.startYear,
       end_year: state.endYear,
       exclude_industrial_flaring: state.excludeIndustrial,
@@ -642,9 +649,10 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         loading: false,
         hoveredDay: null,
         // Commit the new AOI only after the analysis succeeds.
-        ...(override ? { currentAoi: override.aoi, selectedPreset: override.preset } : {})
+        ...(selection ? { currentAoi: selection.aoi, selectedPreset: selection.preset } : {})
       });
-      if (override) get().attachCopilotContext({ day: null, hex: null });
+      if (selection) get().attachCopilotContext({ day: null, hex: null });
+      clearPending();
       backendRetryCount = 0;
       clearTimeout(backendRetryTimer);
       await get().loadMapYear();
@@ -665,6 +673,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
           }, 10_000);
         } else {
           backendRetryCount = 0;
+          clearPending();
           set({
             error: RATE_LIMITED_MESSAGE,
             loading: false,
@@ -689,6 +698,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
           }, 3000);
         } else {
           backendRetryCount = 0;
+          clearPending();
           set({
             error: "Backend unavailable: the API is not reachable. Start the API and reload.",
             loading: false,
@@ -699,6 +709,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         return;
       }
       // Keep the previous AOI, map and chronology: the requested area was never committed.
+      clearPending();
       set({
         error: err instanceof Error ? err.message : "Spatial analysis failed",
         loading: false,
