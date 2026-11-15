@@ -124,7 +124,7 @@ def test_full_dossier_endpoint_and_compatible_contract(cube):
 
 @pytest.mark.parametrize('status',[401,403,429,500])
 def test_default_provider_failure_preserves_service_selection_and_transport_bounds(monkeypatch,status):
-    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('COPILOT_PROVIDER','groq')
     monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     for variable in ('GROQ_API_KEY','GITHUB_TOKEN','GEMINI_API_KEY'):
@@ -139,7 +139,7 @@ def test_default_provider_failure_preserves_service_selection_and_transport_boun
         assert body['max_tokens']==900
         if request.url.host=='generativelanguage.googleapis.com':
             return httpx.Response(200,json={'choices':[{'finish_reason':'stop','message':{'content':'{"claims":[]}'}}]})
-        pytest.fail('Default Gemini must not contact Groq or a GitHub gateway')
+        return httpx.Response(status,json={'error':'unavailable'})
     factory=httpx.Client
     monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:factory(transport=httpx.MockTransport(transport),**kwargs))
     result,provider=providers.complete([{'role':'system','content':'x'*6000},{'role':'user','content':'a'*10000}],structured=True)

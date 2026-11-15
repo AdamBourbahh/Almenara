@@ -665,3 +665,8 @@ Validation: backend 521 passed, 1 skipped, 1 pre-existing failure
 (`test_cube_schema.py::test_real_cube_november_2026_coverage_and_schema`: the local real
 cube ends 2026-11-01, unrelated to this change); frontend 45 tests passed; `tsc --noEmit`
 clean; production build succeeds.
+
+
+## Branch consolidation (2026-11-15)
+
+All branch histories are consolidated in main. Streaming archive ETL, cloud/swath ancillary acquisition and the calculation/provenance Copilot tools coexist with the current scientific policy and Gemini incident investigator. Pipeline defaults and fixtures use the four current study regions; missing ancillary values remain null. Coordinated pipeline fixture/hash revisions preserve border, deduplication and SAMA controls without restoring retired regions. Numerical quantity checks preserve units; comparison questions may name years in either order while reversed explicit date ranges remain invalid. Backend contract hashes remain unchanged. See docs/verification/2026-11-15-branch-consolidation/ at the repository root for branch-tip inventory and test evidence.

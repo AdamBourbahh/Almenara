@@ -255,7 +255,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--products", nargs="*", choices=sorted(config.PRODUCTS))
     parser.add_argument("--years", nargs="*", type=int)
     parser.add_argument("--regions", nargs="*", default=list(config.PRESET_REGIONS),
-                        help="regions of data/regions.json to clip (default: the three presets)")
+                        help="regions of data/regions.json to clip (default: the four current presets)")
     parser.add_argument("--keep-zips", action="store_true", help="keep each zip after its chunk succeeded")
     parser.add_argument("--memory-limit", default=config.DUCKDB_MEMORY_LIMIT,
                         help="DuckDB memory limit, e.g. 3GB (default %(default)s; it spills to data/real/.tmp)")

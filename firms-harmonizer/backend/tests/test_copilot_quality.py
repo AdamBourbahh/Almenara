@@ -208,8 +208,9 @@ def test_known_sensor_identifiers_are_not_mistaken_for_measured_numbers():
 def test_model_can_redirect_unrelated_requests_without_inventing_a_source(online, monkeypatch):
     monkeypatch.setattr(agent,'turn',lambda *a,**k:{'tool_calls':[tool('redirect_out_of_domain')]})
     result = agent.answer(ExplainSpikeRequest(user_question='Write a recipe for chocolate cake.'))
-    assert result.model_used.startswith('groq-agent/')
-    assert result.physical_classification == 'OUT_OF_SCOPE'
+    assert result.model_used == 'deterministic-domain-guardrail'
+    assert result.guardrail_triggered
+    assert result.physical_classification == 'OFF_TOPIC_REFUSAL'
     assert not result.citations
     assert 'fire' in result.explanation_markdown.lower()
 

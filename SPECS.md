@@ -1162,3 +1162,8 @@ Reproducible verification is in `firms-harmonizer/qa/` and
 `docs/verification/2026-11-15-copilot-quality/`. Real-file checks use independent
 Shapely center selection and direct CSV/Parquet scans. Live-provider conversations,
 controlled transport faults and real browser flows are reported separately.
+
+
+## Branch consolidation (2026-11-15)
+
+All branch histories are consolidated in main. Streaming archive ETL, cloud/swath ancillary acquisition and the calculation/provenance Copilot tools coexist with the current scientific policy and Gemini incident investigator. Pipeline defaults and fixtures use the four current study regions; missing ancillary values remain null. Coordinated pipeline fixture/hash revisions preserve border, deduplication and SAMA controls without restoring retired regions. Numerical quantity checks preserve units; comparison questions may name years in either order while reversed explicit date ranges remain invalid. Backend contract hashes remain unchanged. See docs/verification/2026-11-15-branch-consolidation/ at the repository root for branch-tip inventory and test evidence.

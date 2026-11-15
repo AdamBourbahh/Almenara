@@ -157,7 +157,7 @@ def question_period(text: str, default_year: int | None = None) -> tuple[str, st
         return ordered[0].isoformat(), ordered[-1].isoformat()
     years = re.findall(r"\b20\d{2}\b", text)
     if years:
-        first, last = int(years[0]), int(years[-1])
+        first, last = (min(map(int,years)), max(map(int,years))) if re.search(r'\b(than|versus|compare|vs|compara|que)\b',text) else (int(years[0]),int(years[-1]))
         months = sorted((m.start(), n) for name, n in MONTHS.items()
                         for m in re.finditer(r"\b" + name + r"\b", text))
         start_month, end_month = (months[0][1], months[-1][1]) if months else (1, 12)

@@ -63,7 +63,7 @@ def main(argv=None) -> int:
     parser.add_argument("--swath-build-only", action="store_true",
                         help="--swath-cmr: rebuild the gap table from the cache, no network")
     parser.add_argument("--regions", nargs="*", default=list(config.PRESET_REGIONS),
-                        help="regions clipped by --archive-pass (default: the three presets)")
+                        help="regions clipped by --archive-pass (default: the four current presets)")
     parser.add_argument("--keep-zips", action="store_true", help="--archive-pass: keep each zip after success")
     parser.add_argument("--force", action="store_true", help="--archive-pass: redo chunks that already succeeded")
     parser.add_argument("--partial", action="store_true",

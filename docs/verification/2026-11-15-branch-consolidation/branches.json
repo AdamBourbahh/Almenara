@@ -1,0 +1,92 @@
+[
+  {
+    "ref": "refs/heads/computo",
+    "sha": "f31e147c047af2c06e411559071ae31e8441b90d",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/heads/copilot-quality",
+    "sha": "850fe4dfcf9d76c62c92b22181a1e4c45b784ee9",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/heads/main",
+    "sha": "eb123a32077b5a901f9c6d16662e63e1dfc68169",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/heads/physics_first_web_grounding",
+    "sha": "b607ded0bec9c36ce017a0168a273053455c9339",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/heads/science-core-integration-20261114",
+    "sha": "b589a86b49b979acae118047c95c242995d7ceea",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/antonio-rama",
+    "sha": "e45de10a237db24019dee25d892485192765435e",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/antonio/api-energy-accounting",
+    "sha": "cb797af5ff7a3ca37786a435a30fd9425eebe33a",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/api",
+    "sha": "f028efb60db76fe2d3a1df583a5d5b1bfbab60e8",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/codex/etl-cube-publication",
+    "sha": "3771e38fd6aac9127ad37fd30044d73c46bb0ea0",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/computo",
+    "sha": "f31e147c047af2c06e411559071ae31e8441b90d",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/etl/phase5-real-pipeline",
+    "sha": "46fe3628b1aa33ed6a78d1345d3325be8ea5353a",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/etl/real-data-pipeline",
+    "sha": "1d825107fd9162942d3c716698e20a6bbe243f2a",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/feat/copilot-guardrails",
+    "sha": "aa80826b16a60a9d1c1f7f3a7b5183477f90f345",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/feat/risk-calibration",
+    "sha": "6aa147a4272ad754942f55a0aa51c1093b594cf8",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/front-end",
+    "sha": "6bdf7b41d69e69c8ce140102f931649c7211866a",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/frontend_antonio",
+    "sha": "6d249491cf61f945a9e461178529ddc4a58c4443",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/main",
+    "sha": "86d3e4cfe20598b5699e6d28a4b686a74dfe4b9a",
+    "included_in_main": true
+  },
+  {
+    "ref": "refs/remotes/origin/physics_first_web_grounding",
+    "sha": "b607ded0bec9c36ce017a0168a273053455c9339",
+    "included_in_main": true
+  }
+]

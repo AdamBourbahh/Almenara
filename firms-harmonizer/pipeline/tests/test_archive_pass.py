@@ -14,9 +14,9 @@ from pipeline import archive_pass, config, download, german, ingest, lookups, ru
 
 HEADER = ["latitude", "longitude", "brightness", "scan", "track", "acq_date", "acq_time", "satellite",
           "instrument", "confidence", "version", "bright_t31", "frp", "daynight"]
-CERRADO = (-57.2, -17.8, -55.2, -16.0)        # west, south, east, north of data/regions.json
-CERRADO_POINT = dict(latitude="-16.9", longitude="-56.2")
-ONE = ["cerrado_brazil"]
+CHILECITO = (-69.5, -31.0, -65.5, -27.5)        # west, south, east, north of data/regions.json
+CHILECITO_POINT = dict(latitude="-29.25", longitude="-67.5")
+ONE = ["chilecito_la_rioja"]
 
 
 def row(**kw) -> dict:
@@ -50,7 +50,7 @@ def con(env):
     return config.connect()
 
 
-def process(con, zip_path, product="modis", year=2005, regions=("cerrado_brazil",)):
+def process(con, zip_path, product="modis", year=2005, regions=("chilecito_la_rioja",)):
     return archive_pass.process_archive(con, zip_path, product, year, list(regions))
 
 
@@ -104,28 +104,28 @@ def test_exact_duplicates_collapse_across_members_and_match_the_global_ingest(en
 
 
 def test_clipping_is_inclusive_at_the_bbox_edges_and_keeps_original_text(env, con):
-    west, south, east, north = CERRADO
+    west, south, east, north = CHILECITO
     inside = [row(latitude=str(south), longitude=str(west), frp="1.10"),
               row(latitude=str(north), longitude=str(east), frp="2.20", acq_time="0005"),
-              row(latitude="-16.9", longitude="-56.2", frp="3.30", acq_time="1200")]
-    outside = [row(latitude="-17.8001", longitude="-56.0"), row(latitude="-16.5", longitude="-57.2001"),
-               row(latitude="-15.9999", longitude="-56.0"), row(latitude="-16.5", longitude="-55.1999")]
+              row(latitude="-29.25", longitude="-67.5", frp="3.30", acq_time="1200")]
+    outside = [row(latitude="-31.0001944444", longitude="-67.1"), row(latitude="-28.4722222222", longitude="-69.5002"),
+               row(latitude="-27.4998055556", longitude="-67.1"), row(latitude="-28.4722222222", longitude="-65.4998")]
     stats = process(con, make_zip(env / "z.zip", {"modis_2005_Brazil.csv": inside + outside}),
-                    regions=("cerrado_brazil", "niger_delta_flaring"))
-    assert stats["regions"] == {"cerrado_brazil": 3, "niger_delta_flaring": 0}
-    target = archive_pass.clip_path("cerrado_brazil", "modis", 2005)
-    assert target.name == "cerrado_brazil_modis_archive_2005.csv" and "nrt" not in target.name.lower()
+                    regions=("chilecito_la_rioja", "orlando_florida"))
+    assert stats["regions"] == {"chilecito_la_rioja": 3, "orlando_florida": 0}
+    target = archive_pass.clip_path("chilecito_la_rioja", "modis", 2005)
+    assert target.name == "chilecito_la_rioja_modis_archive_2005.csv" and "nrt" not in target.name.lower()
     with target.open(newline="", encoding="utf-8") as fh:
         records = list(csv.DictReader(fh))
     assert list(records[0]) == HEADER
     assert [r["frp"] for r in records] == ["2.20", "1.10", "3.30"]       # acq_time order, text untouched
     assert records[0]["version"] == "6.1NRT"
-    assert not archive_pass.clip_path("niger_delta_flaring", "modis", 2005).exists()   # no empty files
+    assert not archive_pass.clip_path("orlando_florida", "modis", 2005).exists()   # no empty files
     assert stats["rows_read"] == 7
 
 
 def test_clipped_files_are_ingestible_by_script_01_together_with_a_raw_directory(env, con, tmp_path):
-    process(con, make_zip(env / "z.zip", {"m.csv": [row(**CERRADO_POINT, frp="3.30")]}))
+    process(con, make_zip(env / "z.zip", {"m.csv": [row(**CHILECITO_POINT, frp="3.30")]}))
     raw = tmp_path / "raw_dir"
     raw.mkdir()
     with (raw / "other_archive.csv").open("w", newline="", encoding="utf-8") as fh:
@@ -134,11 +134,11 @@ def test_clipped_files_are_ingestible_by_script_01_together_with_a_raw_directory
         writer.writerow(row(latitude="-3.1", longitude="-60.0", satellite="Aqua", frp="9.0"))
     script = german.load("01_ingest_firms")
     staged = script.ingest_raw_firms(raw, tmp_path / "staged.parquet",
-                                     [archive_pass.clip_path("cerrado_brazil", "modis", 2005).parent])
+                                     [archive_pass.clip_path("chilecito_la_rioja", "modis", 2005).parent])
     import pyarrow.parquet as pq
     table = pq.read_table(staged).to_pylist()
     assert {(r["region"], r["satellite"], r["source_file"]) for r in table} == {
-        ("cerrado_brazil", "Terra", "cerrado_brazil_modis_archive_2005.csv"),
+        ("chilecito_la_rioja", "Terra", "chilecito_la_rioja_modis_archive_2005.csv"),
         ("amazonas_manaus", "Aqua", "other_archive.csv")}
 
 
@@ -167,7 +167,7 @@ def fake_download(env, monkeypatch):
     def fake(client, product, year):
         calls.append((product, year))
         return make_zip(download.archive_path(product, year),
-                        {f"{product}_{year}.csv": [row(**CERRADO_POINT, acq_date=f"{year}-03-01")]})
+                        {f"{product}_{year}.csv": [row(**CHILECITO_POINT, acq_date=f"{year}-03-01")]})
     monkeypatch.setattr(download, "download_one", fake)
     return calls
 
@@ -178,16 +178,16 @@ def test_run_pass_is_resumable_and_deletes_the_zip(env, con, fake_download, caps
     for year in (2005, 2006):
         assert (archive_pass.chunk_dir("modis", year) / "_SUCCESS").is_file()
         assert not download.archive_path("modis", year).exists()      # zip deleted after success
-        assert archive_pass.clip_path("cerrado_brazil", "modis", year).is_file()
+        assert archive_pass.clip_path("chilecito_la_rioja", "modis", year).is_file()
     archive_pass.run_pass(["modis"], [2005, 2006], regions=ONE, con=con)
     assert len(fake_download) == 2 and "skipped" in capsys.readouterr().out
     archive_pass.run_pass(["modis"], [2005], regions=ONE, force=True, con=con)
     assert fake_download[-1] == ("modis", 2005) and len(fake_download) == 3
     # A newly requested region invalidates the chunk even without --force.
-    archive_pass.run_pass(["modis"], [2005], regions=["cerrado_brazil", "california_usa"], con=con)
+    archive_pass.run_pass(["modis"], [2005], regions=["chilecito_la_rioja", "iberia_med"], con=con)
     assert len(fake_download) == 4
     stats = json.loads((archive_pass.chunk_dir("modis", 2005) / "stats.json").read_text())
-    assert set(stats["regions"]) == {"cerrado_brazil", "california_usa"}
+    assert set(stats["regions"]) == {"chilecito_la_rioja", "iberia_med"}
 
 
 def test_keep_zips_and_failure_keep_the_zip(env, con, fake_download):
@@ -195,7 +195,7 @@ def test_keep_zips_and_failure_keep_the_zip(env, con, fake_download):
     assert download.archive_path("modis", 2005).is_file()
     bad = make_zip(download.archive_path("modis", 2006), {"m.csv": [row(satellite="Z9")]})
     with pytest.raises(ValueError):
-        archive_pass.process_archive(con, bad, "modis", 2006, ["cerrado_brazil"])
+        archive_pass.process_archive(con, bad, "modis", 2006, ["chilecito_la_rioja"])
     assert bad.is_file()
 
 
@@ -244,7 +244,7 @@ def test_merge_is_deterministic_and_sorted(env, con):
 def test_run_cli_forwards_archive_pass_and_merge(env, con, fake_download, monkeypatch):
     monkeypatch.setattr(config, "connect", lambda *a, **k: con)
     assert run.main(["--archive-pass", "--products", "modis", "--years", "2005", "--regions",
-                     "cerrado_brazil", "--keep-zips"]) == 0
+                     "chilecito_la_rioja", "--keep-zips"]) == 0
     assert download.archive_path("modis", 2005).is_file()
     assert run.main(["--merge-counts", "--partial"]) == 0
     assert merged_rows(config.ARCHIVE_COUNTS) == [("Terra", "2005-03-01", 1)]
@@ -265,12 +265,12 @@ def _reference_clip(con, files, region_bounds):
 
 
 def test_two_pass_clip_equals_the_single_shot_path_and_never_materialises_outside_rows(env, con, monkeypatch):
-    west, south, east, north = CERRADO
-    # Duplicates across members, one straddling the west edge by less than the rounding (-57.2 vs -57.200004),
+    west, south, east, north = CHILECITO
+    # Duplicates across members, one straddling the west edge by less than the rounding (-69.5 vs -69.500008),
     # plus many rows far outside every box.
-    inside = [row(latitude="-16.9", longitude="-56.2", frp="3.30"),
-              row(latitude="-17.8", longitude="-57.2", frp="1.10", version="6.1"),
-              row(latitude="-17.8", longitude="-57.200004", frp="1.10", version="6.1NRT")]
+    inside = [row(latitude="-29.25", longitude="-67.5", frp="3.30"),
+              row(latitude="-31.0", longitude="-69.5", frp="1.10", version="6.1"),
+              row(latitude="-31.0", longitude="-69.500008", frp="1.10", version="6.1NRT")]
     far = [row(latitude=f"{40 + i / 100}", longitude="20.0", acq_time=f"{i % 24:02d}30") for i in range(60)]
     members = {"modis_2005_A.csv": inside[:2] + far, "modis_2005_B.csv": inside + far[:5]}
     archive = make_zip(env / "z.zip", members)
@@ -285,10 +285,10 @@ def test_two_pass_clip_equals_the_single_shot_path_and_never_materialises_outsid
     monkeypatch.setattr(ingest, "prepare_kept", watching)
     stats = process(con, archive)
     assert spy == [5] and stats["rows_read"] == 70   # only candidates inside the widened box carry originals
-    produced = archive_pass.clip_path("cerrado_brazil", "modis", 2005)
+    produced = archive_pass.clip_path("chilecito_la_rioja", "modis", 2005)
     with produced.open(newline="", encoding="utf-8") as fh:
         got = [tuple(r) for r in list(csv.reader(fh))[1:]]
     files = ingest.extract_csvs(archive, env / "ref")
-    expected = _reference_clip(con, files, CERRADO)
+    expected = _reference_clip(con, files, CHILECITO)
     assert got == [tuple("" if v is None else str(v) for v in r) for r in expected]
-    assert stats["regions"]["cerrado_brazil"] == len(expected) == 2
+    assert stats["regions"]["chilecito_la_rioja"] == len(expected) == 2

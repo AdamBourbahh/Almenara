@@ -34,8 +34,8 @@ keeps **at most one zip on disk**:
 1. **Global daily detection counts per satellite**, for `scripts/02`'s outage detector. They use the same
    rules as the global ingest (`ingest.prepare_kept`: validity window, exact-identity de-duplication, SAMA
    rule, canonical satellite names; an unknown satellite code raises).
-2. **The real detections inside the box of each preset region** (`cerrado_brazil`, `california_usa`,
-   `niger_delta_flaring`, or any `--regions`) as FIRMS-format CSVs with the original columns and text.
+2. **The real detections inside the box of each preset region** (`chilecito_la_rioja`, `iberia_med`,
+   `orlando_florida`, `amazonas_manaus`, or any `--regions`) as FIRMS-format CSVs with the original columns and text.
 
 Per (product, year): download (`download.download_one`, resumable, verified) -> extract the CSV members to
 `data/real/.tmp/` -> DuckDB (2 GB, 2 threads, spilling to `.tmp`) -> write outputs -> delete the extraction
@@ -53,9 +53,9 @@ A chunk is finished only when `_SUCCESS` exists (written last); it is skipped on
 `scripts/01` treats them as standard archive data. Stage them with the tracked CSVs:
 
 ```bash
-python scripts/01_ingest_firms.py --extra-raw-dir data/real/regions/cerrado_brazil/archive_csv \
-    --extra-raw-dir data/real/regions/california_usa/archive_csv \
-    --extra-raw-dir data/real/regions/niger_delta_flaring/archive_csv
+python scripts/01_ingest_firms.py --extra-raw-dir data/real/regions/chilecito_la_rioja/archive_csv \
+    --extra-raw-dir data/real/regions/iberia_med/archive_csv \
+    --extra-raw-dir data/real/regions/orlando_florida/archive_csv
 ```
 
 ```bash

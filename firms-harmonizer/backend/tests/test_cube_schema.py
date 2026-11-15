@@ -828,7 +828,7 @@ def test_stage02_ancillary_includes_footprint_spread_cells(tmp_path, monkeypatch
     spread = next(cell for cell in h3.grid_disk(centre, 1) if cell != centre)
     record = dict(h3_r4=int(h3.cell_to_parent(centre, 4), 16), acq_date=date(2022, 9, 1), satellite="Terra",
                   sensor_bit=1, igbp_biome=8, scan_bin=0, corrected_frp=1.0, frp=10.0,
-                  industrial_prob=0.0, region="iberia_med", daynight="D")
+                  industrial_prob=0.0, region="iberia_med", daynight="D", confidence_norm="nominal")
     staged = tmp_path / "staged.parquet"
     pq.write_table(pa.Table.from_pylist([
         dict(record, h3_r7=int(centre, 16), is_center=True),
@@ -998,7 +998,7 @@ def test_stage04_absent_aqua_before_mission_start_is_not_a_swath_gap(stage04_inp
     day = date(2001, 6, 1)                                     # Terra only: Aqua MODIS starts 2002-07-04
     record = dict(h3_r4=block_of(center), h3_r7=center, acq_date=day, satellite="Terra", sensor_bit=1,
                   igbp_biome=8, scan_bin=0, corrected_frp=10.0, is_center=True, frp=10.0,
-                  industrial_prob=0.0, region="iberia_med", daynight="D")
+                  industrial_prob=0.0, region="iberia_med", daynight="D", confidence_norm="nominal")
     pq.write_table(pa.Table.from_pylist([record]), staged)
     write_swath_gaps(lookup, [])
     rows = cube_rows(builder.build_master_cube(staged, tmp_path / "cube.parquet", lookup_dir=lookup))

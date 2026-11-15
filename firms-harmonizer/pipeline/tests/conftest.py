@@ -13,7 +13,7 @@ from pipeline import config, cube, german, ingest, lookups, pairs, quality
 FIXTURES = Path(__file__).parent / "fixtures"
 GERMAN = sorted((FIXTURES / "german").glob("*.csv"))
 GLOBAL = sorted((FIXTURES / "global").glob("*.csv"))
-REGION = "cerrado_brazil"
+REGION = "chilecito_la_rioja"
 # data/regions.json declares no coverage for this preset yet; scripts/04 requires one for every detection day.
 FIXTURE_COVERAGE = [["2015-08-10", "2022-08-05"]]
 

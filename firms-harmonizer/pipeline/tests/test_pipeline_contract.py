@@ -52,7 +52,7 @@ def test_exact_duplicates_collapse_and_standard_beats_nrt(built):
     t = table(built.det_file).to_pylist()
     keys = [(r["satellite"], r["acq_date"], r["acq_time"], round(r["latitude"], 5), round(r["longitude"], 5)) for r in t]
     assert len(keys) == len(set(keys))
-    dup = [r for r in t if r["satellite"] == "Aqua" and r["acq_time"] == "1340" and r["latitude"] == -16.9012]
+    dup = [r for r in t if r["satellite"] == "Aqua" and r["acq_time"] == "1340" and r["latitude"] == -29.2523333333]
     assert len(dup) == 1 and dup[0]["tier"] == "SP"
     assert any(r["tier"] == "NRT" for r in t)
 
@@ -233,7 +233,7 @@ def test_cube_metadata_is_the_canonical_scripts04_provenance(built):
 def test_cube_without_ancillary_keeps_zero_sentinels_and_masks(built):
     t = table(built.cube).to_pylist()
     for r in t:
-        assert r["cloud_cover_pct"] == 0.0 and r["burned_area_ha_mcd64"] == 0.0
+        assert r["cloud_cover_pct"] is None and r["burned_area_ha_mcd64"] is None
         assert r["sensor_obs_mask"] & ~0b11111 == 0 and r["gap_status_mask"] & 0b0110 == 0
         assert 0.0 <= r["industrial_prob"] <= 1.0 and r["neighbor_fre_lag1"] >= 0.0
 
