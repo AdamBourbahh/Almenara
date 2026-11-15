@@ -827,3 +827,15 @@ to the existing map-period endpoint, with at most four concurrent requests, then
 observed energy densities and detection counts per H3 cell. They preserve cancellation,
 stale-response protection and real/synthetic provenance. No API contracts changed.
 Appearance is available inside Settings as a persisted Dark mode switch.
+
+
+### Activity answers and small histogram counts (2026-11-15)
+
+Answering whether activity is consistent with burning is distinct from confirming
+a wildfire identity or its ignition cause. Local answers state that distinction.
+The agent excludes citation IDs from physical-number validation and can correct
+an unsupported numerical answer once within its existing deadline; server-rendered
+measurements remain exact. A failed provider still returns local evidence.
+Histogram positive bins have a 5 px minimum and zero bins a 1 px baseline. Labels
+state that detection bars are not incident duration; no observation does not
+establish extinction. No observations are extended or fabricated to match reports.

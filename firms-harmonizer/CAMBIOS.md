@@ -455,3 +455,16 @@ preserves the period type. Inclusive cross-year ranges use existing same-year ma
 requests in batches of four, merge H3 observations and update regional totals and
 chat context. Invalid and reversed ranges are rejected; stale requests cannot replace
 newer selections. Frozen public contracts remain unchanged.
+
+
+## 2026-11-15 — Fire activity answers and low-count chronology bars
+
+The Groq agent now gets one bounded opportunity to remove unsupported numerical
+claims before falling back; citation identifiers are excluded from measurement
+validation. Active-burning evidence, wildfire identity and ignition cause are
+separate questions. Local fallback explains observed activity rather than leading
+with an unrelated ignition disclaimer. Positive histogram bins have a 5 px minimum
+versus a 1 px zero-count baseline; the timeline explicitly does not show incident
+duration. Real map-period checks around the screenshot AOI returned observations
+through 1 August, including 72 detections on 28 July, despite much smaller bars.
+No public contracts changed. Free-provider quotas remain an external limitation.

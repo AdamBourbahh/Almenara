@@ -152,17 +152,17 @@ export function HeatHistoryCard() {
   return <section aria-label="Chronology timeline" className="relative z-30 flex shrink-0 flex-wrap items-center gap-3 border-t border-rule bg-panel px-4 py-3 text-ink">
     <div ref={trackRef} className="min-w-40 flex-1">
       {unavailable ? <p role="status" className="h-14 text-xs text-muted">{state.loading ? "Loading history…" : state.error ? "History unavailable" : "No daily data"}</p> : <svg role="slider" aria-label="Chronology blocks" aria-valuemin={0} aria-valuemax={Math.max(0, periods.length - 1)} aria-valuenow={position} aria-valuetext={label} tabIndex={0} viewBox={`0 0 ${Math.max(1, bins.length) * 12} 56`} preserveAspectRatio="none" className="h-14 w-full cursor-crosshair touch-none rounded-sm focus-visible:outline-2 focus-visible:outline-reference" onKeyDown={onKey} onPointerMove={e => { if (e.buttons === 1) selectPosition(point(e)); }} onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); selectPosition(point(e)); }}>
-        <title>Bar height shows satellite detections per {histogramUnit}. Click to select; arrow keys move between bars.</title>
+        <title>Bar height shows satellite detections per {histogramUnit}. Small positive counts remain visible. No detections does not establish extinction. Click to select; arrow keys move between bars.</title>
         {bins.map((bin, i) => {
           const ratio = bin.detections / maximum;
-          const height = Math.max(2, ratio * 48);
+          const height = bin.detections > 0 ? Math.max(5, ratio * 48) : 1;
           const warmth = Math.sqrt(ratio);
           const color = [109, 124, 142].map((value, channel) => Math.round(value + ([179, 0, 0][channel] - value) * warmth));
           const active = state.range ? periods[bin.end - 1].key >= anchor.slice(0, keyLength) && periods[bin.start].key <= end.slice(0, keyLength) : position >= bin.start && position < bin.end;
           return <g key={i}><rect data-detections={bin.detections} x={i * 12 + 1} y={50 - height} width={10} height={height} rx={2} fill={`rgb(${color.join(",")})`} opacity={.55 + ratio * .45}><title>{periods[bin.start]?.key}{bin.end - bin.start > 1 ? ` to ${periods[bin.end - 1]?.key}` : ""}: {bin.detections.toLocaleString("en-US")} detections</title></rect>{active && <rect x={i * 12 + 1} y={53} width={10} height={3} rx={1} fill="var(--color-reference)" />}</g>;
         })}
       </svg>}
-      <div className="flex justify-between text-[10px] text-faint"><span>{periods[0]?.key ?? "—"}</span><span>Satellite detections / {histogramUnit}</span><span>{periods.at(-1)?.key ?? "—"}</span></div>
+      <div className="flex justify-between text-[10px] text-faint"><span>{periods[0]?.key ?? "—"}</span><span>Detections / {histogramUnit} · Not fire duration</span><span>{periods.at(-1)?.key ?? "—"}</span></div>
     </div>
     <div ref={container} className="relative ml-auto flex items-center gap-1.5">
       <button type="button" aria-label={`Previous ${precision === "range" ? "date range" : precision}`} disabled={!canStep(-1)} onClick={() => step(-1)} className={buttonClass}><ChevronLeft className="h-4 w-4" /></button>
