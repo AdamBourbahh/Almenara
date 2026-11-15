@@ -1,4 +1,4 @@
-"""Small, bounded provider cascade. External quotas never disable local answers."""
+"""Bounded completions from the selected provider, with local evidence on failure."""
 from __future__ import annotations
 
 from backend.api.copilot_network import is_offline
@@ -17,7 +17,7 @@ OUTPUT_TOKEN_LIMIT = 900
 
 def agent_config() -> tuple[str, str, str, str]:
     """Return the selected provider only; credentials never cross providers."""
-    provider = os.getenv('COPILOT_PROVIDER', 'groq').lower()
+    provider = os.getenv('COPILOT_PROVIDER', 'gemini').strip().lower()
     if provider == 'gemini':
         return (provider, os.getenv('GEMINI_API_KEY', ''),
                 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
@@ -48,21 +48,19 @@ def complete(messages: list[dict], *, structured: bool = False,
              default_model: str = 'llama-3.3-70b-versatile') -> tuple[str | None, str]:
     if is_offline():
         return None, 'deterministic-offline-science'
-    # GitHub Models itself retired in July 2026. Never send a PAT to a retired
-    # default endpoint; an operator can explicitly supply a compatible gateway.
+    # Auxiliary extraction uses the same selection as the main investigator.
+    # Groq is an explicit alternative, never a hidden fallback from Gemini.
+    selected, _, selected_url, selected_model = agent_config()
     providers = [
         ('groq', 'GROQ_API_KEY', 'https://api.groq.com/openai/v1/chat/completions',
          os.getenv('GROQ_MODEL', default_model)),
         ('groq-compatible', 'GROQ_API_KEY', 'https://api.groq.com/openai/v1/chat/completions',
          os.getenv('GROQ_FALLBACK_MODEL', 'openai/gpt-oss-120b')),
-        ('github', 'GITHUB_TOKEN', os.getenv('GITHUB_MODELS_ENDPOINT'),
-         os.getenv('GITHUB_MODEL', 'openai/gpt-4o-mini')),
-        ('gemini', 'GEMINI_API_KEY', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-         os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')),
     ]
-    # An explicit Google selection must not quietly spend another provider's quota.
-    if os.getenv('COPILOT_PROVIDER') == 'gemini':
-        providers = [p for p in providers if p[0] == 'gemini']
+    if selected == 'gemini':
+        providers = [('gemini', 'GEMINI_API_KEY', selected_url, selected_model)]
+    elif selected != 'groq':
+        providers = []
     messages = bounded_messages(messages)
     # A single deadline bounds the entire cascade, including exhausted quotas.
     deadline = monotonic() + min(10.0, timeout)

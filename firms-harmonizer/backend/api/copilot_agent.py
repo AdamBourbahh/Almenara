@@ -28,6 +28,13 @@ SYSTEM = (
     'Activity consistent with burning, confirmation of a named wildfire, ignition cause and spread conditions are separate conclusions. '
     'An unknown cause does not negate a reported fire. Do not infer ignition from wind, heat or satellite power. '
     'For event questions investigate matching place/date reports, prioritizing official agencies; use scientific papers for general mechanisms, not proof of a particular event. '
+    'You own incident research and synthesis: assess the retrieved article text against the selected coordinates and dates. '
+    'A map study label is not a municipality: reports may use nearby county or town names. Identify plausible named incidents as candidates with attributed evidence, '
+    'without claiming that each selected hexagon belongs to their perimeter. Distinguish publication date from dates of reported activity. '
+    'Never turn a regional candidate into a confirmed identity for the selected cells. Never infer high fuel loading, drought, wind or other spread drivers '
+    'unless the retrieved article actually reports them for this event. Activity on a date does not establish that the fire started on that date. '
+    'If an article identifies a regional fire but omits its ignition cause, explain that fire and what is documented; do not discard it or ask the user to do the search. '
+    'Use a refined incident search if the first search only supplies weak leads. A search lead without article text does not support incident facts. '
     'Never claim to have searched unless the search tool ran. Cite only supplied source IDs; prioritize relevance over citation count. '
     'Use exact tool numbers and do not perform arithmetic in prose. Describe estimates as estimates; do not invent burned area, emissions or operational safety advice. '
     'Use plain Markdown and readable units such as MJ/s, without LaTeX. Lead with a direct answer. Add Evidence and Limits only when helpful, keeping them brief and avoiding repeated measurements already shown by the server. '
@@ -59,8 +66,8 @@ TOOLS=[
  definition('search_knowledge','Search indexed local scientific methods, units, data coverage and limitations.',{'query':{'type':'string'}}),
  definition('query_observations','Query accepted satellite detections, FRP and busiest days for the resolved map area.',DATES),
  definition('query_energy','Calculate mapped and regional energy in GJ, biomass and yearly totals when the user requests these quantities or comparisons.',DATES),
- definition('profile_episode','Discover the main thermal episode and estimate progression/duration and consequences.',{'target_date':{'type':'string'}}),
- definition('search_incident_reports','Investigate real-world incidents for the selected place and period. Retrieve official/reputable reports for event identity, chronology, reported cause or spread; use this for event-specific questions.',{})]
+ definition('profile_episode','Discover the main thermal episode when asked for progression, duration, consequences or a main-episode investigation. It is unnecessary for a simple activity check or incident-identity question.',{'target_date':{'type':'string'}}),
+ definition('search_incident_reports','Investigate real-world incidents for the selected place and period. Retrieve official/reputable articles for your assessment of event identity, chronology, cause or spread. Optional query refines discovery with a candidate name or nearby locality; it never changes the selected area or period.',{'query':{'type':'string','maxLength':400}})]
 
 
 def turn(messages,*,finish=False,timeout=10,used=()):
@@ -104,6 +111,8 @@ def answer(req):
     incident_excerpts=[]
     ignition_evidence=False
     numeric_repairs=0
+    reviewed=False
+    article_evidence=False
     pending_calls=[]
     batch_start=2
     def knowledge(query):
@@ -119,16 +128,17 @@ def answer(req):
     context={'question':req.user_question[:2500],'scope':{'location':scope.locality or scope.label,'start':scope.start,'end':scope.end,'has_aoi':bool(scope.coordinates)},
              'data_source':source,'client_selection_hints':{'forecast':bool(req.selected_day and req.selected_day.is_forecast),'reconstructed':bool(req.selected_day and req.selected_day.is_gap_filled),'industrial_candidate':bool(req.selected_hex and req.selected_hex.is_industrial_site)},'history':[{'role':m.role,'content':m.content[:600]} for m in req.conversation[-2:]],'knowledge':evidence[:2]}
     messages=[{'role':'system','content':SYSTEM},{'role':'user','content':json.dumps(context,ensure_ascii=False)}]
-    deadline=monotonic()+35
+    deadline=monotonic()+55
     try:
-        for step in range(6):
+        for step in range(9):
             remaining=deadline-monotonic()
             if remaining<1:
                 raise TimeoutError('Tool deadline reached')
             if pending_calls:
                 call = pending_calls.pop(0)
             else:
-                response=turn(messages,finish=step>=3,timeout=min(10,remaining),used=trace)
+                used=[name for name in trace if name != 'search_incident_reports' or trace.count(name)>=2]
+                response=turn(messages,finish=reviewed or step>=6,timeout=min(15,remaining),used=used)
                 calls=response.get('tool_calls') or []
                 if not calls and isinstance(response.get('content'),str) and response['content'].strip():
                     content=re.sub(r'【([A-Z]*\d+(?:_\d+)?)】',r'[\1]',response['content'].strip())
@@ -150,6 +160,22 @@ def answer(req):
             trace.append(name)
             if name=='submit_answer':
                 final=Final.model_validate(raw)
+                if provider == 'gemini' and article_evidence and not reviewed:
+                    # Keep evidence assessment with Gemini rather than replacing
+                    # a researched answer with the deterministic local template.
+                    reviewed=True
+                    messages.append({'role':'assistant','content':final.answer})
+                    messages.append({'role':'user','content':
+                        'Review and correct this draft against the retrieved article_text and measurement tools only. '
+                        'Return the corrected final answer, not a review. Do not add facts from memory. '
+                        'A regional incident is a candidate, not a confirmed identity for the selected hexagons. '
+                        'Remove unsupported statements about fuel loading, weather, ignition, dates of ignition, '
+                        'exact perimeter membership or direct alignment of detections with a named fire. '
+                        'Keep documented incident names, reported behavior and consequences with their citations. '
+                        'Separate what the article reports from what remains unverified, especially ignition. '
+                        'If ignition is absent, say it is absent from the retrieved article, not from all available records. '
+                        'Do not introduce quantities unless present in the tool evidence. Answer concisely.'})
+                    continue
                 ids={i if i.startswith('[') else '['+i+']' for i in final.citation_ids}
                 mentioned=set(re.findall(r'\[(?:[A-Z]*\d+(?:_\d+)?)\]',final.answer))
                 if not ids<=citations.keys() or not mentioned<=citations.keys():
@@ -165,15 +191,18 @@ def answer(req):
                 if not evidence or (not ids and not mentioned):
                     raise ValueError('Answer without retrieved evidence')
                 numbers=lambda value:[float(n.replace(',','')) for n in re.findall(r'\d+(?:,\d{3})*(?:\.\d+)?',re.sub(r'(?<=\d)[\u202f\u00a0](?=\d{3}\b)', '',value))]
-                available=numbers(json.dumps(evidence,ensure_ascii=False,default=str))
+                # Dates and coordinates belong to the resolved scope as well as
+                # tool results. Repeating a selected date is not a new quantity.
+                available=numbers(json.dumps([evidence,{'start':scope.start,'end':scope.end,
+                    'centroid':researcher.geographic_context(scope)[1]}],ensure_ascii=False,default=str))
                 # Citation labels are identifiers, not measured quantities.
                 measured_text = re.sub(r'\[(?:[A-Z]*\d+(?:_\d+)?)\]', '', final.answer)
                 if any(not any(abs(n-v)<=max(.001,abs(v)*.0001) for v in available) for n in numbers(measured_text)):
-                    if numeric_repairs == 0 and step < 5:
+                    if numeric_repairs == 0 and step < 8:
                         numeric_repairs += 1
                         messages.append({'role':'assistant','content':final.answer})
                         messages.append({'role':'user','content':
-                            'Your answer contains a number unsupported by the tool results. Remove all numerical claims from your prose; '
+                            'Your answer contains a number unsupported by the tool results. Remove unsupported numerical claims from your prose; '
                             'the server will show exact calculations separately. Retain source citations. Do not change the evidence or invent values. '
                             'Distinguish probable active burning from confirmation of a wildfire. Answer the actual question directly.'})
                         continue
@@ -235,7 +264,7 @@ def answer(req):
                         scope.label,args.target_date.isoformat() if args.target_date else None,scope.h3_index,
                         enable_kalman_gap_filling=req.enable_kalman_gap_filling)
                     episode=result
-                    if result.get('status')=='ok':
+                    if result.get('status')=='ok' and not (scope.start and scope.end):
                         scope=replace(scope,start=result['window_start'],end=result['window_end'])
                     result={k:v for k,v in result.items() if k!='daily_series'}
                     citations.update({c.id:c for c in [local.CUBE]+local.METHOD_SOURCES+[researcher.EMISSIONS]})
@@ -244,26 +273,34 @@ def answer(req):
                         result={'status':'synthetic','message':'Synthetic data cannot verify a real incident.'}
                     else:
                         if provider == 'gemini':
-                            location, _ = researcher.geographic_context(scope)
-                            query = f'{location} wildfire official reports {scope.start} to {scope.end}'
+                            location, centroid = researcher.geographic_context(scope)
+                            position = f'near latitude {centroid[0]:.4f}, longitude {centroid[1]:.4f}' if centroid else ''
+                            query = f'{location} {position} wildfire official reports {scope.start} to {scope.end}. {args.query}'
                             reports = local.research.enrich_official_reports(local.research.google_search_reports(query))
                         else:
                             reports,query=researcher.investigate_fire_literature_and_web(scope,episode.get('peak_date') if episode else None)
                         web=web or bool(reports)
                         queries.append(query)
                         result=[]
+                        assigned=[]
                         for report in reports:
                             # Reassign IDs across successive searches, retaining bodies only internally.
                             marker='[W'+str(1+sum(k.startswith('[W') for k in citations))+']'
-                            passages=[p for p in local.research.incident_passages(report,scope) if local.research.supported_report_excerpt(report,p,scope)][:2]
+                            assigned.append(report.model_copy(update={'id':marker}))
+                            passages=([p for p in local.research.incident_passages(report,scope) if local.research.supported_report_excerpt(report,p,scope)][:2]
+                                      if provider != 'gemini' else [])
                             incident_excerpts.extend((marker,p) for p in passages)
                             ignition_evidence=ignition_evidence or any(local.research.supported_ignition_excerpt(report,p,scope) for p in passages)
                             citations[marker]=report.model_copy(update={'id':marker,'relevance_note':'Retrieved incident evidence; a match to an individual satellite cell is not established.'})
                             result.append({'source_id':marker,'title':report.title,'url':report.url,'verified_passages':passages,
                                 'status':'article passages retrieved' if passages else 'Search lead only; incident facts unverified','ignition_evidence':ignition_evidence})
                         if provider == 'gemini':
+                            article_evidence=article_evidence or any('article text retrieved' in r.dataset_or_doi for r in assigned)
                             result = {'status': 'approved_sources_retrieved' if reports else 'search_unavailable_or_no_approved_sources',
-                                      'reports': result, 'limits': 'A failed or empty search does not establish that no incident or report exists. Only retrieved article passages are independent report evidence.'}
+                                      'reports': local.research.investigator_reports(assigned),
+                                      'limits': 'Assess article location, activity dates and candidate identity yourself. Retrieval does not prove a perimeter match. '
+                                      'Use article text for attributed incident facts and causes, never a search lead alone. '
+                                      'A failed or empty search does not establish that no incident or report exists.'}
                 else:
                     result={'error':'Unknown tool. Use an advertised tool.'}
             if name in ('query_energy','query_observations','profile_episode') and isinstance(result,dict):
@@ -280,7 +317,8 @@ def answer(req):
                 messages=messages[:2]+messages[batch_start:]
         raise ValueError('No final answer')
     except (httpx.HTTPError,HTTPException,duckdb.Error,duckdb_engine.CubeNotAvailableError,ValueError,KeyError,TypeError,IndexError,AttributeError,TimeoutError) as exc:
-        log.warning('%s agent fallback (%s); tools=%s',provider,type(exc).__name__,trace)
+        reason = str(exc) if type(exc) is ValueError else type(exc).__name__
+        log.warning('%s agent fallback (%s); tools=%s',provider,reason[:160],trace)
         from backend.api.copilot_network import offline_context
         with offline_context():
             return researcher.answer(req)

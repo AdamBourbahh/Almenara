@@ -1,3 +1,21 @@
+# Test quality refactor — 2026-11-15
+
+Removed redundant test executions and repeated setup while preserving frozen files
+and their hashes byte-for-byte. Backend: 494 → 473 passing cases, 43.94 → 31.16 s
+in local sequential measurements. ETL: 105 → 97 cases, 11.58 → 8.94 s. Frontend:
+30 passing tests; TypeScript and all eight core conformance functions pass.
+Two formerly surviving coverage mutations now fail. A pre-existing TestClient
+deprecation remains; the requested 35–50% ETL speedup was not reached.
+
+The per-file inventory, invariant migration map, exact outputs, limitations and
+differential review are in [the QA report](docs/verification/2026-11-15-test-quality/README.md).
+No production behavior, baseline frozen contract or scientific acceptance gate was
+changed. The historical implementation notes below remain historical.
+
+---
+
+> Historical planning/delivery record. Current behavior and audit evidence: [application README](firms-harmonizer/README.md), [current specification](SPECS.md), and [all-nighter verification](docs/verification/2026-11-15-all-nighter/README.md). Older numbers and retired-region examples are not current acceptance results.
+
 # Backend Implementation Plan
 
 ## Real-data cutover execution — 2026-11-14

@@ -61,7 +61,7 @@ def aggregate_burned_pixels(lat, lon, dates):
     }, schema=SCHEMA)
 
 
-def extract_burned_pixels(dataset, bounds, year):
+def extract_burned_pixels(dataset, bounds, year, quality=None):
     """Centres (lat, lon) and dates of burned pixels of an open Burn_Date raster inside a lon/lat box."""
     from rasterio.transform import xy
     from rasterio.warp import transform, transform_bounds
@@ -77,7 +77,13 @@ def extract_burned_pixels(dataset, bounds, year):
     if window is None or window.width < 1 or window.height < 1:
         return empty
     data = dataset.read(1, window=window)
-    rows, cols = np.nonzero((data >= 1) & (data <= 366))
+    valid = (data >= 1) & (data <= 366)
+    if quality is not None:
+        if quality.crs != dataset.crs or quality.transform != dataset.transform:
+            raise ValueError('Burn_Date and QA must share a grid.')
+        flags = quality.read(1, window=window)
+        valid &= (flags & 3) == 3  # MCD64A1 QA: land and sufficient valid observations.
+    rows, cols = np.nonzero(valid)
     if not len(rows):
         return empty
     xs, ys = xy(dataset.window_transform(window), rows, cols, offset="center")
@@ -104,7 +110,7 @@ def fetch_region(catalog, sign, name, bounds, start, end, cache, workers):
 
     items = {item.id: item for item in catalog.search(collections=[COLLECTION], bbox=bounds,
                                                       datetime=f"{start}/{end}").items()}
-    region_cache = cache / name
+    region_cache = cache / name / 'qa-v1'
     region_cache.mkdir(parents=True, exist_ok=True)
 
     def read(item):
@@ -112,8 +118,8 @@ def fetch_region(catalog, sign, name, bounds, start, end, cache, workers):
         if not path.exists():
             for attempt in range(5):
                 try:
-                    with rasterio.open(sign(item.assets["Burn_Date"].href)) as dataset:
-                        lat, lon, dates = extract_burned_pixels(dataset, bounds, composite_year(item.id))
+                    with rasterio.open(sign(item.assets["Burn_Date"].href)) as dataset, rasterio.open(sign(item.assets['QA'].href)) as quality:
+                        lat, lon, dates = extract_burned_pixels(dataset, bounds, composite_year(item.id), quality)
                     break
                 except Exception as error:  # transient HTTP/COG failures; abort after five attempts
                     if attempt == 4:
@@ -159,6 +165,7 @@ def build_ancillary(output=OUTPUT, start="2000-11-01", end="2026-11-01", cache=N
         b"regions": json.dumps(item_ids, sort_keys=True).encode(),
         b"requested_range": f"{start}/{end}".encode(),
         b"complete_years": json.dumps(complete, sort_keys=True).encode(),
+        b"quality": b"Burn_Date pixels require QA land and valid-data bits; complete years require all monthly tile composites, not independent truth or full cloud-free coverage",
         b"cloud_cover_pct": b"not supplied: null for every row (missing, not observed zero)",
         b"retrieved_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ").encode(),
     }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import threading
+import sys
 from collections import OrderedDict
 from typing import Any
 
@@ -13,31 +14,39 @@ import orjson
 DEFAULT_MAXSIZE = 64
 
 
+def _size(value):
+    if hasattr(value, "nbytes"):
+        return int(value.nbytes)
+    if isinstance(value, CachedJSON):
+        return len(value.head) + len(value.tail)
+    if isinstance(value, dict):
+        return sys.getsizeof(value) + sum(_size(k) + _size(v) for k, v in value.items())
+    if isinstance(value, (tuple, list)):
+        return sys.getsizeof(value) + sum(map(_size, value))
+    if hasattr(value, 'model_dump_json'):
+        return len(value.model_dump_json().encode())
+    return sys.getsizeof(value)
+
+
 def make_cache_key(cells: list[int], params: dict, cube_mtime_ns: int) -> str:
     """BLAKE2b over sorted unique cells, key-sorted params and the cube modification time."""
-    payload = (np.unique(np.asarray(cells, dtype=np.uint64)).astype("<u8").tobytes() + b"|"
+    payload = (np.asarray(sorted(set(cells)), dtype="<u8").tobytes() + b"|"
                + orjson.dumps(params, option=orjson.OPT_SORT_KEYS) + b"|"
                + str(int(cube_mtime_ns)).encode())
     return hashlib.blake2b(payload, digest_size=32).hexdigest()
 
 
-def _nbytes(value: Any) -> int:
-    """Approximate retained size of a cached value (0 when it does not report one)."""
-    return int(getattr(value, "nbytes", 0))
-
-
 class LRUCache:
-    """LRU bounded by entry count and, optionally, by the total ``nbytes`` of its values."""
-
-    def __init__(self, maxsize: int = DEFAULT_MAXSIZE, max_bytes: int | None = None) -> None:
+    def __init__(self, maxsize: int = DEFAULT_MAXSIZE, maxbytes: int = 128 * 1024 * 1024, *, max_bytes: int | None = None) -> None:
         if maxsize < 1:
             raise ValueError("maxsize must be >= 1")
-        if max_bytes is not None and max_bytes < 1:
-            raise ValueError("max_bytes must be >= 1")
         self.maxsize = maxsize
-        self.max_bytes = max_bytes
-        self._data: OrderedDict[str, Any] = OrderedDict()
+        self.maxbytes = maxbytes if max_bytes is None else max_bytes
+        if self.maxbytes < 1:
+            raise ValueError("max_bytes must be >= 1")
         self._bytes = 0
+        self._sizes: dict[str, int] = {}
+        self._data: OrderedDict[str, Any] = OrderedDict()
         self._lock = threading.Lock()
 
     def get(self, key: str) -> Any | None:
@@ -48,22 +57,25 @@ class LRUCache:
             return self._data[key]
 
     def put(self, key: str, value: Any) -> None:
-        size = _nbytes(value)
         with self._lock:
-            if self.max_bytes is not None and size > self.max_bytes:
-                return  # larger than the whole budget: serve it, never cache it
+            size = _size(value)
             if key in self._data:
-                self._bytes -= _nbytes(self._data[key])
+                self._bytes -= self._sizes.pop(key)
+                del self._data[key]
+            if size > self.maxbytes:
+                return
             self._data[key] = value
-            self._data.move_to_end(key)
+            self._sizes[key] = size
             self._bytes += size
-            while len(self._data) > self.maxsize or (self.max_bytes is not None and self._bytes > self.max_bytes):
-                _, evicted = self._data.popitem(last=False)
-                self._bytes -= _nbytes(evicted)
+            self._data.move_to_end(key)
+            while len(self._data) > self.maxsize or self._bytes > self.maxbytes:
+                old, _ = self._data.popitem(last=False)
+                self._bytes -= self._sizes.pop(old)
 
     def clear(self) -> None:
         with self._lock:
             self._data.clear()
+            self._sizes.clear()
             self._bytes = 0
 
     @property
@@ -117,9 +129,7 @@ class CachedGeometry(tuple):
         return (len(self[0]) + len(self[1])) * self.BYTES_PER_CELL
 
 
-# A full 2001-2026 /analyze body for a ~1M km² AOI is ~16 MB; the budgets keep the worst case
-# at a few hundred MB instead of 64 × that.
-ANALYZE_CACHE_MAX_BYTES = 256 * 1024 * 1024
+ANALYZE_CACHE_MAX_BYTES = 128 * 1024 * 1024
 GEOMETRY_CACHE_MAX_BYTES = 128 * 1024 * 1024
-ANALYZE_CACHE = LRUCache(DEFAULT_MAXSIZE, max_bytes=ANALYZE_CACHE_MAX_BYTES)
-GEOMETRY_CACHE = LRUCache(DEFAULT_MAXSIZE, max_bytes=GEOMETRY_CACHE_MAX_BYTES)
+ANALYZE_CACHE = LRUCache(DEFAULT_MAXSIZE)
+GEOMETRY_CACHE = LRUCache(DEFAULT_MAXSIZE)

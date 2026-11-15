@@ -1,0 +1,113 @@
+{
+  "url": "http://127.0.0.1:5173/api/explain-spike",
+  "elapsed_seconds": 35.46,
+  "request": {
+    "region_name": "Selected map area at 28.75 N, 80.95 W",
+    "aoi": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -81.03,
+            28.68
+          ],
+          [
+            -80.88,
+            28.68
+          ],
+          [
+            -80.88,
+            28.82
+          ],
+          [
+            -81.03,
+            28.82
+          ],
+          [
+            -81.03,
+            28.68
+          ]
+        ]
+      ]
+    },
+    "period_start": "2011-02-28",
+    "period_end": "2011-02-28",
+    "user_question": "why did this happen? Is a specific incident or ignition cause documented?"
+  },
+  "response": {
+    "physical_classification": "RETRIEVED_EVIDENCE",
+    "explanation_markdown": "**No specific ignition cause is documented in the retrieved report** [W1]. \n\n### Documented Incident Context\n* **Regional Candidate Fire:** Retrieved incident reporting documents the **Iron Horse Fire** burning in northern Brevard County on February 28, 2011, as one of three large fires detected in eastern Florida [W1]. While it is a plausible regional candidate for activity observed in this general area, the retrieved text does not confirm that the selected map cells belong to its specific perimeter [W1], [K5].\n* **Reported Impacts:** The retrieved report notes that the Iron Horse Fire was reported at 10,000 acres, burned out of control, threatened homes, destroyed one home, and forced the closure of parts of US Highway 1 and Interstate 95 due to dense smoke [W1].\n* **Ignition Cause:** The retrieved article text describes active fire spread and impacts on February 28, 2011, but omits the ignition cause [W1].\n\n### Limits\n* **Satellite Observations:** Satellite thermal anomalies show 22 detections with a summed Fire Radiative Power (FRP) of 19593.5 MW in the query area on February 28, 2011 [5]. Satellite radiative power measurements cannot identify an ignition cause [K5].\n* **Information Gap:** The cause of ignition remains unverified in the retrieved article [W1]. Confirming an official ignition cause would require local investigation reports from the responsible fire management agencies [K5].\n\n### Satellite observations\n\nThe local FIRMS archive contains **22 satellite detections** in the **Selected map area at 28.75 N, 80.95 W** for **2011-02-28** (Aqua, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **19,593.50 MW**.\n- Strongest individual detection: **3,981.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+    "citations": [
+      {
+        "id": "[K5]",
+        "source_type": "NASA_DATASET",
+        "title": "Ignition and fire spread evidence",
+        "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+        "year": 2026,
+        "dataset_or_doi": "Versioned local scientific note",
+        "url": "https://firms.modaps.eosdis.nasa.gov/faq/",
+        "relevance_note": "Satellite thermal detections alone cannot establish what ignited a fire. Ignition evidence requires a matching investigation or incident report. Wind, high temperature, low humidity and fuel conditions can affect spread but do not establish ignition. A command post location is not necessarily the location of a fire. A regional report is not proof that each selected satellite cell belongs to that incident. A cause absent from retrieved reports is unverified in those reports, not necessarily unknown to authorities."
+      },
+      {
+        "id": "[5]",
+        "source_type": "NASA_DATASET",
+        "title": "NASA FIRMS active fire observations",
+        "authors_or_agency": "NASA EOSDIS LANCE",
+        "year": 2026,
+        "dataset_or_doi": "NASA Earthdata / FIRMS",
+        "url": "https://firms.modaps.eosdis.nasa.gov/",
+        "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+      },
+      {
+        "id": "[W1]",
+        "source_type": "WEB_NEWS_REPORT",
+        "title": "nasa.gov",
+        "authors_or_agency": "science.nasa.gov",
+        "year": 2026,
+        "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed",
+        "url": "https://science.nasa.gov/earth/earth-observatory/wildfires-in-florida-49499/",
+        "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+      }
+    ],
+    "web_search_used": true,
+    "search_query_executed": "Orlando near latitude 28.7500, longitude -80.9550 wildfire official reports 2011-02-28 to 2011-02-28. Orlando wildfire fire February 28 2011 | Orlando near latitude 28.7500, longitude -80.9550 wildfire official reports 2011-02-28 to 2011-02-28. \"Iron Horse Fire\" Brevard 2011 cause",
+    "model_used": "gemini-agent/gemini-3.8-flash",
+    "data_source": "real",
+    "map_context": {
+      "label": "Selected map area at 28.75 N, 80.95 W",
+      "aoi": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -81.03,
+              28.68
+            ],
+            [
+              -80.88,
+              28.68
+            ],
+            [
+              -80.88,
+              28.82
+            ],
+            [
+              -81.03,
+              28.82
+            ],
+            [
+              -81.03,
+              28.68
+            ]
+          ]
+        ]
+      },
+      "period_start": "2011-02-28",
+      "period_end": "2011-02-28",
+      "h3_index": null
+    },
+    "answer_markdown": "**No specific ignition cause is documented in the retrieved report** [W1]. \n\n### Documented Incident Context\n* **Regional Candidate Fire:** Retrieved incident reporting documents the **Iron Horse Fire** burning in northern Brevard County on February 28, 2011, as one of three large fires detected in eastern Florida [W1]. While it is a plausible regional candidate for activity observed in this general area, the retrieved text does not confirm that the selected map cells belong to its specific perimeter [W1], [K5].\n* **Reported Impacts:** The retrieved report notes that the Iron Horse Fire was reported at 10,000 acres, burned out of control, threatened homes, destroyed one home, and forced the closure of parts of US Highway 1 and Interstate 95 due to dense smoke [W1].\n* **Ignition Cause:** The retrieved article text describes active fire spread and impacts on February 28, 2011, but omits the ignition cause [W1].\n\n### Limits\n* **Satellite Observations:** Satellite thermal anomalies show 22 detections with a summed Fire Radiative Power (FRP) of 19593.5 MW in the query area on February 28, 2011 [5]. Satellite radiative power measurements cannot identify an ignition cause [K5].\n* **Information Gap:** The cause of ignition remains unverified in the retrieved article [W1]. Confirming an official ignition cause would require local investigation reports from the responsible fire management agencies [K5].\n\n### Satellite observations\n\nThe local FIRMS archive contains **22 satellite detections** in the **Selected map area at 28.75 N, 80.95 W** for **2011-02-28** (Aqua, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **19,593.50 MW**.\n- Strongest individual detection: **3,981.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+    "provider_used": "gemini-agent/gemini-3.8-flash",
+    "episode_summary": null
+  }
+}

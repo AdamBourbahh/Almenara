@@ -82,6 +82,16 @@ def test_official_quote_needs_event_date_and_locality_not_just_publication_year(
     assert not research.supported_ignition_excerpt(official().model_copy(update={"dataset_or_doi":"Official report; snippet only"}), quote, scope)
 
 
+@pytest.mark.parametrize('written_date', ['February 28, 2011', '28 February 2011', 'Feb 28, 2011', '28 de febrero de 2011'])
+def test_regional_report_match_accepts_english_and_spanish_activity_dates(written_date):
+    scope = copilot.resolve_scope(ExplainSpikeRequest(user_question='Orlando on 2011-02-28'))
+    excerpt = 'The fire near Orlando threatened homes and closed roads.'
+    source = official(f'Retrieved article text:\n{written_date}\n{excerpt}')
+    assert research.supported_report_excerpt(source, excerpt, scope)
+    wrong_day = copilot.resolve_scope(ExplainSpikeRequest(user_question='Orlando on 2011-02-27'))
+    assert not research.supported_report_excerpt(source, excerpt, wrong_day)
+
+
 @pytest.mark.parametrize("url,tier", [
     ("https://www.comunidad.madrid/noticias/fire", 2),
     ("https://earthobservatory.nasa.gov/fire", 2),
@@ -105,7 +115,7 @@ def test_filter_prefers_official_reports_and_drops_unrecognized_blogs():
 
 
 def test_crossref_metadata_does_not_become_incident_evidence(monkeypatch):
-    monkeypatch.delenv("COPILOT_OFFLINE")
+    monkeypatch.setenv("COPILOT_OFFLINE", "0")
     article = {"type":"journal-article", "DOI":"10.1234/fire.2020", "title":["Wildfire ignition and fire weather"],
         "published":{"date-parts":[[2020]]}, "author":[{"family":"Researcher"}], "container-title":["Fire research"]}
     items = [article, {**article, "DOI":"invented"}, {**article, "DOI":"10.1234/retracted", "relation":{"is-retracted-by":[{}]}},
@@ -135,7 +145,7 @@ def test_offline_research_never_calls_any_provider(monkeypatch):
 
 
 def test_article_retrieval_extracts_only_text_and_refuses_redirects(monkeypatch):
-    monkeypatch.delenv("COPILOT_OFFLINE")
+    monkeypatch.setenv("COPILOT_OFFLINE", "0")
     factory = httpx.Client
     html = "<html><nav>Unrelated rumor</nav><main><p>Madrid. 24 de julio de 2026.</p><p>" + "La causa del incendio permanece bajo investigación. " * 4 + "</p><script>invented cause</script></main></html>"
     def handle(request):
@@ -196,7 +206,7 @@ def test_malformed_search_items_cannot_crash_the_assistant(bad):
 
 
 def test_curated_index_contains_urls_not_incident_answers(monkeypatch):
-    monkeypatch.delenv('COPILOT_OFFLINE')
+    monkeypatch.setenv('COPILOT_OFFLINE', '0')
     scope=copilot.resolve_scope(ExplainSpikeRequest(user_question='Madrid 24 July 2026'))
     sources=research.indexed_sources(scope)
     assert sources and all('content must be retrieved' in c.dataset_or_doi for c in sources)
@@ -206,7 +216,7 @@ def test_curated_index_contains_urls_not_incident_answers(monkeypatch):
 
 
 def test_article_body_extraction_removes_share_links_and_preserves_encoding(monkeypatch):
-    monkeypatch.delenv('COPILOT_OFFLINE')
+    monkeypatch.setenv('COPILOT_OFFLINE', '0')
     factory=httpx.Client
     text='<html><meta charset="iso-8859-1"><main>Compartir en Facebook<div class="field--name-body"><p>Madrid. 24 de julio de 2026.</p><p>La gravedad del incendio de Madrid se atribuye al viento y las altas temperaturas. La investigación continúa sin causa confirmada.</p></div></main></html>'
     monkeypatch.setattr(research.httpx,'Client',lambda **kw:factory(transport=httpx.MockTransport(lambda r:httpx.Response(200,content=text.encode('latin-1'),headers={'content-type':'text/html'})),**kw))

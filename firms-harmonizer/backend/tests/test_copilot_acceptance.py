@@ -10,19 +10,18 @@ def offline(monkeypatch):
     monkeypatch.setenv('COPILOT_OFFLINE', '1')
 
 
-@pytest.mark.parametrize('place', ['Madrid', 'madrid', 'MADRID'])
 @pytest.mark.parametrize('phrase', ['How many detections in {p} on 2026-07-24?',
     '¿Cuántas detecciones hubo en {p} el 24 de julio de 2026?',
     'Quantas deteccoes em {p} em 24 julho 2026?',
     'Number of fires in {p} on July 24, 2026',
     'Total FRP in {p} on 24/07/2026',
     'Which detections were strongest in {p} on 2026-07-24?'])
-def test_numeric_paraphrases_match_accepted_centers_not_fire_events(real_archive, monkeypatch, place, phrase):
+def test_numeric_paraphrases_match_accepted_centers_not_fire_events(real_archive, monkeypatch, phrase):
     def forbidden(*a, **k):
         raise AssertionError('Numerical evidence must not depend on a model or web search')
     monkeypatch.setattr(c, 'complete', forbidden)
     monkeypatch.setattr(c, 'search_reports', forbidden)
-    result=c.answer(ExplainSpikeRequest(user_question=phrase.format(p=place)))
+    result=c.answer(ExplainSpikeRequest(user_question=phrase.format(p='mAdRiD')))
     assert '**2 satellite detections**' in result.explanation_markdown
     assert '**30.00 MW**' in result.explanation_markdown
     assert 'number of fires' in result.explanation_markdown

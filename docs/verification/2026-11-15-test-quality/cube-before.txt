@@ -1,0 +1,14 @@
+........................................................................ [ 68%]
+.................................                                        [100%]
+============================ slowest 10 durations =============================
+0.81s call     tests/test_cube_schema.py::test_generator_repeatability_performance_and_alternate_path
+0.78s call     tests/test_cube_schema.py::test_stage02_known_snpp_interval_is_exact_and_reproducible
+0.74s call     tests/test_cube_schema.py::test_mock_and_request_contract
+0.59s setup    tests/test_cube_schema.py::test_registered_real_regions_ingest_and_publish[chilecito_la_rioja--29.16--67.5-16]
+0.28s call     tests/test_cube_schema.py::test_stage03_lut_is_trained_by_the_core_harmonizer
+0.25s call     tests/test_cube_schema.py::test_stage02_tracked_global_counts_validate_the_known_snpp_outage
+0.25s call     tests/test_cube_schema.py::test_stage02_global_counts_complete_window[history3-24.0-False]
+0.25s call     tests/test_cube_schema.py::test_stage02_missing_calendar_day_does_not_trigger
+0.25s call     tests/test_cube_schema.py::test_stage02_global_counts_complete_window[history1-25.0-False]
+0.25s call     tests/test_cube_schema.py::test_stage02_global_counts_complete_window[history7-0.0-False]
+105 passed in 11.58s

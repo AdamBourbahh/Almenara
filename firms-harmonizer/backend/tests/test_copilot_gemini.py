@@ -182,3 +182,157 @@ def test_google_parallel_read_only_calls_receive_all_results_before_final_answer
     assert result.model_used == 'gemini-agent/gemini-3.8-flash'
     assert 'consistent with burning' in result.explanation_markdown
     assert len(turns) == 2
+
+
+def test_default_agent_is_gemini_even_with_groq_credentials(monkeypatch):
+    monkeypatch.delenv('COPILOT_PROVIDER', raising=False)
+    monkeypatch.setenv('GROQ_API_KEY', 'groq-secret')
+    monkeypatch.setenv('GEMINI_API_KEY', 'gemini-secret')
+    assert providers.agent_config()[:2] == ('gemini', 'gemini-secret')
+
+
+def test_county_named_english_article_reaches_gemini_without_keyword_match(gemini, monkeypatch):
+    from backend.api.schemas import CitationReference
+    from backend.api import copilot_research as research
+    source = CitationReference(id='[W1]', source_type='WEB_NEWS_REPORT', title='Regional wildfires',
+        authors_or_agency='NASA', year=2011, url='https://science.nasa.gov/regional-report/',
+        dataset_or_doi='Official report; article text retrieved; incident match unconfirmed',
+        relevance_note='Retrieved article text (location/date match must still be checked):\n'
+        'March 1, 2011\nAqua detected fires in eastern Florida on February 28, 2011.\n'
+        'The largest was the Example Fire in northern Brevard County. Smoke forced road closures.\n'
+        'The ignition cause was not reported.\nYou may also be interested in:\nUnrelated modern fire.')
+    searches = []
+    def search(query):
+        searches.append(query)
+        return [source]
+    monkeypatch.setattr(research, 'google_search_reports', search)
+    monkeypatch.setattr(research, 'enrich_official_reports', lambda reports: reports)
+    monkeypatch.setattr(agent.duckdb_engine, 'data_source', lambda: 'real')
+    calls = []
+    def turn(messages, **kwargs):
+        calls.append(list(messages))
+        if len(calls) == 1:
+            return {'tool_calls': [{'id': 'research', 'function': {'name': 'search_incident_reports', 'arguments': '{}'}}]}
+        tool_result = next(m for m in reversed(messages) if m['role'] == 'tool')
+        result = json.loads(tool_result['content'])
+        article = result['reports'][0]['article_text']
+        assert 'Example Fire' in article and 'Brevard' in article
+        assert 'Unrelated modern' not in article
+        assert 'assess location/date' in result['reports'][0]['status']
+        return {'content': 'For February 28, 2011, NASA reports the Example Fire in northern Brevard County, '
+                'a regional candidate for this activity. Its ignition cause was not reported; '
+                'a match to the selected cells is unconfirmed. [W1]'}
+    monkeypatch.setattr(agent, 'turn', turn)
+    result = agent.answer(ExplainSpikeRequest(user_question='Why did this happen?',
+        region_name='Selected map area', period_start='2011-02-28', period_end='2011-02-28',
+        aoi={'coordinates': [[[-81.03,28.68],[-80.88,28.68],[-80.88,28.82],[-81.03,28.82],[-81.03,28.68]]]}))
+    assert result.model_used.startswith('gemini-agent/')
+    assert 'Example Fire' in result.explanation_markdown
+    assert result.web_search_used
+    assert 'latitude 28.7500, longitude -80.9550' in searches[0]
+    assert result.map_context.period_start == '2011-02-28'
+    assert len(calls) == 3
+    assert 'Review and correct' in calls[-1][-1]['content']
+
+
+def test_selected_dates_are_supported_without_requerying_observations(gemini, monkeypatch):
+    monkeypatch.setattr(agent.duckdb_engine, 'data_source', lambda: 'real')
+    monkeypatch.setattr(agent, 'turn', lambda *args, **kwargs: {
+        'content': 'For February 28, 2011, the selected date alone does not establish ignition. [K5]'})
+    result = agent.answer(ExplainSpikeRequest(user_question='What ignited it?',
+        period_start='2011-02-28', period_end='2011-02-28'))
+    assert result.model_used.startswith('gemini-agent/')
+
+
+def test_gemini_can_refine_weak_incident_search_without_losing_initial_evidence(gemini, monkeypatch):
+    from backend.api.schemas import CitationReference
+    from backend.api import copilot_research as research
+    queries = []
+    source = CitationReference(id='[W1]', source_type='WEB_NEWS_REPORT', title='Regional report',
+        authors_or_agency='NASA', year=2011, url='https://science.nasa.gov/report/',
+        dataset_or_doi='Official report; article text retrieved',
+        relevance_note='Retrieved article text:\nThe Example Fire was reported in this region.')
+    def search(query):
+        queries.append(query)
+        return [] if len(queries) == 1 else [source]
+    monkeypatch.setattr(research, 'google_search_reports', search)
+    monkeypatch.setattr(research, 'enrich_official_reports', lambda reports: reports)
+    monkeypatch.setattr(agent.duckdb_engine, 'data_source', lambda: 'real')
+    turns = []
+    def turn(messages, **kwargs):
+        turns.append(list(messages))
+        if len(turns) <= 2:
+            assert 'search_incident_reports' not in kwargs['used']
+            args = {} if len(turns) == 1 else {'query': 'Brevard county incident reports'}
+            return {'tool_calls': [{'id': 'search'+str(len(turns)), 'function': {
+                'name': 'search_incident_reports', 'arguments': json.dumps(args)}}]}
+        assert 'search_incident_reports' in kwargs['used']
+        assert sum(m['role'] == 'tool' for m in messages) == 2
+        return {'content': 'The retrieved report describes the Example Fire as a regional candidate; '
+                'the selected footprint match and cause remain unconfirmed. [W1]'}
+    monkeypatch.setattr(agent, 'turn', turn)
+    result = agent.answer(ExplainSpikeRequest(user_question='Which incident was this?',
+        region_name='Orlando', period_start='2011-02-28', period_end='2011-02-28'))
+    assert result.model_used.startswith('gemini-agent/')
+    assert 'Brevard county incident reports' in queries[-1]
+    assert len(queries) == 2
+
+
+def test_article_evidence_is_bounded_without_replacing_reports_with_size_error():
+    from backend.api import copilot_research as research
+    from backend.api.schemas import CitationReference
+    sources = [CitationReference(id=f'[W{i}]', source_type='WEB_NEWS_REPORT', title='Report '+str(i),
+        authors_or_agency='NASA', year=2011, url=f'https://science.nasa.gov/report/{i}',
+        dataset_or_doi='Official report; article text retrieved',
+        relevance_note='Retrieved article text:\nThe fire was reported near the selected region. '*100)
+        for i in range(1, 5)]
+    result = research.investigator_reports(sources)
+    assert len(json.dumps(result, ensure_ascii=False)) <= 5500
+    assert all('The fire was reported' in r['article_text'] for r in result)
+    assert len(result) == 4
+
+
+def test_gemini_reviews_incident_draft_using_actual_article_not_local_fallback(gemini, monkeypatch):
+    from backend.api import copilot_research as research
+    from backend.api.schemas import CitationReference
+    source = CitationReference(id='[W1]', source_type='WEB_NEWS_REPORT', title='Regional report',
+        authors_or_agency='NASA', year=2011, url='https://science.nasa.gov/report/',
+        dataset_or_doi='Official report; article text retrieved',
+        relevance_note='Retrieved article text:\nThe Example Fire produced smoke and threatened homes.')
+    monkeypatch.setattr(research, 'google_search_reports', lambda query: [source])
+    monkeypatch.setattr(research, 'enrich_official_reports', lambda reports: reports)
+    monkeypatch.setattr(agent.duckdb_engine, 'data_source', lambda: 'real')
+    monkeypatch.setattr(agent.researcher, 'answer', lambda req: pytest.fail('Successful research replaced with local fallback'))
+    turns = []
+    def turn(messages, **kwargs):
+        turns.append(list(messages))
+        if len(turns) == 1:
+            return {'tool_calls': [{'id': 'search', 'function': {'name': 'search_incident_reports', 'arguments': '{}'}}]}
+        if len(turns) == 2:
+            return {'content': 'This is confirmed as the Example Fire, driven by high fuel loading. [W1]'}
+        assert kwargs['finish'] is True
+        assert 'fuel loading' in messages[-1]['content']
+        article = json.loads(next(m for m in messages if m['role'] == 'tool')['content'])['reports'][0]['article_text']
+        assert 'threatened homes' in article
+        return {'content': 'The Example Fire is a regional candidate. The report documents smoke and threats '
+                'to homes; its ignition cause and a match to these cells remain unverified. [W1]'}
+    monkeypatch.setattr(agent, 'turn', turn)
+    result = agent.answer(ExplainSpikeRequest(user_question='Which fire was this?',
+        region_name='Orlando', period_start='2011-02-28', period_end='2011-02-28'))
+    assert result.model_used.startswith('gemini-agent/')
+    assert 'high fuel loading' not in result.explanation_markdown
+    assert 'regional candidate' in result.explanation_markdown
+
+
+def test_episode_profile_does_not_replace_explicit_map_period_in_followups(gemini, monkeypatch):
+    monkeypatch.setattr(agent.duckdb_engine, 'data_source', lambda: 'real')
+    monkeypatch.setattr(agent.researcher, 'profile_fire_episode_from_duckdb', lambda *args, **kwargs: {
+        'status': 'ok', 'window_start': '2011-02-13', 'window_end': '2011-03-15', 'peak_date': '2011-02-28'})
+    turns = iter([
+        {'tool_calls': [{'id': 'profile', 'function': {'name': 'profile_episode', 'arguments': '{"target_date":"2011-02-28"}'}}]},
+        {'content': 'The profile describes a thermal activity window around the selected day, not official incident duration. [6]'}])
+    monkeypatch.setattr(agent, 'turn', lambda *args, **kwargs: next(turns))
+    result = agent.answer(ExplainSpikeRequest(user_question='Describe progression around this day',
+        region_name='Orlando', period_start='2011-02-28', period_end='2011-02-28'))
+    assert result.model_used.startswith('gemini-agent/')
+    assert result.map_context.period_start == result.map_context.period_end == '2011-02-28'

@@ -169,9 +169,11 @@ def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: st
         'peak_daily_fre_mj_km2': peak['harmonized_fre_mj_km2'],
         'peak_daily_fre_gj': peak['fre_gj'],
         'total_episode_fre_gj': energy, 'estimated_biomass_burned_tonnes': biomass,
-        'estimated_pm25_tonnes': biomass*9.5/1000, 'estimated_co2_tonnes': biomass*1580/1000,
-        'emission_assumptions': {'biomass_kg_per_mj':0.368,'pm25_g_per_kg':9.5,'co2_g_per_kg':1580,
-            'status':'Assumed constant factors; not measured emissions or a biome-specific inventory.'},
+        'estimated_pm25_tonnes': (math.fsum(c['pm25_emitted_kg'] for c in episode)/1000
+            if all(c.get('pm25_emitted_kg') is not None for c in episode) else None),
+        'estimated_co2_tonnes': biomass*1580/1000,
+        'emission_assumptions': {'biomass_kg_per_mj':0.368,'pm25_g_per_kg':None,'co2_g_per_kg':1580,
+            'status':'PM2.5 requires measured annual fuel classes and supported factors. CO2 uses an assumed constant factor; neither is measured emissions.'},
         'dominant_sensors': sorted(sensors, key=lambda s:(-sensors[s],s)),
         'sensor_active_days': sensors, 'gap_filling_occurred': any(c['is_gap_filled'] for c in episode),
         'gap_filled_days': sum(c['is_gap_filled'] for c in episode),
@@ -358,7 +360,8 @@ def synthesize_scientific_dossier(req,scope,episode:dict,reports:list[CitationRe
             +f"Available AOI archive: {p['coverage_start']}–{p['coverage_end']}.")
         lines.append('### Thermodynamic, Atmospheric & Ecological Consequences\n\n'
             +f"- Estimated dry biomass consumed: **{p['estimated_biomass_burned_tonnes']:,.3f} tonnes**, using 0.368 kg/MJ. [1]\n"
-            +f"- Assumed-factor PM2.5 emissions: **{p['estimated_pm25_tonnes']:,.3f} tonnes**, using 9.5 g/kg dry biomass.\n"
+            +(f"- PM2.5 emission estimate: **{p['estimated_pm25_tonnes']:,.3f} tonnes**, using supported annual fuel inputs.\n" if p['estimated_pm25_tonnes'] is not None
+              else "- PM2.5 emission estimate unavailable: measured annual fuel support is incomplete.\n")
             +f"- Assumed-factor CO2 emissions: **{p['estimated_co2_tonnes']:,.3f} tonnes**, using 1,580 g/kg dry biomass.\n\n"
             +'These are model and factor-based scenario estimates, not measured emissions, ambient PM2.5 concentrations or burned hectares. Emission factors vary with fuel and combustion. Local health effects, ecological losses, casualties and damage require incident-specific evidence; they cannot be inferred from energy alone. [11]')
         month=p['average_peak_month']
@@ -368,7 +371,7 @@ def synthesize_scientific_dossier(req,scope,episode:dict,reports:list[CitationRe
         lines.append('### Sensor & Statistical Verification\n\n'
             +f"Active sensors: **{', '.join(p['dominant_sensors']) or 'unavailable'}**; reconstructed days: **{p['gap_filled_days']}**. Reconstruction enabled: **{'yes' if p['reconstruction_enabled'] else 'no'}**. Selected polygon area: **{p['represented_area_km2']:,.3f} km²**. [4] [6]\n\n"
             +climatology+inflation_text+f"Industrial candidates in the full AOI history: **{p['industrial_candidate_cells']} cells**, **{p['industrial_candidate_detections']:,} cube detection counts**; these are screening counts, not distinct facilities or fires. [10]\n\n"
-            +'This is a statistical thermal-activity classification, not confirmation of vegetation fuel or an identified wildfire. MODIS and VIIRS differ in resolution and sensitivity; calibrated FRE is used instead of comparing raw counts as fire totals. The episode profile integrates the dashboard density over the cube cells represented on each day, with industrial sources excluded; it does not multiply every day by the full polygon area. This remains a model-derived estimate: sensor means cover different subsets of cells and missing footprints contribute no energy, even if a temporal prior is positive. H3 cell centers define the selection, not an administrative boundary or mapped fire perimeter. [2] [3] [5]')
+            +'This is a statistical thermal-activity classification, not confirmation of vegetation fuel or an identified wildfire. MODIS and VIIRS differ in resolution and sensitivity; calibrated FRE is used instead of comparing raw counts as fire totals. The episode profile sums within-cell sensor fusion times exact cell areas, with industrial sources excluded. Dashboard density is that sum divided by the selected polygon area. Unknown days remain unfilled; only explicitly evidenced gaps permit reconstruction. This is a sampled model-derived energy proxy, not a continuous physical measurement. H3 cell centers define the selection, not an administrative boundary or mapped fire perimeter. [2] [3] [5]')
     else:
         lines.extend(['### Temporal Progression & Episode Duration\n\n'+episode.get('message','No local episode profile is available.')+' Official duration is not established.',
             '### Thermodynamic, Atmospheric & Ecological Consequences\n\nNo integrated episode energy is available; biomass, emissions and ecological losses have not been invented. Instantaneous MW and raw detection counts cannot replace them. [1]',

@@ -1,0 +1,371 @@
+{
+  "selection_method": "Original data-selected Orlando holdout, same coordinates and date; no curated incident entries added.",
+  "independent_current_cube": {
+    "detections": 22,
+    "summed_frp_mw": 19593.5,
+    "mapped_energy_gj": 52499.43275733092,
+    "cube_rows": 30
+  },
+  "regressions": {
+    "passed": 192,
+    "command": ".venv/bin/python -m pytest backend/tests/test_copilot_agent.py backend/tests/test_copilot_gemini.py backend/tests/test_copilot_research.py backend/tests/test_copilot_investigator.py backend/tests/test_copilot_metrics.py backend/tests/test_copilot_acceptance.py backend/tests/test_explain_spike.py -q"
+  },
+  "questions": [
+    {
+      "request": {
+        "region_name": "Selected map area at 28.75 N, 80.95 W",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -81.03,
+                28.68
+              ],
+              [
+                -80.88,
+                28.68
+              ],
+              [
+                -80.88,
+                28.82
+              ],
+              [
+                -81.03,
+                28.82
+              ],
+              [
+                -81.03,
+                28.68
+              ]
+            ]
+          ]
+        },
+        "period_start": "2011-02-28",
+        "period_end": "2011-02-28",
+        "user_question": "is this a fire?"
+      },
+      "response": {
+        "physical_classification": "RETRIEVED_EVIDENCE",
+        "explanation_markdown": "**Yes.** Satellite observations indicate thermal activity consistent with active burning in the selected area on February 28, 2011.\n\n### Evidence\n* **Satellite Observations:** MODIS sensors on the Aqua and Terra satellites recorded 22 active-fire detections within the selected area (centered at 28.75°N, 80.95°W) on February 28, 2011, totaling 19,593.5 MW of summed fire radiative power, with a maximum single-detection FRP of 3,981.2 MW [5].\n* **Documented Incident Candidates:** A NASA Earth Observatory report identified three large wildfires burning out of control in eastern Florida on February 28, 2011 [W1]. Plausible regional candidates include:\n  * **Iron Horse Fire:** Reported as burning in northern Brevard County, estimated at 10,000 acres, destroying one home, threatening populated areas, and producing dense smoke that forced closures of Interstate 95 and US Highway 1 [W1].\n  * **Keller Fire:** Reported further north, also resulting in closures of Interstate 95 and Highway 1 [W1].\n  * **Ferry-7 Fire:** Reported as burning primarily in National Forests [W1].\n\n### Limits\n* Thermal detections reflect observation clusters and do not verify that the selected cells belong to a specific fire's perimeter [K5] [5].\n* Regional incident reports provide plausible candidates, not confirmed identities for individual selected hexagons [K5] [W1].\n* Ignition cause and start dates are absent from the retrieved article [K5] [W1].\n\n### Satellite observations\n\nThe local FIRMS archive contains **22 satellite detections** in the **Selected map area at 28.75 N, 80.95 W** for **2011-02-28** (Aqua, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **19,593.50 MW**.\n- Strongest individual detection: **3,981.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[K5]",
+            "source_type": "NASA_DATASET",
+            "title": "Ignition and fire spread evidence",
+            "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+            "year": 2026,
+            "dataset_or_doi": "Versioned local scientific note",
+            "url": "https://firms.modaps.eosdis.nasa.gov/faq/",
+            "relevance_note": "Satellite thermal detections alone cannot establish what ignited a fire. Ignition evidence requires a matching investigation or incident report. Wind, high temperature, low humidity and fuel conditions can affect spread but do not establish ignition. A command post location is not necessarily the location of a fire. A regional report is not proof that each selected satellite cell belongs to that incident. A cause absent from retrieved reports is unverified in those reports, not necessarily unknown to authorities."
+          },
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          },
+          {
+            "id": "[W1]",
+            "source_type": "WEB_NEWS_REPORT",
+            "title": "nasa.gov",
+            "authors_or_agency": "science.nasa.gov",
+            "year": 2026,
+            "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed",
+            "url": "https://science.nasa.gov/earth/earth-observatory/wildfires-in-florida-49499/",
+            "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+          }
+        ],
+        "web_search_used": true,
+        "search_query_executed": "Orlando near latitude 28.7500, longitude -80.9550 wildfire official reports 2011-02-28 to 2011-02-28. Orlando fire 2011-02-28",
+        "model_used": "gemini-agent/gemini-3.8-flash",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected map area at 28.75 N, 80.95 W",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -81.03,
+                  28.68
+                ],
+                [
+                  -80.88,
+                  28.68
+                ],
+                [
+                  -80.88,
+                  28.82
+                ],
+                [
+                  -81.03,
+                  28.82
+                ],
+                [
+                  -81.03,
+                  28.68
+                ]
+              ]
+            ]
+          },
+          "period_start": "2011-02-28",
+          "period_end": "2011-02-28",
+          "h3_index": null
+        },
+        "answer_markdown": "**Yes.** Satellite observations indicate thermal activity consistent with active burning in the selected area on February 28, 2011.\n\n### Evidence\n* **Satellite Observations:** MODIS sensors on the Aqua and Terra satellites recorded 22 active-fire detections within the selected area (centered at 28.75°N, 80.95°W) on February 28, 2011, totaling 19,593.5 MW of summed fire radiative power, with a maximum single-detection FRP of 3,981.2 MW [5].\n* **Documented Incident Candidates:** A NASA Earth Observatory report identified three large wildfires burning out of control in eastern Florida on February 28, 2011 [W1]. Plausible regional candidates include:\n  * **Iron Horse Fire:** Reported as burning in northern Brevard County, estimated at 10,000 acres, destroying one home, threatening populated areas, and producing dense smoke that forced closures of Interstate 95 and US Highway 1 [W1].\n  * **Keller Fire:** Reported further north, also resulting in closures of Interstate 95 and Highway 1 [W1].\n  * **Ferry-7 Fire:** Reported as burning primarily in National Forests [W1].\n\n### Limits\n* Thermal detections reflect observation clusters and do not verify that the selected cells belong to a specific fire's perimeter [K5] [5].\n* Regional incident reports provide plausible candidates, not confirmed identities for individual selected hexagons [K5] [W1].\n* Ignition cause and start dates are absent from the retrieved article [K5] [W1].\n\n### Satellite observations\n\nThe local FIRMS archive contains **22 satellite detections** in the **Selected map area at 28.75 N, 80.95 W** for **2011-02-28** (Aqua, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **19,593.50 MW**.\n- Strongest individual detection: **3,981.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "provider_used": "gemini-agent/gemini-3.8-flash",
+        "episode_summary": null
+      },
+      "tool_sequence": [
+        "turn",
+        "retrieve_observations",
+        "google_search_reports",
+        "enrich_official_reports",
+        "turn",
+        "turn"
+      ]
+    },
+    {
+      "request": {
+        "region_name": "Selected map area at 28.75 N, 80.95 W",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -81.03,
+                28.68
+              ],
+              [
+                -80.88,
+                28.68
+              ],
+              [
+                -80.88,
+                28.82
+              ],
+              [
+                -81.03,
+                28.82
+              ],
+              [
+                -81.03,
+                28.68
+              ]
+            ]
+          ]
+        },
+        "period_start": "2011-02-28",
+        "period_end": "2011-02-28",
+        "user_question": "why did this happen? Is a specific incident or ignition cause documented?"
+      },
+      "response": {
+        "physical_classification": "RETRIEVED_EVIDENCE",
+        "explanation_markdown": "A specific ignition cause is not documented in the retrieved report. The activity in eastern Florida corresponds regionally to several candidate wildfires reported active on that date [W1].\n\n### Documented Incident Context\n* **Regional Candidates:** A NASA Earth Observatory report citing the National Interagency Fire Center stated that three large wildfires were burning out of control in eastern Florida on February 28, 2011 [W1]:\n  * **Iron Horse Fire:** Reported burning in northern Brevard County; reached 10,000 acres, forced closures of parts of US Highway 1 and Interstate 95, destroyed one home as of March 1, and was burning toward more densely populated areas [W1].\n  * **Keller Fire:** Located farther north, which also forced closures of Highway 1 and Interstate 95 [W1].\n  * **Ferry-7 Fire:** A smaller fire reported burning primarily in National Forests [W1].\n* **Ignition Cause:** The retrieved article does not document an ignition cause for any of these fires [W1].\n\n### Limits\n* Satellite detections indicate thermal activity, but cannot establish ignition cause or assign individual detections to a specific incident perimeter [K5].\n* The ignition cause is unverified in the retrieved article, which does not necessarily mean it was undetermined by official fire management agencies [K5]. Identifying a confirmed cause would require local investigation records from state or local wildfire authorities.",
+        "citations": [
+          {
+            "id": "[K5]",
+            "source_type": "NASA_DATASET",
+            "title": "Ignition and fire spread evidence",
+            "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+            "year": 2026,
+            "dataset_or_doi": "Versioned local scientific note",
+            "url": "https://firms.modaps.eosdis.nasa.gov/faq/",
+            "relevance_note": "Satellite thermal detections alone cannot establish what ignited a fire. Ignition evidence requires a matching investigation or incident report. Wind, high temperature, low humidity and fuel conditions can affect spread but do not establish ignition. A command post location is not necessarily the location of a fire. A regional report is not proof that each selected satellite cell belongs to that incident. A cause absent from retrieved reports is unverified in those reports, not necessarily unknown to authorities."
+          },
+          {
+            "id": "[W1]",
+            "source_type": "WEB_NEWS_REPORT",
+            "title": "nasa.gov",
+            "authors_or_agency": "science.nasa.gov",
+            "year": 2026,
+            "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed",
+            "url": "https://science.nasa.gov/earth/earth-observatory/wildfires-in-florida-49499/",
+            "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+          }
+        ],
+        "web_search_used": true,
+        "search_query_executed": "Orlando near latitude 28.7500, longitude -80.9550 wildfire official reports 2011-02-28 to 2011-02-28. wildfire Florida Brevard Volusia February 2011 cause incident | Orlando near latitude 28.7500, longitude -80.9550 wildfire official reports 2011-02-28 to 2011-02-28. Iron Horse Fire Brevard County cause February 2011",
+        "model_used": "gemini-agent/gemini-3.8-flash",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected map area at 28.75 N, 80.95 W",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -81.03,
+                  28.68
+                ],
+                [
+                  -80.88,
+                  28.68
+                ],
+                [
+                  -80.88,
+                  28.82
+                ],
+                [
+                  -81.03,
+                  28.82
+                ],
+                [
+                  -81.03,
+                  28.68
+                ]
+              ]
+            ]
+          },
+          "period_start": "2011-02-28",
+          "period_end": "2011-02-28",
+          "h3_index": null
+        },
+        "answer_markdown": "A specific ignition cause is not documented in the retrieved report. The activity in eastern Florida corresponds regionally to several candidate wildfires reported active on that date [W1].\n\n### Documented Incident Context\n* **Regional Candidates:** A NASA Earth Observatory report citing the National Interagency Fire Center stated that three large wildfires were burning out of control in eastern Florida on February 28, 2011 [W1]:\n  * **Iron Horse Fire:** Reported burning in northern Brevard County; reached 10,000 acres, forced closures of parts of US Highway 1 and Interstate 95, destroyed one home as of March 1, and was burning toward more densely populated areas [W1].\n  * **Keller Fire:** Located farther north, which also forced closures of Highway 1 and Interstate 95 [W1].\n  * **Ferry-7 Fire:** A smaller fire reported burning primarily in National Forests [W1].\n* **Ignition Cause:** The retrieved article does not document an ignition cause for any of these fires [W1].\n\n### Limits\n* Satellite detections indicate thermal activity, but cannot establish ignition cause or assign individual detections to a specific incident perimeter [K5].\n* The ignition cause is unverified in the retrieved article, which does not necessarily mean it was undetermined by official fire management agencies [K5]. Identifying a confirmed cause would require local investigation records from state or local wildfire authorities.",
+        "provider_used": "gemini-agent/gemini-3.8-flash",
+        "episode_summary": null
+      },
+      "tool_sequence": [
+        "turn",
+        "google_search_reports",
+        "enrich_official_reports",
+        "turn",
+        "google_search_reports",
+        "enrich_official_reports",
+        "turn",
+        "turn"
+      ]
+    },
+    {
+      "request": {
+        "region_name": "Selected map area at 28.75 N, 80.95 W",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -81.03,
+                28.68
+              ],
+              [
+                -80.88,
+                28.68
+              ],
+              [
+                -80.88,
+                28.82
+              ],
+              [
+                -81.03,
+                28.82
+              ],
+              [
+                -81.03,
+                28.68
+              ]
+            ]
+          ]
+        },
+        "period_start": "2011-02-28",
+        "period_end": "2011-02-28",
+        "user_question": "how much energy in GJ was released here?"
+      },
+      "response": {
+        "physical_classification": "RETRIEVED_EVIDENCE",
+        "explanation_markdown": "For the selected area on February 28, 2011, the estimated fire radiative energy released was **52,499.43 GJ** [6].\n\n### Summary of Measurements\n* **Radiative Energy (FRE):** 52,499.43 GJ (both mapped direct observations and regional model estimate) [6]\n* **Estimated Dry Biomass Consumed:** 19,319.79 tonnes (calculated using the conversion factor of 0.368 tonnes per GJ) [K6] [6]\n* **Satellite Observations:** 22 detections across an active footprint of 140.11 km² [6]\n\n### Limits\n* Mapped energy represents satellite-derived Fire Radiative Energy integrated over time; it does not capture total chemical or convective heat release [K1].\n* Biomass consumption is an estimate derived using a standardized conversion rate (0.368 kg/MJ) rather than direct ground measurements [K6].\n\n### Visible map energy\n\nFor the same area and requested dates, the mapped observation-based proxy is **52,499.433 GJ**, with **19,319.791 tonnes** of derived biomass. This matches the Explore panel's map calculation. [6]\n\nBoth calculations fuse available sensor observations within each cell and integrate against exact cell areas. The temporal estimate can additionally include reconstruction across explicitly evidenced gaps; the map contains observed energy only. Neither is a continuous physical energy measurement.\n\n### Regional model energy\n\nFor **Selected map area at 28.75 N, 80.95 W**, **2011-02-28 to 2011-02-28**, the scientific cube gives **52,499.433 GJ** of integrated fire radiative energy. [6]\n\n### Scope and method\n\nThis uses per-cell observed energy with reconstruction limited to evidenced gaps, with industrial heat sources excluded. The calculation covers **227.329 km²** of requested polygon area and **1 days**, including **0 reconstructed days**. It uses the dashboard's 2001–2026 analysis history, then selects the requested inclusive dates.\n\n### Derived estimates\n\n- Estimated dry biomass consumed: **19,319.791 tonnes** (0.368 kg/MJ). This is a model-derived estimate, not measured burned area or emissions. [1]\n\n- The highest-energy day in this period is **2011-02-28** with **52,499.433 GJ**. [6]\n\n### Interpretation\n\nGJ = Σ daily FRE (MJ/km²) × the cube cell area represented on that day (km²) / 1,000. The full polygon area is not used for every day. Model density averages sensors with different spatial coverage; totals are derived estimates. This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. Raw detection counts below use accepted centers before the scientific industrial-source filter.\n\n### Available dates\n\nThe requested period is 2011-02-28–2011-02-28; the model series available for this query ends on **2011-02-28**. Dates after archive coverage are not forecasts. Selected polygon area and observed cell footprint also differ: the mapped footprint is **140.113 km²**, not burned area.",
+        "citations": [
+          {
+            "id": "[K1]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Fire radiative power and energy",
+            "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+            "year": 2026,
+            "dataset_or_doi": "Versioned local scientific note",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "FRP is instantaneous fire radiative power in MW, equivalent to MJ per second. FRE is energy integrated over time in MJ. One GJ is 1000 MJ. Summing instantaneous satellite FRP samples does not give energy. The local scientific energy tool integrates calibrated daily FRE over the cube cells represented each day. Estimates depend on temporal reconstruction and sensor coverage."
+          },
+          {
+            "id": "[K6]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Biomass and emission estimates",
+            "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+            "year": 2026,
+            "dataset_or_doi": "Versioned local scientific note",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "The application estimates dry biomass consumed using 0.368 kg per MJ of integrated FRE. For GJ this is energy_GJ times 0.368 tonnes. Episode scenario emissions assume 9.5 g PM2.5 per kg biomass and 1580 g CO2 per kg biomass. These constant factors do not establish measured emissions, ambient air concentrations, health impacts, casualties, ecological damage or burned hectares. Emission factors vary with fuel and combustion. Dashboard PM2.5 and burned-area validation fields can remain null."
+          },
+          {
+            "id": "[6]",
+            "source_type": "NASA_DATASET",
+            "title": "Local FIRMS-Harmonizer scientific cube",
+            "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+            "year": 2026,
+            "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+            "url": null,
+            "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+          },
+          {
+            "id": "[1]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+            "authors_or_agency": "Wooster et al.",
+            "year": 2005,
+            "dataset_or_doi": "10.1029/2005JD006318",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "gemini-agent/gemini-3.8-flash",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected map area at 28.75 N, 80.95 W",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -81.03,
+                  28.68
+                ],
+                [
+                  -80.88,
+                  28.68
+                ],
+                [
+                  -80.88,
+                  28.82
+                ],
+                [
+                  -81.03,
+                  28.82
+                ],
+                [
+                  -81.03,
+                  28.68
+                ]
+              ]
+            ]
+          },
+          "period_start": "2011-02-28",
+          "period_end": "2011-02-28",
+          "h3_index": null
+        },
+        "answer_markdown": "For the selected area on February 28, 2011, the estimated fire radiative energy released was **52,499.43 GJ** [6].\n\n### Summary of Measurements\n* **Radiative Energy (FRE):** 52,499.43 GJ (both mapped direct observations and regional model estimate) [6]\n* **Estimated Dry Biomass Consumed:** 19,319.79 tonnes (calculated using the conversion factor of 0.368 tonnes per GJ) [K6] [6]\n* **Satellite Observations:** 22 detections across an active footprint of 140.11 km² [6]\n\n### Limits\n* Mapped energy represents satellite-derived Fire Radiative Energy integrated over time; it does not capture total chemical or convective heat release [K1].\n* Biomass consumption is an estimate derived using a standardized conversion rate (0.368 kg/MJ) rather than direct ground measurements [K6].\n\n### Visible map energy\n\nFor the same area and requested dates, the mapped observation-based proxy is **52,499.433 GJ**, with **19,319.791 tonnes** of derived biomass. This matches the Explore panel's map calculation. [6]\n\nBoth calculations fuse available sensor observations within each cell and integrate against exact cell areas. The temporal estimate can additionally include reconstruction across explicitly evidenced gaps; the map contains observed energy only. Neither is a continuous physical energy measurement.\n\n### Regional model energy\n\nFor **Selected map area at 28.75 N, 80.95 W**, **2011-02-28 to 2011-02-28**, the scientific cube gives **52,499.433 GJ** of integrated fire radiative energy. [6]\n\n### Scope and method\n\nThis uses per-cell observed energy with reconstruction limited to evidenced gaps, with industrial heat sources excluded. The calculation covers **227.329 km²** of requested polygon area and **1 days**, including **0 reconstructed days**. It uses the dashboard's 2001–2026 analysis history, then selects the requested inclusive dates.\n\n### Derived estimates\n\n- Estimated dry biomass consumed: **19,319.791 tonnes** (0.368 kg/MJ). This is a model-derived estimate, not measured burned area or emissions. [1]\n\n- The highest-energy day in this period is **2011-02-28** with **52,499.433 GJ**. [6]\n\n### Interpretation\n\nGJ = Σ daily FRE (MJ/km²) × the cube cell area represented on that day (km²) / 1,000. The full polygon area is not used for every day. Model density averages sensors with different spatial coverage; totals are derived estimates. This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. Raw detection counts below use accepted centers before the scientific industrial-source filter.\n\n### Available dates\n\nThe requested period is 2011-02-28–2011-02-28; the model series available for this query ends on **2011-02-28**. Dates after archive coverage are not forecasts. Selected polygon area and observed cell footprint also differ: the mapped footprint is **140.113 km²**, not burned area.",
+        "provider_used": "gemini-agent/gemini-3.8-flash",
+        "episode_summary": null
+      },
+      "tool_sequence": [
+        "turn",
+        "retrieve_energy",
+        "turn"
+      ]
+    }
+  ]
+}

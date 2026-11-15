@@ -335,16 +335,56 @@ def supported_report_excerpt(citation: CitationReference, excerpt: str, scope) -
     url_date = re.search(r"(20\d{2})(\d{2})(\d{2})", citation.url or "")
     if url_date and scope.start <= "-".join(url_date.groups()) <= scope.end:
         return True
-    months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
-    for number, month in enumerate(months, 1):
-        for match in re.finditer(rf"\b(\d{{1,2}})\s+(?:de\s+)?{month}\s+(?:de\s+)?(20\d{{2}})\b", text):
+    from backend.api.fire_copilot import MONTHS
+    for month, number in MONTHS.items():
+        matches = [(m[1], m[2]) for m in re.finditer(rf"\b(\d{{1,2}})\s+(?:de\s+)?{month}\s+(?:de\s+)?(20\d{{2}})\b", text)]
+        matches += [(m[1], m[2]) for m in re.finditer(rf"\b{month}\s+(\d{{1,2}})(?:st|nd|rd|th)?[,]?\s+(20\d{{2}})\b", text)]
+        for day, year in matches:
             try:
-                event_date = date(int(match[2]), number, int(match[1])).isoformat()
+                event_date = date(int(year), number, int(day)).isoformat()
             except ValueError:
                 continue
             if scope.start <= event_date <= scope.end:
                 return True
     return False
+
+
+def article_context(citation: CitationReference, max_chars: int = 1800) -> str:
+    """Give the investigator verbatim text without a locality-keyword veto.
+
+    A study envelope can contain counties whose names differ from the map label.
+    The model assesses that relationship; retrieval alone never verifies a match.
+    Keep complete sentences, including negation, and omit typical related links.
+    """
+    if 'article text retrieved' not in citation.dataset_or_doi:
+        return ''
+    content = citation.relevance_note.split(':\n', 1)[-1]
+    content = re.split(r'You may also be interested in:|References & Resources|Keep Exploring', content, maxsplit=1)[0]
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+|\n+', content) if s.strip()]
+    selected = []
+    size = 0
+    for sentence in sentences:
+        if size + len(sentence) + 1 > max_chars:
+            break
+        selected.append(sentence)
+        size += len(sentence) + 1
+    return '\n'.join(selected)
+
+
+def investigator_reports(citations: list[CitationReference]) -> list[dict]:
+    """Pack actual article evidence within the agent's tool-message budget."""
+    sources = citations[:4]
+    limit = 1800
+    while True:
+        result = [{'source_id': c.id, 'title': c.title, 'url': c.url,
+                   'article_text': article_context(c, limit),
+                   'status': 'Retrieved article; assess location/date and incident relevance.'
+                   if 'article text retrieved' in c.dataset_or_doi else 'Search lead only; article unavailable.'}
+                  for c in sources]
+        import json
+        if len(json.dumps(result, ensure_ascii=False)) <= 5500 or limit <= 300:
+            return result
+        limit -= 200
 
 
 def incident_passages(citation: CitationReference, scope) -> list[str]:

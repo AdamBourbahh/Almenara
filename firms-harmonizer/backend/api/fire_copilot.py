@@ -333,7 +333,7 @@ def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
         return [], ""
     cache_key = json.dumps([scope.label, scope.start, scope.end, scope.search_query])
     cached = SEARCH_CACHE.get(cache_key)
-    if cached and monotonic() - cached[0] < 600:
+    if cached and monotonic() - cached[0] < (600 if cached[1] else 30):
         # A failed article fetch must not freeze a snippet-only answer after the
         # network recovers. Successful article bodies have their own bounded cache.
         citations = research.enrich_official_reports(cached[1])
@@ -379,8 +379,7 @@ def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
     candidates = [c.model_copy(update={"id": f"[W{i+1}]"}) for i,c in enumerate(list(unique.values())[:8])]
     citations = research.enrich_official_reports(candidates)
     executed = official + " | " + news
-    if citations:
-        SEARCH_CACHE.put(cache_key, (monotonic(), citations, executed))
+    SEARCH_CACHE.put(cache_key, (monotonic(), citations, executed))
     return citations, executed
 
 

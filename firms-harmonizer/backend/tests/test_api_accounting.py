@@ -101,7 +101,7 @@ def test_biomass_integrates_density_over_the_cells_present_each_day(sparse_cube)
     by_date = {cell["date"]: cell for cell in data["calendar_series"]}
     for day, (density, cell) in expected.items():
         energy_mj = density * h3.cell_area(cell, unit="km^2")
-        assert by_date[day]["harmonized_fre_mj_km2"] == pytest.approx(density)
+        assert by_date[day]["harmonized_fre_mj_km2"] * data['aoi_area_km2'] == pytest.approx(energy_mj)
         assert by_date[day]["biomass_burned_tonnes"] == pytest.approx(routes.WOOSTER_KG_PER_MJ * energy_mj / 1000)
     assert all(cell["biomass_burned_tonnes"] == 0 for d, cell in by_date.items() if d not in expected)
     total_mj = sum(density * h3.cell_area(cell, unit="km^2") for density, cell in expected.values())
@@ -112,14 +112,14 @@ def test_aoi_area_is_the_polygon_area_not_the_burning_cells(sparse_cube):
     client, _ = sparse_cube
     aoi, data = analyze_sparse(client)
     _, r7, area = queries.get_hierarchical_h3_filter(aoi["coordinates"])
-    assert len(r7) > 2 and data["aoi_area_km2"] == pytest.approx(area)
+    assert len(r7) > 2 and data["aoi_area_km2"] == pytest.approx(queries.polygon_area_km2(aoi['coordinates']))
 
 
 def test_calendar_ends_on_the_last_cube_day(sparse_cube):
     client, _ = sparse_cube
     _, data = analyze_sparse(client, enable_kalman_gap_filling=True)
     dates = [cell["date"] for cell in data["calendar_series"]]
-    assert dates[0] == "2020-01-01" and dates[-1] == "2020-03-03" and len(dates) == 63
+    assert dates[0] == "2020-03-01" and dates[-1] == "2020-03-03" and len(dates) == 3
 
 
 def test_noaa20_and_noaa21_bits_are_labelled(sparse_cube):
@@ -127,9 +127,18 @@ def test_noaa20_and_noaa21_bits_are_labelled(sparse_cube):
     _, data = analyze_sparse(client)
     sensors = {cell["date"]: cell["active_sensors"] for cell in data["calendar_series"]}
     assert sensors["2020-03-01"] == ["Terra"]
-    assert sensors["2020-03-02"] == ["VIIRS NOAA-20", "VIIRS NOAA-21"]
+    assert sensors["2020-03-02"] == ["NOAA-20", "NOAA-21"]
     assert sensors["2020-03-03"] == ["Terra", "Aqua"]
-    assert sensors["2020-01-01"] == []
+    assert '2020-01-01' not in sensors  # Before the actual fixture archive starts.
+
+
+def test_daily_footprint_metadata_aligns_with_clipped_calendar(sparse_cube):
+    client, expected = sparse_cube
+    aoi, _ = analyze_sparse(client)
+    r4, r7, _ = queries.get_hierarchical_h3_filter(aoi['coordinates'])
+    result = queries.fetch_aoi_aggregated_data(r4,r7,2020,2020,True)
+    assert len(result.daily['epoch_day']) == len(result.daily_area_km2) == 3
+    assert result.daily_area_km2 == pytest.approx([h3.cell_area(cell,unit='km^2') for _,cell in expected.values()])
 
 
 def test_polygon_vertex_limit():
