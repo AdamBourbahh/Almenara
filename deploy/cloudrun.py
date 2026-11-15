@@ -35,6 +35,9 @@ def gcloud_binary() -> str:
     found = shutil.which("gcloud") or (str(WINDOWS_GCLOUD) if WINDOWS_GCLOUD.is_file() else None)
     if not found:
         raise SystemExit("gcloud CLI not found. Install the Google Cloud CLI and run `gcloud auth login`.")
+    bin_dir = str(Path(found).parent)
+    if bin_dir not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
     return found
 
 
