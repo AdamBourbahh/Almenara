@@ -626,7 +626,7 @@ export function HexagonMap() {
 
       {/* Legend below the Google Maps-style search toolbar. */}
       <div data-map-ui className="absolute left-3 top-[76px] z-10 max-w-[280px] rounded-xl shadow-lg border border-rule bg-panel/95 px-3 py-2">
-        {showHeat && (
+        {showHeat && hexagons.length > 0 && (
           <div className="mb-2 space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="inline-block h-2.5 w-24" style={{ background: `linear-gradient(90deg, ${(viewMode === "RAW" ? (theme === "dark" ? RAW_DARK : RAW_LIGHT) : THERMAL_LIGHT).map((color) => `rgb(${color.join(",")})`).join(",")})` }} />

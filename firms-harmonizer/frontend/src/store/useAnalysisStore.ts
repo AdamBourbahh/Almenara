@@ -19,10 +19,14 @@ import {
   fetchMapPeriod,
   fetchRiskPrediction,
   explainSpike,
+  isBackendDown,
+  isRateLimited,
+  RATE_LIMITED_MESSAGE,
   runChaosMonkey,
   triggerCubeSync,
   fetchCubeSyncStatus
 } from "../api/client";
+import { MAX_AOI_AREA_KM2, polygonAreaKm2 } from "../lib/geo";
 
 // ============================================================================
 // Official pilot regions for the jury demo
@@ -253,6 +257,14 @@ let syncStatusSeq = 0;
 let manualSyncPending = false;
 let mapController: AbortController | null = null;
 let mapSeq = 0;
+let mapRetryCount = 0;
+let mapRateRetryCount = 0;
+let mapInflightKey: string | null = null;
+/** A user-chosen AOI that has not been confirmed by a successful analysis yet. */
+let pendingSelection: { aoi: GeoJSONPolygon; preset: RegionSelection } | null = null;
+let backendRetryTimer: ReturnType<typeof setTimeout> | undefined;
+let backendRetryCount = 0;
+let backendRetrying = false;
 let mapTimer: ReturnType<typeof setTimeout> | undefined;
 const annualMapCache = new Map<string, H3MapSummaryHex[]>();
 let chaosController: AbortController | null = null;
@@ -265,9 +277,15 @@ let riskRequestKey: string | null = null;
 
 function scheduleMapLoad() {
   mapController?.abort();
+  mapController = null;
+  mapInflightKey = null;
   mapSeq++;
+  mapRetryCount = 0;
+  mapRateRetryCount = 0;
   clearTimeout(mapTimer);
-  useAnalysisStore.setState({ mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null });
+  // Keep the current cells visible while the new period loads: loadMapYear replaces
+  // them on success and keeps them if the request fails.
+  useAnalysisStore.setState({ mapLoading: true, mapError: null });
   mapTimer = setTimeout(() => { void useAnalysisStore.getState().loadMapYear(); }, 120);
 }
 
@@ -439,6 +457,14 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
+    const area = polygonAreaKm2(coordinates);
+    if (area > MAX_AOI_AREA_KM2) {
+      set({
+        isDrawingAoi: false,
+        error: `Area too large: ${Math.round(area).toLocaleString("en-US")} km² exceeds the 1,250,000 km² limit. Draw a smaller area.`
+      });
+      return;
+    }
     set({ isDrawingAoi: false, chaosData: null });
     await get().executeAnalysis(true, { aoi: { type: "Polygon", coordinates }, preset: "CUSTOM" });
   },
@@ -459,11 +485,22 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   loadMapYear: async () => {
     clearTimeout(mapTimer);
     const state = get();
-    if (state.loading || !state.analysisData) return;
-    mapController?.abort();
-    const controller = new AbortController();
-    mapController = controller;
-    const seq = ++mapSeq;
+    if (state.loading) {
+      // An analysis is still in flight; retry when it settles instead of dropping the period change.
+      if (mapRetryCount < 40) {
+        mapRetryCount += 1;
+        mapTimer = setTimeout(() => { void useAnalysisStore.getState().loadMapYear(); }, 250);
+      } else {
+        mapRetryCount = 0;
+        set({ mapLoading: false, mapError: "Timed out waiting for the analysis." });
+      }
+      return;
+    }
+    mapRetryCount = 0;
+    if (!state.analysisData) {
+      set({ mapLoading: false });
+      return;
+    }
     const year = state.selectedYear;
     const period = selectedMapPeriod(state);
     const request: AnalyzeRequest = {
@@ -474,9 +511,18 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const key = JSON.stringify({ ...request, period });
     const cached = annualMapCache.get(key);
     if (cached) {
+      mapRateRetryCount = 0;
       set({ mapHexagons: cached, mapYear: year, mapPeriod: period, mapLoading: false, mapError: null });
       return;
     }
+    // An analysis completion or sync refresh can request the same period again;
+    // let the in-flight load finish instead of sending the whole batch twice.
+    if (mapInflightKey === key) return;
+    mapController?.abort();
+    const controller = new AbortController();
+    mapController = controller;
+    mapInflightKey = key;
+    const seq = ++mapSeq;
     set({ mapLoading: true, mapError: null });
     try {
       let data: { map_hexagons: H3MapSummaryHex[]; data_source: "real" | "synthetic" };
@@ -514,25 +560,60 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       const hexagons = data.map_hexagons ?? [];
       if (annualMapCache.size >= 32) annualMapCache.delete(annualMapCache.keys().next().value!);
       annualMapCache.set(key, hexagons);
+      mapRateRetryCount = 0;
       set({ mapHexagons: hexagons, mapYear: year, mapPeriod: period, mapLoading: false,
         isSynthetic: data.data_source === "synthetic" });
     } catch (err: unknown) {
       if (seq !== mapSeq || isAbortError(err)) return;
+      if (isRateLimited(err)) {
+        controller.abort();
+        if (mapRateRetryCount < 4) {
+          mapRateRetryCount += 1;
+          const waitMs = Math.min(60_000, 5_000 * 2 ** (mapRateRetryCount - 1));
+          set({ mapLoading: false, mapError: "Too many requests: retrying this period shortly…" });
+          mapTimer = setTimeout(() => { void useAnalysisStore.getState().loadMapYear(); }, waitMs);
+        } else {
+          mapRateRetryCount = 0;
+          set({ mapLoading: false, mapError: RATE_LIMITED_MESSAGE });
+        }
+        return;
+      }
+      mapRateRetryCount = 0;
       // Keep the last rendered map instead of blanking it when a period request fails.
       set({ mapLoading: false, mapError: err instanceof Error ? err.message : "Map period unavailable" });
+    } finally {
+      if (mapInflightKey === key) mapInflightKey = null;
     }
   },
 
   executeAnalysis: async (preserveSelection = true, override?: { aoi: GeoJSONPolygon; preset: RegionSelection }) => {
+    // An automatic retry repeats the same request, so keep the last rendered map
+    // instead of blanking it during every attempt.
+    const isRetry = backendRetrying;
+    if (!isRetry) {
+      backendRetryCount = 0;
+      // A new user-triggered analysis supersedes any pending automatic retry.
+      clearTimeout(backendRetryTimer);
+    }
+    backendRetrying = false;
+    if (override) pendingSelection = override;
+    // Hold on to the user's pending AOI: a background refresh must analyse and
+    // commit that selection, never the previous default region.
+    const selection = override ?? pendingSelection;
+    const clearPending = () => { if (pendingSelection === selection) pendingSelection = null; };
     get().clearRiskPrediction();
     mapController?.abort();
+    mapController = null;
+    mapInflightKey = null;
+    mapRateRetryCount = 0;
     mapSeq++;
     clearTimeout(mapTimer);
     annualMapCache.clear();
     const previousMap = get();
     const keepMap = { mapHexagons: previousMap.mapHexagons, mapYear: previousMap.mapYear, mapPeriod: previousMap.mapPeriod };
     set({
-      mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null,
+      ...(isRetry ? {} : { mapHexagons: [], mapYear: null, mapPeriod: null }),
+      mapLoading: true, mapError: null,
       hoveredDay: null, hoveredDate: null, hoveredCell: null,
       ...(preserveSelection ? {} : { selectedRange: null, isDatePinned: false, selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null })
     });
@@ -545,7 +626,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     set({ loading: true, error: null });
 
     const requestPayload: AnalyzeRequest = {
-      aoi: override?.aoi ?? state.currentAoi,
+      aoi: selection?.aoi ?? state.currentAoi,
       start_year: state.startYear,
       end_year: state.endYear,
       exclude_industrial_flaring: state.excludeIndustrial,
@@ -568,13 +649,67 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         loading: false,
         hoveredDay: null,
         // Commit the new AOI only after the analysis succeeds.
-        ...(override ? { currentAoi: override.aoi, selectedPreset: override.preset } : {})
+        ...(selection ? { currentAoi: selection.aoi, selectedPreset: selection.preset } : {})
       });
-      if (override) get().attachCopilotContext({ day: null, hex: null });
+      if (selection) get().attachCopilotContext({ day: null, hex: null });
+      clearPending();
+      backendRetryCount = 0;
+      clearTimeout(backendRetryTimer);
       await get().loadMapYear();
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
+      if (isRateLimited(err)) {
+        if (backendRetryCount < 3) {
+          backendRetryCount += 1;
+          backendRetrying = true;
+          set({
+            error: "Too many requests: retrying shortly…",
+            loading: false,
+            mapLoading: false,
+            ...keepMap
+          });
+          backendRetryTimer = setTimeout(() => {
+            void useAnalysisStore.getState().executeAnalysis(preserveSelection, override);
+          }, 10_000);
+        } else {
+          backendRetryCount = 0;
+          clearPending();
+          set({
+            error: RATE_LIMITED_MESSAGE,
+            loading: false,
+            mapLoading: false,
+            ...keepMap
+          });
+        }
+        return;
+      }
+      if (isBackendDown(err)) {
+        if (backendRetryCount < 10) {
+          backendRetryCount += 1;
+          backendRetrying = true;
+          set({
+            error: "Backend unavailable: the API is not reachable. Retrying shortly.",
+            loading: false,
+            mapLoading: false,
+            ...keepMap
+          });
+          backendRetryTimer = setTimeout(() => {
+            void useAnalysisStore.getState().executeAnalysis(preserveSelection, override);
+          }, 3000);
+        } else {
+          backendRetryCount = 0;
+          clearPending();
+          set({
+            error: "Backend unavailable: the API is not reachable. Start the API and reload.",
+            loading: false,
+            mapLoading: false,
+            ...keepMap
+          });
+        }
+        return;
+      }
       // Keep the previous AOI, map and chronology: the requested area was never committed.
+      clearPending();
       set({
         error: err instanceof Error ? err.message : "Spatial analysis failed",
         loading: false,
@@ -723,7 +858,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       if (seq !== syncStatusSeq) return;
       const state = get();
       const updated = res.status === "success" && res.data_source === "real"
-        && Boolean(res.last_synced_utc && res.last_synced_utc !== state.lastSyncedUtc);
+        && Boolean(state.lastSyncedUtc && res.last_synced_utc && res.last_synced_utc !== state.lastSyncedUtc);
       set({
         syncStatus: res.status,
         lastSyncedUtc: res.last_synced_utc,

@@ -7,13 +7,14 @@ import ts from 'typescript';
 
 const dir=await mkdtemp(new URL('../node_modules/.period-',import.meta.url));
 after(()=>rm(dir,{recursive:true,force:true}));
-for(const [name,path] of [['client','api/client'],['store','store/useAnalysisStore']]) {
+for(const [name,path] of [['client','api/client'],['store','store/useAnalysisStore'],['geo','lib/geo']]) {
  let source=await readFile(new URL(`../src/${path}.ts`,import.meta.url),'utf8');
  source=source.replace(/import regionRegistry from [^;]+;/, 'const regionRegistry = '+await readFile(new URL('../../data/regions.json', import.meta.url),'utf8')+';');
- source=source.replaceAll('import.meta.env','{}').replace('"../api/client"','"./client.mjs"');
+ source=source.replaceAll('import.meta.env','{}').replace('"../api/client"','"./client.mjs"').replace('"../lib/geo"','"./geo.mjs"');
  await writeFile(join(dir,`${name}.mjs`),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
 }
-const {useAnalysisStore:state,riskForecastDate}=await import(pathToFileURL(join(dir,'store.mjs')).href);
+const {useAnalysisStore:state,riskForecastDate,PRESET_REGIONS}=await import(pathToFileURL(join(dir,'store.mjs')).href);
+const {fetchMapPeriod,isRateLimited,RATE_LIMITED_MESSAGE}=await import(pathToFileURL(join(dir,'client.mjs')).href);
 const pause=()=>new Promise(resolve=>setTimeout(resolve,250));
 const history={data_source:'real',calendar_series:[],forecast_series:null,map_hexagons:[]};
 
@@ -132,3 +133,83 @@ test('a superseded range response cannot overwrite a newer date selection', asyn
  assert.equal(state.getState().selectedRange,null);
  assert.deepEqual(state.getState().mapHexagons,[]);
 });
+
+test('a date chosen while the analysis is loading is applied when it settles', async () => {
+ state.setState({ analysisData: history, loading: true, selectedRange: null,
+  selectedYear: 2026, selectedMonth: 9, selectedDate: '2026-09-26', mapHexagons: [], mapPeriod: null });
+ const cells = [{ h3_index: '87754e64dffffff', mean_annual_fre: 7, raw_pixel_count: 1,
+  is_industrial_site: false, shannon_entropy: 0.1, trend_slope: 0 }];
+ globalThis.fetch = async (url) => new Response(JSON.stringify(
+  String(url).includes('map-period') ? { data_source: 'real', map_hexagons: cells } : history));
+ const first = state.getState().loadMapYear();
+ await first;
+ state.setState({ loading: false });
+ await pause();
+ await pause();
+ assert.equal(state.getState().mapPeriod, '2026-09-26');
+ assert.equal(state.getState().mapHexagons.length, 1);
+});
+
+test('a background refresh keeps the pending region selection', async () => {
+ const chile = state.getState().currentAoi;
+ state.setState({ analysisData: history, loading: false, selectedPreset: 'chilecito_la_rioja',
+  currentAoi: chile, selectedRange: null, selectedDate: null, selectedMonth: 1, selectedYear: 2020,
+  mapHexagons: [], mapError: null, error: null });
+ const bodies = [];
+ const pending = [];
+ globalThis.fetch = (url, options) => {
+  const path = new URL(url, 'http://localhost').pathname;
+  if (path === '/api/analyze') {
+   bodies.push(JSON.parse(options.body));
+   return new Promise(resolve => pending.push(resolve));
+  }
+  return Promise.resolve(new Response(JSON.stringify({ data_source: 'real', map_hexagons: [] })));
+ };
+ const first = state.getState().loadPresetRegion('iberia_med');
+ await pause();
+ const second = state.getState().executeAnalysis(true);
+ await pause();
+ assert.equal(bodies.length, 2);
+ assert.deepEqual(bodies[1].aoi.coordinates, PRESET_REGIONS.iberia_med.coordinates);
+ for (const resolve of pending) resolve(new Response(JSON.stringify({ ...history, calendar_series: [], map_hexagons: [] })));
+ await Promise.allSettled([first, second]);
+ assert.equal(state.getState().selectedPreset, 'iberia_med');
+ assert.deepEqual(state.getState().currentAoi.coordinates, PRESET_REGIONS.iberia_med.coordinates);
+});
+
+test('an oversized AOI is rejected before any request', async () => {
+ let calls = 0;
+ globalThis.fetch = async () => { calls += 1; return new Response(JSON.stringify(history)); };
+ state.setState({ error: null });
+ await state.getState().setCustomAoi([[[-100, -50], [50, -50], [50, 50], [-100, 50], [-100, -50]]]);
+ assert.equal(calls, 0);
+ assert.match(state.getState().error, /too large/i);
+});
+
+test('a 429 becomes a friendly rate-limit error', async () => {
+ globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'Request rate exceeded.' }), { status: 429 });
+ await assert.rejects(
+  () => fetchMapPeriod({ aoi: { type: 'Polygon', coordinates: [] }, start_year: 2020, end_year: 2020 }, '2020-01-01', '2020-01-02'),
+  (err) => isRateLimited(err) && err.message === RATE_LIMITED_MESSAGE
+ );
+});
+
+test('a rate-limited period keeps the map and reports a friendly retry', async () => {
+ const cells = [{ h3_index: '87754e64dffffff', mean_annual_fre: 7, raw_pixel_count: 1,
+  is_industrial_site: false, shannon_entropy: 0.1, trend_slope: 0 }];
+ state.setState({ analysisData: history, loading: false, selectedRange: null, selectedYear: 2019,
+  selectedMonth: 4, selectedDate: '2019-04-01', mapHexagons: cells, mapPeriod: '2019-04-01', mapError: null });
+ globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'Request rate exceeded.' }), { status: 429 });
+ await state.getState().loadMapYear();
+ assert.match(state.getState().mapError, /too many requests/i);
+ assert.deepEqual(state.getState().mapHexagons, cells);
+ assert.equal(state.getState().mapLoading, false);
+ // A newer selection supersedes the pending automatic retry.
+ globalThis.fetch = async () => new Response(JSON.stringify({ data_source: 'real', map_hexagons: cells }));
+ state.getState().setSelectedDate('2019-04-02');
+ await pause();
+ assert.equal(state.getState().mapPeriod, '2019-04-02');
+ assert.equal(state.getState().mapError, null);
+});
+
+

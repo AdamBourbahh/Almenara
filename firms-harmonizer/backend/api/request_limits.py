@@ -6,6 +6,12 @@ import os
 
 from starlette.responses import JSONResponse
 
+# A single range selection queries one map period per year (up to 27), so the
+# regular budget must absorb that legitimate burst. Copilot keeps its own,
+# much lower LLM-cost budget.
+REGULAR_REQUESTS_PER_MINUTE = 120
+COPILOT_REQUESTS_PER_MINUTE = 10
+
 
 class RequestLimits:
     def __init__(self, app):
@@ -30,7 +36,8 @@ class RequestLimits:
             queue = self.history[key]
             while queue and queue[0] <= now - 60:
                 queue.popleft()
-            denied = len(queue) >= (10 if copilot else 30) * max(1, int(os.environ.get("REQUEST_RATE_MULTIPLIER", "1")))
+            limit = COPILOT_REQUESTS_PER_MINUTE if copilot else REGULAR_REQUESTS_PER_MINUTE
+            denied = len(queue) >= limit * max(1, int(os.environ.get("REQUEST_RATE_MULTIPLIER", "1")))
             if not denied:
                 queue.append(now)
         if denied:

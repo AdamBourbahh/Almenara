@@ -1,44 +1,56 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, KeyboardEvent, PointerEvent } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import type { KeyboardEvent, PointerEvent } from "react";
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock3 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { isoDate, selectedMapPeriod, useAnalysisStore } from "../../store/useAnalysisStore";
+import { isoDate, useAnalysisStore } from "../../store/useAnalysisStore";
+import { DateSelectionPopover } from "./DateSelectionPopover";
+import type { DatePrecision, DateSelection } from "./DateSelectionPopover";
 
-type Precision = "day" | "month" | "year" | "range";
 type Period = { key: string; detections: number };
-const UNITS: { value: Precision; label: string }[] = [
-  { value: "day", label: "Day" }, { value: "month", label: "Month" },
-  { value: "year", label: "Year" }, { value: "range", label: "Date range" }
+const UNITS: Array<{ value: DatePrecision; label: string }> = [
+  { value: "day", label: "Day" }, { value: "month", label: "Month" }, { value: "year", label: "Year" }
 ];
 const formatDay = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
   day: "numeric", month: "short", year: "numeric", timeZone: "UTC"
+});
+const formatMonth = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
+  month: "long", year: "numeric", timeZone: "UTC"
 });
 
 /** One applied period drives the map, totals and attached chat context. */
 export function HeatHistoryCard() {
   const state = useAnalysisStore(useShallow(s => ({
     data: s.analysisData, year: s.selectedYear, month: s.selectedMonth, date: s.selectedDate,
-    range: s.selectedRange, loading: s.loading, error: s.error, min: s.minDate, max: s.maxDate,
-    mapPeriod: selectedMapPeriod(s)
+    loading: s.loading, error: s.error, min: s.minDate, max: s.maxDate
   })));
-  const precision: Precision = state.range ? "range" : state.date ? "day" : state.month ? "month" : "year";
-  const anchor = state.range?.start ?? state.date ?? isoDate(state.year, state.month ?? 1, 1);
-  const end = state.range?.end ?? state.date ?? isoDate(state.year, state.month ?? 12, 31);
-  const label = state.range ? `${formatDay(anchor)} – ${formatDay(end)}` : precision === "day" ? formatDay(anchor)
-    : precision === "month" ? new Date(`${anchor}T00:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" }) : String(state.year);
+  const precision: DatePrecision = state.date ? "day" : state.month ? "month" : "year";
+  const anchor = state.date ?? isoDate(state.year, state.month ?? 1, 1);
+  const end = state.date ?? isoDate(state.year, state.month ?? 12, 31);
+  const label = precision === "day" ? formatDay(anchor) : precision === "month" ? formatMonth(anchor) : String(state.year);
   const [open, setOpen] = useState(false);
-  const [draftMode, setDraftMode] = useState<Precision>(precision);
-  const [draftStart, setDraftStart] = useState(anchor);
-  const [draftYear, setDraftYear] = useState(anchor.slice(0, 4));
-  const [draftEnd, setDraftEnd] = useState(end);
+  const [hovered, setHovered] = useState<number | null>(null);
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const firstInput = useRef<HTMLInputElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(400);
   const unavailable = state.loading || !state.data?.calendar_series.length;
-  const histogramUnit = precision === "range" ? "year" : precision;
-  const keyLength = histogramUnit === "day" ? 10 : histogramUnit === "month" ? 7 : 4;
+  const histogramUnit = precision;
+  const keyLength = precision === "day" ? 10 : precision === "month" ? 7 : 4;
+
+  const countsByDate = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const cell of state.data?.calendar_series ?? []) counts.set(cell.date, cell.raw_hotspot_count);
+    return counts;
+  }, [state.data]);
+
+  const detections = useMemo(() => {
+    let total = 0;
+    for (const cell of state.data?.calendar_series ?? []) {
+      if (cell.date >= anchor && cell.date <= end) total += cell.raw_hotspot_count;
+    }
+    return total;
+  }, [state.data, anchor, end]);
+
   useEffect(() => {
     const node = trackRef.current;
     if (!node) return;
@@ -46,9 +58,9 @@ export function HeatHistoryCard() {
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+
   useEffect(() => {
     if (!open) return;
-    firstInput.current?.focus();
     const outside = (event: globalThis.PointerEvent) => {
       if (event.target instanceof Node && !container.current?.contains(event.target)) setOpen(false);
     };
@@ -59,32 +71,49 @@ export function HeatHistoryCard() {
     document.addEventListener("keydown", escape, true);
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape, true); };
   }, [open]);
+
   const periods = useMemo(() => {
     const grouped = new Map<string, Period>();
     for (const cell of state.data?.calendar_series ?? []) {
       // Daily bars cover the selected month; monthly bars cover the selected year.
-      if (histogramUnit === "day" && !cell.date.startsWith(anchor.slice(0, 7))) continue;
-      if (histogramUnit === "month" && cell.year !== state.year) continue;
+      if (precision === "day" && !cell.date.startsWith(anchor.slice(0, 7))) continue;
+      if (precision === "month" && cell.year !== state.year) continue;
       const key = cell.date.slice(0, keyLength);
       const entry = grouped.get(key);
       if (entry) entry.detections += cell.raw_hotspot_count;
       else grouped.set(key, { key, detections: cell.raw_hotspot_count });
     }
     return [...grouped.values()].sort((a, b) => a.key.localeCompare(b.key));
-  }, [state.data, state.year, anchor, histogramUnit, keyLength]);
+  }, [state.data, state.year, anchor, precision, keyLength]);
+
   const position = Math.max(0, periods.findIndex(p => p.key === anchor.slice(0, keyLength)));
-  const detections = (state.data?.calendar_series ?? []).reduce((total, cell) =>
-    cell.date >= anchor && cell.date <= end ? total + cell.raw_hotspot_count : total, 0);
   const bins = useMemo(() => {
-    const count = Math.min(periods.length, Math.max(1, Math.floor(width / 12)));
+    const count = Math.min(periods.length, Math.max(1, Math.floor(width / 14)));
     return Array.from({ length: count }, (_, i) => {
       const start = Math.floor(i * periods.length / count);
-      const end = Math.floor((i + 1) * periods.length / count);
-      return { start, end, detections: periods.slice(start, end).reduce((sum, p) => sum + p.detections, 0) };
+      const finish = Math.floor((i + 1) * periods.length / count);
+      return { start, end: finish, detections: periods.slice(start, finish).reduce((sum, p) => sum + p.detections, 0) };
     });
   }, [periods, width]);
   const maximum = bins.reduce((m, bin) => Math.max(m, bin.detections), 1);
-  function applyPeriod(value: string, unit: Exclude<Precision, "range">) {
+  const chartAvailable = !unavailable && periods.length > 0;
+  const hoveredBin = hovered !== null ? bins[hovered] : null;
+
+  function axisLabel(key?: string): string {
+    if (!key) return "—";
+    if (histogramUnit === "day") return new Date(`${key}T00:00:00Z`).toLocaleDateString("en-US", {
+      month: "short", day: "numeric", timeZone: "UTC"
+    });
+    if (histogramUnit === "month") return new Date(`${key}-01T00:00:00Z`).toLocaleDateString("en-US", {
+      month: "short", year: "numeric", timeZone: "UTC"
+    });
+    return key;
+  }
+  const hoverInfo = hoveredBin
+    ? `${axisLabel(periods[hoveredBin.start]?.key)} · ${hoveredBin.detections.toLocaleString("en-US")} detections`
+    : "Click a bar to jump";
+
+  function applyPeriod(value: string, unit: DatePrecision) {
     const store = useAnalysisStore.getState();
     if (unit === "day") store.setSelectedDate(value);
     else {
@@ -101,7 +130,8 @@ export function HeatHistoryCard() {
   }
   function point(event: PointerEvent<SVGSVGElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
-    return Math.floor((event.clientX - rect.left) / rect.width * periods.length);
+    const count = Math.max(1, periods.length);
+    return Math.max(0, Math.min(periods.length - 1, Math.floor((event.clientX - rect.left) / rect.width * count)));
   }
   function onKey(event: KeyboardEvent<SVGSVGElement>) {
     if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
@@ -110,78 +140,100 @@ export function HeatHistoryCard() {
     }
   }
   function nextPeriod(delta: number): { start: string; end: string } {
-    const date = new Date(`${anchor}T00:00:00Z`);
-    if (precision === "range") {
-      const days = (Date.parse(`${end}T00:00:00Z`) - date.getTime()) / 86400000 + 1;
-      return { start: new Date(date.getTime() + delta * days * 86400000).toISOString().slice(0, 10),
-        end: new Date(Date.parse(`${end}T00:00:00Z`) + delta * days * 86400000).toISOString().slice(0, 10) };
+    if (precision === "day") {
+      const date = new Date(`${anchor}T00:00:00Z`);
+      date.setUTCDate(date.getUTCDate() + delta);
+      const start = date.toISOString().slice(0, 10);
+      return { start, end: start };
     }
-    if (precision === "day") date.setUTCDate(date.getUTCDate() + delta);
-    else if (precision === "month") date.setUTCMonth(date.getUTCMonth() + delta);
-    else date.setUTCFullYear(date.getUTCFullYear() + delta);
-    const start = date.toISOString().slice(0, 10);
-    return { start, end: precision === "day" ? start : isoDate(date.getUTCFullYear(), precision === "month" ? date.getUTCMonth() + 1 : 12, 31) };
+    if (precision === "month") {
+      const date = new Date(Date.UTC(state.year, (state.month ?? 1) - 1 + delta, 1));
+      return {
+        start: isoDate(date.getUTCFullYear(), date.getUTCMonth() + 1, 1),
+        end: isoDate(date.getUTCFullYear(), date.getUTCMonth() + 1, 31)
+      };
+    }
+    const year = state.year + delta;
+    return { start: `${year}-01-01`, end: `${year}-12-31` };
   }
   function canStep(delta: number) {
     const next = nextPeriod(delta);
     // Partial months/years at the coverage edges remain selectable.
-    return !unavailable && next.end >= (state.min ?? next.end) && next.start <= (state.max ?? next.start)
-      && (precision !== "range" || next.start >= (state.min ?? next.start) && next.end <= (state.max ?? next.end));
+    return !unavailable && next.end >= (state.min ?? next.end) && next.start <= (state.max ?? next.start);
   }
   function step(delta: number) {
     if (!canStep(delta)) return;
     const next = nextPeriod(delta);
-    if (precision === "range") useAnalysisStore.getState().setSelectedRange(next.start, next.end);
-    else applyPeriod(next.start, precision);
+    applyPeriod(precision === "day" ? next.start : precision === "month" ? next.start.slice(0, 7) : next.start.slice(0, 4), precision);
+  }
+  function jumpToLatest() {
+    if (!state.max) return;
+    if (precision === "day") applyPeriod(state.max, "day");
+    else if (precision === "month") applyPeriod(state.max.slice(0, 7), "month");
+    else applyPeriod(state.max.slice(0, 4), "year");
   }
   function togglePicker() {
-    if (!open) { setDraftMode(precision); setDraftStart(anchor); setDraftYear(anchor.slice(0, 4)); setDraftEnd(end > (state.max ?? end) ? state.max! : end); }
     setOpen(!open);
   }
-  const draftValue = draftMode === "year" ? draftYear : draftMode === "month" ? draftStart.slice(0, 7) : draftStart;
-  const invalidRange = draftMode === "range" && (!draftStart || !draftEnd || draftStart > draftEnd
-    || draftStart < (state.min ?? draftStart) || draftEnd > (state.max ?? draftEnd));
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (invalidRange) return;
-    if (draftMode === "range") useAnalysisStore.getState().setSelectedRange(draftStart, draftEnd);
-    else applyPeriod(draftValue, draftMode);
-    setOpen(false); trigger.current?.focus();
+  function closePicker() {
+    setOpen(false);
+    requestAnimationFrame(() => trigger.current?.focus());
   }
-  const fieldClass = "h-10 w-full min-w-0 rounded-md border border-rule bg-paper px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-reference";
-  const buttonClass = "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-rule text-muted hover:bg-paper hover:text-ink disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-reference";
-  return <section aria-label="Chronology timeline" className="relative z-30 flex shrink-0 flex-wrap items-center gap-3 border-t border-rule bg-panel px-4 py-3 text-ink">
-    <div ref={trackRef} className="min-w-40 flex-1">
-      {unavailable ? <p role="status" className="h-14 text-xs text-muted">{state.loading ? "Loading history…" : state.error ? "History unavailable" : "No daily data"}</p> : <svg role="slider" aria-label="Chronology blocks" aria-valuemin={0} aria-valuemax={Math.max(0, periods.length - 1)} aria-valuenow={position} aria-valuetext={label} tabIndex={0} viewBox={`0 0 ${Math.max(1, bins.length) * 12} 56`} preserveAspectRatio="none" className="h-14 w-full cursor-crosshair touch-none rounded-sm focus-visible:outline-2 focus-visible:outline-reference" onKeyDown={onKey} onPointerMove={e => { if (e.buttons === 1) selectPosition(point(e)); }} onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); selectPosition(point(e)); }}>
-        <title>Bar height shows satellite detections per {histogramUnit}. Small positive counts remain visible. No detections does not establish extinction. Click to select; arrow keys move between bars.</title>
+  function applySelection(selection: DateSelection) {
+    if (selection.precision === "day") useAnalysisStore.getState().setSelectedDate(selection.start);
+    else if (selection.precision === "month") applyPeriod(selection.start.slice(0, 7), "month");
+    else applyPeriod(selection.start.slice(0, 4), "year");
+    setOpen(false);
+    requestAnimationFrame(() => trigger.current?.focus());
+  }
+
+  const buttonClass = "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-rule text-muted hover:bg-paper hover:text-ink disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-reference";
+  return <section aria-label="Chronology timeline" className="relative z-30 flex shrink-0 flex-col gap-3 border-t border-rule bg-panel px-4 py-2.5 text-ink lg:flex-row lg:items-end">
+    <div ref={trackRef} className="min-w-0 flex-1">
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-medium uppercase tracking-widest text-faint">Timeline</p>
+        <p className="truncate text-[10px] text-faint" aria-live="polite">{hoverInfo}</p>
+      </div>
+      {chartAvailable ? <svg role="slider" aria-label="Chronology blocks" aria-valuemin={0} aria-valuemax={Math.max(0, periods.length - 1)} aria-valuenow={position} aria-valuetext={label} tabIndex={0} viewBox={`0 0 ${Math.max(1, bins.length) * 14} 56`} preserveAspectRatio="none" className="h-16 w-full cursor-pointer touch-none rounded-sm focus-visible:outline-2 focus-visible:outline-reference" onKeyDown={onKey} onPointerLeave={() => setHovered(null)} onPointerMove={e => { const index = point(e); setHovered(index); if (e.buttons === 1) selectPosition(index); }} onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); selectPosition(point(e)); }}>
+        <title>Bar height shows satellite detections per {histogramUnit}. Small positive counts remain visible. Click a bar to select that period; arrow keys move between bars.</title>
+        <line x1="0" y1="51" x2={Math.max(1, bins.length) * 14} y2="51" stroke="var(--color-rule)" strokeWidth="1" />
         {bins.map((bin, i) => {
           const ratio = bin.detections / maximum;
-          const height = bin.detections > 0 ? Math.max(5, ratio * 48) : 1;
+          const height = bin.detections > 0 ? Math.max(5, ratio * 46) : 1;
           const warmth = Math.sqrt(ratio);
           const color = [109, 124, 142].map((value, channel) => Math.round(value + ([179, 0, 0][channel] - value) * warmth));
-          const active = state.range ? periods[bin.end - 1].key >= anchor.slice(0, keyLength) && periods[bin.start].key <= end.slice(0, keyLength) : position >= bin.start && position < bin.end;
-          return <g key={i}><rect data-detections={bin.detections} x={i * 12 + 1} y={50 - height} width={10} height={height} rx={2} fill={`rgb(${color.join(",")})`} opacity={.55 + ratio * .45}><title>{periods[bin.start]?.key}{bin.end - bin.start > 1 ? ` to ${periods[bin.end - 1]?.key}` : ""}: {bin.detections.toLocaleString("en-US")} detections</title></rect>{active && <rect x={i * 12 + 1} y={53} width={10} height={3} rx={1} fill="var(--color-reference)" />}</g>;
+          const active = position >= bin.start && position < bin.end;
+          return <g key={i}>
+            {active && <rect x={i * 14 + 1.5} y={3} width={11} height={47} rx={3} fill="var(--color-reference)" opacity={.09} />}
+            <rect data-detections={bin.detections} x={i * 14 + 2} y={50 - height} width={11} height={height} rx={2} fill={`rgb(${color.join(",")})`} opacity={.55 + ratio * .45}><title>{periods[bin.start]?.key}{bin.end - bin.start > 1 ? ` to ${periods[bin.end - 1]?.key}` : ""}: {bin.detections.toLocaleString("en-US")} detections</title></rect>
+            {active && <rect x={i * 14 + 2} y={53} width={11} height={2.5} rx={1} fill="var(--color-reference)" />}
+          </g>;
         })}
-      </svg>}
-      <div className="flex justify-between text-[10px] text-faint"><span>{periods[0]?.key ?? "—"}</span><span>Detections / {histogramUnit} · Not fire duration</span><span>{periods.at(-1)?.key ?? "—"}</span></div>
+      </svg> : <p role="status" className="flex h-16 items-center text-xs text-muted">{state.loading ? "Loading history…" : state.error ? "History unavailable" : "No daily data in this period"}</p>}
+      <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-faint">
+        <span>{axisLabel(periods[0]?.key)}</span>
+        <span className="hidden sm:inline">Bar height = satellite detections per {histogramUnit} · not fire duration</span>
+        <span>{axisLabel(periods.at(-1)?.key)}</span>
+      </div>
     </div>
-    <div ref={container} className="relative ml-auto flex items-center gap-1.5">
-      <button type="button" aria-label={`Previous ${precision === "range" ? "date range" : precision}`} disabled={!canStep(-1)} onClick={() => step(-1)} className={buttonClass}><ChevronLeft className="h-4 w-4" /></button>
-      <button ref={trigger} type="button" aria-label="Choose dates" aria-expanded={open} aria-controls="chronology-picker" onClick={togglePicker} disabled={unavailable} className="flex min-h-12 items-center gap-3 rounded-md border border-rule bg-paper px-3 text-left hover:border-reference focus-visible:outline-2 focus-visible:outline-reference"><CalendarDays className="h-4 w-4 shrink-0 text-reference" /><span><span className="block text-[10px] text-muted">{UNITS.find(unit => unit.value === precision)?.label} · Change dates</span><span aria-label="Timeline selection" aria-live="polite" className="block text-xs font-medium">{label}</span><span className="block text-[10px] text-muted">{detections.toLocaleString("en-US")} detections</span></span></button>
-      <button type="button" aria-label={`Next ${precision === "range" ? "date range" : precision}`} disabled={!canStep(1)} onClick={() => step(1)} className={buttonClass}><ChevronRight className="h-4 w-4" /></button>
-      {open && <section id="chronology-picker" aria-label="Choose time period" className="absolute bottom-full right-0 z-50 mb-3 w-[min(420px,calc(100vw-2rem))] rounded-xl border border-rule bg-panel p-4 shadow-xl">
-        <div className="mb-3 flex items-center justify-between"><h2 className="font-serif text-lg">Choose time period</h2><button type="button" aria-label="Close date picker" onClick={() => { setOpen(false); trigger.current?.focus(); }} className="p-1"><X className="h-4 w-4" /></button></div>
-        <div role="group" aria-label="Period type" className="mb-4 grid grid-cols-4 gap-1 rounded-lg bg-paper p-1">{UNITS.map(unit => <button key={unit.value} type="button" aria-pressed={draftMode === unit.value} onClick={() => setDraftMode(unit.value)} className={`rounded-md px-2 py-2 text-xs ${draftMode === unit.value ? "bg-reference text-white" : "text-muted hover:bg-panel"}`}>{unit.label}</button>)}</div>
-        <form onSubmit={submit} className="space-y-3">
-          <div className={draftMode === "range" ? "grid grid-cols-2 gap-3" : ""}>
-            <label className="block space-y-1 text-xs"><span>{draftMode === "range" ? "From (UTC)" : draftMode === "year" ? "Year" : draftMode === "month" ? "Month" : "Date (UTC)"}</span><input ref={firstInput} required aria-label={draftMode === "range" ? "Start date" : draftMode === "year" ? "Choose year" : draftMode === "month" ? "Choose month" : "Choose day"} type={draftMode === "year" ? "number" : draftMode === "month" ? "month" : "date"} value={draftValue} min={draftMode === "year" ? state.min?.slice(0, 4) : draftMode === "month" ? state.min?.slice(0, 7) : state.min ?? undefined} max={draftMode === "year" ? state.max?.slice(0, 4) : draftMode === "month" ? state.max?.slice(0, 7) : state.max ?? undefined} onChange={e => { const value = e.target.value; if (draftMode === "year") { setDraftYear(value); if (/^\d{4}$/.test(value)) setDraftStart(`${value}-01-01`); } else { setDraftStart(draftMode === "month" ? `${value}-01` : value); setDraftYear(value.slice(0, 4)); } }} className={fieldClass} /></label>
-            {draftMode === "range" && <label className="block space-y-1 text-xs"><span>To (UTC, inclusive)</span><input required aria-label="End date" type="date" value={draftEnd} min={state.min ?? undefined} max={state.max ?? undefined} onChange={e => setDraftEnd(e.target.value)} className={fieldClass} /></label>}
-          </div>
-          {invalidRange && <p role="alert" className="text-xs text-terracotta">Choose an end date on or after the start, within the available record.</p>}
-          <p className="text-[11px] text-muted">Available: {state.min ?? "—"} – {state.max ?? "—"}. Applied dates also update the chat context.</p>
-          <div className="flex justify-end gap-2"><button type="button" onClick={() => { setOpen(false); trigger.current?.focus(); }} className="rounded-md border border-rule px-3 py-2 text-xs">Cancel</button><button type="submit" disabled={invalidRange} className="rounded-md bg-reference px-4 py-2 text-xs font-medium text-white disabled:opacity-40">Apply dates</button></div>
-        </form>
-      </section>}
+    <div ref={container} className="relative flex w-full flex-wrap items-center justify-end gap-2 lg:w-auto">
+      <button type="button" onClick={jumpToLatest} disabled={unavailable || !state.max}
+        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted hover:bg-paper hover:text-ink disabled:opacity-30">
+        <Clock3 className="h-3.5 w-3.5" />Latest
+      </button>
+      <div className="flex items-center gap-1.5">
+        <button type="button" aria-label={`Previous ${precision}`} disabled={!canStep(-1)} onClick={() => step(-1)} className={buttonClass}><ChevronLeft className="h-4 w-4" /></button>
+        <button ref={trigger} type="button" aria-label="Choose dates" aria-haspopup="dialog" aria-expanded={open} aria-controls="chronology-picker" onClick={togglePicker} disabled={unavailable} className="flex min-h-14 min-w-[190px] items-center gap-3 rounded-xl border border-rule bg-paper px-3 text-left hover:border-reference focus-visible:outline-2 focus-visible:outline-reference disabled:opacity-50">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-reference/10 text-reference"><CalendarDays className="h-4 w-4" /></span>
+          <span className="min-w-0">
+            <span className="block text-[10px] uppercase tracking-wider text-faint">{UNITS.find(unit => unit.value === precision)?.label} · {detections.toLocaleString("en-US")} detections</span>
+            <span aria-label="Timeline selection" aria-live="polite" className="block truncate text-sm font-semibold">{label}</span>
+          </span>
+          <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-muted" />
+        </button>
+        <button type="button" aria-label={`Next ${precision}`} disabled={!canStep(1)} onClick={() => step(1)} className={buttonClass}><ChevronRight className="h-4 w-4" /></button>
+      </div>
+      {open && <DateSelectionPopover precision={precision} anchor={anchor} min={state.min} max={state.max} countsByDate={countsByDate} onApply={applySelection} onClose={closePicker} />}
     </div>
   </section>;
 }

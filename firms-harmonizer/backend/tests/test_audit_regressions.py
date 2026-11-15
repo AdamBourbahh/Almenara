@@ -137,11 +137,19 @@ def test_rate_and_body_limits_without_science(monkeypatch):
     @app.post('/api/explain-spike')
     def endpoint():
         return {'ok': True}
+    @app.post('/api/map-period')
+    def map_period():
+        return {'ok': True}
     with TestClient(app) as client:
         for _ in range(10):
             assert client.post('/api/explain-spike', json={}).status_code == 200
         assert client.post('/api/explain-spike', json={}).status_code == 429
+        # The oversized body counts as one regular request; the remaining budget
+        # absorbs a full multi-year map range before the limiter engages.
         assert client.post('/api/analyze', content=b'x' * (256 * 1024 + 1)).status_code == 413
+        for _ in range(119):
+            assert client.post('/api/map-period', json={}).status_code == 200
+        assert client.post('/api/map-period', json={}).status_code == 429
 
 
 def test_packed_masks_preserve_gaps_fire_and_sensor_identity(tmp_path, monkeypatch):
