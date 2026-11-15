@@ -353,8 +353,18 @@ def phenology_answer(scope, evidence: dict) -> str:
 
 # ---- year ranking and long-term trend
 
-def retrieve_annual_activity(scope, req: ExplainSpikeRequest, recent_years: int | None = None) -> dict:
-    """Harmonized annual energy per complete year, its ranking and a rank-based trend."""
+QUIET_YEAR_PATTERN = r"quietest|calmest|lowest|least active|best\s+(?:fire\s+)?years?|mejor|mas tranquilo|menos activo"
+TREND_PATTERN = (r"increas|decreas|getting (?:worse|better)|trend|long[- ]term|over (?:time|the years)"
+                 r"|aument|disminu|tendencia|a lo largo")
+
+
+def retrieve_annual_activity(scope, req: ExplainSpikeRequest, recent_years: int | None = None,
+                             year_range: tuple[int, int] | None = None) -> dict:
+    """Harmonized annual energy per complete year, its ranking and a rank-based trend.
+
+    ``recent_years`` keeps the last N complete years; ``year_range`` keeps an explicit
+    inclusive span of calendar years.
+    """
     from scipy.stats import kendalltau, theilslopes
 
     data, error = _analysis(scope, req)
@@ -371,6 +381,8 @@ def retrieve_annual_activity(scope, req: ExplainSpikeRequest, recent_years: int 
     complete = sorted(y for y in totals if days[y] == (date(y, 12, 31) - date(y, 1, 1)).days + 1)
     if recent_years and complete:
         complete = [y for y in complete if y > complete[-1] - max(3, recent_years)]
+    if year_range:
+        complete = [y for y in complete if year_range[0] <= y <= year_range[1]]
     if len(complete) < 3:
         return {"status": "insufficient", "message": "Fewer than three complete years are available here, so years cannot be ranked or trended."}
     rows = [{"year": y, "energy_gj": totals[y], "reconstructed_days": reconstructed[y]} for y in complete]
@@ -382,7 +394,10 @@ def retrieve_annual_activity(scope, req: ExplainSpikeRequest, recent_years: int 
         slope = float(theilslopes(values, complete).slope)
         p_value = float(kendalltau(complete, values).pvalue)
     ranked = sorted(rows, key=lambda r: r["energy_gj"], reverse=True)
-    partial = sorted(y for y in totals if y not in complete and (not recent_years or y >= complete[0]))
+    low = complete[0] if (recent_years or year_range) else min(totals)
+    high = year_range[1] if year_range else max(totals)
+    partial = sorted(y for y in totals if low <= y <= high
+                     and days[y] != (date(y, 12, 31) - date(y, 1, 1)).days + 1)
     return {"status": "ok", "data_source": data["data_source"], "years": rows, "ranked": ranked,
             "first_year": complete[0], "last_year": complete[-1], "mean_energy_gj": mean,
             "slope_gj_per_year": slope, "slope_pct_of_mean_per_decade": (slope * 10 / mean * 100) if mean > 0 else None,

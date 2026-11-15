@@ -485,8 +485,8 @@ def local_calculation(req:ExplainSpikeRequest,scope) -> ExplainSpikeResponse | N
             text,calc=metrics.burned_area_answer(scope,evidence),metrics.burned_area_calculations(evidence)
         elif intent=='annual':
             evidence=metrics.retrieve_annual_activity(scope,req,int(recent[1]) if recent else None)
-            ascending=bool(re.search(r'quietest|calmest|lowest|least active|best\s+(?:fire\s+)?years?|mejor|mas tranquilo|menos activo',q))
-            trend_first=bool(re.search(r'increas|decreas|getting (?:worse|better)|trend|long[- ]term|over (?:time|the years)|aument|disminu|tendencia|a lo largo',q))
+            ascending=bool(re.search(metrics.QUIET_YEAR_PATTERN,q))
+            trend_first=bool(re.search(metrics.TREND_PATTERN,q))
             text,calc=metrics.annual_answer(scope,evidence,ascending,trend_first),metrics.annual_calculations(evidence)
         elif intent=='emissions':
             if not scope.start or not scope.end:

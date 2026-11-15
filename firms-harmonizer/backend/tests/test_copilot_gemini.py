@@ -382,3 +382,63 @@ def test_episode_profile_does_not_replace_explicit_map_period_in_followups(gemin
         region_name='Orlando', period_start='2011-02-28', period_end='2011-02-28'))
     assert result.model_used.startswith('gemini-agent/')
     assert result.map_context.period_start == result.map_context.period_end == '2011-02-28'
+
+
+IBERIA_AOI = {'type': 'Polygon', 'coordinates': [[[-9.5, 36.0], [4.0, 36.0], [4.0, 44.0], [-9.5, 44.0], [-9.5, 36.0]]]}
+ANNUAL = {'status': 'ok', 'data_source': 'real', 'first_year': 2001, 'last_year': 2025, 'mean_energy_gj': 1000.0,
+          'slope_gj_per_year': 2.0, 'slope_pct_of_mean_per_decade': 2.0, 'trend_p_value': 0.5, 'partial_years': [2026],
+          'pre_viirs_mean_gj': 900.0, 'viirs_era_mean_gj': 1100.0,
+          'years': [{'year': 2025, 'energy_gj': 3000.0, 'reconstructed_days': 0}, {'year': 2010, 'energy_gj': 100.0, 'reconstructed_days': 0},
+                    {'year': 2005, 'energy_gj': 2000.0, 'reconstructed_days': 0}],
+          'ranked': [{'year': 2025, 'energy_gj': 3000.0, 'reconstructed_days': 0}, {'year': 2005, 'energy_gj': 2000.0, 'reconstructed_days': 0},
+                     {'year': 2010, 'energy_gj': 100.0, 'reconstructed_days': 0}]}
+
+
+def scripted(monkeypatch, steps):
+    """Replay model turns: each step is a tool call (name, arguments) or a final text."""
+    seen = []
+    def transport(request):
+        body = json.loads(request.content)
+        seen.append(body)
+        step = steps[len(seen) - 1]
+        if isinstance(step, tuple):
+            message = {'content': None, 'tool_calls': [{'id': f'call-{len(seen)}', 'type': 'function',
+                       'function': {'name': step[0], 'arguments': json.dumps(step[1])}}]}
+            return httpx.Response(200, json={'choices': [{'finish_reason': 'tool_calls', 'message': message}]})
+        return httpx.Response(200, json={'choices': [{'finish_reason': 'stop', 'message': {'content': step}}]})
+    intercept(monkeypatch, transport)
+    monkeypatch.setattr(agent.duckdb_engine, 'data_source', lambda: 'real')
+    return seen
+
+
+def test_gemini_ranks_years_with_the_server_calculation(gemini, monkeypatch):
+    seen = scripted(monkeypatch, [('rank_years_and_trend', {}), 'The most active complete year was 2025. [6]'])
+    monkeypatch.setattr(agent.metrics, 'retrieve_annual_activity', lambda scope, req, recent_years=None, year_range=None: ANNUAL)
+    result = agent.answer(ExplainSpikeRequest(region_name='Iberia', aoi=IBERIA_AOI, prefer_map_context=True,
+                                              user_question='Which was the worst fire year?'))
+    tool_output = json.loads(seen[1]['messages'][-1]['content'])
+    assert [row['year'] for row in tool_output['ranked_years']] == [2025, 2005, 2010]
+    assert '| 1 | 2025 | 3,000.000 |' in result.explanation_markdown
+    calculations = result.verified_calculations
+    items = calculations['items'] if isinstance(calculations, dict) else calculations.items
+    first = items[0] if isinstance(items[0], dict) else items[0].model_dump()
+    assert first['value'] == 3000.0
+    assert 'rank_years_and_trend' in [t['function']['name'] for t in seen[0]['tools']]
+
+
+def test_gemini_quietest_year_tool_output_is_ascending(gemini, monkeypatch):
+    seen = scripted(monkeypatch, [('rank_years_and_trend', {}), 'The quietest complete year was 2010. [6]'])
+    monkeypatch.setattr(agent.metrics, 'retrieve_annual_activity', lambda scope, req, recent_years=None, year_range=None: ANNUAL)
+    agent.answer(ExplainSpikeRequest(region_name='Iberia', aoi=IBERIA_AOI, prefer_map_context=True,
+                                     user_question='What was the quietest year?'))
+    assert json.loads(seen[1]['messages'][-1]['content'])['ranked_years'][0]['year'] == 2010
+
+
+def test_failed_energy_call_never_leads_the_final_answer(gemini, monkeypatch):
+    """Production regression: 'Select an area and a date range…' prefixed a whole-record answer."""
+    scripted(monkeypatch, [('query_energy', {}), ('rank_years_and_trend', {}), 'The most active complete year was 2025. [6]'])
+    monkeypatch.setattr(agent.metrics, 'retrieve_annual_activity', lambda scope, req, recent_years=None, year_range=None: ANNUAL)
+    result = agent.answer(ExplainSpikeRequest(region_name='Iberia', aoi=IBERIA_AOI, prefer_map_context=True,
+                                              user_question='Which was the worst fire year?'))
+    assert 'Select an area and a date range' not in result.explanation_markdown
+    assert '2025' in result.explanation_markdown

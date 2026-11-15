@@ -91,6 +91,10 @@ TOOLS=[
  definition('query_burned_area','MCD64A1 validated burned area in hectares by year and fire energy per burned hectare.',DATES),
  definition('find_quiet_burn_windows','Historical 30-day windows with the least fire energy and neighbour spread, for planning prescribed or agricultural burns.',{}),
  definition('rank_thermal_events','Rank the largest thermal events recorded in the area by energy, with dates, duration and biomass.',DATES),
+ definition('rank_years_and_trend','Rank complete calendar years by harmonized fire energy (worst, quietest, record years) and test the long-term trend '
+    '(Theil-Sen slope in % of the average year per decade, Mann-Kendall p-value, pre-VIIRS vs VIIRS-era means). '
+    'Use for which-year, worst/quietest year and is-activity-increasing questions; it needs no dates. '
+    'Optional start/end restrict the years considered, e.g. the last 10 years.',DATES),
  definition('query_sensor_breakdown','Yearly detections and calibrated energy density for each sensor channel (Terra, Aqua, VIIRS) in the selected area.',DATES),
  definition('search_incident_reports','Investigate real-world incidents for the selected place and period. Retrieve official/reputable articles for your assessment of event identity, chronology, cause or spread. Optional query refines discovery with a candidate name or nearby locality; it never changes the selected area or period.',{'query':{'type':'string','maxLength':400}})]
 
@@ -118,7 +122,8 @@ def turn(messages,*,finish=False,timeout=15,used=()):
 
 
 CALCULATION_TOOLS=('compare_periods','estimate_emissions','query_fire_season','query_risk_outlook','query_data_quality',
-    'query_burned_area','find_quiet_burn_windows','rank_thermal_events','query_sensor_breakdown','query_scientific_audit')
+    'query_burned_area','find_quiet_burn_windows','rank_thermal_events','query_sensor_breakdown','query_scientific_audit',
+    'rank_years_and_trend')
 CUBE_TOOLS=('query_energy','query_observations','profile_episode')+CALCULATION_TOOLS
 REPORT_INTENT=re.compile(r'which fire|what fire|report|news|noticia|official|oficial|agency|authorit|regulat|normativa|ordinance|permit|\blaw\b|\bley\b|incident|what\s+(?:(?:has|had|is|was)\s+)?happen(?:ed|ing)|what[\'’]s\s+happen(?:ed|ing)|que\s+(?:(?:ha|esta)\s+)?(?:pasado|pasando)|led to|evacuat|damage|casualt|contain|extinguish|\bwho\b|named|identity')
 MARKER=r'\[(?:[A-Z]*\d+(?:_\d+)?)\]'
@@ -366,7 +371,10 @@ def _answer(req):
                 elif name=='query_energy':
                     result=retrieve_energy(selected,req)
                     citations.update({c.id:c for c in [local.CUBE,local.METHOD_SOURCES[0]]})
-                    primary_calculation=energy_answer(selected,result,req)
+                    # A failed energy call (e.g. no period for a whole-record question) is tool feedback
+                    # for the model, never a lead paragraph of the final answer.
+                    if result.get('status')=='ok':
+                        primary_calculation=energy_answer(selected,result,req)
                     calculations.append(metrics.energy_calculations(result) if 'days' in result else None)
                     if 'mapped_energy_gj' in result:
                         result={'status':result['status'],'start':selected.start,'end':selected.end,
@@ -423,6 +431,21 @@ def _answer(req):
                     elif name=='find_quiet_burn_windows':
                         result=metrics.retrieve_low_activity_windows(selected,req)
                         text=metrics.windows_answer(selected,result)
+                    elif name=='rank_years_and_trend':
+                        full=metrics.retrieve_annual_activity(selected,req,
+                            year_range=(args.start.year,args.end.year) if args.start and args.end else None)
+                        q=local.normalized(req.user_question)
+                        ascending=bool(re.search(metrics.QUIET_YEAR_PATTERN,q))
+                        text=metrics.annual_answer(selected,full,ascending=ascending,
+                            trend_first=bool(re.search(metrics.TREND_PATTERN,q)))
+                        calc=metrics.annual_calculations(full)
+                        result=full
+                        if full.get('status')=='ok':
+                            # Compact tool output for the model; the full table is rendered by the server.
+                            ranked=list(reversed(full['ranked'])) if ascending else full['ranked']
+                            result={k:full[k] for k in ('status','first_year','last_year','mean_energy_gj','slope_pct_of_mean_per_decade',
+                                'trend_p_value','pre_viirs_mean_gj','viirs_era_mean_gj','partial_years')}
+                            result['ranked_years']=[{'year':r['year'],'energy_gj':r['energy_gj']} for r in ranked[:5]]
                     else:
                         result=metrics.retrieve_top_events(selected,req,args.start.isoformat() if args.start else None,args.end.isoformat() if args.end else None)
                         text,calc=metrics.events_answer(selected,result),metrics.events_calculations(result)
