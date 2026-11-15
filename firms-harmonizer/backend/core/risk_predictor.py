@@ -195,7 +195,7 @@ def _seasonal_tables(epoch_day, events, valid, requests):
     epoch = np.asarray(epoch_day, dtype=np.int64)
     valid = np.asarray(valid, dtype=bool)
     events = np.atleast_2d(np.asarray(events, dtype=bool)) & valid
-    n, targets = len(epoch), events.shape[0]
+    targets = events.shape[0]
     years, doy = _calendar(epoch)
     year_length = 365 + ((years % 4 == 0) & ((years % 100 != 0) | (years % 400 == 0)))
     pooled = ((np.cumsum(events, axis=1) + PRIOR_STRENGTH * PRIOR_DAILY_RATE)
@@ -243,28 +243,6 @@ def _event_runs(event, valid):
     breaks = ~(event & valid)
     run = index - np.maximum.accumulate(np.where(breaks, index, -1))
     return np.where(valid, run, -1)
-
-
-def persistence_state_shift(event: np.ndarray, valid: np.ndarray, base_next: np.ndarray,
-                            seasonal_support: np.ndarray | None = None,
-                            freeze_before: int | None = None) -> tuple[np.ndarray, np.ndarray]:
-    """Causal log-odds lift of tomorrow's event given today's event state, over the seasonal base.
-
-    States: no event today, an event run of 1-2 days, a run of at least 3 days (unobserved
-    days carry no state). Following the two-state Markov chain of the horizons, after an
-    event P(event tomorrow) = b + phi_s (1 - b), and after a non-event day b (1 - phi_0),
-    with b the seasonal base rate of tomorrow. Each phi is a moment estimate from completed
-    day pairs (t', t' + 1) with t' + 1 <= t, shrunk toward zero (run states toward the pooled
-    event state) with PERSISTENCE_PSEUDO_PAIRS and clipped to [0, STATE_LIFT_MAX], so a calm
-    state never raises risk. When ``seasonal_support`` is given, only pairs whose base already
-    rests on one prior-year DOY window count; earlier bases are the flat pooled rate and would
-    make the lifts measure seasonality instead of persistence. With ``freeze_before`` = c, rows
-    before c use the lifts estimated from pairs completed before c (a training-slice parameter
-    for fitting residual learners); rows from c onward always use their own as-of-t lifts.
-    Returns (logit shift, run length).
-    """
-    shift, frozen, run = _state_shifts(event, valid, base_next, seasonal_support, freeze_before)
-    return (shift if frozen is None else frozen), run
 
 
 def _state_shifts(event, valid, base_next, seasonal_support=None, freeze_before=None):
@@ -989,7 +967,6 @@ def predict_risk(daily: dict[str, np.ndarray]) -> dict | None:
             contributions = _prior_terms(features[rows], target)
             remainder = np.zeros(len(rows))
             logits = offset[rows] + contributions.sum(axis=1)
-            contributions = contributions.copy()
         else:
             logits, contributions, remainder, weights = model
             fitted[target] = True

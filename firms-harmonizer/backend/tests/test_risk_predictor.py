@@ -416,46 +416,6 @@ def test_api_predict_risk_contract_and_schema_validation(api_client):
         assert set(parsed.assessment.model_metrics.model_weights.keys()) == set(MODEL_NAMES)
 
 
-def test_api_predict_risk_caching_and_invalidation(api_client):
-    """Test cache MISS on first call, HIT on identical call, and MISS on parameter changes."""
-    payload_a = {"aoi": AOI_TEST, "start_year": 2020, "end_year": 2023, "as_of_date": "2023-07-15"}
-    first = api_client.post("/api/predict-risk", json=payload_a)
-    assert first.status_code == 200
-    assert first.headers["X-Cache"] == "MISS"
-
-    # Second call with identical payload must be a cache HIT
-    second = api_client.post("/api/predict-risk", json=payload_a)
-    assert second.status_code == 200
-    assert second.headers["X-Cache"] == "HIT"
-
-    # Changing as_of_date must cause a cache MISS
-    payload_b = {**payload_a, "as_of_date": "2023-07-16"}
-    third = api_client.post("/api/predict-risk", json=payload_b)
-    assert third.status_code == 200
-    assert third.headers["X-Cache"] == "MISS"
-
-    # Changing start_year must cause a cache MISS
-    payload_c = {**payload_a, "start_year": 2021}
-    fourth = api_client.post("/api/predict-risk", json=payload_c)
-    assert fourth.status_code == 200
-    assert fourth.headers["X-Cache"] == "MISS"
-
-
-def test_api_predict_risk_unavailable_reason_empty_region(api_client):
-    """An ocean polygon with no observations returns 200 with clear unavailable_reason."""
-    ocean_polygon = {
-        "type": "Polygon",
-        "coordinates": [[
-            [-30.0, -30.0], [-29.0, -30.0], [-29.0, -29.0], [-30.0, -29.0], [-30.0, -30.0]
-        ]]
-    }
-    resp = api_client.post("/api/predict-risk", json={"aoi": ocean_polygon})
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["assessment"] is None
-    assert data["unavailable_reason"] == "No local observations in the selected area and date range."
-
-
 def test_api_predict_risk_invalid_parameters_rejected(api_client):
     """Validate 422 HTTP unprocessable entity errors on malformed parameters."""
     # start_year > end_year

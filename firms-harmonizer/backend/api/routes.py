@@ -15,18 +15,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import h3.api.basic_int as h3i
 import numpy as np
 from fastapi import APIRouter, HTTPException, Response, Query
 from fastapi.responses import JSONResponse
 
 from backend.api.science_adapter import KalmanInput
-from backend.api import core_contract, fire_copilot, copilot_agent
+from backend.api import core_contract, copilot_agent
 from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE, CachedJSON, LRUCache, geometry_key, make_cache_key
 from backend.api.schemas import (AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse,
                                  CubeSyncRequest, CubeSyncStatusResponse,
                                  ExplainSpikeRequest, ExplainSpikeResponse,
-                                 GeoJSONPolygon, H3MapSummaryHex, MapPeriodResponse, RiskPredictionRequest, RiskPredictionResponse)
+                                 GeoJSONPolygon, MapPeriodResponse, RiskPredictionRequest, RiskPredictionResponse)
 from backend.core.risk_predictor import predict_risk as fit_risk_predictor, with_observation_gap
 from backend.db import duckdb_engine, nrt_poller, queries
 from backend.db.queries import (OBS_COLUMNS, AoiAggregate, fetch_aoi_aggregated_data,

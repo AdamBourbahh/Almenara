@@ -302,14 +302,6 @@ def ingest_nrt_csv_text(csv_text: str) -> int:
     return count
 
 
-def ingest_nrt_csv_file(path: Path | str) -> int:
-    """Ingest a local FIRMS NRT CSV file into DuckDB."""
-    p = Path(path)
-    if not p.is_file():
-        raise FileNotFoundError(f"NRT file not found: {p}")
-    return ingest_nrt_csv_text(p.read_text(encoding="utf-8"))
-
-
 async def poll_firms_nrt_once(
     map_key: str | None = None,
     bbox: tuple[float, float, float, float] = (-180, -90, 180, 90),

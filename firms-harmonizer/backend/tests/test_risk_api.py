@@ -36,6 +36,7 @@ def test_risk_route_cutoff_provenance_and_cache(client):
     assert parsed.assessment.as_of_date <= date(2023, 8, 1)
     assert client.post("/api/predict-risk", json=body).headers["X-Cache"] == "HIT"
     assert client.post("/api/predict-risk", json={**body, "as_of_date": "2023-08-02"}).headers["X-Cache"] == "MISS"
+    assert client.post("/api/predict-risk", json={**body, "start_year": 2021}).headers["X-Cache"] == "MISS"
 
 
 def test_risk_route_empty_area_and_bad_date(client):
@@ -45,7 +46,7 @@ def test_risk_route_empty_area_and_bad_date(client):
     unavailable = client.post("/api/predict-risk", json={"aoi": ocean})
     assert unavailable.status_code == 200
     assert unavailable.json()["assessment"] is None
-    assert unavailable.json()["unavailable_reason"]
+    assert unavailable.json()["unavailable_reason"] == "No local observations in the selected area and date range."
     assert client.post("/api/predict-risk", json={"aoi": AOI, "as_of_date": "2030-01-01"}).status_code == 422
 
 

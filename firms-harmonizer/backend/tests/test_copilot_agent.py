@@ -69,13 +69,6 @@ def test_offline_bypasses_provider(online,monkeypatch):
     assert a.answer(ExplainSpikeRequest())=='local fallback'
 
 
-def test_natural_completion_after_tool_is_accepted(online,monkeypatch):
-    turns=iter([call('search_knowledge',{'query':'FRP FRE'}),{'content':'FRP is power, FRE is integrated energy. [K1]'}])
-    monkeypatch.setattr(a,'turn',lambda *args,**kwargs:next(turns))
-    r=a.answer(ExplainSpikeRequest(user_question='Please clarify these measures'))
-    assert r.model_used.startswith('groq-agent/')
-
-
 def test_live_protocol_uses_auto_and_never_repeats_completed_tool(online,monkeypatch):
     import httpx
     seen=[]

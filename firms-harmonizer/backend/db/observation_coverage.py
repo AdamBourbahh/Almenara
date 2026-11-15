@@ -5,8 +5,6 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-SENSOR_CHANNELS = {'Terra': 0, 'Aqua': 1, 'SNPP': 2, 'NOAA-20': 2, 'NOAA-21': 2}
-
 
 def apply_coverage(cur, root: Path, cells: list[int], daily: dict, area_km2: float, return_sensors=False):
     """Return complete observed-zero days; partial coverage never establishes zero.

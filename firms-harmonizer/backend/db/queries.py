@@ -72,7 +72,6 @@ class AoiAggregate(NamedTuple):
     hexagons: list[H3MapSummaryHex]
     industrial_false_positives_removed: int
     n_cells_used: int
-    used_cells: list[str] = []
     # km² of the kept cube cells present on each day of ``daily`` (aligned with daily["epoch_day"]).
     # Footprint metadata only. Canonical daily energy is daily['observed_energy_mj'];
     # polygon-normalized density must not be multiplied by this different area.
@@ -307,8 +306,8 @@ def _aggregate_daily(cols: dict[str, np.ndarray], keep: np.ndarray, start_year: 
         total = np.bincount(idx, weights=np.where(present, values * areas, 0), minlength=n)
         counts = np.bincount(idx, weights=present, minlength=n)
         out[name] = np.where(counts > 0, total / denominator, np.nan)
-    for name in ("cloud_cover_pct",):
-        out[name] = np.full(n, np.nan) if name in missing else _finite_mean(idx, cols[name][keep], n)
+    name = "cloud_cover_pct"
+    out[name] = np.full(n, np.nan) if name in missing else _finite_mean(idx, cols[name][keep], n)
     burned = "burned_area_ha_mcd64"
     out[burned] = np.full(n, np.nan) if burned in missing else _finite_sum(idx, cols[burned][keep], n)
     for name in MASK_COLUMNS:
@@ -413,7 +412,7 @@ def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_ye
                               confidence_level: str = 'nominal') -> AoiAggregate:
     """Dense daily arrays, map hexagons and industrial removal count for an AOI (one cube scan)."""
     if not cells_r4 or not cells_r7:
-        return AoiAggregate(_empty_daily(), [], 0, 0, [], np.empty(0))
+        return AoiAggregate(_empty_daily(), [], 0, 0, np.empty(0))
     missing = set(duckdb_engine.missing_columns())
     r7_sorted = np.asarray(sorted(cells_r7), dtype=np.uint64)
     with duckdb_engine.get_db_cursor() as cur:
@@ -461,11 +460,11 @@ def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_ye
             daily[name][zero & ((sensor_codes & bits) > 0)] = 0.0
     if exclude_industrial:
         removed = industrial_total
-        used = [h.h3_index for h, p in zip(hexagons, min_probs.tolist()) if p < INDUSTRIAL_THRESHOLD]
+        n_cells_used = int(np.sum(min_probs < INDUSTRIAL_THRESHOLD))
     else:
         removed = 0
-        used = [h.h3_index for h in hexagons]
-    return AoiAggregate(daily, hexagons, removed, len(used), used, area)
+        n_cells_used = len(hexagons)
+    return AoiAggregate(daily, hexagons, removed, n_cells_used, area)
 
 
 def fetch_map_period(cells_r4: list[int], cells_r7: list[int], year: int,

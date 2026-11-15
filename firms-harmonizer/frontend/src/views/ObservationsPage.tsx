@@ -24,7 +24,7 @@ export function ObservationsPage() {
   async function exportCsv() {
     if (!data) return;
     setExporting(true);
-    let daily = [...data.daily];
+    let daily: typeof data.daily;
     try {
       daily = [];
       for (let offset = 0; offset < data.total_days; offset += 1000) {

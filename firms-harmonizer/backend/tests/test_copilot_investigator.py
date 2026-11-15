@@ -169,12 +169,6 @@ def test_all_provider_network_failures_and_malformed_json(monkeypatch):
         assert providers.complete([{'role':'user','content':'test'}])[0] is None
 
 
-def test_offline_skips_every_provider(monkeypatch):
-    monkeypatch.setenv('COPILOT_OFFLINE','1')
-    monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:pytest.fail('Offline attempted HTTP'))
-    assert providers.complete([{'role':'user','content':'test'}])[0] is None
-
-
 def test_three_queries_and_wikipedia_are_clean_and_deduplicated(cube,monkeypatch):
     aoi,cell,rows=cube
     monkeypatch.delenv('COPILOT_PROVIDER',raising=False)

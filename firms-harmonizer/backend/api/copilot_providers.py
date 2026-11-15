@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from backend.api.copilot_network import is_offline
 
-import json
 import logging
 import os
 from time import monotonic

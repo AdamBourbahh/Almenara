@@ -276,7 +276,6 @@ export function HexagonMap() {
 
   const onDragStart = useCallback(
     (info: PickingInfo) => {
-      useAnalysisStore.getState().dismissDateRiskPrompt();
       if (!isDrawingAoi || !info.coordinate) return;
       const p: LngLat = [info.coordinate[0], info.coordinate[1]];
       updateDragBox({ start: p, end: p });
@@ -411,9 +410,6 @@ export function HexagonMap() {
     () => (isDrawingAoi ? { dragPan: false, dragRotate: false, doubleClickZoom: false } : { dragRotate: is3D }),
     [isDrawingAoi, is3D]
   );
-
-  // Keep the dock contextual: selections must occupy a meaningful visible
-  // area. A large region can remain relevant even at a low absolute zoom.
 
   const mapStyle = BASEMAPS[basemap].style;
 

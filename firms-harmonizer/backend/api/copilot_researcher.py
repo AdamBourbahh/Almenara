@@ -215,7 +215,7 @@ def investigate_fire_literature_and_web(scope, peak_date: str | None = None) -> 
     """Three targeted searches plus Wikipedia, bounded and fail-open to local science."""
     if is_offline() or duckdb_engine.data_source() == 'synthetic' or not scope.start:
         return [], ''
-    location, centroid = geographic_context(scope)
+    location, _ = geographic_context(scope)
     # Geographic descriptors are server-owned; never send prompt instructions as queries.
     clean = re.sub(r'[^\w ,/()-]', ' ', location)[:120]
     day = date.fromisoformat(peak_date or scope.start)
