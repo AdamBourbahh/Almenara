@@ -1,7 +1,7 @@
 import regionRegistry from "../../../data/regions.json";
 import { create } from "zustand";
 import { cellToLatLng } from "h3-js";
-import { cellsFromPolygon, polygonFromCells } from "../lib/aoiCells";
+import { cellsFromPolygon, polygonFromCells, removalKeepsConnected } from "../lib/aoiCells";
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
@@ -157,6 +157,8 @@ interface AnalysisState {
   aoiCells: string[] | null;
   /** Explicit "Trace cells" mode, so presets can be trimmed too. */
   isTracingCells: boolean;
+  /** Transient message when a trim click is rejected. */
+  aoiNotice: string | null;
 
   // Interactive UI controls
   splitCurtainPct: number; // 0..100, "2012 Time-Machine" curtain
@@ -290,6 +292,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   isDrawingAoi: false,
   aoiCells: null,
   isTracingCells: false,
+  aoiNotice: null,
 
   splitCurtainPct: 50,
   selectedYear: 2022, // Critical year by default (VIIRS SNPP outage, Jul-Aug 2022)
@@ -436,12 +439,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   loadPresetRegion: async (presetKey) => {
     if (!(presetKey in PRESET_REGIONS)) return;
-    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, aoiCells: null, chaosData: null });
+    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, aoiCells: null, aoiNotice: null, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
     await get().executeAnalysis(true);
   },
 
-  setTracingCells: (tracing) => set({ isTracingCells: tracing, isDrawingAoi: false }),
+  setTracingCells: (tracing) => set({ isTracingCells: tracing, isDrawingAoi: false, aoiNotice: null }),
 
   setCustomAoi: async (coordinates, cells = null) => {
     const ring = coordinates[0];
@@ -449,7 +452,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
-    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, aoiCells: cells, chaosData: null });
+    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, aoiCells: cells, aoiNotice: null, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
     await get().executeAnalysis(true);
   },
@@ -457,13 +460,18 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   toggleAoiCell: async (cell) => {
     const state = get();
     const base = state.aoiCells ?? cellsFromPolygon(state.currentAoi);
-    const next = base.includes(cell) ? base.filter((item) => item !== cell) : [...base, cell];
+    const removing = base.includes(cell);
+    if (removing && !removalKeepsConnected(base, cell)) {
+      set({ aoiNotice: "Removing this cell would split the area. Remove an edge cell instead." });
+      return;
+    }
+    const next = removing ? base.filter((item) => item !== cell) : [...base, cell];
     const polygon = polygonFromCells(next);
     if (!polygon) {
       set({ error: "Keep at least one cell in the area." });
       return;
     }
-    set({ selectedPreset: "CUSTOM", currentAoi: polygon, aoiCells: next, isDrawingAoi: false, error: null, chaosData: null });
+    set({ selectedPreset: "CUSTOM", currentAoi: polygon, aoiCells: next, isDrawingAoi: false, error: null, aoiNotice: null, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
     await get().executeAnalysis(true);
   },

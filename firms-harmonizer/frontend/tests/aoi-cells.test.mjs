@@ -12,7 +12,7 @@ const source = await readFile(new URL('../src/lib/aoiCells.ts', import.meta.url)
 await writeFile(join(dir, 'aoiCells.mjs'), ts.transpileModule(source, {
   compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022}
 }).outputText);
-const {cellsFromPolygon, polygonFromCells} = await import(pathToFileURL(join(dir, 'aoiCells.mjs')).href);
+const {cellsFromPolygon, polygonFromCells, removalKeepsConnected} = await import(pathToFileURL(join(dir, 'aoiCells.mjs')).href);
 
 const box = {
   coordinates: [[[-7.35, 37.25], [-6.85, 37.25], [-6.85, 37.7], [-7.35, 37.7], [-7.35, 37.25]]]
@@ -48,4 +48,15 @@ test('two adjacent cells keep their shared boundary', () => {
   const polygon = polygonFromCells([a, b]);
   assert.ok(polygon);
   assert.deepEqual(new Set(cellsFromPolygon(polygon)), new Set([a, b]));
+});
+
+test('removing a bridge cell is rejected, an edge cell is allowed', () => {
+  const a = latLngToCell(37.5, -7.1, 7);
+  const ringA = new Set(gridDisk(a, 1));
+  const b = gridDisk(a, 1).find((cell) => cell !== a);
+  const c = gridDisk(b, 1).find((cell) => cell !== b && !ringA.has(cell));
+  assert.ok(c, 'expected a cell that is two steps away');
+  assert.equal(removalKeepsConnected([a, b, c], b), false, 'b bridges a and c');
+  assert.equal(removalKeepsConnected([a, b, c], a), true, 'the b-c edge survives');
+  assert.equal(removalKeepsConnected(gridDisk(a, 2), gridDisk(a, 2)[0]), true, 'a disk stays connected');
 });
