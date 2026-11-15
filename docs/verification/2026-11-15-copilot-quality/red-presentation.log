@@ -1,0 +1,20 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_energy_answer_leads_with_quantity_and_keeps_method_brief _________
+
+    def test_energy_answer_leads_with_quantity_and_keeps_method_brief():
+        from backend.api.copilot_metrics import energy_answer
+        scope = local.resolve_scope(ExplainSpikeRequest(period_start='2026-07-24',period_end='2026-07-24'))
+        result = energy_answer(scope, {'status':'ok','energy_gj':12.5,'mapped_energy_gj':12.5,
+            'mapped_biomass_tonnes':4.6,'mapped_footprint_km2':5,'mapped_detections':2,'area_km2':20,
+            'days':1,'gap_filled_days':0,'biomass_tonnes':4.6,'peak_day':'2026-07-24','peak_day_gj':12.5,
+            'annual_gj':{2026:12.5},'available_through':'2026-07-24'}, ExplainSpikeRequest())
+>       assert result.startswith('**12.500 GJ**')
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x2256900>('**12.500 GJ**')
+E        +    where <built-in method startswith of str object at 0x2256900> = '### Visible map energy\n\nFor the same area and requested dates, the mapped observation-based proxy is **12.500 GJ**,...Selected polygon area and observed cell footprint also differ: the mapped footprint is **5.000 km²**, not burned area.'.startswith
+
+backend/tests/test_copilot_quality.py:198: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_copilot_quality.py::test_energy_answer_leads_with_quantity_and_keeps_method_brief
+1 failed, 37 deselected in 0.34s

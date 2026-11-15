@@ -123,7 +123,7 @@ def test_full_dossier_endpoint_and_compatible_contract(cube):
 
 
 @pytest.mark.parametrize('status',[401,403,429,500])
-def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypatch,status):
+def test_default_provider_failure_preserves_service_selection_and_transport_bounds(monkeypatch,status):
     monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
     monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
@@ -143,10 +143,11 @@ def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypat
     factory=httpx.Client
     monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:factory(transport=httpx.MockTransport(transport),**kwargs))
     result,provider=providers.complete([{'role':'system','content':'x'*6000},{'role':'user','content':'a'*10000}],structured=True)
-    assert result=='{"claims":[]}' and provider=='gemini/gemini-3.8-flash'
-    assert len(calls)==3
+    # A default Groq selection is binding even when other credentials exist.
+    # The old cross-service cascade spent unselected quotas, contrary to policy.
+    assert result is None and provider=='deterministic-offline-science'
+    assert len(calls)==1
     assert calls[0].url.host=='api.groq.com'
-    assert calls[1].url.host=='models-gateway.example.org'
     assert json.loads(calls[0].content)['model']=='llama-3.3-70b-versatile'
 
 

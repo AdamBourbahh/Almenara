@@ -1,0 +1,6 @@
+Staged 1,577,454 detections and 1,874,100 footprint contributions.
+Wrote sensor_outages.parquet and diurnal_ratios.parquet.
+Wrote 28 supported EQM models to eqm_gpd_lut.json.
+Published 763,627 rows to /tmp/almenara-copilot-quality/firms-harmonizer/data/processed/.publication-xzwyqp6j/fire_cube_low.parquet.
+Published 126,695 rows to /tmp/almenara-copilot-quality/firms-harmonizer/data/processed/.publication-xzwyqp6j/fire_cube_high.parquet.
+Published 729,742 rows to /tmp/almenara-copilot-quality/firms-harmonizer/data/processed/.publication-xzwyqp6j/fire_cube.parquet.

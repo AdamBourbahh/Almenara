@@ -112,23 +112,50 @@ MONTHS.update({name: number for number, name in enumerate(
 MONTHS.update({"ene": 1, "abr": 4, "ago": 8, "set": 9, "sept": 9, "out": 10, "dez": 12})
 
 
-def question_period(text: str) -> tuple[str, str] | None:
+def question_period(text: str, default_year: int | None = None) -> tuple[str, str] | None:
     """Resolve explicit dates before consulting selected UI dates or earlier turns."""
     text = normalized(text)
-    iso = re.findall(r"\b(20\d{2})-(\d{2})-(\d{2})\b", text)
-    numeric = re.findall(r"\b(\d{1,2})[/.-](\d{1,2})[/.-](20\d{2})\b", text)
-    dates = [date(int(y), int(m), int(d)) for y, m, d in iso]
-    dates += [date(int(y), int(m), int(d)) for d, m, y in numeric]
+    dates = []
+    covered = []
+    def record(match, values):
+        if any(a <= match.start() < b for a, b in covered):
+            return
+        dates.extend((match.start(), value) for value in values)
+        covered.append(match.span())
+    # Shared-month ranges must be recognized before standalone dates. Keep order
+    # to reject reversed ranges rather than silently sorting a user's request.
+    separator = r"\s*(?:[–—-]|to|through|and|y|a|al)\s*"
+    for month, number in MONTHS.items():
+        patterns = [
+            rf"\b{month}\s+(\d{{1,2}}){separator}(\d{{1,2}})[,]?\s+(20\d{{2}})\b",
+            rf"\b(\d{{1,2}}){separator}(\d{{1,2}})\s+(?:de\s+)?{month}(?:\s+de)?[,]?\s+(20\d{{2}})\b",
+        ]
+        for pattern in patterns:
+            for match in re.finditer(pattern, text):
+                record(match, [date(int(match[3]), number, int(match[1])),
+                               date(int(match[3]), number, int(match[2]))])
+    for match in re.finditer(r"\b(20\d{2})-(\d{2})-(\d{2})\b", text):
+        record(match, [date(*map(int, match.groups()))])
+    for match in re.finditer(r"\b(\d{1,2})[/.-](\d{1,2})[/.-](20\d{2})\b", text):
+        record(match, [date(int(match[3]), int(match[2]), int(match[1]))])
     for month, number in MONTHS.items():
         for m in re.finditer(rf"\b(\d{{1,2}})\s+(?:de\s+)?{month}\s+(?:de\s+)?(20\d{{2}})\b", text):
-            dates.append(date(int(m[2]), number, int(m[1])))
+            record(m, [date(int(m[2]), number, int(m[1]))])
         for m in re.finditer(rf"\b{month}\s+(\d{{1,2}})(?:st|nd|rd|th)?[,]?\s+(20\d{{2}})\b", text):
-            dates.append(date(int(m[2]), number, int(m[1])))
+            record(m, [date(int(m[2]), number, int(m[1]))])
+    if not dates and default_year is not None:
+        for month, number in MONTHS.items():
+            for pattern in (rf"\b{month}\s+(\d{{1,2}})(?:st|nd|rd|th)?\b", rf"\b(\d{{1,2}})\s+(?:de\s+)?{month}\b"):
+                for match in re.finditer(pattern, text):
+                    record(match, [date(default_year, number, int(match[1]))])
     if dates:
-        return min(dates).isoformat(), max(dates).isoformat()
+        ordered = [value for _, value in sorted(dates, key=lambda item: item[0])]
+        if ordered[0] > ordered[-1]:
+            raise ValueError('The start date must precede the end date.')
+        return ordered[0].isoformat(), ordered[-1].isoformat()
     years = re.findall(r"\b20\d{2}\b", text)
     if years:
-        first, last = min(map(int, years)), max(map(int, years))
+        first, last = int(years[0]), int(years[-1])
         months = sorted((m.start(), n) for name, n in MONTHS.items()
                         for m in re.finditer(r"\b" + name + r"\b", text))
         start_month, end_month = (months[0][1], months[-1][1]) if months else (1, 12)
@@ -148,6 +175,8 @@ class Scope:
     changed: bool = False
     h3_index: str | None = None
     locality: str | None = None
+    confidence_level: str = 'low'
+    exclude_industrial: bool = False
 
 
 def polygon_bounds(coordinates: list) -> tuple[float, float, float, float]:
@@ -179,6 +208,11 @@ def relative_period(period: tuple[str, str] | None, question: str) -> tuple[str,
     step = (1 if any(t in text for t in ("next day", "day after", "dia siguiente", "dia seguinte"))
             else -1 if any(t in text for t in ("previous day", "day before", "dia anterior", "vispera")) else 0)
     return tuple((date.fromisoformat(d) + timedelta(days=step)).isoformat() for d in period)
+
+
+def references_observation_cutoff(question: str) -> bool:
+    """A cutoff mentioned in a question is a premise to verify, not a filter."""
+    return bool(re.search(r'\b(?:stops?|ends?|cutoff)\b.*\b(?:on|at|after|since)\b|\b(?:termina|acaba|finaliza)\b.*\b(?:el|desde)\b', normalized(question)))
 
 
 def resolve_scope(req: ExplainSpikeRequest) -> Scope:
@@ -224,7 +258,12 @@ def resolve_scope(req: ExplainSpikeRequest) -> Scope:
         coords = None
         label = "Unresolved requested location"
     try:
-        period = question_period(req.user_question)
+        reference_start = (previous.period_start if previous else req.period_start
+                           or (req.selected_day.date if req.selected_day else None))
+        # A reported chart cutoff is a date to investigate, not an instruction to
+        # replace the attached measurement day. Explicit years remain resolvable.
+        comparison_date = references_observation_cutoff(req.user_question)
+        period = question_period(req.user_question, int(reference_start[:4]) if reference_start and not comparison_date else None)
         if not period and previous:
             period = relative_period((date.fromisoformat(previous.period_start).isoformat(),
                                       date.fromisoformat(previous.period_end).isoformat()), req.user_question)
@@ -235,9 +274,9 @@ def resolve_scope(req: ExplainSpikeRequest) -> Scope:
             period = relative_period(period, req.user_question)
         if not period and req.selected_day:
             selected_date = date.fromisoformat(req.selected_day.date).isoformat()
-            period = (selected_date, selected_date)
+            period = relative_period((selected_date, selected_date), '' if req.prefer_map_context else req.user_question)
         if not period and req.period_start and req.period_end:
-            period = (date.fromisoformat(req.period_start).isoformat(), date.fromisoformat(req.period_end).isoformat())
+            period = relative_period((date.fromisoformat(req.period_start).isoformat(), date.fromisoformat(req.period_end).isoformat()), '' if req.prefer_map_context else req.user_question)
         if period and period[0] > period[1]:
             raise ValueError("Invalid date range")
     except ValueError:
@@ -248,7 +287,8 @@ def resolve_scope(req: ExplainSpikeRequest) -> Scope:
     changed = bool(current_place or previous)
     if req.selected_day and start and start != req.selected_day.date:
         changed = True
-    return Scope(label, coords, start, end, query, changed=changed, h3_index=selected_hex, locality=locality)
+    return Scope(label, coords, start, end, query, changed=changed, h3_index=selected_hex, locality=locality,
+                 confidence_level=req.confidence_level, exclude_industrial=req.exclude_industrial_flaring)
 
 
 def quantitative_intent(question: str) -> tuple[bool, bool]:
@@ -293,14 +333,20 @@ def retrieve_observations(scope: Scope) -> dict:
                 FROM read_parquet(?) WHERE is_center
                 AND h3_r4 IN (SELECT cell FROM copilot_r4)
                 AND h3_r7 IN (SELECT cell FROM copilot_r7)
-                AND acq_date BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)""",
-                params=[str(path), scope.start, scope.end]).to_arrow_table()
+                AND acq_date BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+                AND confidence_norm IN (SELECT unnest(?))
+                AND (NOT ? OR industrial_prob <= 0.75)""",
+                params=[str(path), scope.start, scope.end,
+                        {'low':['low','nominal','high'], 'nominal':['nominal','high'], 'high':['high']}[scope.confidence_level],
+                        scope.exclude_industrial]).to_arrow_table()
             cur.register("copilot_observations", rows)
             summary = cur.sql("""SELECT count(*) AS detections, coalesce(sum(frp),0) AS summed_frp_mw,
                 max(frp) AS max_detection_frp_mw, min(date) AS first_detection, max(date) AS last_detection,
                 list_sort(list(DISTINCT satellite)) AS sensors FROM copilot_observations""").to_arrow_table().to_pylist()[0]
             daily = cur.sql("""SELECT date, count(*) AS detections, sum(frp) AS summed_frp_mw
                 FROM copilot_observations GROUP BY date ORDER BY detections DESC, date LIMIT 5""").to_arrow_table().to_pylist()
+            timeline = cur.sql('''SELECT date, count(*) AS detections FROM copilot_observations
+                GROUP BY date ORDER BY date''').to_arrow_table().to_pylist()
             peaks = cur.sql("""SELECT * FROM copilot_observations ORDER BY frp DESC, date, acq_time LIMIT 3""").to_arrow_table().to_pylist()
         finally:
             cur.unregister("copilot_r4")
@@ -309,6 +355,8 @@ def retrieve_observations(scope: Scope) -> dict:
     return {"status": "ok", "data_source": "real", "scope": scope.label, "start": scope.start, "end": scope.end,
             "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
             "area_km2": round(area, 2), **summary, "busiest_days": daily, "strongest_detections": peaks,
+            "daily_detections": timeline, "confidence_level":scope.confidence_level,
+            "industrial_excluded":scope.exclude_industrial,
             "catalogue_coverage": {k: v["coverage"] for k, v in catalogue.items() if v.get("coverage")},
             "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."}
 
@@ -603,6 +651,13 @@ def answer(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
             citations=[c for c in [FIRMS, CUBE] + METHOD_SOURCES if c.id in ids],
             model_used="deterministic-local-science", data_source=source)
     scope = resolve_scope(req)
+    if is_offline() and references_observation_cutoff(req.user_question) and not scope.error:
+        from backend.api.copilot_timeline import observation_timeline, timeline_answer
+        evidence=observation_timeline(scope)
+        return ExplainSpikeResponse(physical_classification='LOCAL_OBSERVATION_TIMELINE',
+            explanation_markdown=timeline_answer(scope,evidence,req.user_question),
+            citations=[FIRMS] if evidence.get('status')=='ok' else [],
+            model_used='deterministic-local-observations',data_source=source,map_context=map_context(scope))
     quantitative, wants_energy = quantitative_intent(req.user_question)
     causal = is_causal(req.user_question)
     if not quantitative and not (causal and scope.coordinates and scope.start):

@@ -247,7 +247,7 @@ def scientific_sources(question: str) -> list[CitationReference]:
 
 def supported_ignition_excerpt(citation: CitationReference, quote_text: str, scope) -> bool:
     """An incident claim needs an exact official excerpt and explicit event place/date."""
-    if "article text retrieved" not in citation.dataset_or_doi or source_tier(citation.url or "") != 2:
+    if instructional_text(quote_text) or "article text retrieved" not in citation.dataset_or_doi or source_tier(citation.url or "") != 2:
         return False
     quote_normalized = normalize(" ".join(quote_text.split()))
     article = normalize(" ".join(citation.relevance_note.split()))
@@ -283,9 +283,14 @@ def research_host_allowed(url: str) -> bool:
     return source_tier(url) > 0
 
 
+def instructional_text(text: str) -> bool:
+    """Retrieved commands are not factual incident evidence, even on a trusted host."""
+    return bool(re.search(r'ignore (?:all |previous |prior )*instructions|system prompt|assistant\s*:|reveal .*api.?key|override .*instructions', text, re.I))
+
+
 def supported_report_excerpt(citation: CitationReference, excerpt: str, scope) -> bool:
     """Validate attributed regional reporting without equating it with a satellite cell."""
-    if "article text retrieved" not in citation.dataset_or_doi or not source_tier(citation.url or ""):
+    if instructional_text(excerpt) or "article text retrieved" not in citation.dataset_or_doi or not source_tier(citation.url or ""):
         return False
     if not isinstance(excerpt, str) or not 5 <= len(excerpt.split()) <= 80 or re.search(r"https?://|[<>\[\]]", excerpt):
         return False

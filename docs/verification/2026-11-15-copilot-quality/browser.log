@@ -1,0 +1,18 @@
+✔ browser loads real history in offline mode without any external request (1865.222624ms)
+✔ partial year entry remains editable and Cancel preserves the applied year (641.382102ms)
+✔ leap-day selection reaches the backend with exactly one UTC date (1154.434106ms)
+✔ inclusive cross-year selection drives both yearly map requests and the same chat interval (889.26962ms)
+✔ a reversed range is visibly rejected and leaves the applied interval intact (284.323909ms)
+✔ removing context stops geometry, dates and prior context from reaching the API (248.558993ms)
+✔ an explicit new day reattaches context and excludes the previous interval history (617.597963ms)
+✔ changing the area preserves the chosen date and sends the new polygon (858.675749ms)
+✔ clicking a real rendered hex attaches its exact H3 index and date (1599.984397ms)
+✔ clearing chat removes prior messages and a fresh question carries no hidden conversation (183.173139ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8790.25969

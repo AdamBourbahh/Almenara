@@ -1,5 +1,28 @@
 # Change log — integration changes
 
+## 2026-11-15 — Fire Copilot context and evidence quality
+
+Preserved inclusive date endpoints, selected geometry and scientific filters across
+chat, measurements and episode tools. Added an explicitly labeled observation
+timeline comparison, including local offline answers; profile/report windows no
+longer replace attached dates. Fixed mapped energy using the nominal confidence
+cube for low/high-confidence questions.
+
+Provider selection is binding across services. Source leads cannot authorize event
+citations without retrieved passages, document commands cannot become incident
+facts, and explicit unverified links between thermal observations and named fires
+must be corrected. Typed quantities replace unitless numeric matching; deterministic
+decimal display rounding and known sensor identifiers are supported. Count and GJ
+summaries lead quantitative answers. Scientific notes and map explanations now
+describe canonical within-cell sensor fusion and conditional emissions correctly.
+
+Added independent real-archive checks, selected-provider multi-turn conversations,
+controlled failure regressions and Chromium UI coverage. The previous provider
+cascade regression now enforces service selection; the accepted-center test fixture
+adds the actual production confidence/industrial columns without changing expected
+measurements. Public Python/TypeScript schemas and frozen checksums are unchanged.
+See `../docs/verification/2026-11-15-copilot-quality/README.md` for evidence and limits.
+
 ## 2026-11-15 — Integration with updated origin/main
 
 Preserved upstream inclusive chronology ranges, map search/scale, settings, local

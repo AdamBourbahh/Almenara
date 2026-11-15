@@ -9,7 +9,7 @@
     "id": "K2",
     "title": "Satellite detections and incident identity",
     "url": "https://firms.modaps.eosdis.nasa.gov/",
-    "text": "NASA FIRMS detections are satellite thermal anomalies, not a count of distinct fires. A single fire may generate many detections over different sensors and days. Thermal anomalies can also be agricultural burning or industrial sources. A selected polygon or H3 hexagon is a query area, not a confirmed wildfire perimeter. Zero detections do not prove absence of fire: clouds, overpasses, thresholds and archive coverage affect observation."
+    "text": "NASA FIRMS detections are satellite thermal anomalies, not a count of distinct fires. A single fire may generate many detections over different sensors and days. Thermal anomalies can also be agricultural burning or industrial sources. A selected polygon or H3 hexagon is a query area, not a confirmed wildfire perimeter. Zero detections do not prove absence of fire: clouds, overpasses, thresholds and archive coverage affect observation. Thermal sensors can detect flaming and sufficiently hot smoldering. A decline in detection counts alone cannot distinguish less combustion from obscuration, sampling or detection thresholds; none of these is a measured explanation without matching evidence."
   },
   {
     "id": "K3",
@@ -33,7 +33,7 @@
     "id": "K6",
     "title": "Biomass and emission estimates",
     "url": "https://doi.org/10.1029/2005JD006318",
-    "text": "The application estimates dry biomass consumed using 0.368 kg per MJ of integrated FRE. For GJ this is energy_GJ times 0.368 tonnes. Episode scenario emissions assume 9.5 g PM2.5 per kg biomass and 1580 g CO2 per kg biomass. These constant factors do not establish measured emissions, ambient air concentrations, health impacts, casualties, ecological damage or burned hectares. Emission factors vary with fuel and combustion. Dashboard PM2.5 and burned-area validation fields can remain null."
+    "text": "Dry biomass consumed is estimated as 0.368 tonnes per GJ of integrated FRE. PM2.5 needs measured annual fuel classes and supported fuel-specific emission factors; missing or unsupported inputs remain null. CO2 in episode profiles uses an explicitly assumed constant factor, not measured emissions. Energy and biomass do not measure ambient air quality, health impacts, casualties, ecological damage or burned hectares."
   },
   {
     "id": "K7",
@@ -45,7 +45,7 @@
     "id": "K8",
     "title": "Local archive and map scope",
     "url": "https://firms.modaps.eosdis.nasa.gov/",
-    "text": "The scientific cube covers available Earth observations within 2001–2026; actual date coverage varies by area. Four UI study envelopes are Iberia (Spain and Portugal), Chilecito La Rioja Argentina, Orlando Florida USA, and Amazonas/Manaus Brazil. The Amazonas envelope is not all Amazonia. Selected polygons and dates take priority unless the current question explicitly changes place or time. H3 R7 cells and unique R4 parents filter the database. Scientific totals integrate the daily represented footprint, not the full polygon every day. Synthetic mode is opt-in and cannot verify real incidents."
+    "text": "The scientific cube covers available Earth observations within November 2000–2026; actual date coverage varies by area. Four UI study envelopes are Iberia (Spain and Portugal), Chilecito La Rioja Argentina, Orlando Florida USA, and Amazonas/Manaus Brazil. The Amazonas envelope is not all Amazonia. Selected polygons and dates take priority unless the current question explicitly changes place or time. H3 R7 cells and unique R4 parents filter the database. Scientific totals integrate the daily represented footprint, not the full polygon every day. Synthetic mode is opt-in and cannot verify real incidents."
   },
   {
     "id": "K9",
@@ -57,6 +57,6 @@
     "id": "K10",
     "title": "Visible map versus regional energy estimate",
     "url": "https://doi.org/10.1029/2005JD006318",
-    "text": "The visible map integrates calibrated observations per H3 cell and does not include regional Kalman reconstruction. The regional model first averages each sensor over potentially different sets of cells, then combines sensors and optionally reconstructs missing values. These are different estimators, so totals can differ even with reconstruction disabled. Compare the same area, inclusive dates and industrial settings. Biomass must use the matching energy: 0.368 tonnes per GJ. Observed cell footprint differs from selected polygon area; neither is measured burned area. A full-year selection can contain only the days available before the archive cutoff."
+    "text": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
   }
 ]

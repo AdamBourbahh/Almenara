@@ -1,0 +1,20 @@
+...F.                                                                    [100%]
+=================================== FAILURES ===================================
+___ test_invalid_or_reversed_explicit_dates_request_correction[2026 to 2025] ___
+
+question = '2026 to 2025'
+
+    @pytest.mark.parametrize('question', ['2026-07-25 to 2026-07-23', 'February 29, 2025', '31–32 July 2026',
+                                          '2026 to 2025', 'July to June 2026'])
+    def test_invalid_or_reversed_explicit_dates_request_correction(question):
+>       assert local.resolve_scope(ExplainSpikeRequest(user_question=question)).error
+E       AssertionError: assert None
+E        +  where None = Scope(label='Unknown Region', coordinates=None, start='2025-01-01', end='2026-12-31', search_query='2026 to 2025 Unkno...eimadas', error=None, changed=False, h3_index=None, locality=None, confidence_level='nominal', exclude_industrial=True).error
+E        +    where Scope(label='Unknown Region', coordinates=None, start='2025-01-01', end='2026-12-31', search_query='2026 to 2025 Unkno...eimadas', error=None, changed=False, h3_index=None, locality=None, confidence_level='nominal', exclude_industrial=True) = <function resolve_scope at 0x7bb1c0162fc0>(ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='2026 to 2025', ...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]))
+E        +      where <function resolve_scope at 0x7bb1c0162fc0> = local.resolve_scope
+E        +      and   ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='2026 to 2025', ...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]) = ExplainSpikeRequest(user_question='2026 to 2025')
+
+backend/tests/test_copilot_quality.py:37: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_copilot_quality.py::test_invalid_or_reversed_explicit_dates_request_correction[2026 to 2025]
+1 failed, 4 passed, 43 deselected in 0.34s

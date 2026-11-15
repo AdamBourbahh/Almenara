@@ -166,8 +166,10 @@ def causal_answer(req, scope, observed, source, *, search, complete, firms, meth
     elif quotes:
         lead = " ".join(f"{summary or excerpt} {c.id}" for c, excerpt, kind, summary in quotes[:1]) + " Reported regional incidents are not automatically a match to each selected satellite cell."
     else:
-        lead = ("The ignition cause is **not verified for this area and period**. Satellite detections "
-                "cannot establish whether the origin was lightning, human activity or another source. [5]")
+        lead = ("The observations do not establish why the thermal activity developed here. "
+                "Explaining its spread needs matching weather, fuel or incident evidence; "
+                "the ignition cause is **not verified for this area and period**. "
+                "Satellite detections alone cannot distinguish these explanations. [5]")
     sections = ["### Answer\n\n" + lead, "### What the local data show\n\n" + local_snapshot(scope, observed)]
     if quotes:
         for kind, heading in [("ignition", "Reported ignition or investigation"), ("spread", "Reported spread conditions"), ("event", "Reported incident"), ("unknown", "Uncertainty in the reports")]:

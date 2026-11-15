@@ -1,0 +1,167 @@
+........................................................................ [ 13%]
+..................................................FFFF.................. [ 27%]
+.F...................................................................... [ 41%]
+........................................................................ [ 55%]
+........................................................................ [ 68%]
+........................................................................ [ 82%]
+........................................................................ [ 96%]
+...................                                                      [100%]
+=================================== FAILURES ===================================
+___ test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output[401] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c458740fdd0>
+status = 401
+
+    @pytest.mark.parametrize('status',[401,403,429,500])
+    def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypatch,status):
+        monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+        monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
+        monkeypatch.setenv('COPILOT_OFFLINE','0')
+        for variable in ('GROQ_API_KEY','GITHUB_TOKEN','GEMINI_API_KEY'):
+            monkeypatch.setenv(variable,'test-secret')
+        monkeypatch.delenv('GROQ_MODEL',raising=False)
+        monkeypatch.setenv('GITHUB_MODELS_ENDPOINT','https://models-gateway.example.org/v1/chat/completions')
+        calls=[]
+        def transport(request):
+            calls.append(request)
+            body=json.loads(request.content)
+            assert sum(len(m['content']) for m in body['messages'])<=4500
+            assert body['max_tokens']==900
+            if request.url.host=='generativelanguage.googleapis.com':
+                return httpx.Response(200,json={'choices':[{'finish_reason':'stop','message':{'content':'{"claims":[]}'}}]})
+            return httpx.Response(status,json={'error':'unavailable'})
+        factory=httpx.Client
+        monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:factory(transport=httpx.MockTransport(transport),**kwargs))
+        result,provider=providers.complete([{'role':'system','content':'x'*6000},{'role':'user','content':'a'*10000}],structured=True)
+>       assert result=='{"claims":[]}' and provider=='gemini/gemini-3.8-flash'
+E       assert (None == '{"claims":[]}')
+
+backend/tests/test_copilot_investigator.py:146: AssertionError
+___ test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output[403] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c45873e8770>
+status = 403
+
+    @pytest.mark.parametrize('status',[401,403,429,500])
+    def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypatch,status):
+        monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+        monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
+        monkeypatch.setenv('COPILOT_OFFLINE','0')
+        for variable in ('GROQ_API_KEY','GITHUB_TOKEN','GEMINI_API_KEY'):
+            monkeypatch.setenv(variable,'test-secret')
+        monkeypatch.delenv('GROQ_MODEL',raising=False)
+        monkeypatch.setenv('GITHUB_MODELS_ENDPOINT','https://models-gateway.example.org/v1/chat/completions')
+        calls=[]
+        def transport(request):
+            calls.append(request)
+            body=json.loads(request.content)
+            assert sum(len(m['content']) for m in body['messages'])<=4500
+            assert body['max_tokens']==900
+            if request.url.host=='generativelanguage.googleapis.com':
+                return httpx.Response(200,json={'choices':[{'finish_reason':'stop','message':{'content':'{"claims":[]}'}}]})
+            return httpx.Response(status,json={'error':'unavailable'})
+        factory=httpx.Client
+        monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:factory(transport=httpx.MockTransport(transport),**kwargs))
+        result,provider=providers.complete([{'role':'system','content':'x'*6000},{'role':'user','content':'a'*10000}],structured=True)
+>       assert result=='{"claims":[]}' and provider=='gemini/gemini-3.8-flash'
+E       assert (None == '{"claims":[]}')
+
+backend/tests/test_copilot_investigator.py:146: AssertionError
+___ test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output[429] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c45874363c0>
+status = 429
+
+    @pytest.mark.parametrize('status',[401,403,429,500])
+    def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypatch,status):
+        monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+        monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
+        monkeypatch.setenv('COPILOT_OFFLINE','0')
+        for variable in ('GROQ_API_KEY','GITHUB_TOKEN','GEMINI_API_KEY'):
+            monkeypatch.setenv(variable,'test-secret')
+        monkeypatch.delenv('GROQ_MODEL',raising=False)
+        monkeypatch.setenv('GITHUB_MODELS_ENDPOINT','https://models-gateway.example.org/v1/chat/completions')
+        calls=[]
+        def transport(request):
+            calls.append(request)
+            body=json.loads(request.content)
+            assert sum(len(m['content']) for m in body['messages'])<=4500
+            assert body['max_tokens']==900
+            if request.url.host=='generativelanguage.googleapis.com':
+                return httpx.Response(200,json={'choices':[{'finish_reason':'stop','message':{'content':'{"claims":[]}'}}]})
+            return httpx.Response(status,json={'error':'unavailable'})
+        factory=httpx.Client
+        monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:factory(transport=httpx.MockTransport(transport),**kwargs))
+        result,provider=providers.complete([{'role':'system','content':'x'*6000},{'role':'user','content':'a'*10000}],structured=True)
+>       assert result=='{"claims":[]}' and provider=='gemini/gemini-3.8-flash'
+E       assert (None == '{"claims":[]}')
+
+backend/tests/test_copilot_investigator.py:146: AssertionError
+___ test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output[500] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7c4587436780>
+status = 500
+
+    @pytest.mark.parametrize('status',[401,403,429,500])
+    def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypatch,status):
+        monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+        monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
+        monkeypatch.setenv('COPILOT_OFFLINE','0')
+        for variable in ('GROQ_API_KEY','GITHUB_TOKEN','GEMINI_API_KEY'):
+            monkeypatch.setenv(variable,'test-secret')
+        monkeypatch.delenv('GROQ_MODEL',raising=False)
+        monkeypatch.setenv('GITHUB_MODELS_ENDPOINT','https://models-gateway.example.org/v1/chat/completions')
+        calls=[]
+        def transport(request):
+            calls.append(request)
+            body=json.loads(request.content)
+            assert sum(len(m['content']) for m in body['messages'])<=4500
+            assert body['max_tokens']==900
+            if request.url.host=='generativelanguage.googleapis.com':
+                return httpx.Response(200,json={'choices':[{'finish_reason':'stop','message':{'content':'{"claims":[]}'}}]})
+            return httpx.Response(status,json={'error':'unavailable'})
+        factory=httpx.Client
+        monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:factory(transport=httpx.MockTransport(transport),**kwargs))
+        result,provider=providers.complete([{'role':'system','content':'x'*6000},{'role':'user','content':'a'*10000}],structured=True)
+>       assert result=='{"claims":[]}' and provider=='gemini/gemini-3.8-flash'
+E       assert (None == '{"claims":[]}')
+
+backend/tests/test_copilot_investigator.py:146: AssertionError
+_ test_structured_previous_scope_survives_history_truncation_and_relative_dates _
+
+    def test_structured_previous_scope_survives_history_truncation_and_relative_dates():
+        req = ExplainSpikeRequest(region_name="Chilecito", period_start="2022-01-01", period_end="2022-12-31",
+            user_question="And on the next day?", previous_context={
+                "label": "A previously queried custom area",
+                "aoi": {"coordinates": [[[-4.3,40.3],[-4.1,40.3],[-4.1,40.5],[-4.3,40.3]]]},
+                "period_start": "2026-07-24", "period_end": "2026-07-24"},
+            conversation=[{"role": "user", "content": "And the observations?"}] * 10)
+        scope = copilot.resolve_scope(req)
+        assert scope.label == "A previously queried custom area"
+        assert scope.coordinates == req.previous_context.aoi.coordinates
+        assert scope.start == scope.end == "2026-07-25"
+        req.prefer_map_context = True
+        scope = copilot.resolve_scope(req)
+        assert scope.label.startswith("Chilecito")
+>       assert scope.start == "2022-01-01"
+E       AssertionError: assert '2022-01-02' == '2022-01-01'
+E
+E         - 2022-01-01
+E         ?          ^
+E         + 2022-01-02
+E         ?          ^
+
+backend/tests/test_copilot_metrics.py:122: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /tmp/almenara-copilot-quality/firms-harmonizer/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_copilot_investigator.py::test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output[401]
+FAILED backend/tests/test_copilot_investigator.py::test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output[403]
+FAILED backend/tests/test_copilot_investigator.py::test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output[429]
+FAILED backend/tests/test_copilot_investigator.py::test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output[500]
+FAILED backend/tests/test_copilot_metrics.py::test_structured_previous_scope_survives_history_truncation_and_relative_dates
+5 failed, 518 passed, 1 warning in 44.53s

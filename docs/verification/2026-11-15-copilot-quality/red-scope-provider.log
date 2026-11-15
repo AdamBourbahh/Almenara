@@ -1,0 +1,302 @@
+FFFF.......F..FFFFFF......FF                                             [100%]
+=================================== FAILURES ===================================
+_______ test_explicit_calendar_period_is_never_expanded[en-shared-month] _______
+
+question = 'July 23–24, 2026', want = ('2026-07-23', '2026-07-24')
+
+    @pytest.mark.parametrize('question,want', [
+        ('July 23–24, 2026', ('2026-07-23', '2026-07-24')),
+        ('23–24 de julio de 2026', ('2026-07-23', '2026-07-24')),
+        ('23 y 24 de julio de 2026', ('2026-07-23', '2026-07-24')),
+        ('July 23 to 24 2026', ('2026-07-23', '2026-07-24')),
+        ('from 31 December 2025 to 2 January 2026', ('2025-12-31', '2026-01-02')),
+        ('del 31 de diciembre de 2025 al 2 de enero de 2026', ('2025-12-31', '2026-01-02')),
+        ('February 29, 2024', ('2024-02-29', '2024-02-29')),
+        ('2026-07-23 through 2026-07-24', ('2026-07-23', '2026-07-24')),
+        ('24/07/2026', ('2026-07-24', '2026-07-24')),
+        ('during July 2026', ('2026-07-01', '2026-07-31')),
+        ('2025 to 2026', ('2025-01-01', '2026-12-31')),
+    ], ids=['en-shared-month', 'es-shared-month', 'es-two-days', 'en-to',
+            'cross-year-en', 'cross-year-es', 'leap-day', 'iso-inclusive', 'european-date', 'month', 'years'])
+    def test_explicit_calendar_period_is_never_expanded(question, want):
+        """Dropping a range endpoint must not turn two days into a whole month."""
+>       assert local.question_period(question) == want
+E       AssertionError: assert ('2026-07-01', '2026-07-31') == ('2026-07-23', '2026-07-24')
+E
+E         At index 0 diff: '2026-07-01' != '2026-07-23'
+E         Use -v to get more diff
+
+backend/tests/test_copilot_quality.py:31: AssertionError
+_______ test_explicit_calendar_period_is_never_expanded[es-shared-month] _______
+
+question = '23–24 de julio de 2026', want = ('2026-07-23', '2026-07-24')
+
+    @pytest.mark.parametrize('question,want', [
+        ('July 23–24, 2026', ('2026-07-23', '2026-07-24')),
+        ('23–24 de julio de 2026', ('2026-07-23', '2026-07-24')),
+        ('23 y 24 de julio de 2026', ('2026-07-23', '2026-07-24')),
+        ('July 23 to 24 2026', ('2026-07-23', '2026-07-24')),
+        ('from 31 December 2025 to 2 January 2026', ('2025-12-31', '2026-01-02')),
+        ('del 31 de diciembre de 2025 al 2 de enero de 2026', ('2025-12-31', '2026-01-02')),
+        ('February 29, 2024', ('2024-02-29', '2024-02-29')),
+        ('2026-07-23 through 2026-07-24', ('2026-07-23', '2026-07-24')),
+        ('24/07/2026', ('2026-07-24', '2026-07-24')),
+        ('during July 2026', ('2026-07-01', '2026-07-31')),
+        ('2025 to 2026', ('2025-01-01', '2026-12-31')),
+    ], ids=['en-shared-month', 'es-shared-month', 'es-two-days', 'en-to',
+            'cross-year-en', 'cross-year-es', 'leap-day', 'iso-inclusive', 'european-date', 'month', 'years'])
+    def test_explicit_calendar_period_is_never_expanded(question, want):
+        """Dropping a range endpoint must not turn two days into a whole month."""
+>       assert local.question_period(question) == want
+E       AssertionError: assert ('2026-07-24', '2026-07-24') == ('2026-07-23', '2026-07-24')
+E
+E         At index 0 diff: '2026-07-24' != '2026-07-23'
+E         Use -v to get more diff
+
+backend/tests/test_copilot_quality.py:31: AssertionError
+_________ test_explicit_calendar_period_is_never_expanded[es-two-days] _________
+
+question = '23 y 24 de julio de 2026', want = ('2026-07-23', '2026-07-24')
+
+    @pytest.mark.parametrize('question,want', [
+        ('July 23–24, 2026', ('2026-07-23', '2026-07-24')),
+        ('23–24 de julio de 2026', ('2026-07-23', '2026-07-24')),
+        ('23 y 24 de julio de 2026', ('2026-07-23', '2026-07-24')),
+        ('July 23 to 24 2026', ('2026-07-23', '2026-07-24')),
+        ('from 31 December 2025 to 2 January 2026', ('2025-12-31', '2026-01-02')),
+        ('del 31 de diciembre de 2025 al 2 de enero de 2026', ('2025-12-31', '2026-01-02')),
+        ('February 29, 2024', ('2024-02-29', '2024-02-29')),
+        ('2026-07-23 through 2026-07-24', ('2026-07-23', '2026-07-24')),
+        ('24/07/2026', ('2026-07-24', '2026-07-24')),
+        ('during July 2026', ('2026-07-01', '2026-07-31')),
+        ('2025 to 2026', ('2025-01-01', '2026-12-31')),
+    ], ids=['en-shared-month', 'es-shared-month', 'es-two-days', 'en-to',
+            'cross-year-en', 'cross-year-es', 'leap-day', 'iso-inclusive', 'european-date', 'month', 'years'])
+    def test_explicit_calendar_period_is_never_expanded(question, want):
+        """Dropping a range endpoint must not turn two days into a whole month."""
+>       assert local.question_period(question) == want
+E       AssertionError: assert ('2026-07-24', '2026-07-24') == ('2026-07-23', '2026-07-24')
+E
+E         At index 0 diff: '2026-07-24' != '2026-07-23'
+E         Use -v to get more diff
+
+backend/tests/test_copilot_quality.py:31: AssertionError
+____________ test_explicit_calendar_period_is_never_expanded[en-to] ____________
+
+question = 'July 23 to 24 2026', want = ('2026-07-23', '2026-07-24')
+
+    @pytest.mark.parametrize('question,want', [
+        ('July 23–24, 2026', ('2026-07-23', '2026-07-24')),
+        ('23–24 de julio de 2026', ('2026-07-23', '2026-07-24')),
+        ('23 y 24 de julio de 2026', ('2026-07-23', '2026-07-24')),
+        ('July 23 to 24 2026', ('2026-07-23', '2026-07-24')),
+        ('from 31 December 2025 to 2 January 2026', ('2025-12-31', '2026-01-02')),
+        ('del 31 de diciembre de 2025 al 2 de enero de 2026', ('2025-12-31', '2026-01-02')),
+        ('February 29, 2024', ('2024-02-29', '2024-02-29')),
+        ('2026-07-23 through 2026-07-24', ('2026-07-23', '2026-07-24')),
+        ('24/07/2026', ('2026-07-24', '2026-07-24')),
+        ('during July 2026', ('2026-07-01', '2026-07-31')),
+        ('2025 to 2026', ('2025-01-01', '2026-12-31')),
+    ], ids=['en-shared-month', 'es-shared-month', 'es-two-days', 'en-to',
+            'cross-year-en', 'cross-year-es', 'leap-day', 'iso-inclusive', 'european-date', 'month', 'years'])
+    def test_explicit_calendar_period_is_never_expanded(question, want):
+        """Dropping a range endpoint must not turn two days into a whole month."""
+>       assert local.question_period(question) == want
+E       AssertionError: assert ('2026-07-01', '2026-07-31') == ('2026-07-23', '2026-07-24')
+E
+E         At index 0 diff: '2026-07-01' != '2026-07-23'
+E         Use -v to get more diff
+
+backend/tests/test_copilot_quality.py:31: AssertionError
+_ test_invalid_or_reversed_explicit_dates_request_correction[2026-07-25 to 2026-07-23] _
+
+question = '2026-07-25 to 2026-07-23'
+
+    @pytest.mark.parametrize('question', ['2026-07-25 to 2026-07-23', 'February 29, 2025', '31–32 July 2026'])
+    def test_invalid_or_reversed_explicit_dates_request_correction(question):
+>       assert local.resolve_scope(ExplainSpikeRequest(user_question=question)).error
+E       AssertionError: assert None
+E        +  where None = Scope(label='Unknown Region', coordinates=None, start='2026-07-23', end='2026-07-25', search_query='2026-07-25 to 2026...own Region 2026-07-23 2026-07-25 wildfire incendio queimadas', error=None, changed=False, h3_index=None, locality=None).error
+E        +    where Scope(label='Unknown Region', coordinates=None, start='2026-07-23', end='2026-07-25', search_query='2026-07-25 to 2026...own Region 2026-07-23 2026-07-25 wildfire incendio queimadas', error=None, changed=False, h3_index=None, locality=None) = <function resolve_scope at 0x71a26944a0c0>(ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='2026-07-25 to 2...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]))
+E        +      where <function resolve_scope at 0x71a26944a0c0> = local.resolve_scope
+E        +      and   ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='2026-07-25 to 2...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]) = ExplainSpikeRequest(user_question='2026-07-25 to 2026-07-23')
+
+backend/tests/test_copilot_quality.py:36: AssertionError
+_______ test_yearless_day_uses_attached_year_instead_of_entire_selection _______
+
+    def test_yearless_day_uses_attached_year_instead_of_entire_selection():
+        scope = local.resolve_scope(ExplainSpikeRequest(user_question='How many detections on July 24?',
+            period_start='2026-01-01', period_end='2026-12-31'))
+>       assert (scope.start, scope.end) == ('2026-07-24', '2026-07-24')
+E       AssertionError: assert ('2026-01-01', '2026-12-31') == ('2026-07-24', '2026-07-24')
+E
+E         At index 0 diff: '2026-01-01' != '2026-07-24'
+E         Use -v to get more diff
+
+backend/tests/test_copilot_quality.py:42: AssertionError
+________ test_next_day_uses_attached_day_without_requiring_old_messages ________
+
+    def test_next_day_uses_attached_day_without_requiring_old_messages():
+        scope = local.resolve_scope(ExplainSpikeRequest(user_question='and the next day?',
+            period_start='2025-12-31', period_end='2025-12-31'))
+>       assert (scope.start, scope.end) == ('2026-01-01', '2026-01-01')
+E       AssertionError: assert ('2025-12-31', '2025-12-31') == ('2026-01-01', '2026-01-01')
+E
+E         At index 0 diff: '2025-12-31' != '2026-01-01'
+E         Use -v to get more diff
+
+backend/tests/test_copilot_quality.py:48: AssertionError
+___________ test_model_dates_cannot_silently_expand_selected_period ____________
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71a26a8e1700>
+
+    def test_model_dates_cannot_silently_expand_selected_period(online, monkeypatch):
+        queried = []
+        monkeypatch.setattr(agent, 'turn', lambda *a, **k: {'tool_calls': [tool('query_observations',
+            {'start': '2026-07-01', 'end': '2026-07-31'})]})
+        monkeypatch.setattr(local, 'retrieve_observations', lambda scope: queried.append(scope) or {'status': 'empty'})
+        monkeypatch.setattr(agent.researcher, 'answer', lambda req: 'safe local answer')
+        assert agent.answer(ExplainSpikeRequest(user_question='How many detections here?',
+            period_start='2026-07-24', period_end='2026-07-24')) == 'safe local answer'
+>       assert not queried
+E       AssertionError: assert not [Scope(label='Unknown Region', coordinates=None, start='2026-07-01', end='2026-07-31', search_query='How many detectio...here? Unknown Region 2026-07-24 wildfire incendio queimadas', error=None, changed=False, h3_index=None, locality=None)]
+
+backend/tests/test_copilot_quality.py:73: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  backend.api.copilot_agent:copilot_agent.py:283 groq agent fallback (ValueError); tools=['query_observations', 'query_observations', 'query_observations', 'query_observations', 'query_observations', 'query_observations']
+____ test_episode_profile_does_not_replace_attached_day_with_31_day_window _____
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71a26948dac0>
+
+    def test_episode_profile_does_not_replace_attached_day_with_31_day_window(online, monkeypatch):
+        turns = iter([{'tool_calls': [tool('profile_episode')]},
+            {'content': 'An episode estimate does not establish official fire duration. [6]'}])
+        monkeypatch.setattr(agent, 'turn', lambda *a, **k: next(turns))
+        seen = []
+        def profile(*args, **kwargs):
+            seen.append((args, kwargs))
+            return {'status': 'ok', 'window_start': '2026-07-10', 'window_end': '2026-08-09'}
+        monkeypatch.setattr(agent.researcher, 'profile_fire_episode_from_duckdb', profile)
+        result = agent.answer(ExplainSpikeRequest(user_question='Describe the episode here',
+            period_start='2026-07-24', period_end='2026-07-24',
+            aoi={'coordinates': [[[-4.4,40.2],[-4.1,40.2],[-4.1,40.5],[-4.4,40.5],[-4.4,40.2]]]}))
+>       assert result.map_context.period_start == result.map_context.period_end == '2026-07-24'
+E       AssertionError: assert '2026-07-10' == '2026-08-09'
+E
+E         - 2026-08-09
+E         ?       ^  -
+E         + 2026-07-10
+E         ?       ^ +
+
+backend/tests/test_copilot_quality.py:88: AssertionError
+_______ test_completion_never_spends_an_unselected_provider_quota[groq] ________
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71a26948e930>
+provider = 'groq'
+
+    @pytest.mark.parametrize('provider', ['groq', 'unsupported'])
+    def test_completion_never_spends_an_unselected_provider_quota(online, monkeypatch, provider):
+        monkeypatch.setenv('COPILOT_PROVIDER', provider)
+        calls = []
+        factory = httpx.Client
+        def transport(request):
+            calls.append(request.url.host)
+            return httpx.Response(429, json={'error': 'quota'})
+        monkeypatch.setattr(providers.httpx, 'Client', lambda **kw: factory(transport=httpx.MockTransport(transport), **kw))
+        assert providers.complete([{'role': 'user', 'content': 'What is FRP?'}])[0] is None
+>       assert calls == (['api.groq.com'] if provider == 'groq' else [])
+E       AssertionError: assert ['api.groq.co...ogleapis.com'] == ['api.groq.com']
+E
+E         Left contains one more item: 'generativelanguage.googleapis.com'
+E         Use -v to get more diff
+
+backend/tests/test_copilot_quality.py:102: AssertionError
+____ test_completion_never_spends_an_unselected_provider_quota[unsupported] ____
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71a26948e6f0>
+provider = 'unsupported'
+
+    @pytest.mark.parametrize('provider', ['groq', 'unsupported'])
+    def test_completion_never_spends_an_unselected_provider_quota(online, monkeypatch, provider):
+        monkeypatch.setenv('COPILOT_PROVIDER', provider)
+        calls = []
+        factory = httpx.Client
+        def transport(request):
+            calls.append(request.url.host)
+            return httpx.Response(429, json={'error': 'quota'})
+        monkeypatch.setattr(providers.httpx, 'Client', lambda **kw: factory(transport=httpx.MockTransport(transport), **kw))
+        assert providers.complete([{'role': 'user', 'content': 'What is FRP?'}])[0] is None
+>       assert calls == (['api.groq.com'] if provider == 'groq' else [])
+E       AssertionError: assert ['api.groq.co...ogleapis.com'] == []
+E
+E         Left contains 2 more items, first extra item: 'api.groq.com'
+E         Use -v to get more diff
+
+backend/tests/test_copilot_quality.py:102: AssertionError
+___________ test_wrong_unit_cannot_be_justified_by_a_detection_count ___________
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71a269457e90>
+
+    def test_wrong_unit_cannot_be_justified_by_a_detection_count(online, monkeypatch):
+        turns = iter([{'tool_calls': [tool('query_observations')]},
+                      {'content': 'The energy was 12 GJ. [5]'},
+                      {'content': 'The energy was 12 GJ. [5]'}])
+        monkeypatch.setattr(agent, 'turn', lambda *a, **k: next(turns))
+        monkeypatch.setattr(local, 'retrieve_observations', lambda scope: {'status': 'ok', 'detections': 12})
+        monkeypatch.setattr(local, 'local_answer', lambda *args: '12 detections. [5]')
+        monkeypatch.setattr(agent.researcher, 'answer', lambda req: 'safe local answer')
+>       assert agent.answer(ExplainSpikeRequest(user_question='How much energy?')) == 'safe local answer'
+E       AssertionError: assert ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE', explanation_markdown='The energy was 12 GJ. [5]\n\n...The energy was 12 GJ. [5]\n\n12 detections. [5]', provider_used='groq-agent/openai/gpt-oss-120b', episode_summary=None) == 'safe local answer'
+E        +  where ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE', explanation_markdown='The energy was 12 GJ. [5]\n\n...The energy was 12 GJ. [5]\n\n12 detections. [5]', provider_used='groq-agent/openai/gpt-oss-120b', episode_summary=None) = <function answer at 0x71a26944a8e0>(ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='How much energy...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]))
+E        +    where <function answer at 0x71a26944a8e0> = agent.answer
+E        +    and   ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='How much energy...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]) = ExplainSpikeRequest(user_question='How much energy?')
+
+backend/tests/test_copilot_quality.py:132: AssertionError
+_________ test_decimal_rounding_is_checked_at_the_displayed_precision __________
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71a268d041a0>
+
+    def test_decimal_rounding_is_checked_at_the_displayed_precision(online, monkeypatch):
+        turns = iter([{'tool_calls': [tool('query_energy')]}, {'content': 'The energy proxy is 12.6 GJ. [6]'}])
+        monkeypatch.setattr(agent, 'turn', lambda *a, **k: next(turns))
+        monkeypatch.setattr(agent, 'retrieve_energy', lambda *args: {'status': 'ok', 'energy_gj': 12.56})
+        monkeypatch.setattr(agent, 'energy_answer', lambda *args: 'Exact proxy: 12.560 GJ. [6]')
+>       result = agent.answer(ExplainSpikeRequest(user_question='How much energy?'))
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/test_copilot_quality.py:140:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/api/copilot_agent.py:131: in answer
+    response=turn(messages,finish=step>=3,timeout=min(10,remaining),used=trace)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+a = ([{'role': 'system', 'content': 'You are the Fire AI Copilot, specializing in wildfire activity, land management and s... values. Distinguish probable active burning from confirmation of a wildfire. Answer the actual question directly.'}],)
+k = {'finish': False, 'timeout': 10, 'used': ['query_energy', 'submit_answer']}
+
+>   monkeypatch.setattr(agent, 'turn', lambda *a, **k: next(turns))
+                                                       ^^^^^^^^^^^
+E   StopIteration
+
+backend/tests/test_copilot_quality.py:137: StopIteration
+=========================== short test summary info ============================
+FAILED backend/tests/test_copilot_quality.py::test_explicit_calendar_period_is_never_expanded[en-shared-month]
+FAILED backend/tests/test_copilot_quality.py::test_explicit_calendar_period_is_never_expanded[es-shared-month]
+FAILED backend/tests/test_copilot_quality.py::test_explicit_calendar_period_is_never_expanded[es-two-days]
+FAILED backend/tests/test_copilot_quality.py::test_explicit_calendar_period_is_never_expanded[en-to]
+FAILED backend/tests/test_copilot_quality.py::test_invalid_or_reversed_explicit_dates_request_correction[2026-07-25 to 2026-07-23]
+FAILED backend/tests/test_copilot_quality.py::test_yearless_day_uses_attached_year_instead_of_entire_selection
+FAILED backend/tests/test_copilot_quality.py::test_next_day_uses_attached_day_without_requiring_old_messages
+FAILED backend/tests/test_copilot_quality.py::test_model_dates_cannot_silently_expand_selected_period
+FAILED backend/tests/test_copilot_quality.py::test_episode_profile_does_not_replace_attached_day_with_31_day_window
+FAILED backend/tests/test_copilot_quality.py::test_completion_never_spends_an_unselected_provider_quota[groq]
+FAILED backend/tests/test_copilot_quality.py::test_completion_never_spends_an_unselected_provider_quota[unsupported]
+FAILED backend/tests/test_copilot_quality.py::test_wrong_unit_cannot_be_justified_by_a_detection_count
+FAILED backend/tests/test_copilot_quality.py::test_decimal_rounding_is_checked_at_the_displayed_precision
+13 failed, 15 passed in 0.76s

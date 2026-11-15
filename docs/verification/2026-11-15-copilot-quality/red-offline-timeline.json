@@ -1,0 +1,496 @@
+{
+  "files": [
+    {
+      "path": "data/processed/fire_cube.parquet",
+      "sha256": "c2746957e314f319546780727d0370add745ac2ab3ef15c0a2b2f42be429c47e",
+      "provenance": "real FIRMS inputs; locally rebuilt"
+    },
+    {
+      "path": "data/processed/staged_firms.parquet",
+      "sha256": "41ff970f7d9415c7e7b63c6232933cbbdc9371a32bf8f69509ce97832b6dbb08",
+      "provenance": "real FIRMS inputs; locally rebuilt"
+    }
+  ],
+  "records": [
+    {
+      "question": "why does the map seem to stop on July 27 if the Madrid fire lasted fourteen days?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "why does the map seem to stop on July 27 if the Madrid fire lasted fourteen days?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "actual offline HTTP routes and local tools"
+      ],
+      "expected": {
+        "network_attempts": 0
+      },
+      "expected_method": "Block DNS resolution and socket connection; run all six historical prompts over real local data",
+      "response": [
+        {
+          "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+          "explanation_markdown": "### Answer\n\nThe selected area has satellite thermal detections **consistent with active burning**. They support a possible fire, but satellite hotspots alone do not confirm a wildfire: industrial heat and other burning can also produce detections. [5] Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-offline-science",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected Sierra Oeste area",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "### Answer\n\nThe selected area has satellite thermal detections **consistent with active burning**. They support a possible fire, but satellite hotspots alone do not confirm a wildfire: industrial heat and other burning can also produce detections. [5] Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "provider_used": "deterministic-offline-science",
+          "episode_summary": null
+        },
+        {
+          "physical_classification": "CAUSE_NOT_VERIFIED",
+          "explanation_markdown": "### Answer\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### What the local data show\n\n**1,860 satellite detections** in **Selected Sierra Oeste area**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\n### Next step\n\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            },
+            {
+              "id": "[2]",
+              "source_type": "PEER_REVIEWED",
+              "title": "The New VIIRS 375 m active fire detection product",
+              "authors_or_agency": "Schroeder et al.",
+              "year": 2014,
+              "dataset_or_doi": "10.1016/j.rse.2013.12.008",
+              "url": "https://doi.org/10.1016/j.rse.2013.12.008",
+              "relevance_note": "VIIRS active fire detection methodology."
+            },
+            {
+              "id": "[3]",
+              "source_type": "PEER_REVIEWED",
+              "title": "The Collection 6 MODIS active fire detection algorithm and fire products",
+              "authors_or_agency": "Giglio et al.",
+              "year": 2016,
+              "dataset_or_doi": "10.1016/j.rse.2016.02.054",
+              "url": "https://doi.org/10.1016/j.rse.2016.02.054",
+              "relevance_note": "MODIS active fire detection methodology."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-offline-science",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected Sierra Oeste area",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "### Answer\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### What the local data show\n\n**1,860 satellite detections** in **Selected Sierra Oeste area**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\n### Next step\n\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.",
+          "provider_used": "deterministic-offline-science",
+          "episode_summary": null
+        },
+        {
+          "physical_classification": "CAUSE_NOT_VERIFIED",
+          "explanation_markdown": "### Answer\n\nThe available reports **do not establish the ignition cause**. This means the cause is unverified in the evidence retrieved here; it does not establish that authorities have never determined it. [5]\n\n### What the local data show\n\n**1,860 satellite detections** in **Selected Sierra Oeste area**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\n### Next step\n\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            },
+            {
+              "id": "[2]",
+              "source_type": "PEER_REVIEWED",
+              "title": "The New VIIRS 375 m active fire detection product",
+              "authors_or_agency": "Schroeder et al.",
+              "year": 2014,
+              "dataset_or_doi": "10.1016/j.rse.2013.12.008",
+              "url": "https://doi.org/10.1016/j.rse.2013.12.008",
+              "relevance_note": "VIIRS active fire detection methodology."
+            },
+            {
+              "id": "[3]",
+              "source_type": "PEER_REVIEWED",
+              "title": "The Collection 6 MODIS active fire detection algorithm and fire products",
+              "authors_or_agency": "Giglio et al.",
+              "year": 2016,
+              "dataset_or_doi": "10.1016/j.rse.2016.02.054",
+              "url": "https://doi.org/10.1016/j.rse.2016.02.054",
+              "relevance_note": "MODIS active fire detection methodology."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-offline-science",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected Sierra Oeste area",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "### Answer\n\nThe available reports **do not establish the ignition cause**. This means the cause is unverified in the evidence retrieved here; it does not establish that authorities have never determined it. [5]\n\n### What the local data show\n\n**1,860 satellite detections** in **Selected Sierra Oeste area**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\n### Next step\n\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.",
+          "provider_used": "deterministic-offline-science",
+          "episode_summary": null
+        },
+        {
+          "physical_classification": "LOCAL_ENERGY_SUMMARY",
+          "explanation_markdown": "**84,971.666 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **84,971.666 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **31,269.573 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **863.146 km\u00b2**; selected polygon: **2,328.742 km\u00b2**. Available through **2026-07-24**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            },
+            {
+              "id": "[6]",
+              "source_type": "NASA_DATASET",
+              "title": "Local FIRMS-Harmonizer scientific cube",
+              "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+              "year": 2026,
+              "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+              "url": null,
+              "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+            },
+            {
+              "id": "[1]",
+              "source_type": "PEER_REVIEWED",
+              "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+              "authors_or_agency": "Wooster et al.",
+              "year": 2005,
+              "dataset_or_doi": "10.1029/2005JD006318",
+              "url": "https://doi.org/10.1029/2005JD006318",
+              "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-local-observations",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected Sierra Oeste area",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "**84,971.666 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **84,971.666 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **31,269.573 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **863.146 km\u00b2**; selected polygon: **2,328.742 km\u00b2**. Available through **2026-07-24**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "provider_used": "deterministic-local-observations",
+          "episode_summary": null
+        },
+        {
+          "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+          "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-local-observations",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected Sierra Oeste area",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "provider_used": "deterministic-local-observations",
+          "episode_summary": null
+        },
+        {
+          "physical_classification": "CAUSE_NOT_VERIFIED",
+          "explanation_markdown": "### Answer\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### What the local data show\n\n**1,860 satellite detections** in **Selected area near Madrid**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\n### Next step\n\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            },
+            {
+              "id": "[2]",
+              "source_type": "PEER_REVIEWED",
+              "title": "The New VIIRS 375 m active fire detection product",
+              "authors_or_agency": "Schroeder et al.",
+              "year": 2014,
+              "dataset_or_doi": "10.1016/j.rse.2013.12.008",
+              "url": "https://doi.org/10.1016/j.rse.2013.12.008",
+              "relevance_note": "VIIRS active fire detection methodology."
+            },
+            {
+              "id": "[3]",
+              "source_type": "PEER_REVIEWED",
+              "title": "The Collection 6 MODIS active fire detection algorithm and fire products",
+              "authors_or_agency": "Giglio et al.",
+              "year": 2016,
+              "dataset_or_doi": "10.1016/j.rse.2016.02.054",
+              "url": "https://doi.org/10.1016/j.rse.2016.02.054",
+              "relevance_note": "MODIS active fire detection methodology."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-offline-science",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected area near Madrid",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "### Answer\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### What the local data show\n\n**1,860 satellite detections** in **Selected area near Madrid**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\n### Next step\n\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.",
+          "provider_used": "deterministic-offline-science",
+          "episode_summary": null
+        }
+      ],
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_offline_historical_questions_cannot_open_a_network_socket",
+      "result": "failed",
+      "failure": "oracle = <_duckdb.DuckDBPyConnection object at 0x75eef401cc40>\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x75ef22b7f4a0>\nrequest = <FixtureRequest for <Function test_offline_historical_questions_cannot_open_a_network_socket>>\n\n    def test_offline_historical_questions_cannot_open_a_network_socket(oracle, monkeypatch, request):\n        import socket\n        from backend.api.main import app\n        attempts=[]\n        def deny_network(*args,**kwargs):\n            attempts.append(str(args[1:]))\n            raise AssertionError('Offline answer attempted network access')\n        monkeypatch.setattr(socket.socket,'connect',deny_network)\n        monkeypatch.setattr(socket,'getaddrinfo',deny_network)\n        questions=['is this a fire?','why did this happen?','the reason of the fire is known?',\n                   'how much energy in GJ was released here?','how many fires were there?',\n                   'why does the map seem to stop on July 27 if the Madrid fire lasted fourteen days?']\n        received=[]\n        req=globals()['request']('2026-07-24')\n        with TestClient(app) as client:\n            for question in questions:\n                req.user_question=question\n                response=client.post('/api/explain-spike',json=req.model_dump(mode='json'))\n                received.append(response.json())\n                assert response.status_code==200\n                assert response.json()['data_source']=='real'\n                assert not response.json()['web_search_used']\n        audit(request.node,req,{'network_attempts':0},received,['actual offline HTTP routes and local tools'],\n              'Block DNS resolution and socket connection; run all six historical prompts over real local data')\n        assert not attempts\n>       assert '2026-07-28' in received[-1]['explanation_markdown']\nE       AssertionError: assert '2026-07-28' in '### Answer\\n\\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs ... step\\n\\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.'\n\nqa/test_copilot_archive.py:223: AssertionError"
+    }
+  ]
+}

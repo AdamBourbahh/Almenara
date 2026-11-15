@@ -1,0 +1,98 @@
+[
+  {
+    "id": "regional-spread",
+    "url": "https://www.comunidad.madrid/noticias/2026/07/24/diaz-ayuso-es-peor-incendio-historia-comunidad-madrid-prioridad-es-salvar-vidas",
+    "checked_at_utc": "2026-11-15T09:25:50.437518+00:00",
+    "expected_content": [
+      "confluencia",
+      "temperaturas",
+      "fuerte viento"
+    ],
+    "supports": "Reported spread conditions and merging fronts; no attribution of every selected thermal cell.",
+    "limits": "A regional report is not proof of membership in a particular thermal cell. No source here verifies a fourteen-day incident lifecycle.",
+    "sha256": "73b6401f812cd83697a0736c122c00c1d9e6cfc480af372378214ed803e3bcef",
+    "checks": {
+      "confluencia": true,
+      "temperaturas": true,
+      "fuerte viento": true
+    },
+    "result": "passed",
+    "short_excerpt": "confluencia de tres incendios, que han terminado por unirse y multiplicar sus efectos. Anterior Siguiente Etiquetas La Presidenta Medio ambiente Isabel Díaz"
+  },
+  {
+    "id": "operational-status",
+    "url": "https://www.comunidad.madrid/noticias/2026/07/30/diaz-ayuso-comprueba-situacion-terreno-afectado-incendios-sierra-oeste",
+    "checked_at_utc": "2026-11-15T09:25:50.579234+00:00",
+    "expected_content": [
+      "Situación Operativa 2",
+      "evacuadas"
+    ],
+    "supports": "Operational de-escalation on July 30 with continuing evacuations; this is not an extinction timestamp.",
+    "limits": "A regional report is not proof of membership in a particular thermal cell. No source here verifies a fourteen-day incident lifecycle.",
+    "sha256": "9c49a5c8c5a28ca512959d5cc99873304aca090af2e4436fe3d31cfe808a0a19",
+    "checks": {
+      "Situación Operativa 2": true,
+      "evacuadas": true
+    },
+    "result": "passed",
+    "short_excerpt": "Situación Operativa 2, aunque permanecen evacuadas las urbanizaciones de San Martín de Valdeiglesias y Pelayos de la presa, las más cercanas al"
+  },
+  {
+    "id": "national-order",
+    "url": "https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-16657",
+    "checked_at_utc": "2026-11-15T09:25:50.718363+00:00",
+    "expected_content": [
+      "estabilizado",
+      "30 de julio de 2026",
+      "puntos calientes"
+    ],
+    "supports": "July 30 stabilization and continuing hot-spot work; de-escalation is distinct from extinction.",
+    "limits": "A regional report is not proof of membership in a particular thermal cell. No source here verifies a fourteen-day incident lifecycle.",
+    "sha256": "fdec34605f77eef2b6032adcbface1f65b5f935a7785f6afc3823c7967bf7da2",
+    "checks": {
+      "estabilizado": true,
+      "30 de julio de 2026": true,
+      "puntos calientes": true
+    },
+    "result": "passed",
+    "short_excerpt": "estabilizado», habiéndose reducido de forma significativa el riesgo para la población, las infraestructuras esenciales, los bienes y el medio natural. En relación"
+  },
+  {
+    "id": "merged-identity",
+    "url": "https://www.comunidad.madrid/medio-ambiente/montes-comunidad-madrid",
+    "checked_at_utc": "2026-11-15T09:25:50.830616+00:00",
+    "expected_content": [
+      "24 de julio de 2026",
+      "Villa del Prado",
+      "Almorox"
+    ],
+    "supports": "Regional incident formed from merged fires on July 24; no automatic match to a selected satellite cell.",
+    "limits": "A regional report is not proof of membership in a particular thermal cell. No source here verifies a fourteen-day incident lifecycle.",
+    "sha256": "52006e0ae04e490dcd3106b47086617fe2669ec76037e5a28e8cae813574173f",
+    "checks": {
+      "24 de julio de 2026": true,
+      "Villa del Prado": true,
+      "Almorox": true
+    },
+    "result": "passed",
+    "short_excerpt": "24 de julio de 2026, de los incendios de Villa del Prado, San Martín de Valdeiglesias y Almorox), la Comunidad de Madrid"
+  },
+  {
+    "id": "restoration-chronology",
+    "url": "https://www.comunidad.madrid/docs/2026-11/plan_rest_forestal_sierra_oeste_divulgacion_03112026.pdf",
+    "checked_at_utc": "2026-11-15T09:25:50.980013+00:00",
+    "expected_content": [
+      "22 y el 28 de julio de 2026",
+      "varios focos"
+    ],
+    "supports": "Retrospective main-fire chronology; does not establish a fourteen-day official incident duration or a final extinction date.",
+    "limits": "A regional report is not proof of membership in a particular thermal cell. No source here verifies a fourteen-day incident lifecycle.",
+    "sha256": "d8590362544ed4456e69d0e982e39515bff97e95eaf1ef58d7c68b1d0b8d7579",
+    "checks": {
+      "22 y el 28 de julio de 2026": true,
+      "varios focos": true
+    },
+    "result": "passed",
+    "short_excerpt": "22 y el 28 de julio de 2026, con temperaturas superiores a 40 °C, humedad por debajo del 15 % y rachas"
+  }
+]

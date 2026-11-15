@@ -59,9 +59,10 @@ def complete(messages: list[dict], *, structured: bool = False,
         ('gemini', 'GEMINI_API_KEY', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
          os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')),
     ]
-    # An explicit Google selection must not quietly spend another provider's quota.
-    if os.getenv('COPILOT_PROVIDER') == 'gemini':
-        providers = [p for p in providers if p[0] == 'gemini']
+    # Every explicit selection is binding, including an unsupported selection.
+    # Compatible models may be retried within the selected service only.
+    selected = os.getenv('COPILOT_PROVIDER', 'groq').lower()
+    providers = [p for p in providers if p[0].removesuffix('-compatible') == selected]
     messages = bounded_messages(messages)
     # A single deadline bounds the entire cascade, including exhausted quotas.
     deadline = monotonic() + min(10.0, timeout)
