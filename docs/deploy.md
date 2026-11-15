@@ -124,7 +124,7 @@ Instead of `DATA_REPO`, mount a local `firms-harmonizer\data\processed` folder a
 | `DATA_REVISION` | latest | Dataset branch, tag or commit to pin |
 | `HF_TOKEN` | unset | Needed only for a private dataset |
 | `COPILOT_OFFLINE` | `1` | `0` enables online model and search providers when a key is set |
-| `COPILOT_PROVIDER` | `groq` | `gemini` or `groq` |
+| `COPILOT_PROVIDER` | `gemini` | `gemini` or `groq` |
 | `NRT_POLLING` | `0` | Background FIRMS polling; keep off on serverless hosting |
 | `USE_SYNTHETIC_CUBE` | `0` | `1` serves the labelled synthetic demo cube instead of real data |
 | `PORT` | `7860` | Listening port |
