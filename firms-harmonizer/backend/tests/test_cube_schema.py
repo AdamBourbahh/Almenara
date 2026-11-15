@@ -1,6 +1,7 @@
 """Offline ETL evidence, cube schema, storage and physical scenario regression gates."""
 
 import csv
+import shutil
 import importlib.util
 from datetime import date, timedelta
 from importlib import import_module
@@ -31,8 +32,19 @@ bootstrap = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bootstrap)
 
 
+@pytest.fixture(scope="module")
+def base_etl_lookup(tmp_path_factory):
+    outages = import_module("02_detect_outages_clouds")
+    directory = tmp_path_factory.mktemp("base_etl_lookup")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(outages, "ROOT", directory)
+        outages.build_outages_table(directory / "absent.parquet", directory)
+    (directory / "eqm_gpd_lut.json").write_text('{"models": {}}', encoding="utf-8")
+    return directory
+
+
 @pytest.fixture
-def phase2_etl(tmp_path, monkeypatch):
+def phase2_etl(tmp_path, monkeypatch, base_etl_lookup):
     """Keep input configuration, auxiliary lookups and published artifacts temporary."""
     monkeypatch.syspath_prepend(str(ROOT / "scripts"))
     ingest = import_module("01_ingest_firms")
@@ -45,8 +57,10 @@ def phase2_etl(tmp_path, monkeypatch):
                             "coverage": [["2024-01-01", "2024-12-31"]]}}
     (tmp_path / "data/regions.json").write_text(json.dumps(regions), encoding="utf-8")
     lookup = tmp_path / "data/lookup"
-    outages.build_outages_table(tmp_path / "absent.parquet", lookup)
-    (lookup / "eqm_gpd_lut.json").write_text('{"models": {}}', encoding="utf-8")
+    lookup.mkdir(parents=True)
+    for source in base_etl_lookup.iterdir():
+        if source.is_file():
+            shutil.copyfile(source, lookup / source.name)
     return ingest, outages, builder
 
 
@@ -407,33 +421,35 @@ def test_stage02_known_snpp_interval_is_exact_and_reproducible(tmp_path):
         assert [path.read_bytes() for path in paths] == first
 
 
-@pytest.mark.parametrize("history,current,expected", [
-    ([100.0] * 15, 24.0, True),
-    ([100.0] * 15, 25.0, False),
-    ([100.0] * 15, 0.0, True),
-    ([100.0] * 14 + [0.0], 24.0, False),
-    ([100.0] * 14 + [0.0], 23.0, True),
-    ([0.0] * 15, 0.0, False),
-    ([100.0] * 14, 0.0, False),
-    ([100.0] * 7 + [None] + [100.0] * 7, 0.0, False),
-    ([100.0] * 15, None, False),
-])
-def test_stage02_global_counts_complete_window(tmp_path, history, current, expected):
-    target = date(2022, 2, 1)
-    records = [dict(satellite="Terra", acq_date=target - timedelta(days=len(history) - i),
-                    detection_count=count) for i, count in enumerate(history)]
-    records.append(dict(satellite="Terra", acq_date=target, detection_count=current))
-    # A second instrument cannot contribute days to Terra's baseline.
-    records.extend(dict(satellite="SNPP", acq_date=target - timedelta(days=i),
-                        detection_count=1000.0) for i in range(16))
+def test_stage02_global_counts_complete_window(tmp_path):
+    cases = [
+        ([100.] * 15, 24., True),       # Below the strict 25% boundary.
+        ([100.] * 15, 25., False),      # Exactly at the boundary.
+        ([100.] * 15, 0., True),
+        ([100.] * 14 + [0.], 24., False),
+        ([100.] * 14 + [0.], 23., True), # Baseline includes zero-valued days.
+        ([0.] * 15, 0., False),         # No positive baseline.
+        ([100.] * 14, 0., False),       # Short history.
+        ([100.] * 7 + [None] + [100.] * 7, 0., False),
+        ([100.] * 15, None, False),     # Unknown current value.
+    ]
+    records, expected = [], []
+    for number, (history, current, drops) in enumerate(cases):
+        target = date(2021, 1, 20) + timedelta(days=40 * number)
+        records.extend(dict(satellite="Terra", acq_date=target-timedelta(days=len(history)-i),
+                            detection_count=count) for i,count in enumerate(history))
+        records.append(dict(satellite="Terra", acq_date=target, detection_count=current))
+        records.extend(dict(satellite="SNPP", acq_date=target-timedelta(days=i),
+                            detection_count=1000.) for i in range(16))
+        if drops:
+            expected.append(dict(acq_date=target, satellite="Terra", evidence="global_count_drop"))
     counts = tmp_path / "global.parquet"
     pq.write_table(pa.Table.from_pylist(records), counts)
     result = run_outage_cli(tmp_path / "missing.parquet", tmp_path, counts)
     assert result.returncode == 0, result.stderr
-    dynamic = [row for row in pq.read_table(tmp_path / "sensor_outages.parquet").to_pylist()
-               if row["evidence"] == "global_count_drop"]
-    assert dynamic == ([dict(acq_date=target, satellite="Terra", evidence="global_count_drop")]
-                       if expected else [])
+    actual = [row for row in pq.read_table(tmp_path / "sensor_outages.parquet").to_pylist()
+              if row["evidence"] == "global_count_drop"]
+    assert actual == expected
     assert pq.read_table(tmp_path / "diurnal_ratios.parquet").num_rows == 0
 
 

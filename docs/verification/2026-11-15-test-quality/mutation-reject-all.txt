@@ -1,0 +1,23 @@
+.F                                                                       [100%]
+================================== FAILURES ===================================
+______________ test_threshold_selection_never_uses_reserved_year ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000237D0703200>
+
+    def test_threshold_selection_never_uses_reserved_year(monkeypatch):
+        def project(dates,values,horizon):
+            if not np.isfinite(values).any():
+                return None
+            return dict(predicted=np.ones(horizon),seasonal=np.ones(horizon),
+                        lower=np.ones(horizon),upper=np.ones(horizon))
+        monkeypatch.setattr(coverage_policy,'project',project)
+        dates = np.arange(np.datetime64('2020-01-01'),np.datetime64('2026-01-01'))
+        values = np.ones(len(dates))
+        first = coverage_policy.assess(dates,values,np.ones(len(dates)))
+>       assert first['selected_threshold'] == .95
+E       assert None == 0.95
+
+backend\tests\test_coverage_policy.py:59: AssertionError
+=========================== short test summary info ===========================
+FAILED backend\tests\test_coverage_policy.py::test_threshold_selection_never_uses_reserved_year
+1 failed, 1 passed in 0.53s

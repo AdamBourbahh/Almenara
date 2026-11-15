@@ -34,7 +34,9 @@ def test_union_of_sensors_excludes_measured_water_and_uses_previous_year(tmp_pat
             {b'granule':b'MOD14A1.A2024001.h10v06.061.test'})
     result = fractions(tmp_path,cells,epoch,epoch+1)
     assert result[0] == 1  # Different sensors jointly observe all land, no double count.
-    assert 0 < result[1] < 1
+    # Independently recorded H3 areas for the first two fixture cells (km²).
+    # A uniform-cell weighting would incorrectly return exactly 0.5.
+    np.testing.assert_allclose(result[1],4.675232673770666/(4.675232673770666+4.676643095626661),rtol=1e-12)
     # No preceding-year classification: future classes cannot establish the denominator.
     assert np.isnan(fractions(tmp_path,cells,epoch-365,epoch-365)).all()
     index = masks/'land_unit.npz'
@@ -48,15 +50,16 @@ def test_threshold_selection_never_uses_reserved_year(monkeypatch):
     def project(dates,values,horizon):
         if not np.isfinite(values).any():
             return None
-        value = values[np.isfinite(values)][-1]
-        return dict(predicted=np.full(horizon,value),seasonal=np.full(horizon,value),
-                    lower=np.zeros(horizon),upper=np.full(horizon,10000))
+        return dict(predicted=np.ones(horizon),seasonal=np.ones(horizon),
+                    lower=np.ones(horizon),upper=np.ones(horizon))
     monkeypatch.setattr(coverage_policy,'project',project)
     dates = np.arange(np.datetime64('2020-01-01'),np.datetime64('2026-01-01'))
     values = np.ones(len(dates))
     first = coverage_policy.assess(dates,values,np.ones(len(dates)))
+    assert first['selected_threshold'] == .95
     values[-365:] = 500
     second = coverage_policy.assess(dates,values,np.ones(len(dates)))
     assert first['selection_candidate'] == second['selection_candidate'] == .95
+    assert second['selected_threshold'] is None  # Forecast loses to persistence in the reserved year.
     assert coverage_policy.assess(dates,values,np.full(len(dates),.69))['selected_threshold'] is None
     assert coverage_policy.assess(dates[:100],values[:100],np.ones(100))['selected_threshold'] is None

@@ -1,0 +1,45 @@
+✔ copilot sends history, exact period and geometry, then uses response provenance (18.4927ms)
+✔ clear cancels pending chat and late response cannot reappear (0.5172ms)
+✔ unavailable backend surfaces an error and never fabricates a fire response (0.6025ms)
+✔ attaching a hex preserves chat and waits for the user question (2.2023ms)
+✔ selection automatically attaches exact area and day; removal stops sending them (2.867ms)
+✔ date selection updates an attached hex and snapshots current scientific filters (1.051ms)
+✔ new chronology attaches fresh context and preserves visible chat (1.3807ms)
+✔ resolved scope survives a long conversation and is cleared by a new attachment (2.0294ms)
+✔ drawing an area preserves the exact selected day and attaches it automatically (1.7773ms)
+✔ hovering the chronology does not replace a deliberately added context (0.8396ms)
+✔ opening the copilot attaches the active region before any telemetry click and respects removal (0.8399ms)
+✔ locations and coordinate selections are bounded to the four approved areas (2.5858ms)
+✔ out-of-region and malformed provider results never appear, even if provider ignores bbox (33.9612ms)
+✔ offline failure is explicit and an aborted search never supplies late results (1.2783ms)
+✔ day/month selection loads exact spatial periods, reuses cache and keeps full history (793.8699ms)
+✔ late daily responses cannot replace a newer day, and empty days clear the map (1.9649ms)
+✔ risk forecast follows day, month and year and keeps the date when the area changes (262.6615ms)
+✔ inclusive cross-year ranges merge exact observations and attach the same chat dates (525.8613ms)
+✔ a superseded range response cannot overwrite a newer date selection (1.0888ms)
+✔ robustReference is not dominated by a single mega-fire (1.0003ms)
+✔ robustReference falls back to the max for small samples and to 1 when empty (0.2844ms)
+✔ colorIntensity keeps every positive value visible and zero invisible (0.861ms)
+✔ quiet day counts become legible with the period reference (0.1785ms)
+[firms-harmonizer] Backend unreachable. Using deterministic offline fallback for /analyze. TypeError: offline
+    at globalThis.fetch (file:///C:/Users/eddy1/Desktop/Nueva%20carpeta/Almenara/firms-harmonizer/frontend/tests/real-data.test.mjs:50:35)
+    at postJson (file:///C:/Users/eddy1/Desktop/Nueva%20carpeta/Almenara/firms-harmonizer/frontend/node_modules/.cutover-yUCcbW/opted.mjs:35:32)
+    at Module.analyzeAoi (file:///C:/Users/eddy1/Desktop/Nueva%20carpeta/Almenara/firms-harmonizer/frontend/node_modules/.cutover-yUCcbW/opted.mjs:119:28)
+    at TestContext.<anonymous> (file:///C:/Users/eddy1/Desktop/Nueva%20carpeta/Almenara/firms-harmonizer/frontend/tests/real-data.test.mjs:52:28)
+    at async Test.run (node:internal/test_runner/test:1389:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+✔ real presets match populated registered regions and open Chilecito (474.2485ms)
+✔ backend provenance reaches both client operations and store (15.3221ms)
+✔ network and gateway failures surface unless fallback explicitly enabled (9.687ms)
+✔ selected year loads distinct annual hexagons, caches them, and keeps full history (1072.9104ms)
+✔ late annual responses cannot overwrite the newly selected year and errors remain visible (1.0283ms)
+✔ mapped energy integrates exact cell areas and applies the same visible-cell filter (7.8247ms)
+✔ research CSV uses a real UTF-8 BOM and leaves unknown physical estimates blank (0.6319ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2066.3275
