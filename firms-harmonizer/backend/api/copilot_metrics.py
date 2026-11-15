@@ -394,7 +394,8 @@ def retrieve_scientific_audit(scope, req: ExplainSpikeRequest) -> dict:
         return error
     cells=[c for c in data['series'] if (not scope.start or c['date']>=scope.start)
            and (not scope.end or c['date']<=scope.end)]
-    phenology=data['phenology_by_year']
+    # Zero/directionless annual fits use display sentinels, not a measured peak.
+    phenology=[p for p in data['phenology_by_year'] if p['concentration_kappa']>1e-12 and p['total_annual_fre_gj']>0]
     diagnostic_keys=('chow_test_f_stat_raw','chow_test_p_val_raw','chow_test_f_stat_harm',
         'chow_test_p_val_harm','wasserstein_w1_raw','wasserstein_w1_harm')
     phenology_keys=('year','peak_doy_mu','peak_date_label','concentration_kappa','season_width_days')

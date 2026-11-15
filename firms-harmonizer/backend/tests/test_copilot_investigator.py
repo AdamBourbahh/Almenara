@@ -328,6 +328,17 @@ def test_scientific_audit_integrates_selected_real_rows(cube):
     assert 'audit_metrics' in result and 'phenology' in result
 
 
+def test_scientific_audit_does_not_present_zero_energy_year_as_peak(cube):
+    from backend.api import copilot_metrics
+    aoi,cell,rows=cube
+    # Retain real older observations but give the latest year zero energy.
+    updated=[{**r,'obs_terra_fre':0.,'raw_modis_cnt':0,'raw_frp_mw':0.} if r['year']==2026 else r for r in rows]
+    pq.write_table(pa.Table.from_pylist(updated),c.duckdb_engine.cube_path())
+    req=ExplainSpikeRequest(aoi=aoi,period_start='2011-07-01',period_end='2011-07-10')
+    result=copilot_metrics.retrieve_scientific_audit(c.legacy.resolve_scope(req),req)
+    assert result['phenology']['year']==2013
+
+
 def test_dossier_model_input_is_complete_json_under_budget(cube,monkeypatch):
     from backend.api.schemas import CitationReference
     aoi,cell,rows=cube

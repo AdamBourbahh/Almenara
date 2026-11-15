@@ -167,7 +167,8 @@ def _answer(req):
             explanation_markdown='The selected model credential is unavailable. Configure it and retry.',
             model_used=provider+'-error/'+model,data_source=duckdb_engine.data_source(),map_context=local.map_context(scope))
     if scope.error:
-        return researcher.answer(req)
+        return ExplainSpikeResponse(physical_classification='INSUFFICIENT_CONTEXT',
+            explanation_markdown=scope.error,model_used='scope-validation',data_source=duckdb_engine.data_source())
     source=duckdb_engine.data_source()
     citations={}
     evidence=[]

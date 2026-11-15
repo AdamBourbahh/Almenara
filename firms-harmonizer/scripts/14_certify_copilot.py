@@ -21,6 +21,7 @@ os.environ.update(USE_SYNTHETIC_CUBE='0',COPILOT_OFFLINE='0',NRT_POLLING='0',AUT
 import duckdb
 import h3
 import numpy as np
+import pyarrow.parquet as pq
 from scipy.stats import f as f_distribution
 from fastapi.testclient import TestClient
 from backend.api.main import app
@@ -31,11 +32,45 @@ ZONES=[('Arid Argentina','87b254925ffffff','2022-12-15','2023-01-15',True),
        ('Florida','8744f690cffffff','2023-01-01','2023-12-31',True),
        ('Atlantic Iberia','87185ba0cffffff','2023-01-01','2023-12-31',True),
        ('Mediterranean Iberia','873915d61ffffff','2023-01-01','2023-12-31',True),
-       ('Published persistent-source candidate','873954066ffffff','2023-01-01','2023-12-31',False)]
+       ('Published persistent-source candidate','873954066ffffff','2013-01-01','2013-12-31',False)]
 HOLDOUT=('Northern Africa holdout','873828d5affffff','2023-01-01','2023-12-31',True)
 QUESTION=('Audit the selected area: report mapped FRE in GJ, raw and harmonized Chow F and p, '
  'raw and harmonized Wasserstein W1, latest von Mises peak DOY, kappa and width, and reconstructed and unknown days. '
  'Use local measurements only. State unavailable diagnostics explicitly. Do not infer ignition, cloudiness or vegetation from missing observations.')
+
+
+def independent_clear_days(cell,start,end):
+    """Decode measured packed mask bits for one cell without coverage adapters."""
+    lat,lon=h3.cell_to_latlng(cell)
+    registry=json.loads((ROOT/'data/regions.json').read_text(encoding='utf-8'))
+    prefixes=[name for name,r in registry.items() if r['bounds'][0]<=lon<=r['bounds'][2]
+              and r['bounds'][1]<=lat<=r['bounds'][3]]
+    first,last=[(date.fromisoformat(d)-date(1970,1,1)).days for d in (start,end)]
+    groups={}
+    for prefix in prefixes:
+        for path in (ROOT/'data/processed/observation_coverage').glob(prefix+'_*.parquet'):
+            meta=pq.read_schema(path).metadata or {}
+            days=json.loads(meta.get(b'days',b'[]'))
+            if not days or min(days)>last or max(days)<first:
+                continue
+            row=pq.read_table(path).to_pylist()[0]
+            cells=np.frombuffer(row['cells'],dtype=np.uint64)
+            index=int(np.searchsorted(cells,int(cell,16)))
+            if index>=len(cells) or int(cells[index])!=int(cell,16):
+                continue
+            clear=np.unpackbits(np.frombuffer(row['clear_bits'],dtype=np.uint8).reshape(len(days),-1),axis=1,count=len(cells))[:,index]
+            fire=np.unpackbits(np.frombuffer(row['fire_bits'],dtype=np.uint8).reshape(len(days),-1),axis=1,count=len(cells))[:,index]
+            satellite=meta[b'satellite'].decode()
+            composite=meta.get(b'granule',path.name.encode()).decode().split('.')[1]
+            group=groups.setdefault((satellite,composite),[])
+            group.append({d:(bool(c),bool(f)) for d,c,f in zip(days,clear,fire)})
+    zero=set()
+    for tiles in groups.values():
+        days=set.union(*(set(t) for t in tiles))
+        for d in days:
+            if first<=d<=last and all(t.get(d,(False,False))[0] for t in tiles) and not any(t.get(d,(False,False))[1] for t in tiles):
+                zero.add(d)
+    return zero
 
 
 def independent_statistics(con,data,cell,exclude,start,end):
@@ -51,13 +86,15 @@ def independent_statistics(con,data,cell,exclude,start,end):
     density=[]
     unknown=0
     evidenced_gaps=0
+    clear=independent_clear_days(cell,start,end)
     for c in series:
-        row=observed.get((date.fromisoformat(c['date'])-date(1970,1,1)).days)
+        epoch=(date.fromisoformat(c['date'])-date(1970,1,1)).days
+        row=observed.get(epoch)
         vals=[v for v in row[2:5] if v is not None] if row else []
         raw.append(row[1] if row else 0)
         density.append(math.fsum(vals)/len(vals)*h3.cell_area(cell,unit='km^2')/data['aoi_area_km2'] if vals else 0.)
         if start<=c['date']<=end:
-            unknown+=not vals
+            unknown+=not vals and epoch not in clear
             evidenced_gaps+=bool(row and row[5] and not vals)
     # These selected cases have observed gap flags but no missing-energy days
     # eligible for reconstruction. Refuse to claim an independent RTS oracle.
@@ -97,7 +134,9 @@ def independent_statistics(con,data,cell,exclude,start,end):
         return float(np.sum(np.abs(np.searchsorted(a,support[:-1],side='right')/len(a)
             -np.searchsorted(b,support[:-1],side='right')/len(b))*np.diff(support)))
     cr,ch=chow(raw),chow(density)
-    last=years==years.max()
+    supported=[int(y) for y in np.unique(years) if density[years==y].sum()>0]
+    fitted_year=max(supported)
+    last=years==fitted_year
     weights=density[last]
     days=np.array([c['doy'] for c in series])[last]
     mu,kappa=1.,0.
@@ -111,7 +150,7 @@ def independent_statistics(con,data,cell,exclude,start,end):
             kappa=2*r+r**3+5*r**5/6 if r<.53 else -.4+1.39*r+.43/(1-r) if r<.85 else 1/max(1e-4,r**3-4*r*r+3*r)
     return dict(audit_metrics=dict(chow_test_f_stat_raw=cr[0],chow_test_p_val_raw=cr[1],
         chow_test_f_stat_harm=ch[0],chow_test_p_val_harm=ch[1],wasserstein_w1_raw=w1(raw),wasserstein_w1_harm=w1(density)),
-        phenology=dict(year=int(years.max()),peak_doy_mu=mu,concentration_kappa=kappa,
+        phenology=dict(year=fitted_year,peak_doy_mu=mu,concentration_kappa=kappa,
             season_width_days=min(365.,365.25/math.sqrt(max(.15,kappa)))),
         reconstructed_days=0,unknown_days=unknown,input_rows=len(rows))
 
@@ -155,9 +194,10 @@ def main():
             diagnostic_keys=('chow_test_f_stat_raw','chow_test_p_val_raw','chow_test_f_stat_harm',
                 'chow_test_p_val_harm','wasserstein_w1_raw','wasserstein_w1_harm')
             phenology_keys=('year','peak_doy_mu','peak_date_label','concentration_kappa','season_width_days')
+            supported_phenology=[p for p in data.get('phenology_by_year',[]) if p['concentration_kappa']>1e-12 and p['total_annual_fre_gj']>0]
             reference=dict(mapped_energy_gj=direct,start=start,end=end,
                 audit_metrics=({k:data['audit_metrics'][k] for k in diagnostic_keys} if data.get('audit_metrics') else None),
-                phenology=({k:data['phenology_by_year'][-1][k] for k in phenology_keys} if data.get('phenology_by_year') else None),
+                phenology=({k:supported_phenology[-1][k] for k in phenology_keys} if supported_phenology else None),
                 reconstructed_days=sum(c['is_gap_filled'] for c in selected),
                 unknown_days=sum(c['observation_status']=='unknown' for c in selected))
             oracle=independent_statistics(con,data,cell,exclude,start,end)
