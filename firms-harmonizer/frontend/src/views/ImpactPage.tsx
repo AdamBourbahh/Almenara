@@ -10,7 +10,7 @@ export function ImpactPage() {
       intro="First the physical impact in plain terms. Below it, the tests that show the harmonized record holds up against independent data."
     >
       <AuditMetricsPanel />
-      <RiskPredictionPanel />
+      <div className="mt-10"><RiskPredictionPanel /></div>
     </PageShell>
   );
 }

@@ -6,8 +6,8 @@ import { getHatchPattern, hatchCss } from "./HatchPatternDefs";
 import { useTheme } from "../../lib/theme";
 
 const DAY_COLUMNS = 366;
-const CANVAS_CSS_HEIGHT = 340;
-const PAD = { left: 46, top: 20, right: 10, bottom: 16 };
+const CANVAS_CSS_HEIGHT = 460;
+const PAD = { left: 52, top: 24, right: 10, bottom: 20 };
 const MONTH_START_DOY = [1, 32, 61, 92, 122, 153, 183, 214, 245, 275, 306, 336];
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const FONT = "ui-monospace, SFMono-Regular, Menlo, monospace";
@@ -175,15 +175,15 @@ function fillRuns(ctx: CanvasRenderingContext2D, L: Layout, sortedIdx: number[])
 }
 
 function labelBox(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, bg: string, align: "left" | "right" = "left") {
-  ctx.font = `9px ${FONT}`;
+  ctx.font = `11px ${FONT}`;
   const w = ctx.measureText(text).width + 8;
   const bx = align === "left" ? x : x - w;
   ctx.fillStyle = bg;
-  ctx.fillRect(bx, y - 9, w, 12);
+  ctx.fillRect(bx, y - 11, w, 15);
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
   ctx.setLineDash([]);
-  ctx.strokeRect(bx + 0.5, y - 8.5, w - 1, 11);
+  ctx.strokeRect(bx + 0.5, y - 10.5, w - 1, 14);
   ctx.fillStyle = color;
   ctx.textAlign = "left";
   ctx.fillText(text, bx + 4, y);
@@ -316,7 +316,7 @@ export function BurningCalendarCanvas() {
       ctx.fillStyle = gridLine;
       for (let r = 1; r < L.rows; r++) ctx.fillRect(L.gridX, L.gridY + r * L.cellH - 0.5, L.gridW, 1);
     }
-    ctx.font = `9px ${FONT}`;
+    ctx.font = `11px ${FONT}`;
     ctx.textAlign = "left";
     const monthStarts = MONTH_START_DOY.map((_, m) => 1 + (Date.UTC(selectedYear, m, 1) - Date.UTC(selectedYear, 0, 1)) / 86400000);
     monthStarts.forEach((doy, m) => {
@@ -343,7 +343,7 @@ export function BurningCalendarCanvas() {
       const year = L.startYear + r;
       const isSelected = year === selectedYear;
       if (r % step !== 0 && !isSelected && year !== VIIRS_MARKER.year && year !== SNPP_MARKER.year) continue;
-      ctx.font = `${isSelected ? "bold " : ""}9px ${FONT}`;
+      ctx.font = `${isSelected ? "bold " : ""}11px ${FONT}`;
       ctx.fillStyle = isSelected ? "#b30000" : yearLabel;
       ctx.textAlign = "right";
       ctx.fillText(String(year), L.gridX - 6, L.gridY + r * L.cellH + L.cellH / 2 + 3);
@@ -379,7 +379,7 @@ export function BurningCalendarCanvas() {
       ctx.setLineDash([3, 2]);
       ctx.strokeRect(x - 2, y - 2, w + 4, L.cellH + 4);
       ctx.setLineDash([]);
-      ctx.font = `9px ${FONT}`;
+      ctx.font = `11px ${FONT}`;
       const labelWidth = ctx.measureText(SNPP_MARKER.label).width + 8;
       const fitsRight = x + w + 6 + labelWidth < L.gridX + L.gridW;
       labelBox(ctx, SNPP_MARKER.label, fitsRight ? x + w + 6 : x - 6, y + L.cellH / 2 + 3, SNPP_MARKER.color, labelBg, fitsRight ? "left" : "right");
@@ -394,7 +394,7 @@ export function BurningCalendarCanvas() {
       ctx.moveTo(cx, L.gridY - 4);
       ctx.lineTo(cx, L.gridY + L.gridH + 2);
       ctx.stroke();
-      ctx.font = `bold 8px ${FONT}`;
+      ctx.font = `bold 10px ${FONT}`;
       const tagY = L.gridY + L.gridH + 12;
       if (splitCurtainPct > 6) {
         ctx.fillStyle = isDark ? "#9aa3b2" : "#475569";

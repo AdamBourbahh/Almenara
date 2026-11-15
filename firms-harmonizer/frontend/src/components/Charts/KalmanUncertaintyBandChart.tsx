@@ -12,7 +12,7 @@ import type { AnalyzeResponse, DailyCalendarCell } from "../../api/types";
 
 const WIDTH = 780;
 const HEIGHT = 320;
-const M = { top: 16, right: 16, bottom: 30, left: 54 };
+const M = { top: 30, right: 16, bottom: 34, left: 58 };
 const PW = WIDTH - M.left - M.right;
 const PH = HEIGHT - M.top - M.bottom;
 
@@ -293,16 +293,19 @@ export function KalmanUncertaintyBandChart() {
           <div className="relative">
             {tooltip()}
             <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-auto w-full" role="img" aria-label="Kalman uncertainty band" tabIndex={0}>
+              <text x={8} y={14} textAnchor="start" fill={AXIS} fontSize="12">
+                Fire energy (MJ/km² per day)
+              </text>
               {yTicks.map((t) => (
                 <g key={t}>
                   <line x1={M.left} x2={WIDTH - M.right} y1={scaleY(t, yMax)} y2={scaleY(t, yMax)} stroke={GRID} />
-                  <text x={M.left - 8} y={scaleY(t, yMax)} textAnchor="end" dominantBaseline="middle" fill={AXIS} fontSize="9" fontFamily="var(--font-mono)">
+                  <text x={M.left - 8} y={scaleY(t, yMax)} textAnchor="end" dominantBaseline="middle" fill={AXIS} fontSize="13" fontFamily="var(--font-mono)">
                     {t.toFixed(0)}
                   </text>
                 </g>
               ))}
               {xTicks.map((i) => (
-                <text key={i} x={scaleX(i, count)} y={M.top + PH + 16} textAnchor="middle" fill={AXIS} fontSize="9" fontFamily="var(--font-mono)">
+                <text key={i} x={scaleX(i, count)} y={M.top + PH + 21} textAnchor="middle" fill={AXIS} fontSize="13" fontFamily="var(--font-mono)">
                   {dates[i] ? fmtDate(dates[i]) : ""}
                 </text>
               ))}

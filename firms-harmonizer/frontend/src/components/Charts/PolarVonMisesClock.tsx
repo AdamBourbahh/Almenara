@@ -87,6 +87,8 @@ export function PolarVonMisesClock() {
   const meanKappa = geometry.latest?.concentration_kappa ?? 0;
   const meanWidth = geometry.latest?.season_width_days ?? 0;
   const peakLabel = geometry.latest?.peak_date_label ?? "—";
+  const pValue = audit?.mann_kendall_p_value ?? null;
+  const significant = pValue != null && Number.isFinite(pValue) && pValue < 0.05;
 
   return (
     <section className="border border-rule bg-panel p-6">
@@ -96,12 +98,15 @@ export function PolarVonMisesClock() {
       </header>
 
       <p className="mb-5 max-w-xl text-sm leading-relaxed text-muted">
-        The fire-season peak is moving{" "}
-        <strong className="font-medium text-thermal-4 tnum">
+        {significant ? "The fire-season peak is moving" : "The estimated drift of the fire-season peak is"}{" "}
+        <strong className={`font-medium tnum ${significant ? "text-thermal-4" : "text-ink"}`}>
           {shift >= 0 ? "+" : ""}
           {shift.toFixed(1)} days per decade
         </strong>
-        . Each spoke is one year: its direction is the peak day, its length the seasonal concentration.
+        {significant
+          ? " (statistically significant)."
+          : `, which is not distinguishable from year-to-year variation${pValue == null ? "" : ` (p = ${formatP(pValue)})`}.`}{" "}
+        Each spoke is one year: its direction is the peak day, its length the seasonal concentration.
       </p>
 
       {active && <p aria-label="Clock active day" className="mb-2 text-xs text-reference tnum">{active.date} · DOY {active.doy}{geometry.latest ? ` · ${Math.abs(((active.doy - geometry.latest.peak_doy_mu + DAYS * 1.5) % DAYS) - DAYS / 2).toFixed(1)} days from peak (circular distance)` : " · No annual peak available"}</p>}
@@ -118,7 +123,7 @@ export function PolarVonMisesClock() {
             return (
               <g key={MONTHS[index]}>
                 <line x1={CX} y1={CY} x2={spoke.x} y2={spoke.y} stroke="var(--color-rule)" />
-                <text x={label.x} y={label.y} fill="var(--color-faint)" fontSize="8" textAnchor="middle" dominantBaseline="middle">
+                <text x={label.x} y={label.y} fill="var(--color-muted)" fontSize="10" textAnchor="middle" dominantBaseline="middle">
                   {MONTHS[index]}
                 </text>
               </g>
@@ -172,7 +177,7 @@ export function PolarVonMisesClock() {
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-faint">Theil–Sen drift</dt>
-          <dd className="text-thermal-4 tnum">{shiftLabel} d/decade</dd>
+          <dd className={`whitespace-nowrap tnum ${significant ? "text-thermal-4" : "text-ink"}`}>{shiftLabel} d/decade</dd>
         </div>
       </dl>
     </section>

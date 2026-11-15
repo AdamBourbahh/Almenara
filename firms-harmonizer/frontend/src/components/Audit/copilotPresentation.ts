@@ -105,3 +105,21 @@ export function starterPrompts(context: StarterContext | null | undefined): Star
     ]
   };
 }
+
+/**
+ * Up to three next questions for the attached area that have not been asked yet.
+ * Every one is answered by a server calculation, online or offline.
+ */
+export function followUpPrompts(context: StarterContext | null | undefined, asked: string[], limit = 3): string[] {
+  if (!context) return [];
+  const seen = new Set(asked.map((question) => question.trim().toLowerCase()));
+  const pool = [
+    "Which was the worst fire year here?",
+    "Is fire activity increasing here over time?",
+    "What is the fire risk here for the next two weeks?",
+    "When does the fire season peak here?",
+    ...starterPrompts(context).prompts,
+    "How many days were reconstructed here because of clouds or sensor outages?"
+  ];
+  return pool.filter((question, index) => pool.indexOf(question) === index && !seen.has(question.toLowerCase())).slice(0, limit);
+}

@@ -22,7 +22,7 @@ import {
 import { useAnalysisStore } from "../../store/useAnalysisStore";
 import type { CitationReference, CopilotEvidenceSource, ExplainSpikeResponse } from "../../api/types";
 import { CopilotContextPanel } from "./CopilotContextPanel";
-import { calculationItems, evidenceBadges, refusalBody, starterPrompts } from "./copilotPresentation";
+import { calculationItems, evidenceBadges, followUpPrompts, refusalBody, starterPrompts } from "./copilotPresentation";
 
 // ============================================================================
 // Markdown & Inline Formatting Helpers
@@ -549,7 +549,7 @@ export function FireCopilotDrawer() {
   );
 
   const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
   const speech = useReadAloud();
   const stopSpeech = speech.stop;
   const hasMessages = copilotMessages.length > 0;
@@ -563,11 +563,22 @@ export function FireCopilotDrawer() {
     if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
   }, []);
 
+  // Scroll only the thread. scrollIntoView also scrolls every clipped ancestor, which
+  // shifted the whole app upwards and hid the header after a long answer.
+  // A finished answer is shown from its question downwards so it reads from the start;
+  // while waiting, the thread stays pinned to the bottom.
   useEffect(() => {
-    if (isCopilotOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [isCopilotOpen, copilotMessages, copilotLoading]);
+    const thread = threadRef.current;
+    if (!isCopilotOpen || !thread) return;
+    const last = copilotMessages[copilotMessages.length - 1];
+    const questions = thread.querySelectorAll<HTMLElement>('[data-role="user"]');
+    const question = questions[questions.length - 1];
+    const top = last?.role === "assistant" && question && !copilotLoading && !copilotError
+      ? Math.max(0, question.offsetTop - 12)
+      : thread.scrollHeight;
+    const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    thread.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
+  }, [isCopilotOpen, copilotMessages, copilotLoading, copilotError]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -585,6 +596,10 @@ export function FireCopilotDrawer() {
   if (!isCopilotOpen) return null;
 
   const starters = starterPrompts(copilotContext);
+  const lastMessage = copilotMessages[copilotMessages.length - 1];
+  const followUps = lastMessage?.role === "assistant" && !copilotLoading && !lastMessage.response?.guardrail_triggered
+    ? followUpPrompts(copilotContext, copilotMessages.filter((m) => m.role === "user").map((m) => m.content))
+    : [];
 
   return (
     <>
@@ -654,9 +669,9 @@ export function FireCopilotDrawer() {
         </header>
 
         {/* Message Thread */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={threadRef} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
           {copilotMessages.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center p-6">
+            <div className="flex min-h-full flex-col items-center justify-center p-6 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-reference/10 text-reference border border-reference/20 mb-3">
                 <Sparkles className="h-6 w-6" />
               </div>
@@ -693,6 +708,7 @@ export function FireCopilotDrawer() {
             copilotMessages.map((msg) => (
               <div
                 key={msg.id}
+                data-role={msg.role}
                 className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
               >
                 {msg.role === "user" ? (
@@ -822,7 +838,23 @@ export function FireCopilotDrawer() {
             </div>
           )}
 
-          <div ref={messagesEndRef} />
+          {followUps.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-faint">Ask next</p>
+              <div className="flex flex-wrap gap-1.5">
+                {followUps.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => handleQuickQuestion(q)}
+                    className="rounded-full border border-rule bg-panel px-3 py-1.5 text-left text-xs text-muted transition-colors duration-150 ease-out hover:border-reference hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-reference motion-reduce:transition-none"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Input Bar */}

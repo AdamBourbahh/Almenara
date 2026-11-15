@@ -25,14 +25,30 @@ const SECTIONS = [
 
 type SectionKey = (typeof SECTIONS)[number]["key"];
 
+function sectionFromHash(): SectionKey {
+  const key = typeof window === "undefined" ? "" : window.location.hash.replace(/^#\/?/, "");
+  return SECTIONS.some((item) => item.key === key) ? (key as SectionKey) : "map";
+}
+
 export default function App() {
-  const [section, setSection] = useState<SectionKey>("map");
+  // The section lives in the URL hash so a reload, a shared link and the browser's
+  // back/forward buttons all land on the same page.
+  const [section, setSection] = useState<SectionKey>(sectionFromHash);
   const executeAnalysis = useAnalysisStore((s) => s.executeAnalysis);
   function openSection(next: SectionKey) {
-    const state = useAnalysisStore.getState();
-    if (next === "risk") void state.fetchRiskPredictionForAoi();
+    if (window.location.hash.replace(/^#\/?/, "") !== next) window.location.hash = next;
     setSection(next);
   }
+
+  useEffect(() => {
+    const onHashChange = () => setSection(sectionFromHash());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (section === "risk") void useAnalysisStore.getState().fetchRiskPredictionForAoi();
+  }, [section]);
 
   const booted = useRef(false);
   useEffect(() => {
@@ -44,20 +60,20 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-paper text-ink">
       <header className="relative z-40 shrink-0 border-b border-rule">
-        <div className="flex flex-wrap items-center gap-x-3 px-3 2xl:h-16 2xl:flex-nowrap lg:px-6">
+        <div className="flex flex-wrap items-center gap-x-3 px-3 xl:h-16 xl:flex-nowrap lg:px-6">
           <div className="flex h-16 shrink-0 items-center gap-2.5">
             <Logo className="h-7 w-7 text-ink" />
             <span className="font-serif text-sm font-semibold text-ink tracking-[-0.01em] sm:text-base">FIRMS Harmonizer</span>
           </div>
 
-          <nav aria-label="Main sections" className="order-last flex w-full items-stretch justify-between overflow-x-auto border-t border-rule 2xl:order-none 2xl:h-full 2xl:w-auto 2xl:flex-1 2xl:justify-center 2xl:border-t-0">
+          <nav aria-label="Main sections" className="order-last flex w-full items-stretch justify-between overflow-x-auto border-t border-rule xl:order-none xl:h-full xl:w-auto xl:flex-1 xl:justify-center xl:border-t-0">
             {SECTIONS.map((item) => (
               <button
                 key={item.key}
                 type="button"
                 onClick={() => openSection(item.key)}
                 aria-current={section === item.key ? "page" : undefined}
-                className={`flex-1 border-b-2 px-3 py-3 text-sm font-medium transition-colors 2xl:flex-none 2xl:px-4 ${
+                className={`flex-1 border-b-2 px-3 py-3 text-sm font-medium transition-colors xl:flex-none xl:px-4 ${
                   section === item.key ? "border-reference text-reference" : "border-transparent text-muted hover:bg-panel hover:text-ink"
                 }`}
               >
@@ -66,7 +82,7 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="ml-auto flex max-w-full flex-wrap items-center gap-2 pb-2 2xl:pb-0">
+          <div className="ml-auto flex max-w-full flex-wrap items-center gap-2 pb-2 xl:pb-0">
             <CubeSyncWidget />
             <button type="button" onClick={() => useAnalysisStore.getState().toggleCopilot()} className="flex items-center gap-1 border border-rule px-2 py-1.5 text-xs"><Sparkles className="h-4 w-4" />FIRMS Copilot</button>
             <SettingsPanel />

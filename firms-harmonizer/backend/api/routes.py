@@ -27,7 +27,7 @@ from backend.api.schemas import (AnalyzeRequest, AnalyzeResponse, ChaosMonkeyReq
                                  CubeSyncRequest, CubeSyncStatusResponse,
                                  ExplainSpikeRequest, ExplainSpikeResponse,
                                  GeoJSONPolygon, MapPeriodResponse, RiskPredictionRequest, RiskPredictionResponse)
-from backend.core.risk_predictor import predict_risk as fit_risk_predictor, with_observation_gap
+from backend.core.risk_predictor import MAX_DAYS as RISK_MAX_DAYS, predict_risk as fit_risk_predictor, with_observation_gap
 from backend.db import duckdb_engine, nrt_poller, queries
 from backend.db.queries import (OBS_COLUMNS, AoiAggregate, fetch_aoi_aggregated_data,
                                 get_hierarchical_h3_filter, validate_polygon_topology)
@@ -180,6 +180,10 @@ def predict_risk(req: RiskPredictionRequest) -> Response:
     if daily:
         last_record = str(queries.EPOCH + np.timedelta64(int(daily["epoch_day"][-1]), "D"))
         series = with_observation_gap(daily, cutoff_epoch) if req.as_of_date else daily
+        if len(series["epoch_day"]) > RISK_MAX_DAYS:
+            # The archive now outgrows the model's bounded window: keep the most recent days.
+            # The model is causal, so the latest window is the one the forecast depends on.
+            series = {name: values[-RISK_MAX_DAYS:] for name, values in series.items()}
         result = fit_risk_predictor(series)
         if result:
             result["last_observation_date"] = last_record

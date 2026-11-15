@@ -155,3 +155,36 @@ def test_diurnal_ratio_ignores_extreme_outlier(tmp_path, monkeypatch):
     monkeypatch.setattr(queries, "LOOKUP_DIR", tmp_path)
     value = queries.fetch_risk_diurnal_ratio([1, 2, 3, 4, 5], 8)
     assert 1.1 <= value <= 1.5
+
+
+def test_risk_route_keeps_the_latest_window_when_the_archive_outgrows_the_model(client, monkeypatch):
+    """Regression: the full archive (Nov 2000 on) exceeded 9,500 days and the route answered HTTP 500."""
+    from backend.core.risk_predictor import MAX_DAYS
+
+    n = MAX_DAYS + 40
+    first = (date(2026, 11, 14) - EPOCH).days - n + 1
+    rng = np.random.default_rng(3)
+    season = 40 + 35 * np.sin(np.arange(n) * 2 * np.pi / 365.25)
+    daily = {
+        "epoch_day": np.arange(first, first + n),
+        "vegetation_frp": np.clip(season + rng.normal(0, 12, n), 0, None),
+        "neighbor_frp": np.clip(season / 4 + rng.normal(0, 3, n), 0, None),
+        "industrial_z": rng.normal(0, 1, n),
+        "persistent_share": np.full(n, 0.1),
+        "cloud": np.full(n, np.nan),
+        "gap": np.zeros(n),
+    }
+    seen = {}
+
+    def fit(series):
+        seen["days"] = len(series["epoch_day"])
+        seen["last"] = int(series["epoch_day"][-1])
+        return original(series)
+
+    original = routes.fit_risk_predictor
+    monkeypatch.setattr(queries, "fetch_risk_daily", lambda *args: daily)
+    monkeypatch.setattr(routes, "fit_risk_predictor", fit)
+    response = client.post("/api/predict-risk", json={"aoi": AOI, "start_year": 2000})
+    assert response.status_code == 200, response.text
+    assert seen == {"days": MAX_DAYS, "last": first + n - 1}
+    assert response.json()["assessment"]["as_of_date"] == "2026-11-14"
