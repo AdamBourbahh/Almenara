@@ -1,3 +1,21 @@
+# Current ETL contract — 2026-11-15
+
+This section supersedes conflicting historical phase notes below. `data/regions.json` is the single registry: Chilecito, Iberia, Orlando and Amazonas/Manaus. Root-level accepted CSVs, including validated NRT exports, go through one deduplication/footprint/calibration path. Malformed historical sync artifacts are retained under `data/raw/quarantine` and are never ingested.
+
+Run `python scripts/run_pipeline.py etl` or `make etl`. It builds and validates nominal/high/all-confidence cubes in a staging directory before replacing published files. Missing real inputs stop the build; synthetic fixtures are separate and explicit. Missing cloud and burned-area values are nullable, not zero sentinels. A cube contains sparse accepted-detection cell-days; observation coverage is a separate source, not inferred from export intervals or absent rows.
+
+Mask acquisition (09) uses real NASA per-band Dates metadata, handles partial composites, processes regional COG windows, bit-packs per-cell validity/fire flags, and retains product/version provenance. Complete preset daily indexes are published atomically after processing. A known zero requires an entire AOI to be supported by one sensor; MODIS availability never fabricates VIIRS availability. Unknown/cloud/unprocessed dates stay unknown. Optional Earthdata access covers additional supported products; public-modis mode needs no account.
+
+MCD64A1 acquisition (07) reads Burn_Date and QA, filters positive burns to valid land pixels, and preserves missing years. Complete monthly tile inventories permit descriptive annual comparisons; they do not establish independent physical ground truth. Queries include burned cells with no FIRMS detection. Annual MCD12Q1 acquisition (10) preserves the measured year and merges border-cell class counts. Missing years/classes are not extrapolated for emissions. Factor sources and conditional uncertainty are documented in SPECS.md.
+
+EOG reference acquisition (11) verifies the published checksum and retains only documented active upstream site-years in the official regions. Industrial filtering combines this evidence, a <=1km position match, a footprint-scale dispersion screen and temporal persistence. It is not a calibrated industrial-source classifier and does not cover every refinery/LNG installation.
+
+The canonical benchmark (05) and acceptance report (12) use the API's coverage/energy definition. Independent per-cell integration is retained as the numerical oracle. No diagnostic is forced to pass. Frozen-test hashes are checked with the portable verifier.
+
+---
+
+## Historical phase notes (superseded where conflicting)
+
 # Offline FIRMS ETL specification
 
 ## Scope and acceptance

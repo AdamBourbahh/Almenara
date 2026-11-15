@@ -73,23 +73,23 @@ export function AuditMetricsPanel() {
 
       <div className="border border-rule">
         <div className="grid grid-cols-1 divide-y divide-rule sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          <Cell label="Dry biomass burned" value={fmt(biomass)} unit="kt" />
+          <Cell label="Dry biomass estimate" value={fmt(biomass)} unit="kt" />
           <Cell
             label="PM2.5 smoke emissions"
             value={pm25 == null ? "Not computed" : fmt(pm25)}
             unit={pm25 == null ? undefined : "t"}
           />
-          <Cell label="Area analysed" value={fmt(area, 0)} unit="km²" />
+          <Cell label="Polygon area" value={fmt(area, 0)} unit="km²" />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule p-4">
-          <p className="max-w-2xl text-sm leading-relaxed text-muted">{audit.executive_verdict_en}</p>
+          <p className="max-w-2xl text-sm leading-relaxed text-muted">{audit.executive_verdict_en} {analysisData.coverage_note}</p>
           <button
             type="button"
             onClick={() => exportToIpccCsv(analysisData)}
             className="flex shrink-0 items-center gap-2 border border-ink/20 px-3 py-2 text-xs font-medium text-ink hover:bg-paper"
           >
             <Download className="h-3.5 w-3.5" />
-            Download harmonized series (IPCC-ready CSV)
+            Download energy estimates (research CSV)
           </button>
         </div>
       </div>

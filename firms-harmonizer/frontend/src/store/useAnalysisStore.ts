@@ -1,3 +1,4 @@
+import regionRegistry from "../../../data/regions.json";
 import { create } from "zustand";
 import { cellToLatLng } from "h3-js";
 import type {
@@ -34,12 +35,13 @@ export interface PresetRegion {
   coordinates: number[][][];
 }
 
-export const PRESET_REGIONS = {
-  chilecito_la_rioja: { label: "Chilecito, La Rioja (Argentina)", context: "Argentina: real FIRMS observations", coordinates: [[[-69.5, -31], [-65.5, -31], [-65.5, -27.5], [-69.5, -27.5], [-69.5, -31]]] },
-  iberia_med: { label: "Iberian Peninsula / Mediterranean (Spain)", context: "Spain and Portugal: real FIRMS observations", coordinates: [[[-9.5, 36], [4, 36], [4, 44], [-9.5, 44], [-9.5, 36]]] },
-  orlando_florida: { label: "Orlando, Florida (USA)", context: "Florida: real FIRMS observations", coordinates: [[[-82.0, 28.0], [-80.7, 28.0], [-80.7, 29.3], [-82.0, 29.3], [-82.0, 28.0]]] },
-  amazonas_manaus: { label: "Amazonas / Manaus (Brazil)", context: "Brazil: real FIRMS observations", coordinates: [[[-62.0, -5.0], [-58.0, -5.0], [-58.0, -1.0], [-62.0, -1.0], [-62.0, -5.0]]] }
-} satisfies Record<string, PresetRegion>;
+export const PRESET_REGIONS: Record<keyof typeof regionRegistry, PresetRegion> = Object.fromEntries(
+  Object.entries(regionRegistry).map(([key, region]) => {
+    const [w, s, e, n] = region.bounds;
+    return [key, { label: region.label, context: "Real FIRMS observations",
+      coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] }];
+  })
+) as Record<keyof typeof regionRegistry, PresetRegion>;
 
 export type PresetKey = keyof typeof PRESET_REGIONS;
 export type RegionSelection = PresetKey | "CUSTOM";
@@ -81,8 +83,9 @@ export function dateSelection(iso: string) {
 }
 type ChronologySelection = { selectedYear: number; selectedMonth: number | null; selectedDate: string | null; selectedRange?: { start: string; end: string } | null };
 
-export function riskForecastDate(state: ChronologySelection): string {
-  return state.selectedRange?.end ?? state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 12, 31);
+export function riskForecastDate(state: ChronologySelection & { maxDate?: string | null }): string {
+  const candidate = state.selectedRange?.end ?? state.selectedDate ?? isoDate(state.selectedYear, state.selectedMonth ?? 12, 31);
+  return state.maxDate && candidate > state.maxDate ? state.maxDate : candidate;
 }
 
 export function selectedMapPeriod(state: ChronologySelection): string {
@@ -296,7 +299,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   viewMode: "HARMONIZED",
   selectedPreset: "chilecito_la_rioja",
   currentAoi: polygonFromPreset("chilecito_la_rioja"),
-  startYear: 2001,
+  startYear: 2000,
   endYear: 2026,
   excludeIndustrial: true,
   enableKalman: true,
@@ -544,10 +547,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         }
         data = { map_hexagons: [...merged.values()], data_source: source };
       } else {
-        const start = period.length === 10 ? period : `${period}-01`;
-        const end = period.length === 10 ? period : isoDate(year, state.selectedMonth!, 31);
-        ({ data } = period.length === 4 ? await analyzeAoi(request, controller.signal)
-          : await fetchMapPeriod(request, start, end, controller.signal));
+        const start = period.length === 10 ? period : period.length === 4 ? `${period}-01-01` : `${period}-01`;
+        const end = period.length === 10 ? period : isoDate(year, state.selectedMonth ?? 12, 31);
+        ({ data } = await fetchMapPeriod(request, start, end, controller.signal));
       }
       if (seq !== mapSeq) return;
       const hexagons = data.map_hexagons ?? [];

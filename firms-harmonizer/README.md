@@ -1,314 +1,102 @@
 # FIRMS Harmonizer
 
-A local, offline-first viewer and audit console for harmonized **MODIS + VIIRS** fire radiative energy (FRE). Built for the **NASA Space Apps Challenge 2026** — *Harmonization of MODIS and VIIRS Hot Spots*.
+Local analysis of NASA MODIS/VIIRS fire detections and derived sampled fire radiative energy. The four study regions are **Chilecito / La Rioja**, **Iberia**, **Orlando / Florida**, and **Amazonas / Manaus**.
 
-This README describes what the application actually does today (2026-11-14). It deliberately does not promise features that are not implemented.
+## Scientific meaning
 
----
+The ETL deduplicates sensor/time/location identities, distributes MODIS footprints over H3 R7 cells, applies EQM calibration, and assigns an effective one-hour FRP integration window. This produces an **energy proxy**, not a measured continuous daily energy integral.
 
-## What the application does
+Sensors are fused within each cell before spatial aggregation. Energy is the sum of each cell's density times its exact H3 area. The regional density is that sum divided by the WGS84 polygon area. Biomass uses 0.368 kg dry matter/MJ. The map selects cells by their centres; energy is not clipped to sub-cell polygon intersections.
 
-- **Map** — satellite + relief basemap, H3 heat grid, drag-to-draw AOI, latitude/longitude entry, basemap switcher and the `H` shortcut.
-- **Calendar** — a single 2D canvas with all 26 × 366 daily cells, a raw/harmonized curtain, hatching for repaired days and a per-day tooltip.
-- **Trends** — circular fire-season clock (Von Mises) and the Kalman 95% band with the Chaos Monkey stress test.
-- **Impact** — biomass, PM2.5 availability, IPCC-ready CSV export and the researcher validation table (Chow, Wasserstein-1, burned-area R²).
-- **Risk AI** — local thermal-risk forecast for the selected AOI and date (classical model; probabilities are not incident records).
-- **Observations** — accepted, de-duplicated FIRMS detection centres with CSV export. FRP is instantaneous MW, not energy.
-- **Fire Copilot** — retrieval + evidence-checking assistant for local counts, energy and documented incidents.
+A missing detection row is not evidence of either no fire or a satellite outage. The calendar distinguishes detected energy, mask-supported observed zeros, reconstruction across evidenced gaps, unknown coverage, and forecasts. Unknown dates remain unfilled and their physical values are blank in CSV exports. Totals describe sampled/reconstructed support; they are not complete inventories of all fires.
 
-Study regions with local real data: **Chilecito (La Rioja)**, **Iberian Peninsula**, **Orlando (Florida)**, **Amazonas / Manaus**, plus **Cerrado (Brazil)** and **California**. The UI presets are the first four; Cerrado and California are available through the API and the Copilot. **Niger Delta has no local CSVs yet.**
+## Available features
 
-All UI copy and documentation are in English, per the NASA Space Apps global judging rules.
+- Map, daily/monthly/yearly spatial queries, raw observations, a single-canvas calendar, seasonal trends and research CSV exports.
+- Five instrument labels, true polygon area, explicit real/synthetic input provenance and bounded analytical requests/caches.
+- Published EOG upstream flare-site evidence combined with temporal persistence. The catalogue does not cover every kind of industrial heat; the score is not a calibrated probability. Controls appear only when the analysis contains matches.
+- Chaos Monkey with the target year excluded from the prior/calibration, affected spatial forcing removed, and errors/energy recovery measured on affected days. Its intact-input reference is not independently observed physical truth.
+- A causal seasonal/AR FRE forecast with area-weighted multi-sensor land coverage and temporal selection of a coverage threshold (70/80/90/95%). A reserved final year must confirm baseline and interval skill; otherwise the forecast stays unavailable. Run script 13 to build coverage indexes and the comparison report. This is separate from the thermal-event risk model.
+- Primary PM2.5 emission estimates where annual measured MCD12Q1 land classes and supported fuel factors exist. Daily factor SD includes published inter-study factor spread and biomass-factor uncertainty; it excludes sampling/integration bias and is not a full uncertainty interval. Unsupported inputs or reconstructed days return null.
+- Descriptive burned-area R-squared from independent MCD64A1 cells, including cells without FIRMS detections, restricted to years with complete monthly tile inventories. Correlation is not out-of-sample validation.
+- Fire Copilot defaults to immediate archive-only answers. Online research is explicit and retains evidence/date/location checks.
 
----
+Chow p >0.1 and Wasserstein reduction >88% remain the original diagnostic gates. FAIL results are displayed unchanged. Passing them does not establish complete observation coverage or operational forecast accuracy.
 
-## What is deliberately not implemented
+## Local setup
 
-| Capability | Status |
-| :--- | :--- |
-| 14-day forecast | **Not available.** `forecast_series` is always `null`; the API accepts `forecast_days` but does not produce a forecast. The UI hides the forecast legend when there is no data. |
-| PM2.5 smoke emissions | **Not computed in the dashboard.** Copilot episode dossiers provide explicitly assumed-factor scenario estimates only. `total_pm25_emitted_tonnes` and `pm25_emitted_kg` are `null`; the Impact panel shows "Not computed", not `0 t`. |
-| Industrial flaring filter | **Currently inert on real data.** The ETL entropy gate does not flag any real cell (`industrial_prob` max ≈ 0.0022), so the toggle and the purple flare layer remove nothing. The panel reports the real removed count and says so when it is zero. |
-| Burned-area validation (R²) | **Pending.** Requires MCD64A1 ancillary data (`data/lookup/cell_day_ancillary.parquet`); until then R² is `null`. `scripts/07_fetch_mcd64a1_ancillary.py` exists for that ingest. |
-| Forecast / PM2.5 / tooltips in the frozen contract | Kept nullable by design; returning `null` is the honest state. |
+Requires Python 3.12 and Node 24. From this directory, using PowerShell:
 
-Known correctness issues identified by the 2026-11-14 audit and being fixed by their owners: zero-detection days entering the Kalman smoother as gaps and sensor means using different cell subsets. The daily-area inflation, NOAA-20/21 labels and AOI area reporting have been corrected. Biomass and emissions remain model-derived estimates.
-
----
-
-## Scientific method (summary)
-
-1. **Footprint and H3.** MODIS footprints are distributed over the R7 centre and neighbours with normalized, rotated Gaussian weights and a bow-tie discount; VIIRS is assigned to the containing R7 cell.
-2. **Daily energy.** Detections are de-duplicated per sensor/time/location, aggregated per H3 R7 cell and UTC day, and converted to energy density with `FRP × 3600 / cell_area`, plus the orbital revisit weight.
-3. **Censor-aware harmonization.** A truncated-GPD EQM lookup maps VIIRS onto the Aqua reference; the correction is applied through `delta_e_sub` on VIIRS and detected MODIS cell-days.
-4. **Gap reconstruction.** An RTS Kalman smoother with a cross-sensor 366-day prior and Joseph covariance updates reconstructs missing or flagged days.
-5. **Audit.** Chow structural break at 2012, normalized Wasserstein-1, descriptive annual R², and a seeded Chaos Monkey (25% removal + 10-day blackout).
-
-The core is implemented in `backend/core/` with no FastAPI or DuckDB imports, and is unit-tested against independent calculations.
-
----
-
-## Measured diagnostics (2026-11-14, real cube)
-
-`python -m backend.validation_report`, four-year-spanning real regions. These are **descriptive diagnostics**, not independent validation:
-
-| Region | Chow p (harmonized) | W1 reduction | Chaos recovery |
-| :--- | ---: | ---: | ---: |
-| Chilecito | 0.562 | 83.3% | 95.7% |
-| Orlando | 0.000388 | 75.8% | 100.0% |
-| Manaus | 0.0303 | 90.5% | 93.9% |
-| Cerrado | 0.430 | 89.8% | 98.6% |
-| California | 0.777 | 75.0% | 91.1% |
-| Iberia | 0.516 | 81.4% | 94.4% |
-
-Gates: Chow p > 0.1 and W1 reduction > 88%. Some regions pass one gate and fail the other; the Impact panel shows the backend's verdict verbatim, including failures. Burned-area R² is `null` in every region until MCD64A1 data is ingested.
-
-Warmed SQL P95 is 62–172 ms per pilot region on the reference machine; the original `<15 ms` target was measured as unattainable with the frozen per-cell layout and was replaced by a `P95 < 150 ms` + `cached HTTP < 20 ms` release gate. Cold `execution_time_ms` is 0.6–4.7 s.
-
----
-
-## Architecture
-
-- **ETL (offline).** `scripts/01` → `04` read the local FIRMS CSVs and publish a ZSTD Parquet cube keyed by `(h3_r4, epoch_day, h3_r7)` with 18 fields. The synthetic fixture is separate and opt-in.
-- **API.** FastAPI + DuckDB. Hierarchical H3 filtering (R4 zone-map pruning, then R7), synchronous analytical routes, one cursor per request, orjson + GZip, an in-memory LRU keyed by a BLAKE2b digest, and `X-Cache` / `Server-Timing` headers.
-- **Frontend.** React 19 + Vite 8 + Tailwind v4 + maplibre + deck.gl. One WebGL2 Deck.gl context, one 2D canvas calendar, Zustand store, local fonts. No network is required for the data path.
-- **Provenance.** Every response carries `data_source: "real" | "synthetic"`. Synthetic results are opt-in and visibly labelled.
-
----
-
-## Running it
-
-From `firms-harmonizer/`:
-
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-make install PYTHON=python
-
-# Rebuild the real cube from the tracked CSVs (no network)
-python scripts/01_ingest_firms.py
-python scripts/02_detect_outages_clouds.py
-python scripts/03_train_eqm_lut.py
-python scripts/04_build_master_cube.py
-
-# API
-env -u USE_SYNTHETIC_CUBE python -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000
-
-# Frontend (second terminal)
-cd frontend && npm ci && npm run dev
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python scripts/run_pipeline.py install
+python scripts/run_pipeline.py etl
+python -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open the URL Vite prints (default <http://localhost:5173>). Vite proxies `/api` to port 8000; `VITE_API_URL` overrides it. The viewer needs the real master cube and `data/processed/staged_firms.parquet`, both rebuilt from the tracked raw CSVs.
+In another terminal:
 
-Explicit synthetic mode (opt-in only):
-
-```bash
-USE_SYNTHETIC_CUBE=1 python -m uvicorn backend.api.main:app --port 8001
-```
-
----
-
-## Tests and checks
-
-```bash
-pytest backend/tests -q
-sha256sum -c backend/tests/FROZEN_TESTS.sha256
-python -m backend.check_core
-python -m backend.validation_report
-python scripts/05_cli_benchmark.py
-
+```powershell
 cd frontend
-npx tsc --noEmit
-npm run build
-npm test
+npm run dev
 ```
 
-The backend suite covers the math core, ETL schema, DB layer, HTTP contract, real-cutover provenance, observations, NRT polling and the Copilot. The frozen DB/API/core-validation tests are pinned by `FROZEN_TESTS.sha256`; any change to them must be agreed and the hash regenerated (see `CAMBIOS.md`).
+With uv, the equivalent environment setup is `uv venv --python 3.12 .venv` followed by `uv pip sync --python .venv/Scripts/python.exe requirements.lock` and `npm ci --prefix frontend`.
 
----
+The offline ETL uses retained CSVs and builds nominal/high/all-confidence cubes. It does not require downloaded ancillary products to start: missing coverage/land-class inputs stay explicitly unavailable. A prepared installation runs without a network connection; initial dependency and ancillary acquisition require one. Basemap imagery is optional network content.
 
-## Fire Copilot
+No real cube means startup fails with instructions. Synthetic mode requires explicit `USE_SYNTHETIC_CUBE=1`; the browser fixture separately requires `VITE_ALLOW_SYNTHETIC_FALLBACK=1`. Neither is scientific evidence.
 
-Open **Fire Copilot** and ask about a place and date, in English, Spanish or Portuguese.
-Answers and UI text are in English. For example:
+## Observation and ancillary acquisition
 
-- “What happened near Madrid on 24 July 2026?”
-- “Investigate Careiro, Amazonas on 13 September 2024.”
-- “Which days had the most detections near Manaus in September 2024?”
-- “And on the next day?” (after a dated question)
-- “How much energy in GJ and how many detections are in this area?”
-- “Show energy by year for this area from 2020 to 2025.”
-- “Tell me everything about the main wildfire in this region: cause, progression, duration and consequences.”
+Public MODIS Terra/Aqua 1 km FireMask products can be acquired without an Earthdata account:
 
-Selecting a map area, hexagon or timeline day automatically adds **Area and day
-added as context** above the chat input. Month/year selections are labeled as periods,
-including **full year** where appropriate. The notice shows location and dates and
-has a single **×** to remove the attachment. Drawing an area preserves the selected
-day. There are no separate pinning or date controls inside the chat. Removing context
-also prevents earlier attached geometry or dates from leaking into the next question.
-
-A compatible reference such as “that fire in Madrid” keeps the drawn polygon; it does
-not expand a small selection to the whole Madrid envelope. A different named place or
-explicit date can change the scope. Answers show their actual queried scope.
-
-For “why did this fire happen?”, responses start with what can be established, then
-show concise local evidence and distinguish incident reports from scientific context.
-A broad first-time investigation discovers the highest-energy thermal episode in the
-available local history without needing a calendar click. Explicit question dates take
-precedence. Its four-section dossier explains ignition evidence, progression, physical
-estimates and sensor verification. The ±15-day activity window and any censored bounds
-are disclosed; this is a statistical thermal episode, not an official fire duration.
-Biomass uses integrated FRE; PM2.5 and CO2 are clearly labeled scenario estimates with
-assumed emission factors, not measured pollution or a replacement for null dashboard
-emissions. A whole-year selection is not treated as a single incident. Ignition causes are never
-inferred from detection counts, power, weather theory or the busiest day.
-
-The assistant searches official agencies and reputable news, reads a bounded number of
-official pages, and checks related scientific publication metadata using Crossref.
-Reported explanations must be grounded in retrieved official or reputable-news text,
-retain uncertainty and match the requested date/locality. Ignition, spread conditions
-and incident context are treated separately. Search
-snippets remain leads. DOI metadata and general scientific papers do not establish the
-cause of a particular fire. Useful sources are cited, without inflating source counts.
-This is retrieval and evidence checking, not model training. Source details can be
-expanded below each response.
-
-GJ answers use the same full-history scientific calculation as the dashboard, with
-the attached reconstruction and industrial-source filters. They integrate daily FRE
-over the cube cells represented on each day, then select the requested dates; they never convert a sum of
-instantaneous MW samples into GJ. The full polygon area is not multiplied across every day; missing daily footprints
-do not receive invented energy. Responses include biomass estimates, reconstructed
-day counts, the highest-energy day and annual energy totals for multiyear requests.
-Reconstructed regional totals may differ from the map's observed-only period energy.
-Numerical queries need no model credentials or internet access. Missing data are
-reported explicitly, and synthetic results remain visibly labeled.
-
-The assistant queries accepted local FIRMS detections for the question's geography and
-exact inclusive dates. It reports counts, summed instantaneous power and busiest days
-without treating detections as distinct fires or converting MW into burned hectares.
-Madrid, Sierra Oeste, Careiro and Autazes use explicit study envelopes; the four project
-regions and custom drawn AOIs are also supported. Other named places can use web reports,
-but local counts require a supported envelope or a drawn AOI. Amazonas/Manaus coverage
-is a limited study area, not the whole Amazon basin.
-
-For natural-language interpretation and prose, configure `GROQ_API_KEY` in a local `.env`.
-Legacy concise answers default to `openai/gpt-oss-120b`; dossier extraction first tries
-`llama-3.3-70b-versatile`. Set `GROQ_MODEL` to override either. If the account returns
-404 for a model, `GROQ_FALLBACK_MODEL` (default `openai/gpt-oss-120b`) is tried within
-the same deadline. The current local account cannot access the requested Llama model.
-Optional `GEMINI_API_KEY` enables the subsequent Gemini provider.
-[GitHub Models retired on 30 July 2026](https://github.blog/changelog/2026-07-01-github-models-is-being-fully-retired-on-July-30-2026/),
-so a `GITHUB_TOKEN` alone does not trigger a request to a dead endpoint. The GitHub
-compatibility adapter requires an explicitly configured `GITHUB_MODELS_ENDPOINT`
-pointing to an operator-provided compatible gateway; it is optional and not a claim
-that GitHub's former hosted service is available.
-Requests are bounded to 4,500 content characters, 900 output tokens and a 10-second
-provider deadline. These reduce request size; they cannot guarantee free-tier quota
-availability or sub-second network latency. Optional `TAVILY_API_KEY` enables Tavily search; otherwise the assistant
-uses public search through `ddgs`. Search results are contextual leads, not automatic
-confirmation of a matching fire. Inline source markers open the actual cited pages.
-Provider availability and model permissions depend on the configured account.
-
-Set `COPILOT_OFFLINE=1` for deterministic answers from the local archive with no model or
-search requests. These answers still report observations, distinguish missing evidence,
-and explain basic sensor methods. A functioning local backend is required; a disconnected
-frontend displays a connection error. Synthetic mode explicitly cannot verify real events.
-The assistant never silently substitutes synthetic answers or invents an undocumented fire
-when no reports are found.
-
-Run the chatbot checks from `firms-harmonizer/`:
-
-```bash
-python -m pytest backend/tests/test_explain_spike.py backend/tests/test_copilot_metrics.py backend/tests/test_copilot_research.py backend/tests/test_copilot_acceptance.py -q
-python scripts/06_validate_copilot.py --output data/processed/copilot_validation_offline.json
-python scripts/06_validate_copilot.py --live --output data/processed/copilot_validation_live.json
-python scripts/08_validate_copilot_acceptance.py
-python scripts/08_validate_copilot_acceptance.py --live
-python -m pytest backend/tests/ -v
-python scripts/test_copilot_e2e.py
-python scripts/09_validate_copilot_agent.py
-cd frontend && node --test tests/*.test.mjs && npm run build
+```powershell
+python scripts/09_fetch_observation_coverage.py --public-modis --start 2000-11-01 --end 2026-11-14
+python scripts/07_fetch_mcd64a1_ancillary.py --start 2000-11-01 --end 2026-11-14 --workers 4
+python scripts/11_fetch_flare_reference.py
 ```
 
-The validation script requires a real cube and staging file, cross-checks numerical answers
-against separate SQL aggregates, and saves full answers for review. Its automated PASS
-checks numerical accuracy and contracts; it does not independently certify the narrative
-or prove a match between a detection and a news-reported incident.
+Acquisition is resumable. Mask summaries use bit-packed validity/fire flags, retain actual per-band NASA dates (including partial composites), and publish exact-preset daily indexes. A regional observed zero requires a single sensor to support all selected R7 cells, >=95% clear samples per cell, sufficient sampled area, no mask fire pixels, and no accepted FIRMS detection that day. It does not establish absence of sub-threshold fires. Cloud/unprocessed masks and unavailable catalogue dates remain unknown.
 
----
+For Earthdata products, configure a free account token locally as `EARTHDATA_TOKEN` in `.env`, then run:
 
-## Data provenance and limits
+```powershell
+python scripts/09_fetch_observation_coverage.py --sensor SNPP --sensor NOAA-20 --sensor NOAA-21 --start 2000-11-01 --end 2026-11-14
+python scripts/10_fetch_land_cover.py --start-year 2001 --end-year 2025
+python scripts/run_pipeline.py etl
+```
 
-- Raw inputs are the tracked FIRMS CSV exports under `data/raw/` (Terra/Aqua MODIS and SNPP/NOAA-20/NOAA-21 VIIRS). Study rectangles are envelopes, not administrative boundaries.
-- Days with no detections may mean no fire **or** no observation; the cube stores only rows with detections, and the zero-vs-missing handling is an open backend issue (audit item 2).
-- The 2022 outage marker is **VIIRS SNPP, 2022-07-27..2022-08-10** (15 days), validated against FIRMS world daily counts.
-- The synthetic fixture (`fire_cube_synthetic.parquet`) is opt-in and clearly labelled; it is not evidence of real-world performance.
-- `FIRMS_MAP_KEY` used for NRT ingest is compromised in the git history and must be rotated before live polling.
+For this delivery, MODIS acquisition spans 2000-11-01 through 2026-11-14; catalogue gaps remain unknown. VIIRS acquisition has been verified for all four regions and all three platforms on 2024-01-01 through 2024-01-07. The remaining VIIRS archive is intentionally resumable under the scope chosen by the user. The daily VNP/VJ1/VJ2 14A1 products summarize 750 m detection inputs on a 1 km grid; they do not establish availability of the 375 m FIRMS detector. Terra/Aqua masks do not establish VIIRS observation availability. No missing product or land-cover year is replaced by a fabricated value or an undocumented temporal extrapolation. Generated Parquet files, packed masks, and raster caches remain local; source/version information accompanies them.
 
-## Further documentation
+Measured MCD12Q1 classes cover 2001–2025 (6,717,325 unique cell-years). Complete MCD64A1 monthly inventories cover 2001–2022 in these regions; later incomplete years are excluded from annual comparisons. MCD64A1 positive burn pixels require land/valid-data QA bits. Complete monthly inventories are reported separately from actual mapping quality. PM2.5 uses Andreae (2019), Table 1, field factors; fuels without an explicit mapping remain unsupported.
 
-- `../Miguelspecs.md` — delivery log, decisions and verification.
-- `../Implementation_backend_plan.md` — phase-by-phase backend plan and evidence.
-- `../SPECS.md` — scientific specification and frozen contracts.
-- `../AGENTS.md` — ownership and technical guardrails.
-- `CAMBIOS.md` — approved contract changes.
-- `frontendExpects.md` — historical frontend expectations (superseded by `Miguelspecs.md`).
+The EOG reference is MYC25Q4 v1.0 (Zhizhin et al., 2026), DOI 10.5281/zenodo.23091822, CC BY-NC 4.0. Its published checksum is verified before taking the regional subset. NASA fire-mask guides and emission references are linked in the scientific specification.
 
-### Map search and drawn-context repair (2026-11-15)
+## Online services and synchronization
 
-Location search returns places only inside the four UI study envelopes: Iberia,
-Chilecito, Orlando and Amazonas/Manaus. Photon queries use a bounding box for each
-envelope and results are checked locally against those bounds. Coordinates outside
-all four envelopes are rejected; selected location boxes are clipped at the edge.
-Place-name search needs a connection; region shortcuts and coordinates work offline.
-The Explore panel no longer duplicates region shortcuts. Satellite and Terrain are
-the available basemaps. The Copilot drawer ends at the top of the chronology bar.
+`COPILOT_OFFLINE=1` is the default. Set it to `0` and configure optional `GROQ_API_KEY` / `TAVILY_API_KEY` to use online research. Provider failures have a short negative-cache lifetime.
 
-A drawn Sierra Oeste selection now recognizes a matching Madrid regional report
-when its body uses Madrid as the regional name. The source date still has to match,
-and reported spread conditions remain distinct from an established ignition cause.
+Live FIRMS sync requires a current local `FIRMS_MAP_KEY`. Sync returns an in-progress status and runs download, canonical deduplication/calibration, atomic cube publication, engine refresh and cache invalidation before reporting success. Previously exposed keys must be rotated; no historical credential is reused.
 
-Causal paraphrases such as “the reason of the fire is known?” use the checked-report
-path. Questions about whether ignition is known start with the available ignition
-evidence, rather than substituting spread conditions. Relevant complete source
-sentences are packed before applying the provider context limit, so the serialized
-evidence is not truncated mid-JSON. This is a routing/context repair; the configured
-model remains GPT-OSS 120B on Groq, without a claim that it is the best free model.
+CORS defaults to localhost:5173 and 127.0.0.1:5173; `CORS_ORIGINS` configures other origins. Requests are bounded by body size, geometry size, analytical concurrency and per-client rate. Observation pages are paginated and virtualized; CSV export retrieves the complete daily result.
 
-### Groq RAG and read-only tools
+## Verification
 
-The online Copilot now uses Groq native tool calling with a short instruction
-message. It chooses between local document retrieval, observations, energy,
-episode profiling and incident research, rather than a question-keyword router.
-SQLite FTS5/BM25 indexes the versioned science notes in `data/copilot_knowledge/`
-and current ETL documentation. This is lexical RAG, not embeddings or fine-tuning;
-the model can reformulate searches. Add reviewed documents to the corpus to expand
-coverage. Scientific quantities remain database calculations, displayed by Python.
+```powershell
+python scripts/run_pipeline.py test
+python scripts/verify_frozen_tests.py
+python scripts/12_audit_report.py
+python scripts/05_cli_benchmark.py
+```
 
-With `GROQ_API_KEY` configured the default agent model is `openai/gpt-oss-120b`.
-`COPILOT_OFFLINE=1`, missing credentials, provider errors and invalid answers use
-the existing local scientific fallback. A request-local offline override prevents
-repeating failed network calls without changing other users' requests. Rate limits
-can still cause fallback; no free-tier availability guarantee is made.
+The acceptance report compares HTTP energy against independent per-cell integrals, checks biomass units and concurrent results, and records actual diagnostic failures and availability reasons. CI runs backend tests, contract hashes, frontend tests and the production build on Windows and Linux. Network acquisition is separate from CI.
 
-`python scripts/09_validate_copilot_agent.py` exercises actual Groq calls and records
-which tools the model chose. Use `--question` and `--output` for individual cases.
-`pytest backend/tests/test_copilot_agent.py -q` covers orchestration and failures
-without using a provider account. Retrieved notes are not automatically certified
-incident evidence; answers retain source and uncertainty labels.
+See `../docs/verification/2026-11-15-all-nighter/README.md` for the audit closure matrix and measured evidence. Earlier verification reports are historical and do not describe this branch's current calculations.
 
-### Display settings and energy comparisons
+## Integrated map, chronology and Copilot updates
 
-The header appearance button switches light/dark mode. Settings contains the
-Detection count / Calibrated energy display choice (formerly Raw/Harmonized),
-industrial candidate exclusion and purple highlighting, and expandable keyboard
-shortcuts. The industrial candidate count explains why filtering may have no
-visible effect. Explore no longer contains those controls.
+The updated chronology supports inclusive date ranges. Map queries split ranges by calendar year and merge spatial observations, without running the full temporal model for annual map selection. Place search is restricted to the four study envelopes. Settings group display controls and distinguish observed map energy from modeled temporal estimates.
 
-Visible-map energy integrates calibrated observations per cell. Regional model
-energy aggregates sensor densities before optional temporal reconstruction, so the
-two estimators can differ. Explore and Copilot show them separately with matching
-biomass estimates. The Copilot computes the map comparison through the same
-map-period queries and H3 areas used in the frontend. Selected polygon area differs
-from the observed cell footprint; neither is a measured burned area. Requested
-full-year dates do not imply that future days are present in the archive.
+Fire Copilot supports bounded scientific investigations, request-local offline contexts, Groq tool calls and local document retrieval. Local scientific documents are under `data/copilot_knowledge/`. Remote research remains an explicit online operation; provider failures cannot switch other requests online or offline. See the verification notes under `docs/verification/2026-11-15-rag-agent/`, `2026-11-15-chronology/` and `2026-11-15-settings-energy/` for upstream feature evidence.

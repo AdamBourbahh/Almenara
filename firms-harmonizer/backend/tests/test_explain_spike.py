@@ -240,7 +240,7 @@ def test_unknown_place_does_not_query_selected_aoi(monkeypatch):
 def test_search_filters_bad_urls_wrong_years_and_nonfire_results(monkeypatch):
     monkeypatch.setattr(copilot.research, 'indexed_sources', lambda scope: [])
     monkeypatch.setattr(copilot.research, 'enrich_official_reports', lambda sources: sources)
-    monkeypatch.delenv('COPILOT_OFFLINE')
+    monkeypatch.setenv('COPILOT_OFFLINE', '0')
     monkeypatch.delenv('TAVILY_API_KEY', raising=False)
     results = [
         {'title':'Madrid fire 2026', 'href':'javascript:alert(1)', 'body':'fire Madrid'},
@@ -264,7 +264,7 @@ def test_search_filters_bad_urls_wrong_years_and_nonfire_results(monkeypatch):
 
 
 def test_provider_uses_working_default_and_failure_is_bounded(monkeypatch):
-    monkeypatch.delenv('COPILOT_OFFLINE')
+    monkeypatch.setenv('COPILOT_OFFLINE', '0')
     monkeypatch.setenv('GROQ_API_KEY', 'test-key')
     monkeypatch.delenv('GROQ_MODEL', raising=False)
     calls = []

@@ -35,7 +35,7 @@ def test_gj_matches_dashboard_inclusive_dates_and_filters(client, monkeypatch, k
     monkeypatch.setattr(copilot, "search_reports", forbidden)
     payload = selected_cell_request()
     payload.update(enable_kalman_gap_filling=kalman, exclude_industrial_flaring=industrial)
-    analysis = client.post("/api/analyze", json={"aoi": payload["aoi"], "start_year": 2001, "end_year": 2026,
+    analysis = client.post("/api/analyze", json={"aoi": payload["aoi"], "start_year": 2000, "end_year": 2026,
         "enable_kalman_gap_filling": kalman, "exclude_industrial_flaring": industrial}).json()
     days = [c for c in analysis["calendar_series"] if payload["period_start"] <= c["date"] <= payload["period_end"]]
     expected_gj = math.fsum(c["biomass_burned_tonnes"] for c in days) / 0.368

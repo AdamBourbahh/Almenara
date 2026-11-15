@@ -10,12 +10,14 @@ const dir = await mkdtemp(new URL('../node_modules/.cutover-',import.meta.url));
 after(()=>rm(dir,{recursive:true,force:true}));
 async function compile(name, relative, enabled=false) {
  let source=await readFile(new URL(relative,root),'utf8');
+ source=source.replace(/import regionRegistry from [^;]+;/, 'const regionRegistry = '+await readFile(new URL('../../data/regions.json', import.meta.url),'utf8')+';');
  source=source.replaceAll('import.meta.env', JSON.stringify({VITE_ALLOW_SYNTHETIC_FALLBACK:enabled?'1':'0'}));
- source=source.replace('"../api/client"','"./client.mjs"');
+ source=source.replace('"../api/client"','"./client.mjs"').replaceAll('"./synthetic"','"./synthetic.mjs"');
  const file=join(dir,name+'.mjs');
  await writeFile(file,ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
  return import(pathToFileURL(file).href);
 }
+await compile('synthetic','src/api/synthetic.ts');
 const client=await compile('client','src/api/client.ts');
 const opted=await compile('opted','src/api/client.ts',true);
 const store=await compile('store','src/store/useAnalysisStore.ts');
@@ -111,4 +113,31 @@ test('mapped energy integrates exact cell areas and applies the same visible-cel
  assert.deepEqual(summarizeMappedYear([],true),{hexagons:[],detections:0,energyGJ:0,footprintKm2:0});
  assert.ok(colorIntensity(100,1000)<colorIntensity(900,1000));
  assert.ok(colorIntensity(10000,26000)<colorIntensity(20000,26000));
+});
+
+
+test('research CSV uses a real UTF-8 BOM and leaves unknown physical estimates blank',async()=>{
+ const previousDocument=globalThis.document;
+ const previousCreate=URL.createObjectURL;
+ const previousRevoke=URL.revokeObjectURL;
+ let blob;
+ globalThis.document={body:{appendChild(){},removeChild(){}},createElement(){return {click(){}};}};
+ URL.createObjectURL=(value)=>{blob=value;return 'blob:test';};
+ URL.revokeObjectURL=()=>{};
+ try {
+  client.exportToIpccCsv({query_hash:'audit',forecast_series:null,calendar_series:[{
+   date:'2024-01-01',year:2024,doy:1,raw_hotspot_count:0,raw_frp_mw:0,
+   observation_status:'unknown',harmonized_fre_mj_km2:0,biomass_burned_tonnes:0,
+   active_sensors:[],is_gap_filled:false,is_forecast:false,pm25_emitted_kg:null
+  }]});
+  const text=await blob.text();
+  assert.equal(new Uint8Array(await blob.arrayBuffer()).slice(0,3).join(','),'239,187,191');
+  assert.ok(!text.startsWith('???'));
+  const [header,row]=text.replace(/^\uFEFF/,'').split('\r\n').map(line=>line.split(','));
+  assert.equal(row[header.indexOf('Harmonized FRE (MJ/km2)')],'');
+  assert.equal(row[header.indexOf('Biomass Burned (kt)')],'');
+  assert.equal(row[header.indexOf('Observation Status')],'unknown');
+ } finally {
+  globalThis.document=previousDocument;URL.createObjectURL=previousCreate;URL.revokeObjectURL=previousRevoke;
+ }
 });

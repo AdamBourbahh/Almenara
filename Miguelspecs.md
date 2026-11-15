@@ -1,3 +1,5 @@
+> Historical planning/delivery record. Current behavior and audit evidence: [application README](firms-harmonizer/README.md), [current specification](SPECS.md), and [all-nighter verification](docs/verification/2026-11-15-all-nighter/README.md). Older numbers and retired-region examples are not current acceptance results.
+
 # Miguelspecs — Work Log and Delivery Specification
 
 **Author:** Migue (frontend track, cross-track integration on explicit request)

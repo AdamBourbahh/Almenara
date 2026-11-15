@@ -1,3 +1,5 @@
+> Historical planning/delivery record. Current behavior and audit evidence: [application README](firms-harmonizer/README.md), [current specification](SPECS.md), and [all-nighter verification](docs/verification/2026-11-15-all-nighter/README.md). Older numbers and retired-region examples are not current acceptance results.
+
 # Reparto del trabajo en bloques
 
 Versión corta y sencilla del plan. El detalle técnico está en [`PLANIFICATION.md`](PLANIFICATION.md), sobre todo en las secciones 6 (enfoque), 10 (roles y cronograma) y 11 (validación y demo).

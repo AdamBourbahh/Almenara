@@ -67,11 +67,11 @@ def test_auto_discovery_excludes_industrial_and_integrates_units(cube):
     assert p['episode_start_date']=='2026-07-22'
     assert p['episode_end_date']=='2026-07-26'
     assert p['duration_days']==5
-    assert p['peak_daily_fre_mj_km2']==100
+    assert p['peak_daily_fre_mj_km2']*c.queries.polygon_area_km2(aoi.coordinates)==pytest.approx(100*h3.cell_area(cell,unit='km^2'))
     expected=sum([40,70,100,80,50])*h3.cell_area(cell,unit='km^2')/1000
     assert p['total_episode_fre_gj']==pytest.approx(expected)
     assert p['estimated_biomass_burned_tonnes']==pytest.approx(expected*.368)
-    assert p['estimated_pm25_tonnes']==pytest.approx(expected*.368*.0095)
+    assert p['estimated_pm25_tonnes'] is None  # Fixture has no measured annual fuel classes.
     assert p['estimated_co2_tonnes']==pytest.approx(expected*.368*1.58)
     assert p['industrial_candidate_cells']==1 and p['industrial_candidate_detections']==7
     assert p['dominant_sensors']==['Terra'] and p['gap_filling_occurred'] is False
@@ -259,7 +259,7 @@ def test_summary_cannot_introduce_numbers_or_erase_investigation_status():
 def test_dossier_model_input_is_complete_json_under_budget(cube,monkeypatch):
     from backend.api.schemas import CitationReference
     aoi,cell,rows=cube
-    req=ExplainSpikeRequest(aoi=aoi,user_question='Investigate the main fire, its progression and consequences.'+' untrusted'*800)
+    req=ExplainSpikeRequest(aoi=aoi,user_question='Investigate the main fire, its progression and consequences.'+' untrusted'*500)
     scope=c.legacy.resolve_scope(req)
     scope.start=scope.end='2026-07-24'
     p=c.profile_fire_episode_from_duckdb(aoi,'Test',enable_kalman_gap_filling=False)

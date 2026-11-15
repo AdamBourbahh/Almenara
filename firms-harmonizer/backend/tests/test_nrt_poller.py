@@ -180,16 +180,33 @@ def test_sync_cube_offline_mode(monkeypatch):
     assert "internet connection" in res["error"]
 
 
+def _valid_sync_response(request):
+    import csv, io
+    parts = request.url.path.split('/')
+    source, first = parts[-4], parts[-1]
+    platform = {'MODIS_NRT':'Terra','VIIRS_SNPP_NRT':'N','VIIRS_NOAA20_NRT':'N20','VIIRS_NOAA21_NRT':'N21'}[source]
+    reader = csv.DictReader(io.StringIO(SAMPLE))
+    rows = list(reader)
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=reader.fieldnames)
+    writer.writeheader()
+    for row in rows:
+        row.update(latitude='-29.413', longitude='-68.201', acq_date=first, satellite=platform)
+        writer.writerow(row)
+    return httpx.Response(200, content=output.getvalue().encode(), request=request)
+
+
 def test_sync_cube_with_mock_transport(tmp_path, monkeypatch):
     monkeypatch.delenv("OFFLINE_MODE", raising=False)
     monkeypatch.delenv("AIRPLANE_MODE", raising=False)
     monkeypatch.setenv("USE_SYNTHETIC_CUBE", "0")
     monkeypatch.setenv("FIRMS_MAP_KEY", "test_key_abc")
     monkeypatch.setattr(nrt_poller, "ROOT", tmp_path)
+    monkeypatch.setattr(nrt_poller, "_rebuild_cube", lambda: None)
     monkeypatch.setattr(nrt_poller.duckdb_engine, "cube_path", lambda: tmp_path / "missing.parquet")
     monkeypatch.setattr(nrt_poller.duckdb_engine, "data_source", lambda: "real")
 
-    transport = _transport(SAMPLE.encode(), 200)
+    transport = httpx.MockTransport(_valid_sync_response)
     res = nrt_poller.sync_cube(days=1, regions=["chilecito_la_rioja"], transport=transport)
     assert res["status"] == "success"
     assert res["new_detections_count"] >= 1
@@ -209,6 +226,7 @@ def test_sync_status_reports_persisted_dates_and_default_sync_reaches_today(tmp_
     monkeypatch.setattr(nrt_poller.duckdb_engine, "cube_path", lambda: cube)
     monkeypatch.setattr(nrt_poller.duckdb_engine, "data_source", lambda: "real")
     monkeypatch.setattr(nrt_poller, "ROOT", tmp_path)
+    monkeypatch.setattr(nrt_poller, "_rebuild_cube", lambda: None)
     monkeypatch.setattr(nrt_poller, "_CUBE_SYNC_STATUS", {"status": "idle"})
     monkeypatch.setenv("USE_SYNTHETIC_CUBE", "0")
     monkeypatch.setenv("FIRMS_MAP_KEY", "test_key")

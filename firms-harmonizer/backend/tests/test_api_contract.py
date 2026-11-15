@@ -20,8 +20,7 @@ from backend.api.schemas import AnalyzeResponse, ChaosMonkeyResponse
 
 ROOT = Path(__file__).resolve().parents[2]
 HEX = re.compile(r"[0-9a-f]{15}")
-CERRADO = {"type": "Polygon", "coordinates": [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0],
-                                               [-57.2, -16.0], [-57.2, -17.8]]]}  # ASSUMPTION (SPECS.md §5.3 preset)
+CHILECITO = {'type': 'Polygon', 'coordinates': [[[-69.5, -31], [-65.5, -31], [-65.5, -27.5], [-69.5, -27.5], [-69.5, -31]]]}  # ASSUMPTION (SPECS.md §5.3 preset)
 OCEAN = {"type": "Polygon", "coordinates": [[[-30.5, -30.5], [-29.5, -30.5], [-29.5, -29.5],
                                              [-30.5, -29.5], [-30.5, -30.5]]]}
 BRAZIL_LAT, BRAZIL_LNG = (-34.0, 6.0), (-74.0, -34.0)
@@ -56,19 +55,19 @@ def test_health(client):
     assert all(isinstance(v, bool) for v in b["core"].values())
 
 
-def test_analyze_cerrado_matches_schema(client, fake_core):
-    resp = AnalyzeResponse.model_validate(analyze(client, {"aoi": CERRADO}).json())
+def test_analyze_chilecito_matches_schema(client, fake_core):
+    resp = AnalyzeResponse.model_validate(analyze(client, {"aoi": CHILECITO}).json())
     assert resp.data_source == "synthetic"
     assert resp.calendar_series and resp.map_hexagons and resp.phenology_by_year
-    assert resp.forecast_series is None
-    assert all(c.pm25_emitted_kg is None and c.tooltip_narrative is None for c in resp.calendar_series)
+    assert resp.forecast_series is None or (len(resp.forecast_series) == 14 and all(c.is_forecast for c in resp.forecast_series))
+    assert all(c.pm25_emitted_kg is None and c.tooltip_narrative for c in resp.calendar_series)
     assert resp.audit_metrics is not None and resp.audit_metrics.total_pm25_emitted_tonnes is None
     assert resp.execution_time_ms > 0 and re.fullmatch(r"[0-9a-f]{64}", resp.query_hash)
     assert resp.total_h3_cells == len(resp.map_hexagons) and resp.aoi_area_km2 > 0
 
 
 def test_h3_indices_are_15_char_hex_inside_brazil(client, fake_core):
-    hexes = analyze(client, {"aoi": CERRADO}).json()["map_hexagons"]
+    hexes = analyze(client, {"aoi": CHILECITO}).json()["map_hexagons"]
     assert hexes
     for h in hexes:
         idx = h["h3_index"]
@@ -78,7 +77,7 @@ def test_h3_indices_are_15_char_hex_inside_brazil(client, fake_core):
 
 
 def test_repeated_request_is_served_from_cache(client, fake_core):
-    r1, r2 = analyze(client, {"aoi": CERRADO}), analyze(client, {"aoi": CERRADO})
+    r1, r2 = analyze(client, {"aoi": CHILECITO}), analyze(client, {"aoi": CHILECITO})
     assert r1.headers["x-cache"] == "MISS" and r2.headers["x-cache"] == "HIT"
     assert r1.json()["query_hash"] == r2.json()["query_hash"]
     assert r1.json()["calendar_series"] == r2.json()["calendar_series"]
@@ -95,16 +94,16 @@ def test_ocean_returns_empty_lists(client, fake_core):
     {"aoi": {"type": "Polygon", "coordinates": [[[-49, -17], [-47, -17], [-49, -17]]]}},
     {"aoi": {"type": "Polygon", "coordinates": [[[-200, -17], [-47, -17], [-47, -15], [-200, -17]]]}},
     {"aoi": {"type": "Polygon", "coordinates": [[[-49, -17], [-47, -15], [-47, -17], [-49, -15], [-49, -17]]]}},
-    {"aoi": CERRADO, "start_year": 1990},
-    {"aoi": CERRADO, "end_year": 2030},
-    {"aoi": CERRADO, "start_year": 2020, "end_year": 2010},
+    {"aoi": CHILECITO, "start_year": 1990},
+    {"aoi": CHILECITO, "end_year": 2030},
+    {"aoi": CHILECITO, "start_year": 2020, "end_year": 2010},
 ])
 def test_invalid_input_is_422(client, fake_core, body):
     assert client.post("/api/analyze", json=body).status_code == 422
 
 
 def test_chaos_monkey_matches_schema(client, fake_core):
-    r = client.post("/api/chaos-monkey", json={"aoi": CERRADO})
+    r = client.post("/api/chaos-monkey", json={"aoi": CHILECITO})
     assert r.status_code == 200, r.text
     assert ChaosMonkeyResponse.model_validate(r.json()).data_source == "synthetic"
 
@@ -126,7 +125,7 @@ def test_core_missing_returns_503(client, fake_core, monkeypatch):
             raise core_contract.CoreMissingError("Missing backend.core.kalman_rts.kalman_rts_smooth")
         return fake_core[name]
     monkeypatch.setattr(core_contract, "_resolve", resolve)
-    r = client.post("/api/analyze", json={"aoi": CERRADO})
+    r = client.post("/api/analyze", json={"aoi": CHILECITO})
     assert r.status_code == 503 and "kalman_rts_smooth" in r.text
 
 
@@ -137,11 +136,11 @@ def test_routes_are_sync_and_middleware_configured():
     assert {"CORSMiddleware", "GZipMiddleware"} <= set(mws)
     opts = lambda m: getattr(m, "kwargs", None) or getattr(m, "options", {})  # noqa: E731
     assert opts(mws["GZipMiddleware"]).get("minimum_size") == 1000
-    assert opts(mws["CORSMiddleware"]).get("allow_origins") == ["*"]
+    assert opts(mws["CORSMiddleware"]).get("allow_origins") == ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 
 def test_gzip_is_applied(client, fake_core):
-    assert analyze(client, {"aoi": CERRADO}).headers.get("content-encoding") == "gzip"
+    assert analyze(client, {"aoi": CHILECITO}).headers.get("content-encoding") == "gzip"
 
 
 def test_cube_sync_endpoints(client):

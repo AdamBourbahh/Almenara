@@ -6,3 +6,6 @@
 # Local scratch / personal folders (not part of the project)
 /frontendAntonioTemp/
 /skills/
+
+.cache/
+.audit_edits.py

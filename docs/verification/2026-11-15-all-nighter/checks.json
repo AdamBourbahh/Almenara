@@ -1,0 +1,58 @@
+{
+  "completed_utc": "2026-11-15T02:11:28.267793+00:00",
+  "checks": [
+    {
+      "check": "etl",
+      "command": [
+        "scripts/run_pipeline.py",
+        "etl"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "backend",
+      "command": [
+        "-m",
+        "pytest",
+        "backend/tests",
+        "-q"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "contract_hashes",
+      "command": [
+        "scripts/verify_frozen_tests.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "frontend",
+      "command": [
+        "npm.cmd",
+        "test",
+        "--prefix",
+        "frontend"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "build",
+      "command": [
+        "npm.cmd",
+        "run",
+        "build",
+        "--prefix",
+        "frontend"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "real_acceptance",
+      "command": [
+        "scripts/12_audit_report.py"
+      ],
+      "exit_code": 0
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "generated_utc": "2026-11-15T02:11:28.083065+00:00",
+  "method": "Independent cell-area integrals, unit conversions, concurrent HTTP requests; scientific gates reported unchanged",
+  "regions": [
+    {
+      "region": "chilecito_la_rioja",
+      "data_source": "real",
+      "aoi_area_km2": 150830.5896316692,
+      "observed_energy_gj": 3095996.160544281,
+      "independent_energy_gj": 3095996.160544281,
+      "biomass_kt": 1139.3265870802954,
+      "daily_status_counts": {
+        "unknown": 3481,
+        "detected": 6029
+      },
+      "audit": {
+        "chow_test_f_stat_raw": 4.0078144233155175,
+        "chow_test_p_val_raw": 0.033548007213942216,
+        "chow_test_f_stat_harm": 1.2364403948696792,
+        "chow_test_p_val_harm": 0.31071016861622197,
+        "wasserstein_w1_raw": 1.3356167761584508,
+        "wasserstein_w1_harm": 0.21153094734116312,
+        "burned_area_r2_raw": 0.1315826103036988,
+        "burned_area_r2_harm": 0.6655599446106224,
+        "phenology_shift_days_per_decade": 10.66286925253639,
+        "mann_kendall_p_value": 0.12994145940142376,
+        "industrial_false_positives_removed": 0,
+        "total_biomass_burned_kt": 1139.3265870802954,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=0.0335, harmonized p=0.311 (PASS against the p>0.1 gate). Wasserstein-1 1.336 -> 0.2115 (84.2% reduction; FAIL against the >88% gate). Burned-area R\u00b2 values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "cold_http_ms": 1053.732599999421,
+      "json_bytes": 7379127,
+      "gzip_bytes": 1071212,
+      "first_date": "2000-11-01",
+      "last_date": "2026-11-14",
+      "forecast_validation": [],
+      "forecast_unavailable_reason": "Three years of history and >=95% known daily observations in the last two years are required.",
+      "pm25_estimated_days": 746
+    },
+    {
+      "region": "iberia_med",
+      "data_source": "real",
+      "aoi_area_km2": 1022045.5665103359,
+      "observed_energy_gj": 38564204.521293014,
+      "independent_energy_gj": 38564204.52129301,
+      "biomass_kt": 14191.62726383583,
+      "daily_status_counts": {
+        "detected": 8862,
+        "unknown": 648
+      },
+      "audit": {
+        "chow_test_f_stat_raw": 2.806641821563814,
+        "chow_test_p_val_raw": 0.08313209716880925,
+        "chow_test_f_stat_harm": 0.6035103465592223,
+        "chow_test_p_val_harm": 0.5561020211609067,
+        "wasserstein_w1_raw": 1.3036525570171056,
+        "wasserstein_w1_harm": 0.1870924988290269,
+        "burned_area_r2_raw": 0.028697086977449472,
+        "burned_area_r2_harm": 0.8769238332320916,
+        "phenology_shift_days_per_decade": -3.878308802981209,
+        "mann_kendall_p_value": 0.6272676336274836,
+        "industrial_false_positives_removed": 73,
+        "total_biomass_burned_kt": 14191.627263835828,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=0.0831, harmonized p=0.556 (PASS against the p>0.1 gate). Wasserstein-1 1.304 -> 0.1871 (85.6% reduction; FAIL against the >88% gate). Burned-area R\u00b2 values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "cold_http_ms": 2987.0095000005676,
+      "json_bytes": 17580959,
+      "gzip_bytes": 2794856,
+      "first_date": "2000-11-01",
+      "last_date": "2026-11-14",
+      "forecast_validation": [],
+      "forecast_unavailable_reason": "Three years of history and >=95% known daily observations in the last two years are required.",
+      "pm25_estimated_days": 570
+    },
+    {
+      "region": "orlando_florida",
+      "data_source": "real",
+      "aoi_area_km2": 18311.567910049256,
+      "observed_energy_gj": 1898091.1616130925,
+      "independent_energy_gj": 1898091.1616130925,
+      "biomass_kt": 698.4975474736179,
+      "daily_status_counts": {
+        "detected": 5156,
+        "observed_zero": 409,
+        "unknown": 3945
+      },
+      "audit": {
+        "chow_test_f_stat_raw": 35.87688641192815,
+        "chow_test_p_val_raw": 1.6839180958808834e-07,
+        "chow_test_f_stat_harm": 6.742181978054451,
+        "chow_test_p_val_harm": 0.005473552446256419,
+        "wasserstein_w1_raw": 1.3283632504859513,
+        "wasserstein_w1_harm": 0.3688155656171983,
+        "burned_area_r2_raw": 0.07318338578444426,
+        "burned_area_r2_harm": 0.5378791398629474,
+        "phenology_shift_days_per_decade": -1.3019360479565165,
+        "mann_kendall_p_value": 0.9080331814389776,
+        "industrial_false_positives_removed": 0,
+        "total_biomass_burned_kt": 698.497547473618,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=1.68e-07, harmonized p=0.00547 (FAIL against the p>0.1 gate). Wasserstein-1 1.328 -> 0.3688 (72.2% reduction; FAIL against the >88% gate). Burned-area R\u00b2 values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "cold_http_ms": 823.0801000008796,
+      "json_bytes": 6435247,
+      "gzip_bytes": 1006060,
+      "first_date": "2000-11-01",
+      "last_date": "2026-11-14",
+      "forecast_validation": [],
+      "forecast_unavailable_reason": "Three years of history and >=95% known daily observations in the last two years are required.",
+      "pm25_estimated_days": 2633
+    },
+    {
+      "region": "amazonas_manaus",
+      "data_source": "real",
+      "aoi_area_km2": 196723.2663886651,
+      "observed_energy_gj": 13808577.470542721,
+      "independent_energy_gj": 13808577.470542721,
+      "biomass_kt": 5081.556509159722,
+      "daily_status_counts": {
+        "unknown": 4231,
+        "detected": 5279
+      },
+      "audit": {
+        "chow_test_f_stat_raw": 1.026149898315196,
+        "chow_test_p_val_raw": 0.3756668519142529,
+        "chow_test_f_stat_harm": 0.7839369177020094,
+        "chow_test_p_val_harm": 0.4695164572755965,
+        "wasserstein_w1_raw": 1.495568204540105,
+        "wasserstein_w1_harm": 0.8497040821386477,
+        "burned_area_r2_raw": 0.30290416882432974,
+        "burned_area_r2_harm": 0.46932583629716085,
+        "phenology_shift_days_per_decade": -9.618791602454916,
+        "mann_kendall_p_value": 0.0005531229581787489,
+        "industrial_false_positives_removed": 0,
+        "total_biomass_burned_kt": 5081.556509159722,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=0.376, harmonized p=0.47 (PASS against the p>0.1 gate). Wasserstein-1 1.496 -> 0.8497 (43.2% reduction; FAIL against the >88% gate). Burned-area R\u00b2 values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "cold_http_ms": 1229.6317000000272,
+      "json_bytes": 8069134,
+      "gzip_bytes": 1264063,
+      "first_date": "2000-11-01",
+      "last_date": "2026-11-14",
+      "forecast_validation": [],
+      "forecast_unavailable_reason": "Three years of history and >=95% known daily observations in the last two years are required.",
+      "pm25_estimated_days": 1785
+    }
+  ]
+}

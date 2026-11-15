@@ -1,7 +1,7 @@
 """Build and atomically publish the offline FIRMS master cube."""
 
 import argparse
-from datetime import date
+from datetime import date, datetime, timezone
 from importlib import import_module
 import json
 from pathlib import Path
@@ -58,7 +58,7 @@ def table_from_rows(rows):
     return pa.Table.from_pylist(list(rows), schema=bootstrap.CUBE_SCHEMA)
 
 
-def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
+def real_rows(con, staged, lookup, regions, ancillary_coverage=None, confidence_level='nominal'):
     lut = json.loads((lookup / "eqm_gpd_lut.json").read_text())["models"]
     outages = set(con.execute("SELECT acq_date, satellite FROM read_parquet(?)",
                               [str(lookup / "sensor_outages.parquet")]).fetchall())
@@ -70,22 +70,22 @@ def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
         count(*) FILTER (WHERE is_center) AS n,
         coalesce(sum(frp) FILTER (WHERE is_center), 0) AS raw_power,
         max(industrial_prob) AS industrial, mode(region) AS region
-        FROM read_parquet(?) GROUP BY h3_r4, h3_r7, acq_date, satellite, sensor_bit
-        ORDER BY h3_r7, acq_date, satellite""", [str(staged)]).fetchall()
+        FROM read_parquet(?) WHERE confidence_norm IN (SELECT unnest(?))
+        GROUP BY h3_r4, h3_r7, acq_date, satellite, sensor_bit
+        ORDER BY h3_r7, acq_date, satellite""", [str(staged),
+            {'low': ['low', 'nominal', 'high'], 'nominal': ['nominal', 'high'], 'high': ['high']}[confidence_level]]).fetchall()
     daily, viirs, scales, pending = {}, {}, {}, []
     for h4, h7, day, sensor, bit, biome, angle, mw, n, raw, industrial, region in rows:
-        ranges = regions[region].get("coverage", [])
-        if not any(date.fromisoformat(start) <= day <= date.fromisoformat(end)
-                   for start, end in ranges):
-            raise ValueError(f"Declare coverage for {region} on {day} in data/regions.json")
+        if day > datetime.now(timezone.utc).date():
+            raise ValueError(f"Future detection rejected for {region}: {day}")
         epoch = (day - EPOCH).days
         key = (h7, epoch)
         row = daily.setdefault(key, dict(h3_r4=h4, h3_r7=h7, epoch_day=epoch, year=day.year,
             doy=day.timetuple().tm_yday, igbp_biome=biome, sensor_obs_mask=0,
             gap_status_mask=int(any((day, item) in outages for item in ingest.SENSOR_BITS)),
-            cloud_cover_pct=0.0, raw_modis_cnt=0, raw_viirs_cnt=0, raw_frp_mw=0.0,
+            cloud_cover_pct=None, raw_modis_cnt=0, raw_viirs_cnt=0, raw_frp_mw=0.0,
             obs_terra_fre=None, obs_aqua_fre=None, obs_viirs_fre=None,
-            neighbor_fre_lag1=0.0, industrial_prob=0.0, burned_area_ha_mcd64=0.0))
+            neighbor_fre_lag1=0.0, industrial_prob=0.0, burned_area_ha_mcd64=None))
         modis = sensor in ("Terra", "Aqua")
         row["raw_modis_cnt" if modis else "raw_viirs_cnt"] += n
         row["raw_frp_mw"] += raw
@@ -181,7 +181,7 @@ def real_rows(con, staged, lookup, regions, ancillary_coverage=None):
 
 
 def build_master_cube(staged_path=ingest.STAGED, output_path=OUT, force_bootstrap=False,
-                      lookup_dir="data/lookup"):
+                      lookup_dir="data/lookup", confidence_level='nominal'):
     if force_bootstrap:
         fixture_path = bootstrap.SYNTHETIC_PATH if Path(output_path) == OUT else ROOT / output_path
         return Path(bootstrap.generate_bootstrap_cube(fixture_path))
@@ -197,14 +197,16 @@ def build_master_cube(staged_path=ingest.STAGED, output_path=OUT, force_bootstra
     with TemporaryDirectory(dir=output.parent) as temp, duckdb.connect() as con:
         work = Path(temp)
         ancillary_coverage = {}
-        daily = real_rows(con, staged, ROOT / lookup_dir, regions, ancillary_coverage)
+        daily = real_rows(con, staged, ROOT / lookup_dir, regions, ancillary_coverage, confidence_level)
         metadata = {
             b"source": b"REAL FIRMS detections",
             b"real_rows": str(len(daily)).encode(),
             b"synthetic_rows": b"0",
             b"epoch": EPOCH.isoformat().encode(),
             b"coverage": json.dumps(regions).encode(),
-            b"real_cloud_and_burned_area": b"optional ancillary; zero sentinel for missing values",
+            b"confidence_level": confidence_level.encode(),
+            b"industrial_method": b"Published EOG upstream site-year match <=1km plus persistence score; not a calibrated classifier",
+            b"real_cloud_and_burned_area": b"optional ancillary; null for missing values",
             b"ancillary_coverage": json.dumps(ancillary_coverage, sort_keys=True).encode(),
             b"real_igbp": b"local IGBP lookup or nominal regional fallback",
             b"fre_method": b"one-hour FRP integration proxy",
