@@ -10,6 +10,7 @@ from backend.api.copilot_network import is_offline
 import calendar
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import lru_cache
 from datetime import date, timedelta
 import ipaddress
 import json
@@ -84,6 +85,7 @@ def normalized(text: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(c))
 
 
+@lru_cache(maxsize=1)
 def places() -> dict:
     catalogue = json.loads((ROOT / "data/regions.json").read_text())
     return {**{k: (REGION_LABELS[k], v["bounds"], REGION_ALIASES[k])

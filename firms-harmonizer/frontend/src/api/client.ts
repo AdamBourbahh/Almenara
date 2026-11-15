@@ -48,7 +48,7 @@ export class ApiError extends Error {
 // Typed HTTP client with explicit fixture opt-in
 // ============================================================================
 
-async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+async function requestJson<T>(path: string, init: { method: string; headers: Record<string, string>; body?: string }, signal?: AbortSignal): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(
     () => controller.abort(new DOMException(`Request timed out after ${REQUEST_TIMEOUT_MS} ms`, "TimeoutError")),
@@ -59,12 +59,7 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
   signal?.addEventListener("abort", forwardAbort, { once: true });
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
+    const response = await fetch(`${API_BASE_URL}${path}`, { ...init, signal: controller.signal });
     if (!response.ok) {
       let detail = response.statusText;
       try {
@@ -84,39 +79,12 @@ async function postJson<T>(path: string, body: unknown, signal?: AbortSignal): P
   }
 }
 
-async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(new DOMException(`Request timed out after ${REQUEST_TIMEOUT_MS} ms`, "TimeoutError")),
-    REQUEST_TIMEOUT_MS
-  );
-  const forwardAbort = () => controller.abort(signal?.reason);
-  if (signal?.aborted) forwardAbort();
-  signal?.addEventListener("abort", forwardAbort, { once: true });
+function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return requestJson<T>(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, signal);
+}
 
-  try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      let detail = response.statusText;
-      try {
-        const payload: unknown = await response.json();
-        if (payload && typeof payload === "object" && "detail" in payload) {
-          detail = JSON.stringify((payload as { detail: unknown }).detail);
-        }
-      } catch {
-        /* non-JSON error body: keep statusText */
-      }
-      throw new ApiError(`HTTP ${response.status}: ${detail}`, response.status);
-    }
-    return (await response.json()) as T;
-  } finally {
-    clearTimeout(timeoutId);
-    signal?.removeEventListener("abort", forwardAbort);
-  }
+function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return requestJson<T>(path, { method: "GET", headers: { Accept: "application/json" } }, signal);
 }
 
 export async function triggerCubeSync(

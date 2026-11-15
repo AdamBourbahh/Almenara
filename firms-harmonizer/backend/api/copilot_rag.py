@@ -8,6 +8,7 @@ import sqlite3
 ROOT=Path(__file__).resolve().parents[2]
 
 
+@lru_cache(maxsize=1)
 def documents():
     records=[]
     for path in sorted((ROOT/'data/copilot_knowledge').glob('*.json')):
