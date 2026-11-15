@@ -121,3 +121,27 @@ def test_entrypoint_downloads_only_when_cube_is_not_bundled(tmp_path, monkeypatc
     assert downloads == ([] if bundled else ["example/runtime-data"])
     assert len(launches) == 1
     assert "backend.api.main:app" in launches[0]
+
+
+def test_cloudrun_redeploy_preserves_provider_settings_and_secret_bindings(monkeypatch):
+    from types import SimpleNamespace
+    cloudrun = load_deploy_module("cloudrun")
+    calls = []
+
+    def run(*args, **kwargs):
+        calls.append(args)
+        if args[:2] == ("git", "rev-parse"):
+            return "abc1234"
+        if args[:4] == ("gcloud", "run", "services", "describe"):
+            return "https://example.run.app"
+        return ""
+
+    monkeypatch.setattr(cloudrun, "run", run)
+    monkeypatch.setattr(cloudrun, "active_account", lambda: "deployer")
+    monkeypatch.setattr(cloudrun, "check_health", lambda url: None)
+    cloudrun.deploy(SimpleNamespace(region="europe-west1", project="example",
+                                   max_instances=2, data_repo="example/data"))
+    command = next(call for call in calls if call[:3] == ("gcloud", "run", "deploy"))
+    assert "--update-env-vars=DATA_REPO=example/data,NRT_POLLING=0,USE_SYNTHETIC_CUBE=0" in command
+    assert not any("COPILOT_OFFLINE=" in arg or arg.startswith(("--set-env-vars", "--set-secrets", "--clear-secrets"))
+                   for arg in command)

@@ -112,7 +112,7 @@ def deploy(args) -> None:
              "--allow-unauthenticated", "--memory=2Gi", "--cpu=1", "--min-instances=0",
              f"--max-instances={args.max_instances}", "--concurrency=8", "--timeout=300", "--cpu-boost",
              "--execution-environment=gen2", "--port=7860",
-             f"--set-env-vars=DATA_REPO={args.data_repo},COPILOT_OFFLINE=1,NRT_POLLING=0,USE_SYNTHETIC_CUBE=0"]
+             f"--update-env-vars=DATA_REPO={args.data_repo},NRT_POLLING=0,USE_SYNTHETIC_CUBE=0"]
     run("gcloud", "run", "deploy", SERVICE, *flags, "--quiet")
     url = run("gcloud", "run", "services", "describe", SERVICE, f"--project={args.project}",
               f"--region={args.region}", "--format=value(status.url)", capture=True)

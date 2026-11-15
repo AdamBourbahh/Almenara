@@ -16,9 +16,15 @@ firms-harmonizer/data/raw
 firms-harmonizer/data/processed/*
 !firms-harmonizer/data/processed/fire_cube.parquet
 !firms-harmonizer/data/processed/staged_firms.parquet
-firms-harmonizer/data/cache
+!firms-harmonizer/data/processed/fire_cube_low.parquet
+!firms-harmonizer/data/processed/fire_cube_high.parquet
+!firms-harmonizer/data/processed/observation_coverage/**
+firms-harmonizer/data/cache/*
+!firms-harmonizer/data/cache/land_cover/**
 firms-harmonizer/data/real
 **/__pycache__
 **/*.pyc
 **/.env
 **/.env.*
+
+**/.cache

@@ -1,8 +1,5 @@
 name: Deploy to Cloud Run
 
-# Runs after the Verify workflow succeeds on main, or manually. It is skipped until the
-# repository variables GCP_PROJECT, GCP_WIF_PROVIDER and GCP_SERVICE_ACCOUNT are set
-# (see docs/deploy.md). Authentication uses Workload Identity Federation: no key is stored.
 on:
   workflow_run:
     workflows: [Verify]
@@ -12,7 +9,7 @@ on:
 
 concurrency:
   group: deploy-cloudrun
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -21,10 +18,15 @@ permissions:
 jobs:
   deploy:
     if: >-
-      vars.GCP_WIF_PROVIDER != '' &&
-      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+      vars.GCP_PROJECT != '' && vars.GCP_WIF_PROVIDER != '' && vars.GCP_SERVICE_ACCOUNT != '' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+      DATA_REPO: ${{ vars.HF_DATA_REPO || 'andearlla/firms-harmonizer-data' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,7 +39,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python deploy/cloudrun.py --project "$GCP_PROJECT" deploy --data-repo "$DATA_REPO"
-        env:
-          GCP_PROJECT: ${{ vars.GCP_PROJECT }}
-          DATA_REPO: ${{ vars.HF_DATA_REPO || 'andearlla/firms-harmonizer-data' }}
+      - name: Install runtime data downloader
+        run: python -m pip install -r deploy/requirements.txt
+      - name: Bundle published real data before building the image
+        run: >-
+          hf download "$DATA_REPO" --repo-type dataset --local-dir firms-harmonizer/data
+          --include "processed/**" "lookup/**" "cache/land_cover/**" "manifest.json"
+      - name: Deploy the verified main commit
+        run: |
+          current=$(git rev-parse HEAD)
+          latest=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$current" != "$latest" ]; then
+            echo "Skipping superseded main commit $current"
+            exit 0
+          fi
+          python deploy/cloudrun.py --project "$GCP_PROJECT" deploy --data-repo "$DATA_REPO"
