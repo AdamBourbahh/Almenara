@@ -21,7 +21,7 @@ export function MapPage() {
             <h2 className="text-sm font-medium text-ink">Explore the map</h2>
             <button type="button" onClick={() => setOpen(false)} aria-label="Hide explore panel" className="rounded-full p-2 text-muted hover:bg-paper"><PanelRightClose className="h-4 w-4" /></button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto"><AoiDrawControl /><MapInfo /></div>
+          <div className="min-h-0 flex-1 overflow-y-auto"><MapInfo /></div>
         </aside>
       )}
     </div>

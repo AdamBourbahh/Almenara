@@ -22,6 +22,10 @@ export function MapInfo() {
   const mapped = useMemo(() => summarizeMappedYear(mapHexagons, excludeIndustrial), [mapHexagons, excludeIndustrial]);
   const ready = !loading && !mapLoading && !mapError && mapPeriod === requestedPeriod;
   const cells = analysisData?.calendar_series ?? [];
+  const periodCells=cells.filter(c=>c.date.startsWith(requestedPeriod) && !c.is_forecast);
+  const regionalBiomass=periodCells.reduce((sum,c)=>sum+c.biomass_burned_tonnes,0);
+  const regionalEnergy=regionalBiomass/.368;
+  const filledDays=periodCells.filter(c=>c.is_gap_filled).length;
   const totalDetections = cells.reduce((sum, c) => sum + c.raw_hotspot_count, 0);
   const countsByYear = new Map<number, number>();
   for (const day of cells) countsByYear.set(day.year, (countsByYear.get(day.year) ?? 0) + day.raw_hotspot_count);
@@ -46,6 +50,13 @@ export function MapInfo() {
         <div><dt className="text-[10px] text-faint">PM2.5 estimate</dt><dd className="font-serif text-lg text-ink tnum">Not computed</dd></div>
       </dl>
       <p className="mt-2 text-[10px] leading-relaxed text-muted">Detections are satellite pixels, not separate fires. Energy uses the calibrated one-hour proxy; biomass applies 0.368 kg/MJ to that same energy and is not an independent measurement. Cell footprint is not burned area. Missing cells are not proof of zero fire. The first satellite detection is not necessarily the ignition date.</p>
+      <h4 className="mt-4 text-xs font-medium text-ink">Regional model · {requestedPeriod}</h4>
+      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-rule pt-3">
+        <div><dt className="text-[10px] text-faint">Regional model energy</dt><dd className="font-serif text-lg text-ink tnum">{ready && periodCells.length ? `${fmt(regionalEnergy)} GJ` : '—'}</dd></div>
+        <div><dt className="text-[10px] text-faint">Regional model biomass</dt><dd className="font-serif text-lg text-ink tnum">{ready && periodCells.length ? `${fmt(regionalBiomass/1000,2)} kt` : '—'}</dd></div>
+      </dl>
+      <p className="mt-2 text-[10px] text-faint">Selected query area: {ready && analysisData ? `${fmt(analysisData.aoi_area_km2)} km²` : '—'}. This is distinct from the observed footprint above.</p>
+      <p className="mt-2 text-[10px] leading-relaxed text-muted">The chat's regional model aggregates sensor densities before optional reconstruction. The map integrates observations per cell, so these estimates can differ even with reconstruction off. {ready && periodCells.length ? `${periodCells.length} available days; ${filledDays} marked as reconstructed. Data through ${periodCells.at(-1)?.date}.` : ''} A full-year selection does not add future observations.</p>
       <h4 className="mt-4 text-xs font-medium text-ink">Full record · {cells[0]?.year ?? "—"}–{cells[cells.length - 1]?.year ?? "—"}</h4>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-rule pt-3">
         <div><dt className="text-[10px] text-faint">Recorded detections</dt><dd className="font-serif text-lg text-ink tnum">{loading || !analysisData ? "—" : fmt(totalDetections)}</dd></div>

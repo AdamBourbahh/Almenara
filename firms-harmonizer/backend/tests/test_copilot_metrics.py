@@ -141,3 +141,25 @@ def test_month_range_and_explicit_hex_scope():
     scope = copilot.resolve_scope(ExplainSpikeRequest(user_question=f"How many detections in {index} in 2026?"))
     assert scope.h3_index == index
     assert copilot.queries.get_hierarchical_h3_filter(scope.coordinates)[1] == [int(index, 16)]
+
+
+def test_chat_map_comparison_matches_independent_sparse_cell_sum(sparse_cube):
+    from types import SimpleNamespace
+    from backend.tests.test_api_accounting import square,CENTRE
+    from backend.api.copilot_metrics import retrieve_energy
+    client,expected=sparse_cube
+    coordinates=square(*CENTRE,.05)
+    scope=SimpleNamespace(coordinates=coordinates,start='2020-03-01',end='2020-03-03',label='Test area')
+    req=ExplainSpikeRequest(enable_kalman_gap_filling=False)
+    evidence=retrieve_energy(scope,req)
+    total=sum(density*h3.cell_area(format(cell,'x'),unit='km^2')/1000 for density,cell in expected.values())
+    assert evidence['mapped_energy_gj']==pytest.approx(total)
+    assert evidence['mapped_biomass_tonnes']==pytest.approx(total*.368)
+    assert evidence['available_through']=='2020-03-03'
+    r=client.post('/api/map-period?start_date=2020-03-01&end_date=2020-03-03',json={
+        'aoi':{'coordinates':coordinates},'start_year':2020,'end_year':2020})
+    assert r.status_code==200
+    mapped=sum(c['mean_annual_fre']*h3.cell_area(c['h3_index'],unit='km^2')/1000 for c in r.json()['map_hexagons'])
+    assert evidence['mapped_energy_gj']==pytest.approx(mapped)
+
+from backend.tests.test_api_accounting import sparse_cube

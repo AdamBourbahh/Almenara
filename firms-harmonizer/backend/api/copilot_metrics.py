@@ -3,11 +3,37 @@ from __future__ import annotations
 
 import json
 import math
+from datetime import date
+import h3
 
 from fastapi import HTTPException
 
 from backend.api.schemas import AnalyzeRequest, ExplainSpikeRequest, GeoJSONPolygon
-from backend.db import duckdb_engine
+from backend.db import duckdb_engine, queries
+
+
+def retrieve_mapped_energy(scope, req):
+    """Exactly the observed cell-period calculation used by the visible map."""
+    queries.validate_polygon_topology(scope.coordinates)
+    r4,r7,_=queries.get_hierarchical_h3_filter(scope.coordinates)
+    epoch=date(1970,1,1)
+    totals=[]
+    cells=set()
+    detections=0
+    for year in range(int(scope.start[:4]),int(scope.end[:4])+1):
+        start=max(scope.start,f'{year}-01-01')
+        end=min(scope.end,f'{year}-12-31')
+        rows=queries.fetch_map_period(r4,r7,year,((date.fromisoformat(start)-epoch).days,(date.fromisoformat(end)-epoch).days),req.exclude_industrial_flaring)
+        for cell in rows:
+            if req.exclude_industrial_flaring and cell.is_industrial_site:
+                continue
+            cells.add(cell.h3_index)
+            totals.append(cell.mean_annual_fre*h3.cell_area(cell.h3_index,unit='km^2')/1000)
+            detections+=cell.raw_pixel_count
+    total=math.fsum(totals)
+    return {'mapped_energy_gj':total,'mapped_biomass_tonnes':total*.368,
+            'mapped_footprint_km2':math.fsum(h3.cell_area(c,unit='km^2') for c in cells),
+            'mapped_detections':detections}
 
 
 def retrieve_energy(scope, req: ExplainSpikeRequest) -> dict:
@@ -45,7 +71,8 @@ def retrieve_energy(scope, req: ExplainSpikeRequest) -> dict:
     for cell in cells:
         by_year.setdefault(cell["year"], []).append(cell["biomass_burned_tonnes"] / 0.368)
     peak = max(cells, key=lambda c: c["biomass_burned_tonnes"])
-    return {"status": "ok", "data_source": data["data_source"], "energy_gj": total,
+    mapped = retrieve_mapped_energy(scope, req)
+    return {**mapped, "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.", "available_through": cells[-1]["date"], "status": "ok", "data_source": data["data_source"], "energy_gj": total,
             "area_km2": area, "days": len(cells), "gap_filled_days": sum(c["is_gap_filled"] for c in cells),
             "biomass_tonnes": math.fsum(c["biomass_burned_tonnes"] for c in cells),
             "peak_day": peak["date"], "peak_day_gj": peak["biomass_burned_tonnes"] / 0.368,
@@ -57,7 +84,7 @@ def energy_answer(scope, evidence: dict, req: ExplainSpikeRequest) -> str:
         return evidence["message"]
     method = "RTS Kalman reconstruction" if req.enable_kalman_gap_filling else "available calibrated observations without gap filling"
     industrial = "excluded" if req.exclude_industrial_flaring else "included"
-    lines = [f"### Energy result\n\nFor **{scope.label}**, **{scope.start} to {scope.end}**, the scientific cube gives "
+    lines = [f"### Regional model energy\n\nFor **{scope.label}**, **{scope.start} to {scope.end}**, the scientific cube gives "
              f"**{evidence['energy_gj']:,.3f} GJ** of integrated fire radiative energy. [6]",
              f"### Scope and method\n\nThis uses {method}, with industrial heat sources {industrial}. "
              f"The calculation covers **{evidence['area_km2']:,.3f} km²** of selected H3 cells and "
@@ -70,6 +97,9 @@ def energy_answer(scope, evidence: dict, req: ExplainSpikeRequest) -> str:
              "### Interpretation\n\nGJ = Σ daily FRE (MJ/km²) × the cube cell area represented on that day (km²) / 1,000. "
              "The full polygon area is not used for every day. Model density averages sensors with different spatial coverage; totals are derived estimates. This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. "
              "Raw detection counts below use accepted centers before the scientific industrial-source filter."]
+    if 'mapped_energy_gj' in evidence:
+        lines.insert(0, f"### Visible map energy\n\nFor the same area and requested dates, the mapped observation-based proxy is **{evidence['mapped_energy_gj']:,.3f} GJ**, with **{evidence['mapped_biomass_tonnes']:,.3f} tonnes** of derived biomass. This matches the Explore panel's map calculation. [6]\n\nThe regional model estimate below uses a different calculation: it aggregates sensor densities before reconstruction, whereas the map integrates calibrated observations per cell. These are not two measurements of the same estimator. No regional reconstruction is included in the map total.")
+        lines.append(f"### Available dates\n\nThe requested period is {scope.start}–{scope.end}; the model series available for this query ends on **{evidence['available_through']}**. Dates after archive coverage are not forecasts. Selected polygon area and observed cell footprint also differ: the mapped footprint is **{evidence['mapped_footprint_km2']:,.3f} km²**, not burned area.")
     if len(evidence["annual_gj"]) > 1:
         lines.append("### Yearly energy\n\nRequested dates only:\n\n| Year | FRE (GJ) |\n| --- | ---: |\n" +
             "\n".join(f"| {year} | {value:,.3f} |" for year, value in sorted(evidence["annual_gj"].items())))

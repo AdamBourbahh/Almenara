@@ -1,3 +1,4 @@
+import { SettingsPanel } from "./components/SettingsPanel";
 import { FireCopilotDrawer } from "./components/Audit/FireCopilotDrawer";
 import { CubeSyncWidget } from "./components/Sync/CubeSyncWidget";
 import { ObservationsPage } from "./views/ObservationsPage";
@@ -26,8 +27,6 @@ type SectionKey = (typeof SECTIONS)[number]["key"];
 
 export default function App() {
   const [section, setSection] = useState<SectionKey>("map");
-  const viewMode = useAnalysisStore((s) => s.viewMode);
-  const setViewMode = useAnalysisStore((s) => s.setViewMode);
   const executeAnalysis = useAnalysisStore((s) => s.executeAnalysis);
   function openSection(next: SectionKey) {
     const state = useAnalysisStore.getState();
@@ -73,24 +72,7 @@ export default function App() {
           <div className="ml-auto flex max-w-full flex-wrap items-center gap-2 pb-2 2xl:pb-0">
             <CubeSyncWidget />
             <button type="button" onClick={() => useAnalysisStore.getState().toggleCopilot()} className="flex items-center gap-1 border border-rule px-2 py-1.5 text-xs"><Sparkles className="h-4 w-4" />Fire Copilot</button>
-            <div className="inline-flex border border-rule text-xs">
-              <button
-                type="button"
-                onClick={() => setViewMode("RAW")}
-                aria-pressed={viewMode === "RAW"}
-                className={`px-2 py-1.5 sm:px-3 ${viewMode === "RAW" ? "bg-ink text-paper" : "text-muted hover:bg-paper"}`}
-              >
-                Raw
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("HARMONIZED")}
-                aria-pressed={viewMode === "HARMONIZED"}
-                className={`border-l border-rule px-2 py-1.5 sm:px-3 ${viewMode === "HARMONIZED" ? "bg-ink text-paper" : "text-muted hover:bg-paper"}`}
-              >
-                Harmonized
-              </button>
-            </div>
+            <SettingsPanel />
 
           </div>
         </div>

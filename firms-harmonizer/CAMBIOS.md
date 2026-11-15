@@ -433,3 +433,14 @@ scientific path through a request-local ContextVar, without global environment o
 function mutation. Groq is the active provider; Gemini Search grounding is a
 separate potential provider integration and is not activated by a Gemini web-app
 subscription or by this change.
+
+## 2026-11-15 — Settings and map/chat energy comparison
+
+Moved display and industrial controls into Settings beside the appearance button;
+added an in-menu keyboard shortcut list. Kept the functional raw-count versus
+calibrated-energy visual comparison with clearer labels. Explore shows a separate
+regional model total alongside mapped observations, and the Copilot computes the
+same observed map total for comparison. Matched biomass, date coverage, selected
+area and observed footprint are labeled explicitly. No public contract fields or
+types changed. Tests compare mapped GJ with an independent sparse-cell area sum
+and the actual map-period API; the model receives distinct estimator objects.

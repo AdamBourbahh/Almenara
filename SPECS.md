@@ -791,3 +791,21 @@ turns, source passages and tool results have explicit size limits. The existing
 local scientific pipeline remains the offline/no-credentials fallback. Public
 contracts remain unchanged; citation rendering additionally supports K/E document
 markers. Groq quotas remain external constraints; fallback is reported explicitly.
+
+### 5.10 Settings and comparable energy labels (2026-11-15)
+
+The header Settings menu contains the map/calendar display choice, industrial
+candidate exclusion/highlighting and a keyboard-shortcut disclosure. The adjacent
+appearance button controls the existing persisted light/dark theme. The former
+Raw/Harmonized choice remains functional as Detection count/Calibrated energy;
+it changes visual encoding, not energy totals. Industrial settings display the
+actual full-record candidate-cell count and explain when no visible change occurs.
+
+Explore and Copilot distinguish the visible-map per-cell observed energy proxy
+from the regional sensor-aggregation/model estimate. Copilot additionally executes
+the same `fetch_map_period` calculation and exact H3 area sum as the frontend, with
+identical dates and industrial filtering, to report mapped GJ and matching biomass.
+The agent receives these estimators as separate nested tool results. Selected query
+area, observed cell footprint, requested dates and actual archive cutoff remain
+separate quantities. This adds internal tool fields only; frozen public schemas
+and TypeScript API contracts remain unchanged.

@@ -47,7 +47,7 @@ DATES={k:{'type':'string','description':'Optional ISO date YYYY-MM-DD; defaults 
 TOOLS=[
  definition('search_knowledge','Search indexed local scientific methods, units, data coverage and limitations.',{'query':{'type':'string'}}),
  definition('query_observations','Query accepted satellite detections, FRP and busiest days for the resolved map area.',DATES),
- definition('query_energy','Calculate integrated energy GJ, biomass and yearly totals from the scientific database.',DATES),
+ definition('query_energy','Calculate and distinguish mapped observed energy and regional modeled energy in GJ, biomass and yearly totals.',DATES),
  definition('profile_episode','Discover the main thermal episode and estimate progression/duration and consequences.',{'target_date':{'type':'string'}}),
  definition('search_incident_reports','Search official/reputable reports and read matching passages for this place and period.',{})]
 
@@ -173,6 +173,11 @@ def answer(req):
                     result=retrieve_energy(selected,req)
                     citations.update({c.id:c for c in [local.CUBE,local.METHOD_SOURCES[0]]})
                     rendered.append(energy_answer(selected,result,req))
+                    if 'mapped_energy_gj' in result:
+                        result={'status':result['status'],'start':selected.start,'end':selected.end,
+                            'visible_map':{k:result[k] for k in ('mapped_energy_gj','mapped_biomass_tonnes','mapped_footprint_km2','mapped_detections')},
+                            'regional_model':{k:result[k] for k in ('energy_gj','biomass_tonnes','annual_gj','gap_filled_days','days','peak_day','peak_day_gj','area_km2')},
+                            'available_through':result['available_through'],'comparison_note':result['comparison_note']}
                     scope=selected
                 elif name=='profile_episode':
                     result=researcher.profile_fire_episode_from_duckdb(GeoJSONPolygon(coordinates=scope.coordinates) if scope.coordinates else None,

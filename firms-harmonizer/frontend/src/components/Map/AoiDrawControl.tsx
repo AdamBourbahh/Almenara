@@ -22,10 +22,6 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
     isDrawingAoi,
     setDrawingAoi,
     setCustomBbox,
-    excludeIndustrial,
-    setExcludeIndustrial,
-    highlightIndustrialOnMap,
-    setHighlightIndustrialOnMap,
   } = useAnalysisStore(
     useShallow((s) => ({
       currentAoi: s.currentAoi,
@@ -33,10 +29,6 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
       isDrawingAoi: s.isDrawingAoi,
       setDrawingAoi: s.setDrawingAoi,
       setCustomBbox: s.setCustomBbox,
-      excludeIndustrial: s.excludeIndustrial,
-      setExcludeIndustrial: s.setExcludeIndustrial,
-      highlightIndustrialOnMap: s.highlightIndustrialOnMap,
-      setHighlightIndustrialOnMap: s.setHighlightIndustrialOnMap,
     }))
   );
 
@@ -196,32 +188,5 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
     </div>
   );
 
-  return (
-    <div className="border-b border-rule p-4">
-      <div className="mt-3 space-y-1.5 border-t border-rule pt-3">
-        <label className="flex cursor-pointer items-start gap-2 text-[11px] text-muted">
-          <input
-            type="checkbox"
-            checked={excludeIndustrial}
-            onChange={(e) => void setExcludeIndustrial(e.target.checked)}
-            className="mt-0.5 h-3.5 w-3.5 accent-industrial"
-          />
-          <span>
-            Hide industrial heat (refineries and flares)
-            <span className="block text-[10px] text-faint">Shannon temporal entropy H &gt; 0.75</span>
-          </span>
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-muted">
-          <input
-            type="checkbox"
-            checked={highlightIndustrialOnMap}
-            onChange={(e) => setHighlightIndustrialOnMap(e.target.checked)}
-            className="h-3.5 w-3.5 accent-industrial"
-          />
-          Highlight flares on the map
-        </label>
-      </div>
-
-    </div>
-  );
+  return null;
 }

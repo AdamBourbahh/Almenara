@@ -126,3 +126,23 @@ def test_weather_cannot_be_promoted_to_ignition(online,monkeypatch):
     r=a.answer(ExplainSpikeRequest(user_question='What led to this?'))
     assert 'do not establish what ignited' in r.explanation_markdown
     assert 'caused the fire to ignite' not in r.explanation_markdown
+
+
+def test_energy_tool_keeps_observed_and_regional_totals_separate(online,monkeypatch):
+    sample=dict(status='ok',energy_gj=12.,biomass_tonnes=4.416,annual_gj={2026:12},gap_filled_days=2,days=3,
+        peak_day='2026-07-24',peak_day_gj=6,area_km2=100,mapped_energy_gj=10.,mapped_biomass_tonnes=3.68,
+        mapped_footprint_km2=20,mapped_detections=5,available_through='2026-07-24',comparison_note='Different estimators')
+    monkeypatch.setattr(a,'retrieve_energy',lambda *args:sample)
+    monkeypatch.setattr(a,'energy_answer',lambda *args:'Map: 10 GJ. Regional: 12 GJ. [6]')
+    calls=[]
+    def turn(messages,**kwargs):
+        calls.append(messages)
+        if len(calls)==1:
+            return call('query_energy',{})
+        result=json.loads(messages[-1]['content'])
+        assert result['visible_map']['mapped_energy_gj']==10
+        assert result['regional_model']['energy_gj']==12
+        return {'content':'Map energy is 10 GJ; the regional model gives 12 GJ. [6]'}
+    monkeypatch.setattr(a,'turn',turn)
+    r=a.answer(ExplainSpikeRequest(user_question='Compare the GJ totals'))
+    assert r.model_used.startswith('groq-agent/')

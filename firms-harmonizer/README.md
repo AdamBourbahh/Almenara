@@ -296,3 +296,19 @@ which tools the model chose. Use `--question` and `--output` for individual case
 `pytest backend/tests/test_copilot_agent.py -q` covers orchestration and failures
 without using a provider account. Retrieved notes are not automatically certified
 incident evidence; answers retain source and uncertainty labels.
+
+### Display settings and energy comparisons
+
+The header appearance button switches light/dark mode. Settings contains the
+Detection count / Calibrated energy display choice (formerly Raw/Harmonized),
+industrial candidate exclusion and purple highlighting, and expandable keyboard
+shortcuts. The industrial candidate count explains why filtering may have no
+visible effect. Explore no longer contains those controls.
+
+Visible-map energy integrates calibrated observations per cell. Regional model
+energy aggregates sensor densities before optional temporal reconstruction, so the
+two estimators can differ. Explore and Copilot show them separately with matching
+biomass estimates. The Copilot computes the map comparison through the same
+map-period queries and H3 areas used in the frontend. Selected polygon area differs
+from the observed cell footprint; neither is a measured burned area. Requested
+full-year dates do not imply that future days are present in the archive.
