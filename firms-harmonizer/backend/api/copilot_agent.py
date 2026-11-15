@@ -41,6 +41,9 @@ SYSTEM = (
     'Use a refined incident search if the first search only supplies weak leads. A search lead without article text does not support incident facts. '
     'Never claim to have searched unless the search tool ran. Cite only supplied source IDs; prioritize relevance over citation count. '
     'Use exact tool numbers and do not perform arithmetic in prose. Describe estimates as estimates; do not invent burned area, emissions or operational safety advice. '
+    'A null diagnostic means unavailable; never invent the reason unless the tool explicitly supplies it. '
+    'Zero mapped energy means no accepted energy in the selected samples, not confirmed absence of fire or complete observation coverage. '
+    'Respect metric scope: selected-period energy and gap counts differ from full-archive diagnostics and the latest annual phenology fit. '
     'Use plain Markdown and readable units such as MJ/s, without LaTeX. Lead with a direct answer in one or two paragraphs, usually 80–140 words. Avoid section headings and repeated measurements already shown by the server. '
     'If evidence is insufficient, name the specific missing evidence and a useful next step.'
 )

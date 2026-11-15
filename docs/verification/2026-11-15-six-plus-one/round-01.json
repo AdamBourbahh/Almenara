@@ -1,0 +1,1500 @@
+[
+  {
+    "zone": "Arid Argentina",
+    "h3": "87b254925ffffff",
+    "polygon_sha256": "a9a194a781e484b07bdcce1085dae877416f9579895e9741791c83628704b461",
+    "request": {
+      "aoi": {
+        "coordinates": [
+          [
+            [
+              -66.73473417547106,
+              -29.278984715526303
+            ],
+            [
+              -66.7423828124605,
+              -29.289573564689775
+            ],
+            [
+              -66.73622722298646,
+              -29.299720750740807
+            ],
+            [
+              -66.72242371485098,
+              -29.299278714900456
+            ],
+            [
+              -66.71477708755455,
+              -29.288690628860284
+            ],
+            [
+              -66.72093195834331,
+              -29.2785438156135
+            ],
+            [
+              -66.73473417547106,
+              -29.278984715526303
+            ]
+          ]
+        ]
+      },
+      "region_name": "Arid Argentina",
+      "prefer_map_context": true,
+      "period_start": "2022-12-15",
+      "period_end": "2023-01-15",
+      "confidence_level": "nominal",
+      "exclude_industrial_flaring": true,
+      "enable_kalman_gap_filling": false,
+      "user_question": "Audit the selected area: report mapped FRE in GJ, raw and harmonized Chow F and p, raw and harmonized Wasserstein W1, latest von Mises peak DOY, kappa and width, and reconstructed and unknown days. Use local measurements only. State unavailable diagnostics explicitly. Do not infer ignition, cloudiness or vegetation from missing observations."
+    },
+    "status": 200,
+    "elapsed_ms": 6642,
+    "analysis_status": 200,
+    "reference": {
+      "mapped_energy_gj": 22.407145116158212,
+      "start": "2022-12-15",
+      "end": "2023-01-15",
+      "audit_metrics": {
+        "chow_test_f_stat_raw": 2.073259311829537,
+        "chow_test_p_val_raw": 0.15075960061835378,
+        "chow_test_f_stat_harm": 1.1036648273390681,
+        "chow_test_p_val_harm": 0.3501372331411189,
+        "wasserstein_w1_raw": 1.7116984426384543,
+        "wasserstein_w1_harm": 1.5087684997479485,
+        "burned_area_r2_raw": 0.10090600906009059,
+        "burned_area_r2_harm": 0.17052694808673952,
+        "phenology_shift_days_per_decade": 57.6720868459509,
+        "mann_kendall_p_value": 0.047735620701410846,
+        "industrial_false_positives_removed": 0,
+        "total_biomass_burned_kt": 1.1944598709499707,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=0.151, harmonized p=0.35 (PASS against the p>0.1 gate). Wasserstein-1 1.712 -> 1.509 (11.9% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "phenology": {
+        "year": 2026,
+        "peak_doy_mu": 255.56107087626907,
+        "peak_date_label": "2026-09-13",
+        "concentration_kappa": 0.7711714207390152,
+        "season_width_days": 365.0,
+        "total_annual_fre_gj": 330.9319303114885
+      },
+      "reconstructed_days": 0,
+      "unknown_days": 5
+    },
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "For the selected period from December 15, 2022, to January 15, 2023, in Chilecito, mapped fire radiative energy (FRE) is 22.41 GJ [K10], corresponding to an estimated 8.25 tonnes of dry biomass consumed across 1 detection. Data coverage tracking records 0 reconstructed days and 5 unknown days [K4] [K10]. Missing observations denote unobserved satellite passes rather than confirmed cloudiness, specific vegetation conditions, or fire extinction [K4] [K10].\n\nArchive homogenization tests report a raw Chow test F-statistic of 2.07 (p = 0.151) and a harmonized F-statistic of 1.10 (p = 0.350). The raw Wasserstein W1 distance is 1.71, dropping to 1.51 after harmonization. For the latest fitted von Mises phenology distribution (year 2026), the peak day of year (DOY) is 255.56 (September 13), with a concentration parameter kappa of 0.771 and a season width of 365.0 days. Total PM2.5 emissions are explicitly unavailable due to missing emission scenario inputs.\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 22.407145116158212,\n  \"start\": \"2022-12-15\",\n  \"end\": \"2023-01-15\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 2.073259311829537,\n    \"chow_test_p_val_raw\": 0.15075960061835378,\n    \"chow_test_f_stat_harm\": 1.1036648273390681,\n    \"chow_test_p_val_harm\": 0.3501372331411189,\n    \"wasserstein_w1_raw\": 1.7116984426384543,\n    \"wasserstein_w1_harm\": 1.5087684997479485,\n    \"burned_area_r2_raw\": 0.10090600906009059,\n    \"burned_area_r2_harm\": 0.17052694808673952,\n    \"phenology_shift_days_per_decade\": 57.6720868459509,\n    \"mann_kendall_p_value\": 0.047735620701410846,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 1.1944598709499707,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.151, harmonized p=0.35 (PASS against the p>0.1 gate). Wasserstein-1 1.712 -> 1.509 (11.9% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 255.56107087626907,\n    \"peak_date_label\": \"2026-09-13\",\n    \"concentration_kappa\": 0.7711714207390152,\n    \"season_width_days\": 365.0,\n    \"total_annual_fre_gj\": 330.9319303114885\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 5\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "citations": [
+        {
+          "id": "[K4]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Reconstruction and uncertainty",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.2514/3.3166",
+          "relevance_note": "RTS Kalman smoothing estimates missing daily thermal measurements using a state model, other available sensors and a historical cross-sensor prior. A reconstructed value is an estimate, not a direct observation or proof of a continuing fire. A 95 percent model interval describes uncertainty of the modeled state; it is not the probability that a named fire occurred. Partially reconstructed days can also contain real observations."
+        },
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Arid Argentina",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -66.73473417547106,
+                -29.278984715526303
+              ],
+              [
+                -66.7423828124605,
+                -29.289573564689775
+              ],
+              [
+                -66.73622722298646,
+                -29.299720750740807
+              ],
+              [
+                -66.72242371485098,
+                -29.299278714900456
+              ],
+              [
+                -66.71477708755455,
+                -29.288690628860284
+              ],
+              [
+                -66.72093195834331,
+                -29.2785438156135
+              ],
+              [
+                -66.73473417547106,
+                -29.278984715526303
+              ]
+            ]
+          ]
+        },
+        "period_start": "2022-12-15",
+        "period_end": "2023-01-15",
+        "h3_index": null
+      },
+      "answer_markdown": "For the selected period from December 15, 2022, to January 15, 2023, in Chilecito, mapped fire radiative energy (FRE) is 22.41 GJ [K10], corresponding to an estimated 8.25 tonnes of dry biomass consumed across 1 detection. Data coverage tracking records 0 reconstructed days and 5 unknown days [K4] [K10]. Missing observations denote unobserved satellite passes rather than confirmed cloudiness, specific vegetation conditions, or fire extinction [K4] [K10].\n\nArchive homogenization tests report a raw Chow test F-statistic of 2.07 (p = 0.151) and a harmonized F-statistic of 1.10 (p = 0.350). The raw Wasserstein W1 distance is 1.71, dropping to 1.51 after harmonization. For the latest fitted von Mises phenology distribution (year 2026), the peak day of year (DOY) is 255.56 (September 13), with a concentration parameter kappa of 0.771 and a season width of 365.0 days. Total PM2.5 emissions are explicitly unavailable due to missing emission scenario inputs.\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 22.407145116158212,\n  \"start\": \"2022-12-15\",\n  \"end\": \"2023-01-15\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 2.073259311829537,\n    \"chow_test_p_val_raw\": 0.15075960061835378,\n    \"chow_test_f_stat_harm\": 1.1036648273390681,\n    \"chow_test_p_val_harm\": 0.3501372331411189,\n    \"wasserstein_w1_raw\": 1.7116984426384543,\n    \"wasserstein_w1_harm\": 1.5087684997479485,\n    \"burned_area_r2_raw\": 0.10090600906009059,\n    \"burned_area_r2_harm\": 0.17052694808673952,\n    \"phenology_shift_days_per_decade\": 57.6720868459509,\n    \"mann_kendall_p_value\": 0.047735620701410846,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 1.1944598709499707,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.151, harmonized p=0.35 (PASS against the p>0.1 gate). Wasserstein-1 1.712 -> 1.509 (11.9% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 255.56107087626907,\n    \"peak_date_label\": \"2026-09-13\",\n    \"concentration_kappa\": 0.7711714207390152,\n    \"season_width_days\": 365.0,\n    \"total_annual_fre_gj\": 330.9319303114885\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 5\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube",
+        "knowledge"
+      ]
+    },
+    "model_calls": [
+      {
+        "ms": 1980,
+        "response": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "extra_content": {
+                "google": {
+                  "thought_signature": "EmkKZwFpFH0TJLpgAJF8LxooeqTP1TlOFytAsTcS6WKz0SYnot7SuSmXgGqoYVU6D4QXK3huajjsej8YZKGykukLskzuz8gauWgoHslXN2iiwFbsFFbe+OyMenj1tzygMkdNms1ObR2Wy0k="
+                }
+              },
+              "function": {
+                "arguments": "{}",
+                "name": "query_scientific_audit"
+              },
+              "id": "call_4038093255321949366",
+              "type": "function"
+            }
+          ]
+        }
+      },
+      {
+        "ms": 4416,
+        "response": {
+          "content": "For the selected period from December 15, 2022, to January 15, 2023, in Chilecito, mapped fire radiative energy (FRE) is 22.41 GJ [K10], corresponding to an estimated 8.25 tonnes of dry biomass consumed across 1 detection. Data coverage tracking records 0 reconstructed days and 5 unknown days [K4, K10]. Missing observations denote unobserved satellite passes rather than confirmed cloudiness, specific vegetation conditions, or fire extinction [K4, K10].\n\nArchive homogenization tests report a raw Chow test F-statistic of 2.07 (p = 0.151) and a harmonized F-statistic of 1.10 (p = 0.350). The raw Wasserstein W1 distance is 1.71, dropping to 1.51 after harmonization. For the latest fitted von Mises phenology distribution (year 2026), the peak day of year (DOY) is 255.56 (September 13), with a concentration parameter kappa of 0.771 and a season width of 365.0 days. Total PM2.5 emissions are explicitly unavailable due to missing emission scenario inputs.",
+          "extra_content": {
+            "google": {
+              "thought_signature": "EmkKZwFpFH0TDlXcrLlDBi39mfEC1fgaLf5ZwZAd29JL2qlKGnW8VF2vAfchdOX/jRDkyyeH+0wF6de9In8wIeVaO37il6eCpaXg/YzNZ7MAq6JR6D4ayPh/Bp7PsmT2qBaKFSuoPn2t0co="
+            }
+          },
+          "role": "assistant"
+        }
+      }
+    ],
+    "fallback": false,
+    "match_data": true,
+    "model_ok": true,
+    "semantic_review": "pending",
+    "passed": true
+  },
+  {
+    "zone": "Amazon basin",
+    "h3": "878af68f2ffffff",
+    "polygon_sha256": "d337285e0c1302a56536edeb22bc7c7e4355386a1511ac132836ce08887bf9fb",
+    "request": {
+      "aoi": {
+        "coordinates": [
+          [
+            [
+              -59.919748934954995,
+              -3.135333745762936
+            ],
+            [
+              -59.91295065650387,
+              -3.124110094247217
+            ],
+            [
+              -59.91877051595169,
+              -3.112409961076701
+            ],
+            [
+              -59.931387147008714,
+              -3.111934170662111
+            ],
+            [
+              -59.93818419877122,
+              -3.123156870159599
+            ],
+            [
+              -59.932365846375525,
+              -3.1348563120454065
+            ],
+            [
+              -59.919748934954995,
+              -3.135333745762936
+            ]
+          ]
+        ]
+      },
+      "region_name": "Amazon basin",
+      "prefer_map_context": true,
+      "period_start": "2023-01-01",
+      "period_end": "2023-12-31",
+      "confidence_level": "nominal",
+      "exclude_industrial_flaring": true,
+      "enable_kalman_gap_filling": false,
+      "user_question": "Audit the selected area: report mapped FRE in GJ, raw and harmonized Chow F and p, raw and harmonized Wasserstein W1, latest von Mises peak DOY, kappa and width, and reconstructed and unknown days. Use local measurements only. State unavailable diagnostics explicitly. Do not infer ignition, cloudiness or vegetation from missing observations."
+    },
+    "status": 200,
+    "elapsed_ms": 6672,
+    "analysis_status": 200,
+    "reference": {
+      "mapped_energy_gj": 525.9765539347163,
+      "start": "2023-01-01",
+      "end": "2023-12-31",
+      "audit_metrics": {
+        "chow_test_f_stat_raw": 2.3552873371816996,
+        "chow_test_p_val_raw": 0.11943424351753386,
+        "chow_test_f_stat_harm": 2.435344088537328,
+        "chow_test_p_val_harm": 0.11189708942495931,
+        "wasserstein_w1_raw": 1.7854908095424324,
+        "wasserstein_w1_harm": 1.7854908095424298,
+        "burned_area_r2_raw": null,
+        "burned_area_r2_harm": null,
+        "phenology_shift_days_per_decade": 42.86593723595253,
+        "mann_kendall_p_value": 0.23311184869840623,
+        "industrial_false_positives_removed": 0,
+        "total_biomass_burned_kt": 0.49593139599610925,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=0.119, harmonized p=0.112 (PASS against the p>0.1 gate). Wasserstein-1 1.785 -> 1.785 (0.0% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "phenology": {
+        "year": 2026,
+        "peak_doy_mu": 224.60995355587116,
+        "peak_date_label": "2026-08-13",
+        "concentration_kappa": 2.29468507132284,
+        "season_width_days": 241.1174708131466,
+        "total_annual_fre_gj": 32.46512534650323
+      },
+      "reconstructed_days": 0,
+      "unknown_days": 108
+    },
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "For the selected area and period (2023-01-01 to 2023-12-31), mapped fire radiative energy (FRE) is 525.98 GJ (estimated dry biomass consumed: 193.56 tonnes across 153 detections). In the historical sensor audit, the raw Chow break test yields F = 2.36 (p = 0.119), and the harmonized Chow test yields F = 2.44 (p = 0.112). The raw Wasserstein distance (W1) is 1.785, and the harmonized W1 is 1.785. The latest von Mises phenology model fit indicates a peak day of year (DOY) of 224.61 (August 13), a concentration parameter kappa of 2.29, and a season width of 241.12 days.\n\nWithin the selected window, there are 0 reconstructed days and 108 unknown observation days. The burned-area correlation diagnostics (raw and harmonized R²) and total PM2.5 emissions are explicitly unavailable (null) due to missing validation coverage and emission inputs. Missing observations reflect unmeasured intervals rather than evidence of cloud cover, fire extinction, ignition, or specific vegetation conditions. [K10] [K4]\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 525.9765539347163,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 2.3552873371816996,\n    \"chow_test_p_val_raw\": 0.11943424351753386,\n    \"chow_test_f_stat_harm\": 2.435344088537328,\n    \"chow_test_p_val_harm\": 0.11189708942495931,\n    \"wasserstein_w1_raw\": 1.7854908095424324,\n    \"wasserstein_w1_harm\": 1.7854908095424298,\n    \"burned_area_r2_raw\": null,\n    \"burned_area_r2_harm\": null,\n    \"phenology_shift_days_per_decade\": 42.86593723595253,\n    \"mann_kendall_p_value\": 0.23311184869840623,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 0.49593139599610925,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.119, harmonized p=0.112 (PASS against the p>0.1 gate). Wasserstein-1 1.785 -> 1.785 (0.0% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 224.60995355587116,\n    \"peak_date_label\": \"2026-08-13\",\n    \"concentration_kappa\": 2.29468507132284,\n    \"season_width_days\": 241.1174708131466,\n    \"total_annual_fre_gj\": 32.46512534650323\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 108\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "citations": [
+        {
+          "id": "[K4]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Reconstruction and uncertainty",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.2514/3.3166",
+          "relevance_note": "RTS Kalman smoothing estimates missing daily thermal measurements using a state model, other available sensors and a historical cross-sensor prior. A reconstructed value is an estimate, not a direct observation or proof of a continuing fire. A 95 percent model interval describes uncertainty of the modeled state; it is not the probability that a named fire occurred. Partially reconstructed days can also contain real observations."
+        },
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Amazon basin",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -59.919748934954995,
+                -3.135333745762936
+              ],
+              [
+                -59.91295065650387,
+                -3.124110094247217
+              ],
+              [
+                -59.91877051595169,
+                -3.112409961076701
+              ],
+              [
+                -59.931387147008714,
+                -3.111934170662111
+              ],
+              [
+                -59.93818419877122,
+                -3.123156870159599
+              ],
+              [
+                -59.932365846375525,
+                -3.1348563120454065
+              ],
+              [
+                -59.919748934954995,
+                -3.135333745762936
+              ]
+            ]
+          ]
+        },
+        "period_start": "2023-01-01",
+        "period_end": "2023-12-31",
+        "h3_index": null
+      },
+      "answer_markdown": "For the selected area and period (2023-01-01 to 2023-12-31), mapped fire radiative energy (FRE) is 525.98 GJ (estimated dry biomass consumed: 193.56 tonnes across 153 detections). In the historical sensor audit, the raw Chow break test yields F = 2.36 (p = 0.119), and the harmonized Chow test yields F = 2.44 (p = 0.112). The raw Wasserstein distance (W1) is 1.785, and the harmonized W1 is 1.785. The latest von Mises phenology model fit indicates a peak day of year (DOY) of 224.61 (August 13), a concentration parameter kappa of 2.29, and a season width of 241.12 days.\n\nWithin the selected window, there are 0 reconstructed days and 108 unknown observation days. The burned-area correlation diagnostics (raw and harmonized R²) and total PM2.5 emissions are explicitly unavailable (null) due to missing validation coverage and emission inputs. Missing observations reflect unmeasured intervals rather than evidence of cloud cover, fire extinction, ignition, or specific vegetation conditions. [K10] [K4]\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 525.9765539347163,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 2.3552873371816996,\n    \"chow_test_p_val_raw\": 0.11943424351753386,\n    \"chow_test_f_stat_harm\": 2.435344088537328,\n    \"chow_test_p_val_harm\": 0.11189708942495931,\n    \"wasserstein_w1_raw\": 1.7854908095424324,\n    \"wasserstein_w1_harm\": 1.7854908095424298,\n    \"burned_area_r2_raw\": null,\n    \"burned_area_r2_harm\": null,\n    \"phenology_shift_days_per_decade\": 42.86593723595253,\n    \"mann_kendall_p_value\": 0.23311184869840623,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 0.49593139599610925,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.119, harmonized p=0.112 (PASS against the p>0.1 gate). Wasserstein-1 1.785 -> 1.785 (0.0% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 224.60995355587116,\n    \"peak_date_label\": \"2026-08-13\",\n    \"concentration_kappa\": 2.29468507132284,\n    \"season_width_days\": 241.1174708131466,\n    \"total_annual_fre_gj\": 32.46512534650323\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 108\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube",
+        "knowledge"
+      ]
+    },
+    "model_calls": [
+      {
+        "ms": 1973,
+        "response": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "extra_content": {
+                "google": {
+                  "thought_signature": "EmkKZwFpFH0TMxuQszZEdWxKQPBfDEDA1o3KGnq/ZKYLIqT8+HZqidy6UIUgAmDrKTqGBlQeS9DPT9712RIWLdIL2Sb38e0QOYmcgePqIUso/HxmvMZN60P4bMrvVzSopbb40H0Iv3xLTTw="
+                }
+              },
+              "function": {
+                "arguments": "{}",
+                "name": "query_scientific_audit"
+              },
+              "id": "call_13261884908123061269",
+              "type": "function"
+            }
+          ]
+        }
+      },
+      {
+        "ms": 4554,
+        "response": {
+          "content": "For the selected area and period (2023-01-01 to 2023-12-31), mapped fire radiative energy (FRE) is 525.98 GJ (estimated dry biomass consumed: 193.56 tonnes across 153 detections). In the historical sensor audit, the raw Chow break test yields F = 2.36 (p = 0.119), and the harmonized Chow test yields F = 2.44 (p = 0.112). The raw Wasserstein distance (W1) is 1.785, and the harmonized W1 is 1.785. The latest von Mises phenology model fit indicates a peak day of year (DOY) of 224.61 (August 13), a concentration parameter kappa of 2.29, and a season width of 241.12 days.\n\nWithin the selected window, there are 0 reconstructed days and 108 unknown observation days. The burned-area correlation diagnostics (raw and harmonized R²) and total PM2.5 emissions are explicitly unavailable (null) due to missing validation coverage and emission inputs. Missing observations reflect unmeasured intervals rather than evidence of cloud cover, fire extinction, ignition, or specific vegetation conditions.",
+          "extra_content": {
+            "google": {
+              "thought_signature": "EmkKZwFpFH0TscGFLiI4gFAUasVcuiMMLJBNjH66weG2ijX1i14lUCYgQc6OkoBtux7azgzYHWi1+dyOXkev8aLILVl9WS3VNzHOScPGqzhPVziBdhyLBbG1fxBP45APXqB0+Zx27E2IHac="
+            }
+          },
+          "role": "assistant"
+        }
+      }
+    ],
+    "fallback": false,
+    "match_data": true,
+    "model_ok": true,
+    "semantic_review": "pending",
+    "passed": true
+  },
+  {
+    "zone": "Florida",
+    "h3": "8744f690cffffff",
+    "polygon_sha256": "4a25b046f69ef576a4ab2665045ffaaaadd42c8c5af799460e4ca3c21d233065",
+    "request": {
+      "aoi": {
+        "coordinates": [
+          [
+            [
+              -81.35687618519299,
+              29.03691853042453
+            ],
+            [
+              -81.34749758271025,
+              29.045725190513753
+            ],
+            [
+              -81.3508806085915,
+              29.058025072304147
+            ],
+            [
+              -81.36364558032817,
+              29.06151957087129
+            ],
+            [
+              -81.37302632315912,
+              29.052711999145853
+            ],
+            [
+              -81.36963995391449,
+              29.040410840607066
+            ],
+            [
+              -81.35687618519299,
+              29.03691853042453
+            ]
+          ]
+        ]
+      },
+      "region_name": "Florida",
+      "prefer_map_context": true,
+      "period_start": "2023-01-01",
+      "period_end": "2023-12-31",
+      "confidence_level": "nominal",
+      "exclude_industrial_flaring": true,
+      "enable_kalman_gap_filling": false,
+      "user_question": "Audit the selected area: report mapped FRE in GJ, raw and harmonized Chow F and p, raw and harmonized Wasserstein W1, latest von Mises peak DOY, kappa and width, and reconstructed and unknown days. Use local measurements only. State unavailable diagnostics explicitly. Do not infer ignition, cloudiness or vegetation from missing observations."
+    },
+    "status": 200,
+    "elapsed_ms": 6109,
+    "analysis_status": 200,
+    "reference": {
+      "mapped_energy_gj": 0.0,
+      "start": "2023-01-01",
+      "end": "2023-12-31",
+      "audit_metrics": {
+        "chow_test_f_stat_raw": 0.8063425170811251,
+        "chow_test_p_val_raw": 0.45983835390761796,
+        "chow_test_f_stat_harm": 0.8377231330396283,
+        "chow_test_p_val_harm": 0.4466488738748374,
+        "wasserstein_w1_raw": 1.3920570166104702,
+        "wasserstein_w1_harm": 0.8779677158429577,
+        "burned_area_r2_raw": 0.061122264835636334,
+        "burned_area_r2_harm": 0.06941167846243043,
+        "phenology_shift_days_per_decade": 12.786979247668862,
+        "mann_kendall_p_value": 0.7274895282186948,
+        "industrial_false_positives_removed": 0,
+        "total_biomass_burned_kt": 1.2921730736987183,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=0.46, harmonized p=0.447 (PASS against the p>0.1 gate). Wasserstein-1 1.392 -> 0.878 (36.9% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "phenology": {
+        "year": 2026,
+        "peak_doy_mu": 166.00000000000003,
+        "peak_date_label": "2026-06-15",
+        "concentration_kappa": 10000.0,
+        "season_width_days": 3.6525,
+        "total_annual_fre_gj": 2.619410036732173
+      },
+      "reconstructed_days": 0,
+      "unknown_days": 46
+    },
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "For the selected Orlando area during 2023, mapped fire radiative energy is 0.0 GJ (with 0.0 tonnes of estimated biomass burned across 0 detections). Over the full sensor record, the raw Chow test yields an F-statistic of 0.8063 with p = 0.4598, while the harmonized Chow test yields an F-statistic of 0.8377 with p = 0.4466. The raw Wasserstein-1 distance is 1.3921 and drops to 0.8780 following harmonization. The latest fitted von Mises phenology indicates a peak day of year (DOY) of 166.0 (June 15), with a concentration parameter kappa of 10000.0 and an estimated season width of 3.65 days. \n\nDuring the 2023 evaluation window, there are 0 reconstructed days and 46 unknown observation days. Emission diagnostics, including total PM2.5, remain unavailable because no active detections or emission inputs were registered during this period. In accordance with observation protocols, these missing records and unknown days quantify coverage gaps rather than establishing cloud cover, fuel conditions, or ignition events. [K10] [K4]\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 0.0,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 0.8063425170811251,\n    \"chow_test_p_val_raw\": 0.45983835390761796,\n    \"chow_test_f_stat_harm\": 0.8377231330396283,\n    \"chow_test_p_val_harm\": 0.4466488738748374,\n    \"wasserstein_w1_raw\": 1.3920570166104702,\n    \"wasserstein_w1_harm\": 0.8779677158429577,\n    \"burned_area_r2_raw\": 0.061122264835636334,\n    \"burned_area_r2_harm\": 0.06941167846243043,\n    \"phenology_shift_days_per_decade\": 12.786979247668862,\n    \"mann_kendall_p_value\": 0.7274895282186948,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 1.2921730736987183,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.46, harmonized p=0.447 (PASS against the p>0.1 gate). Wasserstein-1 1.392 -> 0.878 (36.9% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 166.00000000000003,\n    \"peak_date_label\": \"2026-06-15\",\n    \"concentration_kappa\": 10000.0,\n    \"season_width_days\": 3.6525,\n    \"total_annual_fre_gj\": 2.619410036732173\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 46\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "citations": [
+        {
+          "id": "[K4]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Reconstruction and uncertainty",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.2514/3.3166",
+          "relevance_note": "RTS Kalman smoothing estimates missing daily thermal measurements using a state model, other available sensors and a historical cross-sensor prior. A reconstructed value is an estimate, not a direct observation or proof of a continuing fire. A 95 percent model interval describes uncertainty of the modeled state; it is not the probability that a named fire occurred. Partially reconstructed days can also contain real observations."
+        },
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Florida",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -81.35687618519299,
+                29.03691853042453
+              ],
+              [
+                -81.34749758271025,
+                29.045725190513753
+              ],
+              [
+                -81.3508806085915,
+                29.058025072304147
+              ],
+              [
+                -81.36364558032817,
+                29.06151957087129
+              ],
+              [
+                -81.37302632315912,
+                29.052711999145853
+              ],
+              [
+                -81.36963995391449,
+                29.040410840607066
+              ],
+              [
+                -81.35687618519299,
+                29.03691853042453
+              ]
+            ]
+          ]
+        },
+        "period_start": "2023-01-01",
+        "period_end": "2023-12-31",
+        "h3_index": null
+      },
+      "answer_markdown": "For the selected Orlando area during 2023, mapped fire radiative energy is 0.0 GJ (with 0.0 tonnes of estimated biomass burned across 0 detections). Over the full sensor record, the raw Chow test yields an F-statistic of 0.8063 with p = 0.4598, while the harmonized Chow test yields an F-statistic of 0.8377 with p = 0.4466. The raw Wasserstein-1 distance is 1.3921 and drops to 0.8780 following harmonization. The latest fitted von Mises phenology indicates a peak day of year (DOY) of 166.0 (June 15), with a concentration parameter kappa of 10000.0 and an estimated season width of 3.65 days. \n\nDuring the 2023 evaluation window, there are 0 reconstructed days and 46 unknown observation days. Emission diagnostics, including total PM2.5, remain unavailable because no active detections or emission inputs were registered during this period. In accordance with observation protocols, these missing records and unknown days quantify coverage gaps rather than establishing cloud cover, fuel conditions, or ignition events. [K10] [K4]\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 0.0,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 0.8063425170811251,\n    \"chow_test_p_val_raw\": 0.45983835390761796,\n    \"chow_test_f_stat_harm\": 0.8377231330396283,\n    \"chow_test_p_val_harm\": 0.4466488738748374,\n    \"wasserstein_w1_raw\": 1.3920570166104702,\n    \"wasserstein_w1_harm\": 0.8779677158429577,\n    \"burned_area_r2_raw\": 0.061122264835636334,\n    \"burned_area_r2_harm\": 0.06941167846243043,\n    \"phenology_shift_days_per_decade\": 12.786979247668862,\n    \"mann_kendall_p_value\": 0.7274895282186948,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 1.2921730736987183,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.46, harmonized p=0.447 (PASS against the p>0.1 gate). Wasserstein-1 1.392 -> 0.878 (36.9% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 166.00000000000003,\n    \"peak_date_label\": \"2026-06-15\",\n    \"concentration_kappa\": 10000.0,\n    \"season_width_days\": 3.6525,\n    \"total_annual_fre_gj\": 2.619410036732173\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 46\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube",
+        "knowledge"
+      ]
+    },
+    "model_calls": [
+      {
+        "ms": 1960,
+        "response": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "extra_content": {
+                "google": {
+                  "thought_signature": "EmkKZwFpFH0TFMJUwJr03IkDN43WQRUSi/uq2LYllx5TjFVtJchbj9sVOUAIUK5sdPfu9x/h6jjOD5cd2OUi4igq4A1g3xtSUAy2OBjhrkPzpIlmKHRGZt0piHlY7GPH+MKDaocJWN/9qcI="
+                }
+              },
+              "function": {
+                "arguments": "{}",
+                "name": "query_scientific_audit"
+              },
+              "id": "call_14910888675916093921",
+              "type": "function"
+            }
+          ]
+        }
+      },
+      {
+        "ms": 3930,
+        "response": {
+          "content": "For the selected Orlando area during 2023, mapped fire radiative energy is 0.0 GJ (with 0.0 tonnes of estimated biomass burned across 0 detections). Over the full sensor record, the raw Chow test yields an F-statistic of 0.8063 with p = 0.4598, while the harmonized Chow test yields an F-statistic of 0.8377 with p = 0.4466. The raw Wasserstein-1 distance is 1.3921 and drops to 0.8780 following harmonization. The latest fitted von Mises phenology indicates a peak day of year (DOY) of 166.0 (June 15), with a concentration parameter kappa of 10000.0 and an estimated season width of 3.65 days. \n\nDuring the 2023 evaluation window, there are 0 reconstructed days and 46 unknown observation days. Emission diagnostics, including total PM2.5, remain unavailable because no active detections or emission inputs were registered during this period. In accordance with observation protocols, these missing records and unknown days quantify coverage gaps rather than establishing cloud cover, fuel conditions, or ignition events.",
+          "extra_content": {
+            "google": {
+              "thought_signature": "EmkKZwFpFH0TQmUpy1zaFx7w3tGwSNc3DW9NF4rIBublbTpAJaUtxbzHxl6KeheDbCkiB/1RvmseN4NP6Wne5gPQsBh7q2rQ4quoClzMxd3FmmmY/j60ZW6Wnh83UfPtdFm6UW8x1nvNbpo="
+            }
+          },
+          "role": "assistant"
+        }
+      }
+    ],
+    "fallback": false,
+    "match_data": true,
+    "model_ok": true,
+    "semantic_review": "pending",
+    "passed": true
+  },
+  {
+    "zone": "Atlantic Iberia",
+    "h3": "87185ba0cffffff",
+    "polygon_sha256": "97b47a4084f245e5bc5ae8e145090be25e92ef4754481891d7ec0dfeae1f5d33",
+    "request": {
+      "aoi": {
+        "coordinates": [
+          [
+            [
+              -5.828889435173262,
+              43.56087017422789
+            ],
+            [
+              -5.84174684481491,
+              43.552299272277985
+            ],
+            [
+              -5.837850905205454,
+              43.539387599170844
+            ],
+            [
+              -5.821103650397989,
+              43.53504744595478
+            ],
+            [
+              -5.808248874200478,
+              43.543616881331495
+            ],
+            [
+              -5.812138718927397,
+              43.556527936077686
+            ],
+            [
+              -5.828889435173262,
+              43.56087017422789
+            ]
+          ]
+        ]
+      },
+      "region_name": "Atlantic Iberia",
+      "prefer_map_context": true,
+      "period_start": "2023-01-01",
+      "period_end": "2023-12-31",
+      "confidence_level": "nominal",
+      "exclude_industrial_flaring": true,
+      "enable_kalman_gap_filling": false,
+      "user_question": "Audit the selected area: report mapped FRE in GJ, raw and harmonized Chow F and p, raw and harmonized Wasserstein W1, latest von Mises peak DOY, kappa and width, and reconstructed and unknown days. Use local measurements only. State unavailable diagnostics explicitly. Do not infer ignition, cloudiness or vegetation from missing observations."
+    },
+    "status": 200,
+    "elapsed_ms": 6105,
+    "analysis_status": 200,
+    "reference": {
+      "mapped_energy_gj": 3331.1281748681317,
+      "start": "2023-01-01",
+      "end": "2023-12-31",
+      "audit_metrics": {
+        "chow_test_f_stat_raw": 19.493343567603507,
+        "chow_test_p_val_raw": 1.6357855825415238e-05,
+        "chow_test_f_stat_harm": 14.115258506234923,
+        "chow_test_p_val_harm": 0.00013026910499017928,
+        "wasserstein_w1_raw": 1.6831033410910574,
+        "wasserstein_w1_harm": 1.277449066165517,
+        "burned_area_r2_raw": 0.0009179428418895202,
+        "burned_area_r2_harm": 0.0006106627800117449,
+        "phenology_shift_days_per_decade": -16.95915765022973,
+        "mann_kendall_p_value": 0.16991295403230983,
+        "industrial_false_positives_removed": 0,
+        "total_biomass_burned_kt": 18.925522613317334,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=1.64e-05, harmonized p=0.00013 (FAIL against the p>0.1 gate). Wasserstein-1 1.683 -> 1.277 (24.1% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "phenology": {
+        "year": 2026,
+        "peak_doy_mu": 220.7164515003058,
+        "peak_date_label": "2026-08-09",
+        "concentration_kappa": 0.8552343017241416,
+        "season_width_days": 365.0,
+        "total_annual_fre_gj": 2304.988792355019
+      },
+      "reconstructed_days": 0,
+      "unknown_days": 17
+    },
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "For the selected area and period (2023-01-01 to 2023-12-31), mapped fire radiative energy (FRE) is 3,331.13 GJ (corresponding to 1,225.86 tonnes of estimated dry biomass across 863 detections). Over the full sensor record, the raw Chow break test yields an F-statistic of 19.49 (p = 1.64e-05), while the harmonized series shows an F-statistic of 14.12 (p = 0.00013). The raw Wasserstein W1 distance is 1.683, decreasing to 1.277 in the harmonized series. The latest fitted von Mises circular phenology (for 2026) indicates a peak day of year (DOY) of 220.72 (August 9), a concentration parameter kappa of 0.855, and an estimated season width of 365.0 days. \n\nDuring the selected 2023 window, exactly 0 days were reconstructed and 17 days had unknown coverage. PM2.5 emissions totals remain explicitly unavailable due to missing emission inputs. In accordance with observation limitations, these unknown coverage days reflect missing data gaps and cannot be used to infer cloudiness, fire ignition, or specific vegetation conditions. [K10] [K4]\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 3331.1281748681313,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 19.493343567603507,\n    \"chow_test_p_val_raw\": 1.6357855825415238e-05,\n    \"chow_test_f_stat_harm\": 14.115258506234923,\n    \"chow_test_p_val_harm\": 0.00013026910499017928,\n    \"wasserstein_w1_raw\": 1.6831033410910574,\n    \"wasserstein_w1_harm\": 1.277449066165517,\n    \"burned_area_r2_raw\": 0.0009179428418895202,\n    \"burned_area_r2_harm\": 0.0006106627800117449,\n    \"phenology_shift_days_per_decade\": -16.95915765022973,\n    \"mann_kendall_p_value\": 0.16991295403230983,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 18.925522613317334,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=1.64e-05, harmonized p=0.00013 (FAIL against the p>0.1 gate). Wasserstein-1 1.683 -> 1.277 (24.1% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 220.7164515003058,\n    \"peak_date_label\": \"2026-08-09\",\n    \"concentration_kappa\": 0.8552343017241416,\n    \"season_width_days\": 365.0,\n    \"total_annual_fre_gj\": 2304.988792355019\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 17\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "citations": [
+        {
+          "id": "[K4]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Reconstruction and uncertainty",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.2514/3.3166",
+          "relevance_note": "RTS Kalman smoothing estimates missing daily thermal measurements using a state model, other available sensors and a historical cross-sensor prior. A reconstructed value is an estimate, not a direct observation or proof of a continuing fire. A 95 percent model interval describes uncertainty of the modeled state; it is not the probability that a named fire occurred. Partially reconstructed days can also contain real observations."
+        },
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Atlantic Iberia",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -5.828889435173262,
+                43.56087017422789
+              ],
+              [
+                -5.84174684481491,
+                43.552299272277985
+              ],
+              [
+                -5.837850905205454,
+                43.539387599170844
+              ],
+              [
+                -5.821103650397989,
+                43.53504744595478
+              ],
+              [
+                -5.808248874200478,
+                43.543616881331495
+              ],
+              [
+                -5.812138718927397,
+                43.556527936077686
+              ],
+              [
+                -5.828889435173262,
+                43.56087017422789
+              ]
+            ]
+          ]
+        },
+        "period_start": "2023-01-01",
+        "period_end": "2023-12-31",
+        "h3_index": null
+      },
+      "answer_markdown": "For the selected area and period (2023-01-01 to 2023-12-31), mapped fire radiative energy (FRE) is 3,331.13 GJ (corresponding to 1,225.86 tonnes of estimated dry biomass across 863 detections). Over the full sensor record, the raw Chow break test yields an F-statistic of 19.49 (p = 1.64e-05), while the harmonized series shows an F-statistic of 14.12 (p = 0.00013). The raw Wasserstein W1 distance is 1.683, decreasing to 1.277 in the harmonized series. The latest fitted von Mises circular phenology (for 2026) indicates a peak day of year (DOY) of 220.72 (August 9), a concentration parameter kappa of 0.855, and an estimated season width of 365.0 days. \n\nDuring the selected 2023 window, exactly 0 days were reconstructed and 17 days had unknown coverage. PM2.5 emissions totals remain explicitly unavailable due to missing emission inputs. In accordance with observation limitations, these unknown coverage days reflect missing data gaps and cannot be used to infer cloudiness, fire ignition, or specific vegetation conditions. [K10] [K4]\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 3331.1281748681313,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 19.493343567603507,\n    \"chow_test_p_val_raw\": 1.6357855825415238e-05,\n    \"chow_test_f_stat_harm\": 14.115258506234923,\n    \"chow_test_p_val_harm\": 0.00013026910499017928,\n    \"wasserstein_w1_raw\": 1.6831033410910574,\n    \"wasserstein_w1_harm\": 1.277449066165517,\n    \"burned_area_r2_raw\": 0.0009179428418895202,\n    \"burned_area_r2_harm\": 0.0006106627800117449,\n    \"phenology_shift_days_per_decade\": -16.95915765022973,\n    \"mann_kendall_p_value\": 0.16991295403230983,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 18.925522613317334,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=1.64e-05, harmonized p=0.00013 (FAIL against the p>0.1 gate). Wasserstein-1 1.683 -> 1.277 (24.1% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 220.7164515003058,\n    \"peak_date_label\": \"2026-08-09\",\n    \"concentration_kappa\": 0.8552343017241416,\n    \"season_width_days\": 365.0,\n    \"total_annual_fre_gj\": 2304.988792355019\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 17\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube",
+        "knowledge"
+      ]
+    },
+    "model_calls": [
+      {
+        "ms": 1882,
+        "response": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "extra_content": {
+                "google": {
+                  "thought_signature": "EmkKZwFpFH0ThqPny2BNdB6gH6g4yS8Z5VD6Ui/An6cFMiNZmRrIHnFFEVzlwIUpBn34QHVhc1HL1Qpciml4wfKVweDgFEuIW77D3kKYh8Mr1TIMCkeKrdtNIM1qinoSQSq4/OOcf3XEJbM="
+                }
+              },
+              "function": {
+                "arguments": "{}",
+                "name": "query_scientific_audit"
+              },
+              "id": "call_15604255520357654916",
+              "type": "function"
+            }
+          ]
+        }
+      },
+      {
+        "ms": 3972,
+        "response": {
+          "content": "For the selected area and period (2023-01-01 to 2023-12-31), mapped fire radiative energy (FRE) is 3,331.13 GJ (corresponding to 1,225.86 tonnes of estimated dry biomass across 863 detections). Over the full sensor record, the raw Chow break test yields an F-statistic of 19.49 (p = 1.64e-05), while the harmonized series shows an F-statistic of 14.12 (p = 0.00013). The raw Wasserstein W1 distance is 1.683, decreasing to 1.277 in the harmonized series. The latest fitted von Mises circular phenology (for 2026) indicates a peak day of year (DOY) of 220.72 (August 9), a concentration parameter kappa of 0.855, and an estimated season width of 365.0 days. \n\nDuring the selected 2023 window, exactly 0 days were reconstructed and 17 days had unknown coverage. PM2.5 emissions totals remain explicitly unavailable due to missing emission inputs. In accordance with observation limitations, these unknown coverage days reflect missing data gaps and cannot be used to infer cloudiness, fire ignition, or specific vegetation conditions.",
+          "extra_content": {
+            "google": {
+              "thought_signature": "EmkKZwFpFH0TB/TN9Dq80CttNLuoWF1E4IbJxxe7zv+OcTsdU7Zw9iDG6hFpbBjFwHdPD9oC8f8U9x0IamT7HJkfXp2YUk6vr+dSBXaov9rfCfAA+HUeKyNlophWRPaOnfV2JNlc+6Kpd6o="
+            }
+          },
+          "role": "assistant"
+        }
+      }
+    ],
+    "fallback": false,
+    "match_data": true,
+    "model_ok": true,
+    "semantic_review": "pending",
+    "passed": true
+  },
+  {
+    "zone": "Mediterranean Iberia",
+    "h3": "873915d61ffffff",
+    "polygon_sha256": "19bfbb98a73f547564a6ce9daf68abfa8400a6e88127b49d36c12ded7573b453",
+    "request": {
+      "aoi": {
+        "coordinates": [
+          [
+            [
+              -8.941826314291164,
+              38.519571423271536
+            ],
+            [
+              -8.953728781624113,
+              38.51020186594768
+            ],
+            [
+              -8.949471064584793,
+              38.49711970311709
+            ],
+            [
+              -8.933316141777642,
+              38.49340737202165
+            ],
+            [
+              -8.921415426922776,
+              38.502775174215785
+            ],
+            [
+              -8.925667881792407,
+              38.515857062238844
+            ],
+            [
+              -8.941826314291164,
+              38.519571423271536
+            ]
+          ]
+        ]
+      },
+      "region_name": "Mediterranean Iberia",
+      "prefer_map_context": true,
+      "period_start": "2023-01-01",
+      "period_end": "2023-12-31",
+      "confidence_level": "nominal",
+      "exclude_industrial_flaring": true,
+      "enable_kalman_gap_filling": false,
+      "user_question": "Audit the selected area: report mapped FRE in GJ, raw and harmonized Chow F and p, raw and harmonized Wasserstein W1, latest von Mises peak DOY, kappa and width, and reconstructed and unknown days. Use local measurements only. State unavailable diagnostics explicitly. Do not infer ignition, cloudiness or vegetation from missing observations."
+    },
+    "status": 200,
+    "elapsed_ms": 6830,
+    "analysis_status": 200,
+    "reference": {
+      "mapped_energy_gj": 587.3864381978195,
+      "start": "2023-01-01",
+      "end": "2023-12-31",
+      "audit_metrics": {
+        "chow_test_f_stat_raw": 9.289358239262768,
+        "chow_test_p_val_raw": 0.0012881151275107984,
+        "chow_test_f_stat_harm": 60.353860383195936,
+        "chow_test_p_val_harm": 1.9663947655670814e-09,
+        "wasserstein_w1_raw": 1.7848088098483106,
+        "wasserstein_w1_harm": 1.7785695935838182,
+        "burned_area_r2_raw": null,
+        "burned_area_r2_harm": null,
+        "phenology_shift_days_per_decade": 16.97250602180823,
+        "mann_kendall_p_value": 0.39841441604807076,
+        "industrial_false_positives_removed": 0,
+        "total_biomass_burned_kt": 4.882300549205881,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=0.00129, harmonized p=1.97e-09 (FAIL against the p>0.1 gate). Wasserstein-1 1.785 -> 1.779 (0.3% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "phenology": {
+        "year": 2026,
+        "peak_doy_mu": 191.86127926281716,
+        "peak_date_label": "2026-07-11",
+        "concentration_kappa": 0.4426672880148504,
+        "season_width_days": 365.0,
+        "total_annual_fre_gj": 306.195394504271
+      },
+      "reconstructed_days": 0,
+      "unknown_days": 16
+    },
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "For the selected area across 2023, the mapped fire radiative energy (FRE) is 587.39 GJ, based on 622 satellite detections across a 5.68 km² footprint [K10]. Structural break testing at 2012-01-01 yields a raw Chow F-statistic of 9.289 (p = 0.00129) and a harmonized Chow F-statistic of 60.354 (p = 1.97e-09). The raw Wasserstein W1 metric is 1.785, compared to 1.779 for harmonized series. The latest von Mises phenology fit (year 2026) indicates a circular peak day of year (DOY) of 191.86 (July 11), a concentration parameter kappa of 0.443, and a season width of 365.0 days.\n\nDuring the 2023 audit period, there are 0 reconstructed days and 16 unknown days [K10]. Missing satellite observations represent unobserved sampling gaps and do not establish cloud cover, fire extinction, fuel conditions, or ignition events [K4] [K10]. Burned-area correlation coefficients (raw and harmonized R²) and total PM2.5 emissions are explicitly unavailable (null) due to missing inputs.\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 587.3864381978195,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 9.289358239262768,\n    \"chow_test_p_val_raw\": 0.0012881151275107984,\n    \"chow_test_f_stat_harm\": 60.353860383195936,\n    \"chow_test_p_val_harm\": 1.9663947655670814e-09,\n    \"wasserstein_w1_raw\": 1.7848088098483106,\n    \"wasserstein_w1_harm\": 1.7785695935838182,\n    \"burned_area_r2_raw\": null,\n    \"burned_area_r2_harm\": null,\n    \"phenology_shift_days_per_decade\": 16.97250602180823,\n    \"mann_kendall_p_value\": 0.39841441604807076,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 4.882300549205881,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.00129, harmonized p=1.97e-09 (FAIL against the p>0.1 gate). Wasserstein-1 1.785 -> 1.779 (0.3% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 191.86127926281716,\n    \"peak_date_label\": \"2026-07-11\",\n    \"concentration_kappa\": 0.4426672880148504,\n    \"season_width_days\": 365.0,\n    \"total_annual_fre_gj\": 306.195394504271\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 16\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "citations": [
+        {
+          "id": "[K4]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Reconstruction and uncertainty",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.2514/3.3166",
+          "relevance_note": "RTS Kalman smoothing estimates missing daily thermal measurements using a state model, other available sensors and a historical cross-sensor prior. A reconstructed value is an estimate, not a direct observation or proof of a continuing fire. A 95 percent model interval describes uncertainty of the modeled state; it is not the probability that a named fire occurred. Partially reconstructed days can also contain real observations."
+        },
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Mediterranean Iberia",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -8.941826314291164,
+                38.519571423271536
+              ],
+              [
+                -8.953728781624113,
+                38.51020186594768
+              ],
+              [
+                -8.949471064584793,
+                38.49711970311709
+              ],
+              [
+                -8.933316141777642,
+                38.49340737202165
+              ],
+              [
+                -8.921415426922776,
+                38.502775174215785
+              ],
+              [
+                -8.925667881792407,
+                38.515857062238844
+              ],
+              [
+                -8.941826314291164,
+                38.519571423271536
+              ]
+            ]
+          ]
+        },
+        "period_start": "2023-01-01",
+        "period_end": "2023-12-31",
+        "h3_index": null
+      },
+      "answer_markdown": "For the selected area across 2023, the mapped fire radiative energy (FRE) is 587.39 GJ, based on 622 satellite detections across a 5.68 km² footprint [K10]. Structural break testing at 2012-01-01 yields a raw Chow F-statistic of 9.289 (p = 0.00129) and a harmonized Chow F-statistic of 60.354 (p = 1.97e-09). The raw Wasserstein W1 metric is 1.785, compared to 1.779 for harmonized series. The latest von Mises phenology fit (year 2026) indicates a circular peak day of year (DOY) of 191.86 (July 11), a concentration parameter kappa of 0.443, and a season width of 365.0 days.\n\nDuring the 2023 audit period, there are 0 reconstructed days and 16 unknown days [K10]. Missing satellite observations represent unobserved sampling gaps and do not establish cloud cover, fire extinction, fuel conditions, or ignition events [K4] [K10]. Burned-area correlation coefficients (raw and harmonized R²) and total PM2.5 emissions are explicitly unavailable (null) due to missing inputs.\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 587.3864381978195,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 9.289358239262768,\n    \"chow_test_p_val_raw\": 0.0012881151275107984,\n    \"chow_test_f_stat_harm\": 60.353860383195936,\n    \"chow_test_p_val_harm\": 1.9663947655670814e-09,\n    \"wasserstein_w1_raw\": 1.7848088098483106,\n    \"wasserstein_w1_harm\": 1.7785695935838182,\n    \"burned_area_r2_raw\": null,\n    \"burned_area_r2_harm\": null,\n    \"phenology_shift_days_per_decade\": 16.97250602180823,\n    \"mann_kendall_p_value\": 0.39841441604807076,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 4.882300549205881,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.00129, harmonized p=1.97e-09 (FAIL against the p>0.1 gate). Wasserstein-1 1.785 -> 1.779 (0.3% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 191.86127926281716,\n    \"peak_date_label\": \"2026-07-11\",\n    \"concentration_kappa\": 0.4426672880148504,\n    \"season_width_days\": 365.0,\n    \"total_annual_fre_gj\": 306.195394504271\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 16\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube",
+        "knowledge"
+      ]
+    },
+    "model_calls": [
+      {
+        "ms": 2454,
+        "response": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "extra_content": {
+                "google": {
+                  "thought_signature": "EmkKZwFpFH0TUBh35nNvGnHtj/YoJc2S3de/O33hyol8AX9iniVQcQi3XCOnNAtUBmhoy1dBtbfEBTIjn9nqwtjO9faQdDFl6vDqGUW/WmGxtigNQhuk5hxz2hs4L3ewEBJ8krEkW/08Cps="
+                }
+              },
+              "function": {
+                "arguments": "{}",
+                "name": "query_scientific_audit"
+              },
+              "id": "call_8335132650917833142",
+              "type": "function"
+            }
+          ]
+        }
+      },
+      {
+        "ms": 4147,
+        "response": {
+          "content": "For the selected area across 2023, the mapped fire radiative energy (FRE) is 587.39 GJ, based on 622 satellite detections across a 5.68 km² footprint [K10]. Structural break testing at 2012-01-01 yields a raw Chow F-statistic of 9.289 (p = 0.00129) and a harmonized Chow F-statistic of 60.354 (p = 1.97e-09). The raw Wasserstein W1 metric is 1.785, compared to 1.779 for harmonized series. The latest von Mises phenology fit (year 2026) indicates a circular peak day of year (DOY) of 191.86 (July 11), a concentration parameter kappa of 0.443, and a season width of 365.0 days.\n\nDuring the 2023 audit period, there are 0 reconstructed days and 16 unknown days [K10]. Missing satellite observations represent unobserved sampling gaps and do not establish cloud cover, fire extinction, fuel conditions, or ignition events [K4, K10]. Burned-area correlation coefficients (raw and harmonized R²) and total PM2.5 emissions are explicitly unavailable (null) due to missing inputs.",
+          "extra_content": {
+            "google": {
+              "thought_signature": "EmkKZwFpFH0TLXAycvC/XNUg7OZTAsYtmO+am9uUse4oaJ+zOOBa6e3nQEene8NdH+l8OcUBtxsAvodgGkheolnOUDebS87KFc+TNrWggMzlMo7GX85FylQplOBlXrptcromg+wQ9z2vnAc="
+            }
+          },
+          "role": "assistant"
+        }
+      }
+    ],
+    "fallback": false,
+    "match_data": true,
+    "model_ok": true,
+    "semantic_review": "pending",
+    "passed": true
+  },
+  {
+    "zone": "Published persistent-source candidate",
+    "h3": "873954066ffffff",
+    "polygon_sha256": "bb52c45d74fae0cd038af7999efe5b2100cde10eaa7d85433ac081713325a042",
+    "request": {
+      "aoi": {
+        "coordinates": [
+          [
+            [
+              -0.22860851101261823,
+              39.64212318289908
+            ],
+            [
+              -0.24080987418438662,
+              39.63404928174135
+            ],
+            [
+              -0.23825765504591154,
+              39.62120250770681
+            ],
+            [
+              -0.22350940954694543,
+              39.61643084224699
+            ],
+            [
+              -0.21131124532084739,
+              39.62450353165812
+            ],
+            [
+              -0.2138581277173342,
+              39.63734909795206
+            ],
+            [
+              -0.22860851101261823,
+              39.64212318289908
+            ]
+          ]
+        ]
+      },
+      "region_name": "Published persistent-source candidate",
+      "prefer_map_context": true,
+      "period_start": "2023-01-01",
+      "period_end": "2023-12-31",
+      "confidence_level": "nominal",
+      "exclude_industrial_flaring": false,
+      "enable_kalman_gap_filling": false,
+      "user_question": "Audit the selected area: report mapped FRE in GJ, raw and harmonized Chow F and p, raw and harmonized Wasserstein W1, latest von Mises peak DOY, kappa and width, and reconstructed and unknown days. Use local measurements only. State unavailable diagnostics explicitly. Do not infer ignition, cloudiness or vegetation from missing observations."
+    },
+    "status": 200,
+    "elapsed_ms": 6337,
+    "analysis_status": 200,
+    "reference": {
+      "mapped_energy_gj": 0.0,
+      "start": "2023-01-01",
+      "end": "2023-12-31",
+      "audit_metrics": {
+        "chow_test_f_stat_raw": 4.628947708266821,
+        "chow_test_p_val_raw": 0.021602104442853192,
+        "chow_test_f_stat_harm": 2.137439930906863,
+        "chow_test_p_val_harm": 0.1429114564351261,
+        "wasserstein_w1_raw": 1.7854908095424236,
+        "wasserstein_w1_harm": 1.7854908095423054,
+        "burned_area_r2_raw": null,
+        "burned_area_r2_harm": null,
+        "phenology_shift_days_per_decade": -248.3796895953988,
+        "mann_kendall_p_value": 0.46944444444444444,
+        "industrial_false_positives_removed": 0,
+        "total_biomass_burned_kt": 0.4252742505271882,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=0.0216, harmonized p=0.143 (PASS against the p>0.1 gate). Wasserstein-1 1.785 -> 1.785 (0.0% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "phenology": {
+        "year": 2026,
+        "peak_doy_mu": 1.0,
+        "peak_date_label": "2026-01-01",
+        "concentration_kappa": 0.0,
+        "season_width_days": 365.0,
+        "total_annual_fre_gj": 0.0
+      },
+      "reconstructed_days": 0,
+      "unknown_days": 29
+    },
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "For the selected 2023 observation period, mapped fire radiative energy (FRE) is 0.0 GJ across 0 detections and a 0.0 km² footprint [K10]. Historical structural break testing indicates a raw Chow F-statistic of 4.6289 (p = 0.0216) and a harmonized Chow F-statistic of 2.1374 (p = 0.1429). The raw Wasserstein W1 distance is 1.7855 and the harmonized W1 distance is 1.7855. Across the full historical record, the latest von Mises circular fit records a peak day of year (DOY) of 1.0 (2026-01-01), a concentration parameter kappa of 0.0, and an estimated season width of 365.0 days. \n\nDuring the 2023 evaluation window, there are 0 reconstructed days and 29 unknown days [K4] [K10]. Burned area correlation metrics (raw and harmonized R²) and total PM2.5 emissions are explicitly unavailable (null) due to missing ground-truth or emission factor inputs. In accordance with data quality protocols, these missing observations or unknown days reflect sensor observation gaps and cannot be used to infer ignition events, cloud cover, or vegetation status [K4] [K10].\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 0.0,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 4.628947708266821,\n    \"chow_test_p_val_raw\": 0.021602104442853192,\n    \"chow_test_f_stat_harm\": 2.137439930906863,\n    \"chow_test_p_val_harm\": 0.1429114564351261,\n    \"wasserstein_w1_raw\": 1.7854908095424236,\n    \"wasserstein_w1_harm\": 1.7854908095423054,\n    \"burned_area_r2_raw\": null,\n    \"burned_area_r2_harm\": null,\n    \"phenology_shift_days_per_decade\": -248.3796895953988,\n    \"mann_kendall_p_value\": 0.46944444444444444,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 0.4252742505271882,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.0216, harmonized p=0.143 (PASS against the p>0.1 gate). Wasserstein-1 1.785 -> 1.785 (0.0% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 1.0,\n    \"peak_date_label\": \"2026-01-01\",\n    \"concentration_kappa\": 0.0,\n    \"season_width_days\": 365.0,\n    \"total_annual_fre_gj\": 0.0\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 29\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "citations": [
+        {
+          "id": "[K4]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Reconstruction and uncertainty",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.2514/3.3166",
+          "relevance_note": "RTS Kalman smoothing estimates missing daily thermal measurements using a state model, other available sensors and a historical cross-sensor prior. A reconstructed value is an estimate, not a direct observation or proof of a continuing fire. A 95 percent model interval describes uncertainty of the modeled state; it is not the probability that a named fire occurred. Partially reconstructed days can also contain real observations."
+        },
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Published persistent-source candidate",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -0.22860851101261823,
+                39.64212318289908
+              ],
+              [
+                -0.24080987418438662,
+                39.63404928174135
+              ],
+              [
+                -0.23825765504591154,
+                39.62120250770681
+              ],
+              [
+                -0.22350940954694543,
+                39.61643084224699
+              ],
+              [
+                -0.21131124532084739,
+                39.62450353165812
+              ],
+              [
+                -0.2138581277173342,
+                39.63734909795206
+              ],
+              [
+                -0.22860851101261823,
+                39.64212318289908
+              ]
+            ]
+          ]
+        },
+        "period_start": "2023-01-01",
+        "period_end": "2023-12-31",
+        "h3_index": null
+      },
+      "answer_markdown": "For the selected 2023 observation period, mapped fire radiative energy (FRE) is 0.0 GJ across 0 detections and a 0.0 km² footprint [K10]. Historical structural break testing indicates a raw Chow F-statistic of 4.6289 (p = 0.0216) and a harmonized Chow F-statistic of 2.1374 (p = 0.1429). The raw Wasserstein W1 distance is 1.7855 and the harmonized W1 distance is 1.7855. Across the full historical record, the latest von Mises circular fit records a peak day of year (DOY) of 1.0 (2026-01-01), a concentration parameter kappa of 0.0, and an estimated season width of 365.0 days. \n\nDuring the 2023 evaluation window, there are 0 reconstructed days and 29 unknown days [K4] [K10]. Burned area correlation metrics (raw and harmonized R²) and total PM2.5 emissions are explicitly unavailable (null) due to missing ground-truth or emission factor inputs. In accordance with data quality protocols, these missing observations or unknown days reflect sensor observation gaps and cannot be used to infer ignition events, cloud cover, or vegetation status [K4] [K10].\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 0.0,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 4.628947708266821,\n    \"chow_test_p_val_raw\": 0.021602104442853192,\n    \"chow_test_f_stat_harm\": 2.137439930906863,\n    \"chow_test_p_val_harm\": 0.1429114564351261,\n    \"wasserstein_w1_raw\": 1.7854908095424236,\n    \"wasserstein_w1_harm\": 1.7854908095423054,\n    \"burned_area_r2_raw\": null,\n    \"burned_area_r2_harm\": null,\n    \"phenology_shift_days_per_decade\": -248.3796895953988,\n    \"mann_kendall_p_value\": 0.46944444444444444,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 0.4252742505271882,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.0216, harmonized p=0.143 (PASS against the p>0.1 gate). Wasserstein-1 1.785 -> 1.785 (0.0% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 1.0,\n    \"peak_date_label\": \"2026-01-01\",\n    \"concentration_kappa\": 0.0,\n    \"season_width_days\": 365.0,\n    \"total_annual_fre_gj\": 0.0\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 29\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube",
+        "knowledge"
+      ]
+    },
+    "model_calls": [
+      {
+        "ms": 1821,
+        "response": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "extra_content": {
+                "google": {
+                  "thought_signature": "EmkKZwFpFH0Tf901YkTeupr9GJzDKH/DKXm3xVNSuOGfjg1ReQ2CuIAPy3xLJHnL0F4RoH0Fm9tV8URZD0HQUFcT5EOL//wNlzLtxNtqHDvedPwqzrFgKS8F8l+V8mHVAiawtFbTQuJlBpw="
+                }
+              },
+              "function": {
+                "arguments": "{}",
+                "name": "query_scientific_audit"
+              },
+              "id": "call_12243968675973307893",
+              "type": "function"
+            }
+          ]
+        }
+      },
+      {
+        "ms": 4349,
+        "response": {
+          "content": "For the selected 2023 observation period, mapped fire radiative energy (FRE) is 0.0 GJ across 0 detections and a 0.0 km² footprint [K10]. Historical structural break testing indicates a raw Chow F-statistic of 4.6289 (p = 0.0216) and a harmonized Chow F-statistic of 2.1374 (p = 0.1429). The raw Wasserstein W1 distance is 1.7855 and the harmonized W1 distance is 1.7855. Across the full historical record, the latest von Mises circular fit records a peak day of year (DOY) of 1.0 (2026-01-01), a concentration parameter kappa of 0.0, and an estimated season width of 365.0 days. \n\nDuring the 2023 evaluation window, there are 0 reconstructed days and 29 unknown days [K4, K10]. Burned area correlation metrics (raw and harmonized R²) and total PM2.5 emissions are explicitly unavailable (null) due to missing ground-truth or emission factor inputs. In accordance with data quality protocols, these missing observations or unknown days reflect sensor observation gaps and cannot be used to infer ignition events, cloud cover, or vegetation status [K4, K10].",
+          "extra_content": {
+            "google": {
+              "thought_signature": "EmkKZwFpFH0TW3pds7CksP3eAlgGWheKuLaZzlRs5wG0AGgw9wpxHSsbPLlUPn/HUHI23ZFVJRQ87Rxb3TZfJQYQFVvUbWLms4Ubbw0qzMkPldRBAis7pS3tFMB6oF7Ii0Ekt9DaINTO0ik="
+            }
+          },
+          "role": "assistant"
+        }
+      }
+    ],
+    "fallback": false,
+    "match_data": true,
+    "model_ok": true,
+    "semantic_review": "pending",
+    "passed": true
+  },
+  {
+    "zone": "Northern Africa holdout",
+    "h3": "873828d5affffff",
+    "polygon_sha256": "dd5b326faad9092e77843cda6699f2610b368dcc08f847a5b3fb51c8402818eb",
+    "request": {
+      "aoi": {
+        "coordinates": [
+          [
+            [
+              1.2208940938135087,
+              36.13580124569674
+            ],
+            [
+              1.2231734975654542,
+              36.123010256306216
+            ],
+            [
+              1.2374157237821832,
+              36.11868359076324
+            ],
+            [
+              1.2493827342289527,
+              36.12714839508881
+            ],
+            [
+              1.2471062828319157,
+              36.13994128191838
+            ],
+            [
+              1.2328598677937535,
+              36.14426746710388
+            ],
+            [
+              1.2208940938135087,
+              36.13580124569674
+            ]
+          ]
+        ]
+      },
+      "region_name": "Northern Africa holdout",
+      "prefer_map_context": true,
+      "period_start": "2023-01-01",
+      "period_end": "2023-12-31",
+      "confidence_level": "nominal",
+      "exclude_industrial_flaring": true,
+      "enable_kalman_gap_filling": false,
+      "user_question": "Audit the selected area: report mapped FRE in GJ, raw and harmonized Chow F and p, raw and harmonized Wasserstein W1, latest von Mises peak DOY, kappa and width, and reconstructed and unknown days. Use local measurements only. State unavailable diagnostics explicitly. Do not infer ignition, cloudiness or vegetation from missing observations."
+    },
+    "status": 200,
+    "elapsed_ms": 7125,
+    "analysis_status": 200,
+    "reference": {
+      "mapped_energy_gj": 4585.611855695983,
+      "start": "2023-01-01",
+      "end": "2023-12-31",
+      "audit_metrics": {
+        "chow_test_f_stat_raw": 9.274522396568988,
+        "chow_test_p_val_raw": 0.0012982986591880178,
+        "chow_test_f_stat_harm": 14.643685219559995,
+        "chow_test_p_val_harm": 0.00010422787051751723,
+        "wasserstein_w1_raw": 1.7832324880105475,
+        "wasserstein_w1_harm": 1.7755120978055536,
+        "burned_area_r2_raw": null,
+        "burned_area_r2_harm": null,
+        "phenology_shift_days_per_decade": 70.36136206779625,
+        "mann_kendall_p_value": 0.11241795436508836,
+        "industrial_false_positives_removed": 0,
+        "total_biomass_burned_kt": 15.824830220272528,
+        "total_pm25_emitted_tonnes": null,
+        "executive_verdict_en": "Chow break test at 2012-01-01: raw p=0.0013, harmonized p=0.000104 (FAIL against the p>0.1 gate). Wasserstein-1 1.783 -> 1.776 (0.4% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable."
+      },
+      "phenology": {
+        "year": 2026,
+        "peak_doy_mu": 196.8526287529862,
+        "peak_date_label": "2026-07-16",
+        "concentration_kappa": 0.9010817595521957,
+        "season_width_days": 365.0,
+        "total_annual_fre_gj": 1357.4299464825585
+      },
+      "reconstructed_days": 0,
+      "unknown_days": 6
+    },
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "For the selected area during 2023, the mapped fire radiative energy (FRE) is 4585.61 GJ (corresponding to an estimated dry biomass consumption of 1687.51 tonnes across 1660 detections) [K10]. Data quality tracking records 0 reconstructed days and 6 unknown coverage days. In line with observational limitations, missing observations or unknown days reflect sensor sampling gaps and cannot be used to infer cloud cover, fire extinction, ignition, or vegetation status [K4] [K10].\n\nArchive sensor calibration diagnostics report a raw Chow break test F-statistic of 9.2745 (p = 0.0013) and a harmonized F-statistic of 14.6437 (p = 0.000104). The raw Wasserstein W1 distance is 1.7832, adjusting to 1.7755 under harmonization. The latest available von Mises circular phenology fit indicates a peak day of year (DOY) of 196.85 (July 16), a concentration parameter kappa of 0.9011, and a season width of 365.0 days. Burned area regression R² diagnostics (both raw and harmonized) and total PM2.5 emissions are explicitly unavailable (null) due to missing validation coverage and emission inputs.\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 4585.611855695983,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 9.274522396568988,\n    \"chow_test_p_val_raw\": 0.0012982986591880178,\n    \"chow_test_f_stat_harm\": 14.643685219559995,\n    \"chow_test_p_val_harm\": 0.00010422787051751723,\n    \"wasserstein_w1_raw\": 1.7832324880105475,\n    \"wasserstein_w1_harm\": 1.7755120978055536,\n    \"burned_area_r2_raw\": null,\n    \"burned_area_r2_harm\": null,\n    \"phenology_shift_days_per_decade\": 70.36136206779625,\n    \"mann_kendall_p_value\": 0.11241795436508836,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 15.824830220272528,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.0013, harmonized p=0.000104 (FAIL against the p>0.1 gate). Wasserstein-1 1.783 -> 1.776 (0.4% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 196.8526287529862,\n    \"peak_date_label\": \"2026-07-16\",\n    \"concentration_kappa\": 0.9010817595521957,\n    \"season_width_days\": 365.0,\n    \"total_annual_fre_gj\": 1357.4299464825585\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 6\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "citations": [
+        {
+          "id": "[K4]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Reconstruction and uncertainty",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.2514/3.3166",
+          "relevance_note": "RTS Kalman smoothing estimates missing daily thermal measurements using a state model, other available sensors and a historical cross-sensor prior. A reconstructed value is an estimate, not a direct observation or proof of a continuing fire. A 95 percent model interval describes uncertainty of the modeled state; it is not the probability that a named fire occurred. Partially reconstructed days can also contain real observations."
+        },
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Northern Africa holdout",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                1.2208940938135087,
+                36.13580124569674
+              ],
+              [
+                1.2231734975654542,
+                36.123010256306216
+              ],
+              [
+                1.2374157237821832,
+                36.11868359076324
+              ],
+              [
+                1.2493827342289527,
+                36.12714839508881
+              ],
+              [
+                1.2471062828319157,
+                36.13994128191838
+              ],
+              [
+                1.2328598677937535,
+                36.14426746710388
+              ],
+              [
+                1.2208940938135087,
+                36.13580124569674
+              ]
+            ]
+          ]
+        },
+        "period_start": "2023-01-01",
+        "period_end": "2023-12-31",
+        "h3_index": null
+      },
+      "answer_markdown": "For the selected area during 2023, the mapped fire radiative energy (FRE) is 4585.61 GJ (corresponding to an estimated dry biomass consumption of 1687.51 tonnes across 1660 detections) [K10]. Data quality tracking records 0 reconstructed days and 6 unknown coverage days. In line with observational limitations, missing observations or unknown days reflect sensor sampling gaps and cannot be used to infer cloud cover, fire extinction, ignition, or vegetation status [K4] [K10].\n\nArchive sensor calibration diagnostics report a raw Chow break test F-statistic of 9.2745 (p = 0.0013) and a harmonized F-statistic of 14.6437 (p = 0.000104). The raw Wasserstein W1 distance is 1.7832, adjusting to 1.7755 under harmonization. The latest available von Mises circular phenology fit indicates a peak day of year (DOY) of 196.85 (July 16), a concentration parameter kappa of 0.9011, and a season width of 365.0 days. Burned area regression R² diagnostics (both raw and harmonized) and total PM2.5 emissions are explicitly unavailable (null) due to missing validation coverage and emission inputs.\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 4585.611855695983,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 9.274522396568988,\n    \"chow_test_p_val_raw\": 0.0012982986591880178,\n    \"chow_test_f_stat_harm\": 14.643685219559995,\n    \"chow_test_p_val_harm\": 0.00010422787051751723,\n    \"wasserstein_w1_raw\": 1.7832324880105475,\n    \"wasserstein_w1_harm\": 1.7755120978055536,\n    \"burned_area_r2_raw\": null,\n    \"burned_area_r2_harm\": null,\n    \"phenology_shift_days_per_decade\": 70.36136206779625,\n    \"mann_kendall_p_value\": 0.11241795436508836,\n    \"industrial_false_positives_removed\": 0,\n    \"total_biomass_burned_kt\": 15.824830220272528,\n    \"total_pm25_emitted_tonnes\": null,\n    \"executive_verdict_en\": \"Chow break test at 2012-01-01: raw p=0.0013, harmonized p=0.000104 (FAIL against the p>0.1 gate). Wasserstein-1 1.783 -> 1.776 (0.4% reduction; FAIL against the >88% gate). Burned-area R² values are descriptive squared correlations, not out-of-sample validation. Coverage, emissions inputs and forecast skill determine availability; missing inputs remain unavailable.\"\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 196.8526287529862,\n    \"peak_date_label\": \"2026-07-16\",\n    \"concentration_kappa\": 0.9010817595521957,\n    \"season_width_days\": 365.0,\n    \"total_annual_fre_gj\": 1357.4299464825585\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 6\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube",
+        "knowledge"
+      ]
+    },
+    "model_calls": [
+      {
+        "ms": 2143,
+        "response": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "extra_content": {
+                "google": {
+                  "thought_signature": "EmkKZwFpFH0TplvS+bbi6Tk0Xrv3xzsuqIy4ieP4e2WBPkmiem6n6YFgZPZdR9yNulJOQ5Tlqyx4HJy6RdWX2MrHJ91vhb226J4fGyQhXGfM5qK1O9gJCRqy87F3Q6A/G5LPV7NagCYzF98="
+                }
+              },
+              "function": {
+                "arguments": "{}",
+                "name": "query_scientific_audit"
+              },
+              "id": "call_5631756512538450822",
+              "type": "function"
+            }
+          ]
+        }
+      },
+      {
+        "ms": 4821,
+        "response": {
+          "content": "For the selected area during 2023, the mapped fire radiative energy (FRE) is 4585.61 GJ (corresponding to an estimated dry biomass consumption of 1687.51 tonnes across 1660 detections) [K10]. Data quality tracking records 0 reconstructed days and 6 unknown coverage days. In line with observational limitations, missing observations or unknown days reflect sensor sampling gaps and cannot be used to infer cloud cover, fire extinction, ignition, or vegetation status [K4, K10].\n\nArchive sensor calibration diagnostics report a raw Chow break test F-statistic of 9.2745 (p = 0.0013) and a harmonized F-statistic of 14.6437 (p = 0.000104). The raw Wasserstein W1 distance is 1.7832, adjusting to 1.7755 under harmonization. The latest available von Mises circular phenology fit indicates a peak day of year (DOY) of 196.85 (July 16), a concentration parameter kappa of 0.9011, and a season width of 365.0 days. Burned area regression R² diagnostics (both raw and harmonized) and total PM2.5 emissions are explicitly unavailable (null) due to missing validation coverage and emission inputs.",
+          "extra_content": {
+            "google": {
+              "thought_signature": "EmkKZwFpFH0TlNZnWZXd+UZE0l513Wfp4YgRZHy4C3t8ZgG3qCS4j4fjs3h+nogADSSpY1TDpFzcjKhQzUtmMFsqKpHhk4X4Uz5JwkuIXVRQxui3w4UaqTiP47ujiGJpqVqQ4OoGjHlh3xE="
+            }
+          },
+          "role": "assistant"
+        }
+      }
+    ],
+    "fallback": false,
+    "match_data": true,
+    "model_ok": true,
+    "semantic_review": "pending",
+    "passed": true
+  }
+]

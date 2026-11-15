@@ -61,7 +61,7 @@ def main():
             payload=dict(aoi=aoi,region_name=label,prefer_map_context=True,period_start=start,period_end=end,
                 confidence_level='nominal',exclude_industrial_flaring=exclude,enable_kalman_gap_filling=False,
                 user_question=QUESTION)
-            analysis=client.post('/api/analyze',json=dict(aoi=aoi,start_year=2000,end_year=2026,forecast_days=14,
+            analysis=client.post('/api/analyze',json=dict(aoi=aoi,start_year=2000,end_year=2026,forecast_days=0,
                 confidence_level='nominal',exclude_industrial_flaring=exclude,enable_kalman_gap_filling=False))
             data=analysis.json()
             rows=con.execute('''select obs_terra_fre,obs_aqua_fre,obs_viirs_fre from read_parquet(?)
@@ -71,8 +71,12 @@ def main():
             direct=math.fsum(math.fsum(v for v in row if v is not None)/sum(v is not None for v in row)
                 for row in rows if any(v is not None for v in row))*h3.cell_area(cell,unit='km^2')/1000
             selected=[c for c in data.get('calendar_series',[]) if start<=c['date']<=end and not c['is_forecast']]
-            reference=dict(mapped_energy_gj=direct,start=start,end=end,audit_metrics=data.get('audit_metrics'),
-                phenology=(data.get('phenology_by_year') or [None])[-1],
+            diagnostic_keys=('chow_test_f_stat_raw','chow_test_p_val_raw','chow_test_f_stat_harm',
+                'chow_test_p_val_harm','wasserstein_w1_raw','wasserstein_w1_harm')
+            phenology_keys=('year','peak_doy_mu','peak_date_label','concentration_kappa','season_width_days')
+            reference=dict(mapped_energy_gj=direct,start=start,end=end,
+                audit_metrics=({k:data['audit_metrics'][k] for k in diagnostic_keys} if data.get('audit_metrics') else None),
+                phenology=({k:data['phenology_by_year'][-1][k] for k in phenology_keys} if data.get('phenology_by_year') else None),
                 reconstructed_days=sum(c['is_gap_filled'] for c in selected),
                 unknown_days=sum(c['observation_status']=='unknown' for c in selected))
             trace=[]

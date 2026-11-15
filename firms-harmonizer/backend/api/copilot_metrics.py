@@ -136,7 +136,7 @@ def _gj(cell: dict) -> float:
     return cell["biomass_burned_tonnes"] / WOOSTER_T_PER_GJ
 
 
-def _analysis(scope, req: ExplainSpikeRequest) -> tuple[dict | None, dict | None]:
+def _analysis(scope, req: ExplainSpikeRequest, *, forecast_days: int = 14) -> tuple[dict | None, dict | None]:
     """The dashboard analysis for this polygon, or an explicit unavailable status."""
     if not scope.coordinates:
         return None, {"status": "missing_scope", "message": "Select an area to run this calculation."}
@@ -146,7 +146,7 @@ def _analysis(scope, req: ExplainSpikeRequest) -> tuple[dict | None, dict | None
 
     try:
         response = analyze(AnalyzeRequest(aoi=GeoJSONPolygon(coordinates=scope.coordinates),
-            start_year=2000, end_year=2026, forecast_days=14,
+            start_year=2000, end_year=2026, forecast_days=forecast_days,
             exclude_industrial_flaring=req.exclude_industrial_flaring,
             enable_kalman_gap_filling=req.enable_kalman_gap_filling,
             confidence_level=req.confidence_level))
@@ -389,16 +389,19 @@ def retrieve_data_quality(scope, req: ExplainSpikeRequest) -> dict:
 
 
 def retrieve_scientific_audit(scope, req: ExplainSpikeRequest) -> dict:
-    data,error=_analysis(scope,req)
+    data,error=_analysis(scope,req,forecast_days=0)
     if error:
         return error
     cells=[c for c in data['series'] if (not scope.start or c['date']>=scope.start)
            and (not scope.end or c['date']<=scope.end)]
     phenology=data['phenology_by_year']
+    diagnostic_keys=('chow_test_f_stat_raw','chow_test_p_val_raw','chow_test_f_stat_harm',
+        'chow_test_p_val_harm','wasserstein_w1_raw','wasserstein_w1_harm')
+    phenology_keys=('year','peak_doy_mu','peak_date_label','concentration_kappa','season_width_days')
     return {'status':'ok','data_source':data['data_source'],
-        **retrieve_mapped_energy(scope,req),'start':scope.start,'end':scope.end,
-        'audit_metrics':data['audit_metrics'],
-        'phenology':phenology[-1] if phenology else None,
+        'mapped_energy_gj':retrieve_mapped_energy(scope,req)['mapped_energy_gj'],'start':scope.start,'end':scope.end,
+        'audit_metrics':({k:data['audit_metrics'][k] for k in diagnostic_keys} if data['audit_metrics'] else None),
+        'phenology':({k:phenology[-1][k] for k in phenology_keys} if phenology else None),
         'reconstructed_days':sum(c['is_gap_filled'] for c in cells),
         'unknown_days':sum(c['observation_status']=='unknown' for c in cells),
         'scope_note':'Energy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.'}
