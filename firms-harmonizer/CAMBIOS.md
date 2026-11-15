@@ -399,3 +399,26 @@ with 25-65% fewer bytes.
 Still blocked by frozen tests (team decision needed): restricting CORS (`allow_origins == ["*"]`),
 populating `forecast_series` / PM2.5, and raising the gzip level. Regression tests on a sparse,
 real-shaped cube: `backend/tests/test_api_accounting.py` (306 backend tests pass).
+
+## 2026-11-15 — Copilot integration with corrected daily footprints
+
+Integrated the reviewed `antonio/api-energy-accounting` changes so the scientific
+API and chat share per-day represented areas. Updated Copilot GJ totals and episode
+ranking to use the corrected daily energy, rather than density times the full
+polygon or historical cell union. Dossier series now include per-day `fre_gj` and
+the peak-day represented area. Existing frozen fields/types remain unchanged.
+
+Integration adjustments preserve R7-first polyfill (removed the proposed R4
+pre-check, including its unsupported one-second timing assertion) and keep the
+question limit at the composer's 6,000 characters. Schema/topology bounds remain
+explicit HTTP 422 responses. Earlier archived energy snapshots describe the old
+calculation; the new verification report supersedes them for GJ/biomass estimates.
+Model estimates remain sensitive to the different spatial coverage of sensors.
+
+Provider availability correction: GitHub Models itself retired in July 2026, after
+the Azure URL retirement. The compatibility adapter now requires an explicitly
+configured gateway endpoint; a GitHub PAT alone never calls a retired service.
+Groq -> optional configured gateway -> Gemini -> deterministic fallback remains
+bounded by the same deadline and token budget. Partial reconstruction alongside
+real observations no longer suppresses incident research; the reconstruction gate
+requires a purely estimated point with no active sensor or raw detection.

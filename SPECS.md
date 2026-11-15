@@ -470,6 +470,8 @@ class ExplainSpikeRequest(ContractModel):
     exclude_industrial_flaring: bool = True
     enable_kalman_gap_filling: bool = True
     previous_context: CopilotMapContext | None = None
+    audit_metrics: ScientificAuditMetrics | None = None
+    chat_history: list[CopilotTurn] = Field(default_factory=list, max_length=12)
 
 
 class ExplainSpikeResponse(ContractModel):
@@ -481,6 +483,9 @@ class ExplainSpikeResponse(ContractModel):
     model_used: str = "deterministic-fallback"
     data_source: Literal["real", "synthetic"] = "synthetic"
     map_context: CopilotMapContext | None = None
+    answer_markdown: str = ""
+    provider_used: str = ""
+    episode_summary: dict | None = None
 ```
 
 ### 5.3 Preset Pilot Regions (`frontend/src/api/types.ts`)
@@ -741,3 +746,27 @@ offline dossier. Rate limits and latency depend on external providers and cannot
 be guaranteed by a prompt length. Deprecated provider URLs must be replaced with
 supported endpoints. `scripts/test_copilot_e2e.py` exercises the required five
 scenarios and additional failure, scope, schema and numeric checks.
+
+#### Episode energy footprint correction
+
+The integrated Antonio API accounting changes use the cube cells represented on
+**each day**, rather than the union of cells over 26 years. The Copilot obtains
+per-day GJ from the corresponding scientific biomass field divided by the same
+0.368 kg/MJ factor; this is an algebraic recovery of energy, not an independent
+measurement. Auto-discovery ranks daily GJ, which can differ from ranking density.
+`episode_summary.daily_series` includes `fre_gj`; `represented_area_km2` denotes the
+selected polygon and `peak_represented_cell_area_km2` the peak-day footprint.
+Temporal reconstruction on a day with no cube footprint does not invent a burning
+area or an energy total. Sensor averaging still uses different cell subsets; these
+are model-derived estimates, not a validated emission inventory.
+
+The exact R7-first filtering guardrail remains in force; no R4 polyfill is used for
+early rejection. Oversized polygons are rejected by their exact R7 count. Input
+limits are 1,000 polygon positions, 6,000 question characters (matching the composer)
+and 200 region-label characters. Frozen tests were retained unchanged.
+
+GitHub's official retirement notice confirms that GitHub Models (including its
+inference API) was retired on 2026-07-30. The requested legacy provider is therefore
+skipped unless an operator supplies both `GITHUB_TOKEN` and an explicit
+`GITHUB_MODELS_ENDPOINT` for a compatible gateway. Gemini remains the subsequent
+provider. This avoids silently calling either retired GitHub inference URL.

@@ -38,7 +38,7 @@ def test_gj_matches_dashboard_inclusive_dates_and_filters(client, monkeypatch, k
     analysis = client.post("/api/analyze", json={"aoi": payload["aoi"], "start_year": 2001, "end_year": 2026,
         "enable_kalman_gap_filling": kalman, "exclude_industrial_flaring": industrial}).json()
     days = [c for c in analysis["calendar_series"] if payload["period_start"] <= c["date"] <= payload["period_end"]]
-    expected_gj = math.fsum(c["harmonized_fre_mj_km2"] for c in days) * analysis["aoi_area_km2"] / 1000
+    expected_gj = math.fsum(c["biomass_burned_tonnes"] for c in days) / 0.368
     response = client.post("/api/explain-spike", json=payload)
     assert response.status_code == 200, response.text
     body = response.json()

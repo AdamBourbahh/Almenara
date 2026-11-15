@@ -61,7 +61,7 @@ FIRMS = CitationReference(id="[5]", source_type="NASA_DATASET", title="NASA FIRM
 CUBE = CitationReference(id="[6]", source_type="NASA_DATASET", title="Local FIRMS-Harmonizer scientific cube",
     authors_or_agency="FIRMS-Harmonizer / NASA FIRMS inputs", year=2026,
     dataset_or_doi="Local fire_cube.parquet via /api/analyze",
-    relevance_note="Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, represented H3 area and inclusive dates; they are not direct satellite measurements.")
+    relevance_note="Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements.")
 METHOD_SOURCES = [
     CitationReference(id="[1]", title="Retrieval of biomass combustion rates and totals from fire radiative power observations",
         authors_or_agency="Wooster et al.", year=2005, dataset_or_doi="10.1029/2005JD006318",
@@ -332,7 +332,11 @@ def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
     cache_key = json.dumps([scope.label, scope.start, scope.end, scope.search_query])
     cached = SEARCH_CACHE.get(cache_key)
     if cached and monotonic() - cached[0] < 600:
-        return cached[1], cached[2]
+        # A failed article fetch must not freeze a snippet-only answer after the
+        # network recovers. Successful article bodies have their own bounded cache.
+        citations = research.enrich_official_reports(cached[1])
+        SEARCH_CACHE.put(cache_key, (monotonic(), citations, cached[2]))
+        return citations, cached[2]
     location = scope.locality or scope.label.split(" study envelope")[0]
     period = scope.start if scope.start == scope.end else f"{scope.start or ''} {scope.end or ''}"
     official = f"{location} incendio {period} site:comunidad.madrid/noticias"

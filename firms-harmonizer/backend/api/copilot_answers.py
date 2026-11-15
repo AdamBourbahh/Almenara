@@ -56,6 +56,8 @@ def summary_matches_excerpt(summary: str, excerpt: str) -> bool:
     A model summary is still an attributed paraphrase, not independently verified
     fact. Exact source sentences remain mandatory before applying this check.
     """
+    if not summary:
+        return True  # The checked original excerpt can still be shown verbatim.
     numbers = lambda value: set(re.findall(r'\d+(?:[.,]\d+)*', value))
     if not numbers(summary) <= numbers(excerpt):
         return False

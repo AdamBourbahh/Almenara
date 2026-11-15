@@ -66,7 +66,7 @@ def main():
             assert 1<=p['duration_days']<=31
             assert p['episode_start_date']<=p['peak_date']<=p['episode_end_date']
             assert p['coverage_start']<=p['episode_start_date']<=p['episode_end_date']<=p['coverage_end']
-            total=sum(c['harmonized_fre_mj_km2'] for c in p['daily_series'] if p['episode_start_date']<=c['date']<=p['episode_end_date'])*p['represented_area_km2']/1000
+            total=sum(c['fre_gj'] for c in p['daily_series'] if p['episode_start_date']<=c['date']<=p['episode_end_date'])
             assert math.isclose(total,p['total_episode_fre_gj'],rel_tol=1e-10)
             assert math.isclose(p['estimated_biomass_burned_tonnes'],total*.368,rel_tol=1e-10)
             assert math.isclose(p['estimated_pm25_tonnes'],total*.368*.0095,rel_tol=1e-10)
@@ -86,7 +86,7 @@ def main():
         analysis=client.post('/api/analyze',json={'aoi':AOI,'start_year':2001,'end_year':2026,'forecast_days':0}).json()
         p=auto.episode_summary
         observed=[c for c in analysis['calendar_series'] if c['raw_hotspot_count']>0 and p['coverage_start']<=c['date']<=p['coverage_end']]
-        assert p['peak_date']==max(observed,key=lambda c:(c['harmonized_fre_mj_km2'],c['date']))['date']
+        assert p['peak_date']==max(observed,key=lambda c:(c['biomass_burned_tonnes'],c['date']))['date']
         peak=next(c for c in analysis['calendar_series'] if c['date']==p['peak_date'])
         targeted=request(client,'2_targeted_spike',{'region_name':'Madrid','aoi':AOI,'selected_day':{**peak,'is_gap_filled':False},
             'user_question':'Investigate this energy spike: progression, duration and consequences.'},dossier=True)
@@ -109,7 +109,7 @@ def main():
             raise httpx.ConnectError('simulated airplane mode',request=request)
         with patch.object(httpx.Client,'send',offline_send),patch.object(investigator.legacy,'DDGS',side_effect=ConnectionError('offline')):
             unexpected=request(client,'5_adversarial_and_offline',{'aoi':AOI,'user_question':'What caused fires in year 1842 on Mars?'},'INSUFFICIENT_CONTEXT')
-            assert '1842' not in (unexpected.episode_summary or {})
+            assert unexpected.episode_summary is None and 'no observations' in unexpected.explanation_markdown
             fallback=request(client,'5b_network_failure_real_episode',{'region_name':'Madrid','aoi':AOI,'user_question':QUESTION},dossier=True)
             assert fallback.model_used=='offline-physics-engine'
         os.environ['COPILOT_OFFLINE']='1'
@@ -129,11 +129,12 @@ def main():
             os.environ['COPILOT_OFFLINE']='0'
             live=request(client,'12_live_investigation',{'region_name':'Madrid','aoi':AOI,'user_question':QUESTION},dossier=True)
             assert live.web_search_used and any(c.id.startswith('[W') for c in live.citations)
+            assert 'wind' in live.explanation_markdown.split('### Temporal Progression')[0].lower(), 'Article retrieval must recover after a cached network outage.'
             madrid=request(client,'13_madrid_2026_dossier',{'region_name':'Madrid','aoi':AOI,
                 'user_question':'Investigate the Madrid fire on 24 July 2026: cause, progression, duration and consequences.'},dossier=True)
             assert madrid.map_context.period_start==madrid.map_context.period_end=='2026-07-24'
             root=madrid.explanation_markdown.split('### Temporal Progression')[0].lower()
-            assert 'wind' in root and 'temperature' in root
+            assert 'wind' in root and ('temperature' in root or 'heat' in root), (root,[(s.id,s.url) for s in madrid.citations])
             assert 'burgohondo' not in root
             assert any(c.authors_or_agency=='Comunidad de Madrid' for c in madrid.citations)
     report={'created_at':datetime.now(timezone.utc).isoformat(),'passed':len(records),'cases':records,

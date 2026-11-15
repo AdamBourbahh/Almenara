@@ -27,12 +27,12 @@ All UI copy and documentation are in English, per the NASA Space Apps global jud
 | Capability | Status |
 | :--- | :--- |
 | 14-day forecast | **Not available.** `forecast_series` is always `null`; the API accepts `forecast_days` but does not produce a forecast. The UI hides the forecast legend when there is no data. |
-| PM2.5 smoke emissions | **Not computed.** `total_pm25_emitted_tonnes` and `pm25_emitted_kg` are `null`; the Impact panel shows "Not computed", not `0 t`. |
+| PM2.5 smoke emissions | **Not computed in the dashboard.** Copilot episode dossiers provide explicitly assumed-factor scenario estimates only. `total_pm25_emitted_tonnes` and `pm25_emitted_kg` are `null`; the Impact panel shows "Not computed", not `0 t`. |
 | Industrial flaring filter | **Currently inert on real data.** The ETL entropy gate does not flag any real cell (`industrial_prob` max ≈ 0.0022), so the toggle and the purple flare layer remove nothing. The panel reports the real removed count and says so when it is zero. |
 | Burned-area validation (R²) | **Pending.** Requires MCD64A1 ancillary data (`data/lookup/cell_day_ancillary.parquet`); until then R² is `null`. `scripts/07_fetch_mcd64a1_ancillary.py` exists for that ingest. |
 | Forecast / PM2.5 / tooltips in the frozen contract | Kept nullable by design; returning `null` is the honest state. |
 
-Known correctness issues identified by the 2026-11-14 audit and being fixed by their owners: regional biomass/energy aggregation (currently inflated), zero-detection days entering the Kalman smoother as gaps, NOAA-20/21 sensor-bit decoding, and real AOI area reporting. Do not treat the current biomass numbers as final.
+Known correctness issues identified by the 2026-11-14 audit and being fixed by their owners: zero-detection days entering the Kalman smoother as gaps and sensor means using different cell subsets. The daily-area inflation, NOAA-20/21 labels and AOI area reporting have been corrected. Biomass and emissions remain model-derived estimates.
 
 ---
 
@@ -175,8 +175,9 @@ expanded below each response.
 
 GJ answers use the same full-history scientific calculation as the dashboard, with
 the attached reconstruction and industrial-source filters. They integrate daily FRE
-over represented H3 area, then select the requested dates; they never convert a sum of
-instantaneous MW samples into GJ. Responses include biomass estimates, reconstructed
+over the cube cells represented on each day, then select the requested dates; they never convert a sum of
+instantaneous MW samples into GJ. The full polygon area is not multiplied across every day; missing daily footprints
+do not receive invented energy. Responses include biomass estimates, reconstructed
 day counts, the highest-energy day and annual energy totals for multiyear requests.
 Reconstructed regional totals may differ from the map's observed-only period energy.
 Numerical queries need no model credentials or internet access. Missing data are
@@ -195,8 +196,12 @@ Legacy concise answers default to `openai/gpt-oss-120b`; dossier extraction firs
 `llama-3.3-70b-versatile`. Set `GROQ_MODEL` to override either. If the account returns
 404 for a model, `GROQ_FALLBACK_MODEL` (default `openai/gpt-oss-120b`) is tried within
 the same deadline. The current local account cannot access the requested Llama model.
-Optional `GITHUB_TOKEN` and `GEMINI_API_KEY` enable the subsequent provider cascade,
-using the supported GitHub Models endpoint and Gemini OpenAI-compatible endpoint.
+Optional `GEMINI_API_KEY` enables the subsequent Gemini provider.
+[GitHub Models retired on 30 July 2026](https://github.blog/changelog/2026-07-01-github-models-is-being-fully-retired-on-July-30-2026/),
+so a `GITHUB_TOKEN` alone does not trigger a request to a dead endpoint. The GitHub
+compatibility adapter requires an explicitly configured `GITHUB_MODELS_ENDPOINT`
+pointing to an operator-provided compatible gateway; it is optional and not a claim
+that GitHub's former hosted service is available.
 Requests are bounded to 4,500 content characters, 900 output tokens and a 10-second
 provider deadline. These reduce request size; they cannot guarantee free-tier quota
 availability or sub-second network latency. Optional `TAVILY_API_KEY` enables Tavily search; otherwise the assistant

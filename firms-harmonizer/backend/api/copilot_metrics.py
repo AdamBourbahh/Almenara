@@ -40,16 +40,16 @@ def retrieve_energy(scope, req: ExplainSpikeRequest) -> dict:
     if not cells or data["aoi_area_km2"] <= 0:
         return {"status": "empty", "message": "No scientific cube series is available for this area and period; this does not establish zero fire energy."}
     area = data["aoi_area_km2"]
-    total = math.fsum(c["harmonized_fre_mj_km2"] for c in cells) * area / 1000.0
+    total = math.fsum(c["biomass_burned_tonnes"] for c in cells) / 0.368
     by_year = {}
     for cell in cells:
-        by_year.setdefault(cell["year"], []).append(cell["harmonized_fre_mj_km2"])
-    peak = max(cells, key=lambda c: c["harmonized_fre_mj_km2"])
+        by_year.setdefault(cell["year"], []).append(cell["biomass_burned_tonnes"] / 0.368)
+    peak = max(cells, key=lambda c: c["biomass_burned_tonnes"])
     return {"status": "ok", "data_source": data["data_source"], "energy_gj": total,
             "area_km2": area, "days": len(cells), "gap_filled_days": sum(c["is_gap_filled"] for c in cells),
             "biomass_tonnes": math.fsum(c["biomass_burned_tonnes"] for c in cells),
-            "peak_day": peak["date"], "peak_day_gj": peak["harmonized_fre_mj_km2"] * area / 1000.0,
-            "annual_gj": {year: math.fsum(values) * area / 1000.0 for year, values in by_year.items()}}
+            "peak_day": peak["date"], "peak_day_gj": peak["biomass_burned_tonnes"] / 0.368,
+            "annual_gj": {year: math.fsum(values) for year, values in by_year.items()}}
 
 
 def energy_answer(scope, evidence: dict, req: ExplainSpikeRequest) -> str:
@@ -60,15 +60,15 @@ def energy_answer(scope, evidence: dict, req: ExplainSpikeRequest) -> str:
     lines = [f"### Energy result\n\nFor **{scope.label}**, **{scope.start} to {scope.end}**, the scientific cube gives "
              f"**{evidence['energy_gj']:,.3f} GJ** of integrated fire radiative energy. [6]",
              f"### Scope and method\n\nThis uses {method}, with industrial heat sources {industrial}. "
-             f"The calculation covers **{evidence['area_km2']:,.3f} km²** of represented H3 cells and "
+             f"The calculation covers **{evidence['area_km2']:,.3f} km²** of selected H3 cells and "
              f"**{evidence['days']:,} days**, including **{evidence['gap_filled_days']:,} reconstructed days**. "
              "It uses the dashboard's 2001–2026 analysis history, then selects the requested inclusive dates.",
              f"### Derived estimates\n\n- Estimated dry biomass consumed: **{evidence['biomass_tonnes']:,.3f} tonnes** "
              "(0.368 kg/MJ). This is a model-derived estimate, not measured burned area or emissions. [1]",
              f"- The highest-energy day in this period is **{evidence['peak_day']}** "
              f"with **{evidence['peak_day_gj']:,.3f} GJ**. [6]",
-             "### Interpretation\n\nGJ = Σ daily FRE (MJ/km²) × represented area (km²) / 1,000. "
-             "This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. "
+             "### Interpretation\n\nGJ = Σ daily FRE (MJ/km²) × the cube cell area represented on that day (km²) / 1,000. "
+             "The full polygon area is not used for every day. Model density averages sensors with different spatial coverage; totals are derived estimates. This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. "
              "Raw detection counts below use accepted centers before the scientific industrial-source filter."]
     if len(evidence["annual_gj"]) > 1:
         lines.append("### Yearly energy\n\nRequested dates only:\n\n| Year | FRE (GJ) |\n| --- | ---: |\n" +

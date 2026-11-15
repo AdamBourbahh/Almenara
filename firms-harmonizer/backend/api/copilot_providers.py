@@ -32,13 +32,14 @@ def complete(messages: list[dict], *, structured: bool = False,
              default_model: str = 'llama-3.3-70b-versatile') -> tuple[str | None, str]:
     if os.getenv('COPILOT_OFFLINE') == '1':
         return None, 'deterministic-offline-science'
-    # The old Azure GitHub Models endpoint was retired in October 2025.
+    # GitHub Models itself retired in July 2026. Never send a PAT to a retired
+    # default endpoint; an operator can explicitly supply a compatible gateway.
     providers = [
         ('groq', 'GROQ_API_KEY', 'https://api.groq.com/openai/v1/chat/completions',
          os.getenv('GROQ_MODEL', default_model)),
         ('groq-compatible', 'GROQ_API_KEY', 'https://api.groq.com/openai/v1/chat/completions',
          os.getenv('GROQ_FALLBACK_MODEL', 'openai/gpt-oss-120b')),
-        ('github', 'GITHUB_TOKEN', 'https://models.github.ai/inference/chat/completions',
+        ('github', 'GITHUB_TOKEN', os.getenv('GITHUB_MODELS_ENDPOINT'),
          os.getenv('GITHUB_MODEL', 'openai/gpt-4o-mini')),
         ('gemini', 'GEMINI_API_KEY', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
          os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')),
@@ -52,7 +53,7 @@ def complete(messages: list[dict], *, structured: bool = False,
             continue
         key = os.getenv(variable)
         remaining = deadline - monotonic()
-        if not key or remaining < 0.1:
+        if not key or not url or remaining < 0.1:
             continue
         body = {'model': model, 'messages': messages, 'temperature': 0.2,
                 'max_tokens': OUTPUT_TOKEN_LIMIT}

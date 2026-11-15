@@ -105,7 +105,7 @@ def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: st
     counts = {(EPOCH + timedelta(days=int(r[0]))).isoformat(): int(r[1]) for r in daily}
     coverage_start, coverage_end = min(counts), max(counts)
     # Future dense prior values beyond the archive are not incident observations.
-    supported = [c for c in series if coverage_start <= c['date'] <= coverage_end and not c['is_forecast']]
+    supported = [dict(c,fre_gj=c['biomass_burned_tonnes']/0.368) for c in series if coverage_start <= c['date'] <= coverage_end and not c['is_forecast']]
     candidates = [c for c in supported if counts.get(c['date'], 0) > 0]
     if target_date:
         lo, hi = anchor-timedelta(days=15), anchor+timedelta(days=15)
@@ -114,7 +114,7 @@ def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: st
         candidates = [c for c in candidates if period_start <= c['date'] <= period_end]
     if not candidates:
         return {'status': 'empty', 'message': 'No observed activity supports an episode in the requested period; reconstructed prior values were not substituted for an event.'}
-    peak = max(candidates, key=lambda c: (c['harmonized_fre_mj_km2'], c['date']))
+    peak = max(candidates, key=lambda c: (c['fre_gj'], c['date']))
     peak_date = date.fromisoformat(peak['date'])
     lo, hi = peak_date-timedelta(days=15), peak_date+timedelta(days=15)
     window = [c for c in supported if lo.isoformat() <= c['date'] <= hi.isoformat()]
@@ -137,7 +137,7 @@ def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: st
             right += 1
     episode = window[left:right+1]
     area = float(analysis['aoi_area_km2'])
-    energy = math.fsum(c['harmonized_fre_mj_km2'] for c in episode) * area / 1000
+    energy = math.fsum(c['fre_gj'] for c in episode)
     sensors = {}
     for cell in episode:
         for sensor in cell['active_sensors']:
@@ -165,7 +165,7 @@ def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: st
         'above_background': active(peak), 'baseline_sample_days': len(background),
         'background_fre_mj_km2': median, 'activity_threshold_mj_km2': threshold,
         'peak_daily_fre_mj_km2': peak['harmonized_fre_mj_km2'],
-        'peak_daily_fre_gj': peak['harmonized_fre_mj_km2']*area/1000,
+        'peak_daily_fre_gj': peak['fre_gj'],
         'total_episode_fre_gj': energy, 'estimated_biomass_burned_tonnes': biomass,
         'estimated_pm25_tonnes': biomass*9.5/1000, 'estimated_co2_tonnes': biomass*1580/1000,
         'emission_assumptions': {'biomass_kg_per_mj':0.368,'pm25_g_per_kg':9.5,'co2_g_per_kg':1580,
@@ -174,7 +174,7 @@ def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: st
         'sensor_active_days': sensors, 'gap_filling_occurred': any(c['is_gap_filled'] for c in episode),
         'gap_filled_days': sum(c['is_gap_filled'] for c in episode),
         'reconstruction_enabled': enable_kalman_gap_filling,
-        'represented_area_km2': area, 'coverage_start': coverage_start, 'coverage_end': coverage_end,
+        'represented_area_km2': area, 'peak_represented_cell_area_km2': peak['fre_gj']*1000/peak['harmonized_fre_mj_km2'] if peak['harmonized_fre_mj_km2']>0 else 0., 'coverage_start': coverage_start, 'coverage_end': coverage_end,
         'window_start': window[0]['date'], 'window_end': window[-1]['date'],
         'left_censored': left == 0, 'right_censored': right == len(window)-1,
         'average_peak_month': mean_month, 'peak_month_concentration': resultant,
@@ -183,8 +183,8 @@ def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: st
         'pre_2012_raw_count_per_recorded_day': pre_rate, 'post_2012_raw_count_per_recorded_day':post_rate,
         'raw_count_inflation_factor': post_rate/pre_rate if pre_rate and post_rate is not None else None,
         'sample_h3_indices': [r[0] for r in cells],
-        'daily_series': [{k:c[k] for k in ('date','harmonized_fre_mj_km2','raw_hotspot_count','is_gap_filled','active_sensors')} for c in window],
-        'method': 'Dashboard full-history calibrated daily FRE with industrial exclusion (<0.75); robust same-month median + 3 scaled MAD, at least 5% of peak. Candidate counts use <=0.75. Duration is consecutive thermal activity within ±15 days, not official incident duration.'}
+        'daily_series': [{k:c[k] for k in ('date','harmonized_fre_mj_km2','fre_gj','raw_hotspot_count','is_gap_filled','active_sensors')} for c in window],
+        'method': 'Dashboard full-history calibrated daily FRE integrated over the cells represented each day, with industrial exclusion (<0.75); robust same-month median + 3 scaled MAD, at least 5% of peak. Candidate counts use <=0.75. Duration is consecutive thermal activity within ±15 days, not official incident duration.'}
 
 
 def geographic_context(scope) -> tuple[str, tuple[float,float] | None]:
@@ -222,17 +222,22 @@ def investigate_fire_literature_and_web(scope, peak_date: str | None = None) -> 
     cache_key = (clean,when,scope.start,scope.end)
     cached = RESEARCH_CACHE.get(cache_key)
     if cached and monotonic()-cached[0] < 1800:
-        return cached[1],cached[2]
+        citations=research.enrich_official_reports(cached[1])
+        RESEARCH_CACHE.put(cache_key,(monotonic(),citations,cached[2]))
+        return citations,cached[2]
     def search(query):
         try:
             key = os.getenv('TAVILY_API_KEY')
             if key:
-                with httpx.Client(timeout=4.0) as client:
-                    res=client.post('https://api.tavily.com/search',json={'api_key':key,'query':query,'max_results':2})
-                    res.raise_for_status()
-                    results=res.json().get('results',[])
-                    if isinstance(results,list) and results:
-                        return results[:2]
+                try:
+                    with httpx.Client(timeout=4.0) as client:
+                        res=client.post('https://api.tavily.com/search',json={'api_key':key,'query':query,'max_results':2})
+                        res.raise_for_status()
+                        results=res.json().get('results',[])
+                        if isinstance(results,list) and results:
+                            return results[:2]
+                except (httpx.HTTPError,ValueError,TypeError,AttributeError):
+                    log.info('Optional search provider unavailable; trying public search')
             return list(legacy.DDGS(timeout=4.0).text(query,max_results=2,backend='auto'))
         except Exception:
             log.info('Bounded investigative search unavailable')
@@ -291,7 +296,8 @@ def physics_gate(req: ExplainSpikeRequest, scope) -> tuple[str,str,list[Citation
             return ('FORECAST_PROJECTION','The selected value is a forecast projection supplied by the client, not an observed fire. It cannot establish ignition, duration or damage. Historical measurements and validated forecast uncertainty are needed before interpreting this point. [4]',[legacy.METHOD_SOURCES[3]])
         if req.selected_hex and (req.selected_hex.is_industrial_site or req.selected_hex.shannon_entropy > 0.75):
             return ('INDUSTRIAL_GAS_FLARING','The selected client cell is flagged as a possible persistent industrial heat source. Repeated thermal emission can result from gas flaring or other facilities; temporal entropy alone does not identify a facility or prove gas flaring. This classification is a screening flag, not a verified wildfire or facility identification. No wildfire news was used to explain this cell. [10]',[ELVIDGE])
-        if req.selected_day and req.selected_day.is_gap_filled:
+        if (req.selected_day and req.selected_day.is_gap_filled
+                and req.selected_day.raw_hotspot_count == 0 and not req.selected_day.active_sensors):
             return ('KALMAN_GAP_RECONSTRUCTION','The selected client point is marked as an RTS Kalman reconstruction. The state model, available sensors and historical prior estimate missing thermal observations with uncertainty. It is not a direct satellite observation and cannot independently establish an ignition cause or a continuing fire. [4]',[legacy.METHOD_SOURCES[3]])
     return None
 
@@ -358,9 +364,9 @@ def synthesize_scientific_dossier(req,scope,episode:dict,reports:list[CitationRe
         inflation=p['raw_count_inflation_factor']
         inflation_text=(f"Post/pre-2012 raw counts per recorded cube day: **{inflation:.3f}×**. This descriptive ratio includes coverage and real variability; it is not an isolated sensor effect. " if inflation is not None else 'A pre/post-2012 rate ratio is unavailable because one period lacks a nonzero baseline. ')
         lines.append('### Sensor & Statistical Verification\n\n'
-            +f"Active sensors: **{', '.join(p['dominant_sensors']) or 'unavailable'}**; reconstructed days: **{p['gap_filled_days']}**. Reconstruction enabled: **{'yes' if p['reconstruction_enabled'] else 'no'}**. Represented area: **{p['represented_area_km2']:,.3f} km²**. [4] [6]\n\n"
+            +f"Active sensors: **{', '.join(p['dominant_sensors']) or 'unavailable'}**; reconstructed days: **{p['gap_filled_days']}**. Reconstruction enabled: **{'yes' if p['reconstruction_enabled'] else 'no'}**. Selected polygon area: **{p['represented_area_km2']:,.3f} km²**. [4] [6]\n\n"
             +climatology+inflation_text+f"Industrial candidates in the full AOI history: **{p['industrial_candidate_cells']} cells**, **{p['industrial_candidate_detections']:,} cube detection counts**; these are screening counts, not distinct facilities or fires. [10]\n\n"
-            +'This is a statistical thermal-activity classification, not confirmation of vegetation fuel or an identified wildfire. MODIS and VIIRS differ in resolution and sensitivity; calibrated FRE is used instead of comparing raw counts as fire totals. The episode profile uses the dashboard calculation with industrial sources excluded. H3 cell centers define the selection, not an administrative boundary or mapped fire perimeter. [2] [3] [5]')
+            +'This is a statistical thermal-activity classification, not confirmation of vegetation fuel or an identified wildfire. MODIS and VIIRS differ in resolution and sensitivity; calibrated FRE is used instead of comparing raw counts as fire totals. The episode profile integrates the dashboard density over the cube cells represented on each day, with industrial sources excluded; it does not multiply every day by the full polygon area. This remains a model-derived estimate: sensor means cover different subsets of cells and missing footprints contribute no energy, even if a temporal prior is positive. H3 cell centers define the selection, not an administrative boundary or mapped fire perimeter. [2] [3] [5]')
     else:
         lines.extend(['### Temporal Progression & Episode Duration\n\n'+episode.get('message','No local episode profile is available.')+' Official duration is not established.',
             '### Thermodynamic, Atmospheric & Ecological Consequences\n\nNo integrated episode energy is available; biomass, emissions and ecological losses have not been invented. Instantaneous MW and raw detection counts cannot replace them. [1]',

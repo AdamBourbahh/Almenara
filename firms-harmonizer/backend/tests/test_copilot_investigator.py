@@ -128,6 +128,7 @@ def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypat
     for variable in ('GROQ_API_KEY','GITHUB_TOKEN','GEMINI_API_KEY'):
         monkeypatch.setenv(variable,'test-secret')
     monkeypatch.delenv('GROQ_MODEL',raising=False)
+    monkeypatch.setenv('GITHUB_MODELS_ENDPOINT','https://models-gateway.example.org/v1/chat/completions')
     calls=[]
     def transport(request):
         calls.append(request)
@@ -143,7 +144,7 @@ def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypat
     assert result=='{"claims":[]}' and provider=='gemini/gemini-2.5-flash'
     assert len(calls)==3
     assert calls[0].url.host=='api.groq.com'
-    assert calls[1].url.host=='models.github.ai'
+    assert calls[1].url.host=='models-gateway.example.org'
     assert json.loads(calls[0].content)['model']=='llama-3.3-70b-versatile'
 
 
@@ -226,6 +227,8 @@ def test_reconstruction_and_forecast_gates_never_search_incident_news(cube,monke
     data=json.loads(routes.analyze(c.AnalyzeRequest(aoi=aoi,start_year=2001,end_year=2026,forecast_days=0)).body)
     day=next(c for c in data['calendar_series'] if c['date']=='2026-07-24')
     day={**day,'is_gap_filled':False,field:True}
+    if field=='is_gap_filled':
+        day.update(raw_hotspot_count=0,active_sensors=[])
     monkeypatch.setattr(c,'investigate_fire_literature_and_web',lambda *a,**k:pytest.fail('Physics gate searched news'))
     r=c.answer(ExplainSpikeRequest(selected_day=day,aoi=aoi,user_question='Explain the progression and cause of this point.'))
     assert r.physical_classification==classification and r.web_search_used is False
@@ -275,3 +278,31 @@ def test_dossier_model_input_is_complete_json_under_budget(cube,monkeypatch):
     r=c.synthesize_scientific_dossier(req,scope,p,[report],'test query')
     assert seen and 'Invented arson' not in r.explanation_markdown
     assert '[W999]' not in r.explanation_markdown
+
+
+def test_partial_reconstruction_does_not_hide_observed_fire_evidence(cube):
+    aoi,cell,rows=cube
+    data=json.loads(routes.analyze(c.AnalyzeRequest(aoi=aoi,start_year=2001,end_year=2026,forecast_days=0)).body)
+    day=next(v for v in data['calendar_series'] if v['date']=='2026-07-24')
+    day={**day,'is_gap_filled':True,'raw_hotspot_count':1,'active_sensors':['Terra']}
+    r=c.answer(ExplainSpikeRequest(selected_day=day,aoi=aoi,user_question='Investigate this fire: duration and consequences.'))
+    assert r.episode_summary is not None and r.episode_summary['status']=='ok'
+    assert r.physical_classification!='KALMAN_GAP_RECONSTRUCTION'
+
+
+def test_search_cache_retries_article_fetch_after_network_recovers(cube,monkeypatch):
+    from backend.api.schemas import CitationReference
+    from time import monotonic
+    aoi,cell,rows=cube
+    monkeypatch.setenv('COPILOT_OFFLINE','0')
+    scope=c.legacy.resolve_scope(ExplainSpikeRequest(aoi=aoi,user_question='Madrid on 2026-07-24'))
+    source=CitationReference(id='[W1]',source_type='WEB_NEWS_REPORT',title='Madrid fire',
+        authors_or_agency='Comunidad de Madrid',year=2026,url='https://www.comunidad.madrid/noticias/2026/07/24/fire',
+        dataset_or_doi='Official report; curated URL; content must be retrieved',relevance_note='A lead cached during an outage.')
+    key=json.dumps([scope.label,scope.start,scope.end,scope.search_query])
+    c.legacy.SEARCH_CACHE.put(key,(monotonic(),[source],'cached search'))
+    full=source.model_copy(update={'dataset_or_doi':'Official report; article text retrieved','relevance_note':'Recovered body.'})
+    monkeypatch.setattr(c.research,'enrich_official_reports',lambda sources:[full])
+    citations,query=c.legacy.search_reports(scope)
+    assert citations[0].relevance_note=='Recovered body.' and query=='cached search'
+    c.legacy.SEARCH_CACHE.clear()
