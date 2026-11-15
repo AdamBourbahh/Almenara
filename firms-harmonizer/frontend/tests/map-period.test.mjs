@@ -132,3 +132,20 @@ test('a superseded range response cannot overwrite a newer date selection', asyn
  assert.equal(state.getState().selectedRange,null);
  assert.deepEqual(state.getState().mapHexagons,[]);
 });
+
+test('a date chosen while the analysis is loading is applied when it settles', async () => {
+ state.setState({ analysisData: history, loading: true, selectedRange: null,
+  selectedYear: 2026, selectedMonth: 9, selectedDate: '2026-09-26', mapHexagons: [], mapPeriod: null });
+ const cells = [{ h3_index: '87754e64dffffff', mean_annual_fre: 7, raw_pixel_count: 1,
+  is_industrial_site: false, shannon_entropy: 0.1, trend_slope: 0 }];
+ globalThis.fetch = async (url) => new Response(JSON.stringify(
+  String(url).includes('map-period') ? { data_source: 'real', map_hexagons: cells } : history));
+ const first = state.getState().loadMapYear();
+ await first;
+ state.setState({ loading: false });
+ await pause();
+ await pause();
+ assert.equal(state.getState().mapPeriod, '2026-09-26');
+ assert.equal(state.getState().mapHexagons.length, 1);
+});
+

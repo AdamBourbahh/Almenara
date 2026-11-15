@@ -253,6 +253,7 @@ let syncStatusSeq = 0;
 let manualSyncPending = false;
 let mapController: AbortController | null = null;
 let mapSeq = 0;
+let mapRetryCount = 0;
 let mapTimer: ReturnType<typeof setTimeout> | undefined;
 const annualMapCache = new Map<string, H3MapSummaryHex[]>();
 let chaosController: AbortController | null = null;
@@ -266,8 +267,11 @@ let riskRequestKey: string | null = null;
 function scheduleMapLoad() {
   mapController?.abort();
   mapSeq++;
+  mapRetryCount = 0;
   clearTimeout(mapTimer);
-  useAnalysisStore.setState({ mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null });
+  // Keep the current cells visible while the new period loads: loadMapYear replaces
+  // them on success and keeps them if the request fails.
+  useAnalysisStore.setState({ mapLoading: true, mapError: null });
   mapTimer = setTimeout(() => { void useAnalysisStore.getState().loadMapYear(); }, 120);
 }
 
@@ -459,7 +463,22 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   loadMapYear: async () => {
     clearTimeout(mapTimer);
     const state = get();
-    if (state.loading || !state.analysisData) return;
+    if (state.loading) {
+      // An analysis is still in flight; retry when it settles instead of dropping the period change.
+      if (mapRetryCount < 40) {
+        mapRetryCount += 1;
+        mapTimer = setTimeout(() => { void useAnalysisStore.getState().loadMapYear(); }, 250);
+      } else {
+        mapRetryCount = 0;
+        set({ mapLoading: false, mapError: "Timed out waiting for the analysis." });
+      }
+      return;
+    }
+    mapRetryCount = 0;
+    if (!state.analysisData) {
+      set({ mapLoading: false });
+      return;
+    }
     mapController?.abort();
     const controller = new AbortController();
     mapController = controller;
