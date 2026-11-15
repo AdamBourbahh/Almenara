@@ -1,5 +1,30 @@
 # FIRMS-HARMONIZER: Technical, Physico-Mathematical & Interface Specification (36h War Plan)
 
+Hexagon AOI selection (2026-11-15): the map offers a separate H3 R7 cell selection
+mode, including cells without detections. Draft cells are reversible and only
+become the AOI after Apply succeeds. A connected selection is converted to its
+actual cell-edge polygon with holes retained; polygon-to-R7 reconstruction must
+equal the selected set exactly. Disconnected groups are rejected rather than
+bridged. The current Polygon API, 16-ring/512-position limits and hierarchical
+R7-to-unique-R4 filtering remain unchanged. Limit interactive selection to 256
+cells and the viewport grid to 6,000, with a preflight bound before polyfilling.
+Keep the selected dates and scientific filters on apply, reuse the same AOI for
+map, calendar, risk, exports and Copilot, and keep a single DeckGL mount.
+
+Copilot observation totals (2026-11-15): a requested total/summed FRP in MW is
+rendered by the server from accepted detection centers across the complete
+resolved area and inclusive date range. A daily peak, strongest detection or
+discovered episode must not replace that period total. This is a sum of sampled
+instantaneous FRP values, not simultaneous power or integrated energy in GJ.
+English and Spanish requests receive the same trusted numerical summary; a
+subsequent energy tool must not erase the requested FRP total.
+
+Copilot date continuity (2026-11-15): the resolved chat period constrains offline
+episode discovery as well as online tools. A discovered peak or its research
+window must never replace an existing selected/remembered period. Explicit user
+date changes and intentional map selection changes remain supported. Only a chat
+without any resolved dates may adopt an automatically discovered episode window.
+
 - **Challenge:** NASA Space Apps Challenge 2026 — *Harmonization of MODIS and VIIRS Hot Spots*
 - **Target Global Awards:** *Best Use of Science*, *Best Use of Data*, *Best Use of Technology*, *Galactic Impact*
 - **Core Objective:** Analyze and harmonize sampled fire-energy observations from MODIS and VIIRS, with explicit observation coverage, physical unit checks and conditional scientific publication gates.

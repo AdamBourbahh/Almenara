@@ -304,6 +304,37 @@ def test_episode_selection_honors_new_dates_and_empty_periods(cube,question,star
         assert 'peak_date' not in result.episode_summary
 
 
+@pytest.mark.parametrize('remembered', [False, True])
+@pytest.mark.parametrize('question,expected', [
+    ('What caused this fire, and what conditions made it spread?', ('2021-08-14', '2021-08-22')),
+    ('Investigate this fire from August 14, 2022 to August 22, 2022.', ('2022-08-14', '2022-08-22')),
+])
+def test_investigator_keeps_selected_dates_when_provider_falls_back(cube, monkeypatch, remembered, question, expected):
+    from backend.api.schemas import CopilotMapContext
+    aoi, _, _ = cube
+    start, end = '2021-08-14', '2021-08-22'
+    captured = {}
+
+    def profile(*args, **kwargs):
+        captured.update(kwargs)
+        return {'status': 'ok', 'peak_date': '2021-08-16',
+                'window_start': '2021-08-01', 'window_end': '2021-08-31'}
+
+    def synthesize(req, scope, episode, reports, query):
+        return ExplainSpikeResponse(physical_classification='TEST', explanation_markdown='Selected dates retained.',
+            data_source='real', map_context=c.legacy.map_context(scope))
+
+    monkeypatch.setattr(c, 'profile_fire_episode_from_duckdb', profile)
+    monkeypatch.setattr(c, 'investigate_fire_literature_and_web', lambda *args: ([], ''))
+    monkeypatch.setattr(c, 'synthesize_scientific_dossier', synthesize)
+    previous = CopilotMapContext(label='Navalacruz', aoi=aoi, period_start=start, period_end=end) if remembered else None
+    response = c.answer(ExplainSpikeRequest(aoi=aoi, region_name='Navalacruz', period_start=start,
+        period_end=end, previous_context=previous,
+        user_question=question))
+    assert (captured['period_start'], captured['period_end']) == expected
+    assert (response.map_context.period_start, response.map_context.period_end) == expected
+
+
 def test_summary_cannot_introduce_numbers_or_erase_investigation_status():
     from backend.api.copilot_answers import summary_matches_excerpt
     assert not summary_matches_excerpt('The fire killed 999 people.','A regional fire was reported.')

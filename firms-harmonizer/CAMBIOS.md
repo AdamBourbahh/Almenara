@@ -703,6 +703,29 @@ clean; production build succeeds.
 
 ## Branch consolidation (2026-11-15)
 
+Hexagon AOI mode: add an optional exact H3 R7 selection grid and selected-cell
+overlay to the existing DeckGL instance. Clicking toggles cells, Clear and Cancel
+leave the applied AOI untouched, and Apply uses the existing transactional area
+analysis. Preserve holes and reject disconnected or overly complex selections;
+never use their enclosing rectangle or fill an unselected cell. Check the R7
+round trip before applying. Add cross-language frontend/Python geometry fixtures
+covering all four study regions. No public contracts or polygon limits changed.
+
+Copilot FRP totals follow-up: render requested `summed_frp_mw` and detection counts
+directly from server evidence, preserving the selected geometry and period. For
+a simple observation-total query, the trusted summary replaces model prose that
+could omit the total or substitute a peak. Retain the total when additional
+energy tools run. Add English/Spanish regressions for omitted totals, daily-peak
+substitution, zero detections and mixed FRP/energy requests. Public contracts are
+unchanged. Risk AI diagnosis and bounded-history proposal are documented in the
+verification evidence; production risk behavior is unchanged by this follow-up.
+
+Copilot date continuity: offline investigation now passes the resolved selection
+or remembered dates into episode discovery and preserves those dates in the
+returned map context. Automatic peak windows apply only when no dates were
+resolved. Regression coverage checks initial selection, remembered follow-ups and
+explicit user date changes. Confidence and industrial filters are also retained.
+
 All branch histories are consolidated in main. Streaming archive ETL, cloud/swath ancillary acquisition and the calculation/provenance Copilot tools coexist with the current scientific policy and Gemini incident investigator. Pipeline defaults and fixtures use the four current study regions; missing ancillary values remain null. Coordinated pipeline fixture/hash revisions preserve border, deduplication and SAMA controls without restoring retired regions. Numerical quantity checks preserve units; comparison questions may name years in either order while reversed explicit date ranges remain invalid. Backend contract hashes remain unchanged. See docs/verification/2026-11-15-branch-consolidation/ at the repository root for branch-tip inventory and test evidence.
 
 ## Cell-traced AOI vertex limit (2026-11-15)

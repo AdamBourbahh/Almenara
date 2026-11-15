@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DeckGL from "@deck.gl/react";
-import { FlyToInterpolator, MapView, type MapViewState, type PickingInfo } from "@deck.gl/core";
+import { FlyToInterpolator, MapView, WebMercatorViewport, type MapViewState, type PickingInfo } from "@deck.gl/core";
 import { PathLayer, PolygonLayer } from "@deck.gl/layers";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
+import { latLngToCell } from "h3-js";
 import MapLibreMap from "react-map-gl/maplibre";
 import { setWorkerUrl } from "maplibre-gl";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useShallow } from "zustand/react/shallow";
-import { Box, Eye, EyeOff, Square } from "lucide-react";
+import { Box, Eye, EyeOff, Hexagon, Square } from "lucide-react";
+import { hexagonsInView, MAX_SELECTED_HEXAGONS, polygonFromHexagons, selectedHexagonArea } from "./hexSelection";
 import type { GeoJSONPolygon, H3MapSummaryHex } from "../../api/types";
 import { selectedMapPeriod, useAnalysisStore } from "../../store/useAnalysisStore";
 import { summarizeMappedYear, colorIntensity, robustReference } from "./mapMetrics";
@@ -145,7 +147,7 @@ export function HexagonMap() {
     setDrawingAoi,
     error,
     setCustomBbox,
-    isSynthetic
+    isSynthetic, loading, setCustomAoi
   } = useAnalysisStore(
     useShallow((s) => ({
       mapHexagons: s.mapHexagons, mapPeriod: s.mapPeriod, mapLoading: s.mapLoading, mapError: s.mapError,
@@ -158,7 +160,7 @@ export function HexagonMap() {
       setDrawingAoi: s.setDrawingAoi,
       error: s.error,
       setCustomBbox: s.setCustomBbox,
-      isSynthetic: s.isSynthetic
+      isSynthetic: s.isSynthetic, loading: s.loading, setCustomAoi: s.setCustomAoi
     }))
   );
 
@@ -168,6 +170,71 @@ export function HexagonMap() {
   const [showHeat, setShowHeat] = useState(true);
   const [basemapAvailable, setBasemapAvailable] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [viewState, setViewState] = useState<ViewState>(() => viewStateForAoi(currentAoi, 900, 600, 0));
+  const [mapSize, setMapSize] = useState({ width: 900, height: 600 });
+  const [isSelectingHexes, setSelectingHexes] = useState(false);
+  const [draftHexagons, setDraftHexagons] = useState<string[]>([]);
+  const [hexSelectionError, setHexSelectionError] = useState<string | null>(null);
+  const [applyingHexagons, setApplyingHexagons] = useState(false);
+  const selectedHexes = useMemo(() => new Set(draftHexagons), [draftHexagons]);
+  const hexArea = useMemo(() => selectedHexagonArea(draftHexagons), [draftHexagons]);
+  const hexPolygon = useMemo(() => {
+    try { return { polygon: polygonFromHexagons(draftHexagons), error: null }; }
+    catch (cause) { return { polygon: null, error: cause instanceof Error ? cause.message : "Invalid cell selection." }; }
+  }, [draftHexagons]);
+  const selectionGrid = useMemo(() => {
+    if (!isSelectingHexes) return [];
+    const viewport = new WebMercatorViewport({ ...viewState, ...mapSize });
+    const [west, south, east, north] = viewport.getBounds();
+    return hexagonsInView(west, south, east, north).map(h3_index => ({ h3_index }));
+  }, [isSelectingHexes, viewState, mapSize]);
+  const toggleHexagon = useCallback((cell: string) => {
+    if (loading || applyingHexagons) return;
+    setHexSelectionError(null);
+    setDraftHexagons(previous => {
+      if (previous.includes(cell)) return previous.filter(id => id !== cell);
+      return previous.length < MAX_SELECTED_HEXAGONS ? [...previous, cell] : previous;
+    });
+  }, [loading, applyingHexagons]);
+  const beginHexSelection = () => {
+    setDrawingAoi(false);
+    setSelectingHexes(true);
+    setHexSelectionError(null);
+    setIs3D(false);
+    setViewState(previous => ({ ...previous, zoom: Math.max(previous.zoom, 10), pitch: 0, transitionDuration: 0 }));
+  };
+  const applyHexSelection = async () => {
+    if (!hexPolygon.polygon || applyingHexagons) return;
+    const polygon = hexPolygon.polygon;
+    setHexSelectionError(null);
+    setApplyingHexagons(true);
+    await setCustomAoi(polygon.coordinates);
+    const state = useAnalysisStore.getState();
+    if (JSON.stringify(state.currentAoi.coordinates) === JSON.stringify(polygon.coordinates)) {
+      setSelectingHexes(false);
+      setDraftHexagons([]);
+    } else {
+      setHexSelectionError(state.error ?? "The selected area could not be applied. Try again.");
+    }
+    setApplyingHexagons(false);
+  };
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => setMapSize({ width: entry.contentRect.width, height: entry.contentRect.height }));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => { setSelectingHexes(false); setDraftHexagons([]); setHexSelectionError(null); }, [currentAoi]);
+  useEffect(() => { if (isDrawingAoi) setSelectingHexes(false); }, [isDrawingAoi]);
+  useEffect(() => {
+    if (!isSelectingHexes) return;
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !applyingHexagons) { event.stopPropagation(); setSelectingHexes(false); setDraftHexagons([]); }
+    };
+    window.addEventListener("keydown", cancel, true);
+    return () => window.removeEventListener("keydown", cancel, true);
+  }, [isSelectingHexes, applyingHexagons]);
   const [dragBox, setDragBox] = useState<{ start: LngLat; end: LngLat } | null>(null);
   const dragBoxRef = useRef<{ start: LngLat; end: LngLat } | null>(null);
   const updateDragBox = useCallback((box: { start: LngLat; end: LngLat } | null) => {
@@ -337,7 +404,9 @@ export function HexagonMap() {
         onClick: ({ object }, event) => {
           const state = useAnalysisStore.getState();
           if (event.srcEvent instanceof MouseEvent && event.srcEvent.button !== 0) return;
-          if (object && !state.isDrawingAoi) state.openCopilot({ hex: object });
+          if (object && !state.isDrawingAoi) {
+            if (!isSelectingHexes) state.openCopilot({ hex: object });
+          }
         },
         wireframe: false,
         filled: true,
@@ -364,6 +433,19 @@ export function HexagonMap() {
           getElevation: [maxFre, maxRaw, viewMode, mapPeriod]
         }
       }),
+      new H3HexagonLayer<{ h3_index: string }>({
+        id: "h3-selection-grid", data: selectionGrid, visible: isSelectingHexes, pickable: true, highPrecision: true,
+        getHexagon: d => d.h3_index, filled: true, stroked: true, extruded: false,
+        getFillColor: d => selectedHexes.has(d.h3_index) ? [37, 99, 235, 130] : [255, 255, 255, 12],
+        getLineColor: [148, 163, 184, 170], lineWidthUnits: "pixels", getLineWidth: 1,
+        updateTriggers: { getFillColor: [draftHexagons] }
+      }),
+      new H3HexagonLayer<{ h3_index: string }>({
+        id: "h3-selected-cells", data: draftHexagons.map(h3_index => ({ h3_index })),
+        visible: isSelectingHexes, pickable: true, highPrecision: true, getHexagon: d => d.h3_index,
+        filled: true, stroked: true, extruded: false, getFillColor: [37, 99, 235, 130],
+        getLineColor: [59, 130, 246, 255], lineWidthUnits: "pixels", getLineWidth: 2
+      }),
       new PolygonLayer<AoiFeature>({
         id: "aoi-outline",
         data: aoiData,
@@ -386,11 +468,13 @@ export function HexagonMap() {
         getLineWidth: 2
       })
     ];
-  }, [hexagons, maxFre, maxRaw, mapPeriod, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable, isDrawingAoi]);
+  }, [hexagons, maxFre, maxRaw, mapPeriod, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable, isDrawingAoi,
+    isSelectingHexes, selectionGrid, selectedHexes, draftHexagons, toggleHexagon]);
 
   const getTooltip = useCallback(
     ({ object }: PickingInfo<H3MapSummaryHex>) => {
       if (!object) return null;
+      if (isSelectingHexes) return { text: `H3 ${object.h3_index}\nClick to ${selectedHexes.has(object.h3_index) ? "remove" : "select"} this cell.` };
       const lines = [
         `H3 ${object.h3_index}`,
         `Period: ${mapPeriod}`,
@@ -405,12 +489,13 @@ export function HexagonMap() {
       }
       return { text: lines.join("\n") };
     },
-    [excludeIndustrial, mapPeriod]
+    [excludeIndustrial, mapPeriod, isSelectingHexes, selectedHexes]
   );
 
   const controller = useMemo(
-    () => (isDrawingAoi ? { dragPan: false, dragRotate: false, doubleClickZoom: false } : { dragRotate: is3D }),
-    [isDrawingAoi, is3D]
+    () => (isDrawingAoi ? { dragPan: false, dragRotate: false, doubleClickZoom: false }
+      : isSelectingHexes ? { dragRotate: false, doubleClickZoom: false } : { dragRotate: is3D }),
+    [isDrawingAoi, isSelectingHexes, is3D]
   );
 
   const mapStyle = BASEMAPS[basemap].style;
@@ -457,6 +542,12 @@ export function HexagonMap() {
         onDragStart={onDragStart}
         onDrag={onDrag}
         onDragEnd={onDragEnd}
+        onClick={(info, event) => {
+          if (!isSelectingHexes || !info.coordinate) return;
+          if (event.srcEvent instanceof MouseEvent && event.srcEvent.button !== 0) return;
+          const cell = latLngToCell(info.coordinate[1], info.coordinate[0], 7);
+          if (selectedHexes.has(cell) || selectionGrid.some(candidate => candidate.h3_index === cell)) toggleHexagon(cell);
+        }}
         getTooltip={getTooltip}
         getCursor={({ isDragging, isHovering }) =>
           isDrawingAoi ? "crosshair" : isDragging ? "grabbing" : isHovering ? "pointer" : "grab"
@@ -468,6 +559,23 @@ export function HexagonMap() {
           Drag on the map to draw the area. Esc to cancel.
         </div>
       )}
+
+      {isSelectingHexes && <section data-map-ui aria-label="Hexagon area selection" className="absolute bottom-20 left-3 z-20 max-h-[55vh] w-[min(360px,calc(100%-24px))] overflow-y-auto rounded-lg border border-reference bg-panel p-3 text-xs text-ink shadow-lg">
+        <h3 className="font-semibold">Select area by hexagons</h3>
+        <p className="mt-1 text-muted">Click cells to add or remove them. Select one connected area; unselected holes stay excluded. Cells without detections can also be selected.</p>
+        <p className="mt-2 font-mono" aria-live="polite">{draftHexagons.length} / {MAX_SELECTED_HEXAGONS} cells · {hexArea.toFixed(2)} km²</p>
+        {selectionGrid.length === 0 && <p role="status" className="mt-2">Zoom in to show the selection grid.</p>}
+        {(hexSelectionError || (draftHexagons.length > 0 && hexPolygon.error)) && <p role="alert" className="mt-2 text-terracotta">{hexSelectionError ?? hexPolygon.error}</p>}
+        {draftHexagons.length >= MAX_SELECTED_HEXAGONS && <p role="status">Selection limit reached. Remove a cell to add another.</p>}
+        {draftHexagons.length > 0 && <details className="mt-2"><summary className="cursor-pointer">Selected H3 cells</summary>
+          <ul aria-label="Selected hexagons" className="mt-1 max-h-28 overflow-y-auto font-mono">{draftHexagons.map(cell => <li key={cell}><button type="button" disabled={applyingHexagons} aria-label={`Remove hexagon ${cell}`} onClick={() => toggleHexagon(cell)} className="py-1 underline">{cell} ×</button></li>)}</ul>
+        </details>}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" disabled={!hexPolygon.polygon || loading || applyingHexagons} onClick={() => void applyHexSelection()} className="border border-reference bg-reference px-3 py-2 text-white disabled:opacity-40">{applyingHexagons ? "Applying…" : "Apply hexagon area"}</button>
+          <button type="button" disabled={applyingHexagons} onClick={() => setDraftHexagons([])} className="border border-rule px-3 py-2">Clear cells</button>
+          <button type="button" disabled={applyingHexagons} onClick={() => { setSelectingHexes(false); setDraftHexagons([]); }} className="border border-rule px-3 py-2">Cancel selection</button>
+        </div>
+      </section>}
 
       {/* Basemap and layer controls remain clear of the explorer. */}
       <div data-map-ui className="absolute left-3 z-20 flex flex-wrap items-center gap-2 transition-[bottom] duration-200" style={{ bottom: 24 }}>
@@ -487,12 +595,18 @@ export function HexagonMap() {
         <button
           type="button"
           onClick={toggle3D}
+          disabled={isSelectingHexes}
           aria-pressed={is3D}
           className="flex items-center gap-1.5 border border-rule bg-panel/95 px-2.5 py-1.5 text-xs text-ink hover:bg-paper"
           title={is3D ? "Switch to flat 2D" : "Switch to 3D relief"}
         >
           {is3D ? <Box className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
           {is3D ? "3D" : "2D"}
+        </button>
+
+        <button type="button" aria-pressed={isSelectingHexes} disabled={loading || applyingHexagons} onClick={beginHexSelection}
+          className="flex items-center gap-1.5 border border-rule bg-panel/95 px-2.5 py-1.5 text-xs text-ink disabled:opacity-40">
+          <Hexagon className="h-3.5 w-3.5" />Select hexagons
         </button>
 
         <button
