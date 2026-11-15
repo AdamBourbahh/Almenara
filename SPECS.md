@@ -952,3 +952,49 @@ to the existing map-period endpoint, with at most four concurrent requests, then
 observed energy densities and detection counts per H3 cell. They preserve cancellation,
 stale-response protection and real/synthetic provenance. No API contracts changed.
 Appearance is available inside Settings as a persisted Dark mode switch.
+
+
+### Activity answers and small histogram counts (2026-11-15)
+
+Answering whether activity is consistent with burning is distinct from confirming
+a wildfire identity or its ignition cause. Local answers state that distinction.
+The agent excludes citation IDs from physical-number validation and can correct
+an unsupported numerical answer once within its existing deadline; server-rendered
+measurements remain exact. A failed provider still returns local evidence.
+Histogram positive bins have a 5 px minimum and zero bins a 1 px baseline. Labels
+state that detection bars are not incident duration; no observation does not
+establish extinction. No observations are extended or fabricated to match reports.
+
+
+### Google Gemini deployment and source discovery (2026-11-15)
+
+The active local provider is `COPILOT_PROVIDER=gemini`, using `GEMINI_API_KEY` and
+`GEMINI_MODEL=gemini-3.8-flash`. Google rejected `gemini-2.5-flash` for the project;
+the user explicitly authorized the available replacement. `.env.example` documents
+setup without credentials. `COPILOT_PROVIDER=groq` remains an explicit alternative.
+Google-selected agent or auxiliary completion failures do not silently use Groq.
+
+The concise domain prompt addresses practical land/fire questions, with exact local
+measurements and relevance-based citations. It distinguishes thermal activity,
+reported wildfire identity, ignition, spread, reconstructed estimates and missing
+coverage. It is not a new deterministic pre-execution security gate or a claim that
+all requested metrics in the reference methodology have been implemented.
+
+The compatibility endpoint supports existing read-only tools. Gemini may return
+multiple calls despite a no-parallel hint; batches of up to three are validated and
+executed sequentially, with a complete result for each call ID before another model
+turn. Opaque provider metadata is preserved. Context trimming retains whole tool
+exchanges; numeric and source-ID checks still apply. Grouped/doubled citations are
+normalized. Unknown ignition does not invalidate otherwise sourced incident prose.
+
+Incident discovery uses native Google Search in a separate request, followed by the
+existing approved-publisher article extraction. Only grounding metadata URLs are
+accepted. A Google redirect can be inspected once without fetching an unapproved
+target or forwarding credentials. Model-generated search summaries are not report
+quotes. Search discovery shares a 12-second deadline; individual redirect/publisher
+reads remain bounded to four seconds. This deliberately replaces the reference
+methodology's four-second search suggestion after repeated live timeouts; the agent's
+35-second overall deadline remains. Empty/failed searches do not prove no incident.
+
+Public Pydantic and TypeScript API contracts are unchanged. Offline mode and provider
+failure retain local archive responses and explicit real/synthetic provenance.

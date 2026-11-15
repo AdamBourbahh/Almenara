@@ -566,6 +566,10 @@ ANSWER_SCHEMA = {"type": "object", "properties": {"answer": {"type": "string"},
 
 def normalize_links(candidate: str, citations: list[CitationReference]) -> str:
     """Keep useful prose containing supplied links; reject invented destinations."""
+    candidate = re.sub(r"\[([A-Z]*\d+(?:_\d+)?(?:\s*,\s*[A-Z]*\d+(?:_\d+)?)+)\]",
+                       lambda match: " ".join(f"[{part.strip()}]" for part in match[1].split(",")), candidate)
+    candidate = re.sub(r"\[((?:\[[A-Z]*\d+(?:_\d+)?\])(?:[\s,]*\[[A-Z]*\d+(?:_\d+)?\])*)\]",
+                       lambda match: re.sub(r"[ ,]+", " ", match[1]), candidate)
     known = {c.url: c.id for c in citations if c.url}
     def replace_link(match):
         if match[2] not in known:
@@ -700,8 +704,16 @@ def answer(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
             else:
                 prose = "MODIS and VIIRS detect thermal anomalies with different footprints and sensitivities. A thermal anomaly alone cannot distinguish a wildfire, prescribed burn or industrial heat source; location, timing and independent evidence are needed. [2] [3]"
         elif not scope.error and not metrics_question:
-            prose = ("The available evidence does not establish which named incident these detections belong to or its ignition cause. "
-                     "A matching incident report or fire perimeter would be needed to link them.")
+            if observed.get("status") == "ok" and observed.get("detections", 0) > 0:
+                prose = ("The selected area has satellite thermal detections **consistent with active burning**. "
+                         "They support a possible fire, but satellite hotspots alone do not confirm a wildfire: "
+                         "industrial heat and other burning can also produce detections. [5] "
+                         "Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.")
+            elif observed.get("status") == "ok":
+                prose = ("No satellite detections were recorded in this selected area and period. "
+                         "That does not establish that there was no fire or that a fire was extinguished. [5]")
+            else:
+                prose = "The local observations needed to assess fire activity are unavailable for this selection."
             if not reports and not is_offline():
                 prose += " No relevant web results were retrieved; this does not imply an undocumented fire."
         if reports:

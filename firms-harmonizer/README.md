@@ -99,4 +99,44 @@ See `../docs/verification/2026-11-15-all-nighter/README.md` for the audit closur
 
 The updated chronology supports inclusive date ranges. Map queries split ranges by calendar year and merge spatial observations, without running the full temporal model for annual map selection. Place search is restricted to the four study envelopes. Settings group display controls and distinguish observed map energy from modeled temporal estimates.
 
-Fire Copilot supports bounded scientific investigations, request-local offline contexts, Groq tool calls and local document retrieval. Local scientific documents are under `data/copilot_knowledge/`. Remote research remains an explicit online operation; provider failures cannot switch other requests online or offline. See the verification notes under `docs/verification/2026-11-15-rag-agent/`, `2026-11-15-chronology/` and `2026-11-15-settings-energy/` for upstream feature evidence.
+Fire Copilot supports bounded scientific investigations, request-local offline contexts, Gemini/Groq tool calls and local document retrieval. Local scientific documents are under `data/copilot_knowledge/`. Remote research remains an explicit online operation; provider failures cannot switch other requests online or offline. See the verification notes under `docs/verification/2026-11-15-rag-agent/`, `2026-11-15-chronology/` and `2026-11-15-settings-energy/` for upstream feature evidence.
+
+### Gemini RAG and read-only tools
+
+The online Copilot uses Gemini tool calling through Google’s documented compatibility API with a short instruction
+message. It chooses between local document retrieval, observations, energy,
+episode profiling and incident research, rather than a question-keyword router.
+SQLite FTS5/BM25 indexes the versioned science notes in `data/copilot_knowledge/`
+and current ETL documentation. This is lexical RAG, not embeddings or fine-tuning;
+the model can reformulate searches. Add reviewed documents to the corpus to expand
+coverage. Scientific quantities remain database calculations, displayed by Python.
+
+The local project uses `COPILOT_PROVIDER=gemini` and `GEMINI_MODEL=gemini-3.8-flash`.
+`COPILOT_OFFLINE=1`, missing credentials, provider errors and invalid answers use
+the existing local scientific fallback. A request-local offline override prevents
+repeating failed network calls without changing other users' requests. Rate limits
+can still cause fallback; no free-tier availability guarantee is made.
+
+`python scripts/09_validate_copilot_agent.py` exercises the configured provider and records
+which tools the model chose. Use `--question` and `--output` for individual cases.
+`pytest backend/tests/test_copilot_agent.py -q` covers orchestration and failures
+without using a provider account. Retrieved notes are not automatically certified
+incident evidence; answers retain source and uncertainty labels.
+
+### Display settings and energy comparisons
+
+The Dark mode switch inside Settings controls light/dark appearance. Settings also contains the
+Detection count / Calibrated energy display choice (formerly Raw/Harmonized),
+industrial candidate exclusion and purple highlighting, and expandable keyboard
+shortcuts. The industrial candidate count explains why filtering may have no
+visible effect. Explore no longer contains those controls.
+
+Visible-map energy integrates calibrated observations per cell. Regional model
+energy aggregates sensor densities before optional temporal reconstruction, so the
+two estimators can differ. Explore and Copilot show them separately with matching
+biomass estimates. The Copilot computes the map comparison through the same
+map-period queries and H3 areas used in the frontend. Selected polygon area differs
+from the observed cell footprint; neither is a measured burned area. Requested
+full-year dates do not imply that future days are present in the archive.
+
+Online source discovery proposes candidate URLs; retrieved passages and local database calculations remain the evidence used for answers. Set `COPILOT_OFFLINE=0` explicitly to enable configured online providers. Episode PM2.5 remains conditional on measured annual fuel support.

@@ -265,6 +265,8 @@ def test_search_filters_bad_urls_wrong_years_and_nonfire_results(monkeypatch):
 
 def test_provider_uses_working_default_and_failure_is_bounded(monkeypatch):
     monkeypatch.setenv('COPILOT_OFFLINE', '0')
+    monkeypatch.setenv('COPILOT_PROVIDER','groq')
+    monkeypatch.delenv('GEMINI_API_KEY',raising=False)
     monkeypatch.setenv('GROQ_API_KEY', 'test-key')
     monkeypatch.delenv('GROQ_MODEL', raising=False)
     calls = []
@@ -367,3 +369,14 @@ def test_general_event_summary_cannot_smuggle_an_unchecked_cause(real_archive, m
     result = copilot.answer(ExplainSpikeRequest(user_question='Madrid 24 July 2026'))
     assert result.model_used == 'deterministic-offline-science'
     assert 'arson' not in result.explanation_markdown
+
+
+@pytest.mark.parametrize('question', ['is this a fire?', 'what is happening here?', 'does this mean something is burning?'])
+def test_activity_question_addresses_burning_before_incident_identity(real_archive, question):
+    result = copilot.answer(ExplainSpikeRequest(user_question=question,
+        aoi={'coordinates': [[[-4.4,40.2],[-4.0,40.2],[-4.0,40.6],[-4.4,40.6],[-4.4,40.2]]]},
+        period_start='2026-07-24', period_end='2026-07-24'))
+    text = result.explanation_markdown
+    assert 'consistent with active burning' in text
+    assert 'do not confirm a wildfire' in text
+    assert text.index('active burning') < text.index('named incident')

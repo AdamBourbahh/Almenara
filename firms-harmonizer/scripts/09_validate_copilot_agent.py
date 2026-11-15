@@ -1,4 +1,4 @@
-"""Live Groq tool/RAG acceptance. Uses configured credentials, never synthetic data.
+"""Live selected-provider tool/RAG acceptance. Uses configured credentials, never synthetic data.
 
 Run one case per --question to inspect free-tier quota independently. Responses and
 actual model-selected tools are saved even when a case fails. A fallback is not
@@ -24,6 +24,8 @@ def main():
     args=parser.parse_args()
     cases=args.question or ['the reason of the fire is known?','How much energy in GJ was released here?', 'What does FRP mean?']
     records=[]
+    provider, _, _, model = agent.copilot_providers.agent_config()
+    expected_model = f'{provider}-agent/{model}'
     with TestClient(app) as client:
         for question in cases:
             trace=[]
@@ -38,7 +40,7 @@ def main():
                     'aoi':{'coordinates':[[[-4.8,40.2],[-4.15,40.2],[-4.15,40.58],[-4.8,40.58],[-4.8,40.2]]]},
                     'period_start':'2026-07-24','period_end':'2026-07-24','user_question':question})
                 body=response.json()
-                passed=response.status_code==200 and body.get('model_used','').startswith('groq-agent/') and bool(body.get('citations'))
+                passed=response.status_code==200 and body.get('model_used','') == expected_model and bool(body.get('citations'))
                 records.append({'question':question,'tools':trace,'passed':passed,'response':body})
                 print(question,'PASS' if passed else 'FAIL',trace,flush=True)
             finally:

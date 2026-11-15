@@ -7,6 +7,7 @@ from backend.api.schemas import ExplainSpikeRequest
 
 @pytest.fixture
 def online(monkeypatch):
+    monkeypatch.setenv('COPILOT_PROVIDER','groq')
     monkeypatch.setenv('GROQ_API_KEY','test')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     monkeypatch.setattr(a.duckdb_engine,'data_source',lambda:'real')
@@ -146,3 +147,54 @@ def test_energy_tool_keeps_observed_and_regional_totals_separate(online,monkeypa
     monkeypatch.setattr(a,'turn',turn)
     r=a.answer(ExplainSpikeRequest(user_question='Compare the GJ totals'))
     assert r.model_used.startswith('groq-agent/')
+
+
+def test_unsupported_rounding_is_repaired_before_discarding_answer(online, monkeypatch):
+    turns = iter([
+        call('query_energy', {}),
+        call('submit_answer', {'answer': 'The energy is about 13 GJ. [6]', 'citation_ids': ['[6]']}),
+        call('submit_answer', {'answer': 'The energy is 12.5 GJ. [6]', 'citation_ids': ['[6]']})
+    ])
+    messages = []
+    def model(history, **kwargs):
+        messages.append(list(history))
+        return next(turns)
+    monkeypatch.setattr(a, 'turn', model)
+    monkeypatch.setattr(a, 'retrieve_energy', lambda *args: {'energy_gj': 12.5, 'status': 'ok'})
+    monkeypatch.setattr(a, 'energy_answer', lambda *args: '**12.5 GJ** [6]')
+    result = a.answer(ExplainSpikeRequest(user_question='How much energy was released?',
+        period_start='2026-07-23', period_end='2026-07-23'))
+    assert result.model_used.startswith('groq-agent/')
+    assert '12.5 GJ' in result.explanation_markdown
+    assert '13 GJ' not in result.explanation_markdown
+    assert 'unsupported' in messages[-1][-1]['content']
+
+
+def test_citation_digits_are_not_checked_as_physical_measurements(online, monkeypatch):
+    turns = iter([
+        call('query_energy', {}),
+        call('submit_answer', {'answer': 'The energy is 12.5 GJ. [6]', 'citation_ids': ['[6]']})
+    ])
+    monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: next(turns))
+    monkeypatch.setattr(a, 'retrieve_energy', lambda *args: {'energy_gj': 12.5, 'status': 'ok'})
+    monkeypatch.setattr(a, 'energy_answer', lambda *args: '**12.5 GJ** [6]')
+    result = a.answer(ExplainSpikeRequest(user_question='Energy?'))
+    assert result.model_used.startswith('groq-agent/')
+
+
+def test_unknown_ignition_does_not_erase_sourced_incident_explanation(online, monkeypatch):
+    from backend.api.schemas import CitationReference
+    source = CitationReference(id='[W1]', source_type='WEB_NEWS_REPORT', title='Madrid wildfire report',
+        authors_or_agency='Madrid', year=2026, dataset_or_doi='Official report; article text retrieved',
+        url='https://comunidad.madrid/noticias/2026/07/24/fire',
+        relevance_note='Retrieved article text:\nMadrid. Strong wind intensified the fire.')
+    monkeypatch.setattr(a.researcher, 'investigate_fire_literature_and_web', lambda *args: ([source], 'query'))
+    monkeypatch.setattr(a.local.research, 'incident_passages', lambda *args: ['Strong wind intensified the fire.'])
+    monkeypatch.setattr(a.local.research, 'supported_report_excerpt', lambda *args: True)
+    monkeypatch.setattr(a.local.research, 'supported_ignition_excerpt', lambda *args: False)
+    turns = iter([call('search_incident_reports', {}), {'content':
+        'The report describes a wildfire in this region. Its ignition cause is unknown. Strong wind intensified the fire. [W1]'}])
+    monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: next(turns))
+    result = a.answer(ExplainSpikeRequest(user_question='Why did this happen?'))
+    assert 'report describes a wildfire' in result.explanation_markdown
+    assert 'ignition cause is unknown' in result.explanation_markdown
