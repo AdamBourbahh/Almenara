@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import DeckGL from "@deck.gl/react";
 import { FlyToInterpolator, MapView, WebMercatorViewport, type MapViewState, type PickingInfo } from "@deck.gl/core";
 import { PathLayer, PolygonLayer } from "@deck.gl/layers";
@@ -10,7 +10,7 @@ import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&ur
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useShallow } from "zustand/react/shallow";
 import { Box, Eye, EyeOff, Hexagon, Square } from "lucide-react";
-import { hexagonsInView, MAX_SELECTED_HEXAGONS, polygonFromHexagons, selectedHexagonArea } from "./hexSelection";
+import { fillHexagonPerimeter, hexagonsAlongPointerSegment, hexagonsInView, MAX_SELECTED_HEXAGONS, paintHexagons, polygonFromHexagons, selectedHexagonArea } from "./hexSelection";
 import type { GeoJSONPolygon, H3MapSummaryHex } from "../../api/types";
 import { selectedMapPeriod, useAnalysisStore } from "../../store/useAnalysisStore";
 import { summarizeMappedYear, colorIntensity, robustReference } from "./mapMetrics";
@@ -175,18 +175,80 @@ export function HexagonMap() {
   const [draftHexagons, setDraftHexagons] = useState<string[]>([]);
   const [hexSelectionError, setHexSelectionError] = useState<string | null>(null);
   const [applyingHexagons, setApplyingHexagons] = useState(false);
+  const strokeRef = useRef<{ pointerId: number; add: boolean; last: LngLat | null; visited: Set<string> } | null>(null);
   const selectedHexes = useMemo(() => new Set(draftHexagons), [draftHexagons]);
   const hexArea = useMemo(() => selectedHexagonArea(draftHexagons), [draftHexagons]);
   const hexPolygon = useMemo(() => {
     try { return { polygon: polygonFromHexagons(draftHexagons), error: null }; }
     catch (cause) { return { polygon: null, error: cause instanceof Error ? cause.message : "Invalid cell selection." }; }
   }, [draftHexagons]);
+  const selectionViewport = useMemo(() => new WebMercatorViewport({ ...viewState, ...mapSize }), [viewState, mapSize]);
   const selectionGrid = useMemo(() => {
     if (!isSelectingHexes) return [];
-    const viewport = new WebMercatorViewport({ ...viewState, ...mapSize });
-    const [west, south, east, north] = viewport.getBounds();
+    const [west, south, east, north] = selectionViewport.getBounds();
     return hexagonsInView(west, south, east, north).map(h3_index => ({ h3_index }));
-  }, [isSelectingHexes, viewState, mapSize]);
+  }, [isSelectingHexes, selectionViewport]);
+  const gridCells = useMemo(() => new Set(selectionGrid.map(cell => cell.h3_index)), [selectionGrid]);
+  const fillPreview = useMemo(() => {
+    try { return { cells: fillHexagonPerimeter(draftHexagons), hint: null }; }
+    catch (cause) { return { cells: null, hint: cause instanceof Error ? cause.message : "This perimeter cannot be filled." }; }
+  }, [draftHexagons]);
+
+  const stopPainting = useCallback(() => {
+    const stroke = strokeRef.current;
+    strokeRef.current = null;
+    const node = containerRef.current;
+    if (stroke && node?.hasPointerCapture(stroke.pointerId)) node.releasePointerCapture(stroke.pointerId);
+  }, []);
+  const pointerPoint = (event: ReactPointerEvent<HTMLDivElement>): LngLat | null => {
+    const box = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - box.left, y = event.clientY - box.top;
+    if (x < 0 || x > box.width || y < 0 || y > box.height
+      || document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-map-ui], .maplibregl-control-container")) return null;
+    return [x, y];
+  };
+  const paintTo = (point: LngLat) => {
+    const stroke = strokeRef.current;
+    if (!stroke) return;
+    const cells = hexagonsAlongPointerSegment(stroke.last ?? point, point, position => selectionViewport.unproject(position))
+      .filter(cell => (gridCells.has(cell) || selectedHexes.has(cell)) && !stroke.visited.has(cell));
+    stroke.last = point;
+    for (const cell of cells) stroke.visited.add(cell);
+    if (cells.length) {
+      setHexSelectionError(null);
+      setDraftHexagons(previous => paintHexagons(previous, cells, stroke.add));
+    }
+  };
+  const startPainting = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isSelectingHexes || loading || applyingHexagons || event.button !== 0 || !event.isPrimary) return;
+    const point = pointerPoint(event);
+    if (!point) return;
+    const [lng, lat] = selectionViewport.unproject(point);
+    const cell = latLngToCell(lat, lng, 7);
+    if (!gridCells.has(cell) && !selectedHexes.has(cell)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    strokeRef.current = { pointerId: event.pointerId, add: !selectedHexes.has(cell), last: null, visited: new Set() };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    paintTo(point);
+  };
+  const continuePainting = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (strokeRef.current?.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!(event.buttons & 1)) { stopPainting(); return; }
+    const point = pointerPoint(event);
+    if (point) paintTo(point);
+    else if (strokeRef.current) strokeRef.current.last = null;
+  };
+  const finishPainting = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (strokeRef.current?.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const point = pointerPoint(event);
+    if (point) paintTo(point);
+    stopPainting();
+  };
   const toggleHexagon = useCallback((cell: string) => {
     if (loading || applyingHexagons) return;
     setHexSelectionError(null);
@@ -228,6 +290,11 @@ export function HexagonMap() {
   useEffect(() => { setSelectingHexes(false); setDraftHexagons([]); setHexSelectionError(null); }, [currentAoi]);
   useEffect(() => { if (isDrawingAoi) setSelectingHexes(false); }, [isDrawingAoi]);
   useEffect(() => {
+    if (!isSelectingHexes || loading || applyingHexagons) stopPainting();
+    window.addEventListener("blur", stopPainting);
+    return () => { window.removeEventListener("blur", stopPainting); stopPainting(); };
+  }, [isSelectingHexes, loading, applyingHexagons, stopPainting]);
+  useEffect(() => {
     if (!isSelectingHexes) return;
     const cancel = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !applyingHexagons) { event.stopPropagation(); setSelectingHexes(false); setDraftHexagons([]); }
@@ -263,6 +330,7 @@ export function HexagonMap() {
     const node = containerRef.current;
     if (!node) return;
     const onWheel = (event: WheelEvent) => {
+      if (strokeRef.current) { event.preventDefault(); event.stopImmediatePropagation(); return; }
       if (!event.ctrlKey || (event.target instanceof Element && event.target.closest("[data-map-ui]"))) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -494,7 +562,7 @@ export function HexagonMap() {
 
   const controller = useMemo(
     () => (isDrawingAoi ? { dragPan: false, dragRotate: false, doubleClickZoom: false }
-      : isSelectingHexes ? { dragRotate: false, doubleClickZoom: false } : { dragRotate: is3D }),
+      : isSelectingHexes ? { dragPan: false, dragRotate: false, doubleClickZoom: false } : { dragRotate: is3D }),
     [isDrawingAoi, isSelectingHexes, is3D]
   );
 
@@ -502,6 +570,16 @@ export function HexagonMap() {
 
   return (
     <div ref={containerRef} data-map-viewport className="relative h-full w-full overflow-hidden bg-paper"
+      onPointerDownCapture={startPainting}
+      onPointerMoveCapture={continuePainting}
+      onPointerUpCapture={finishPainting}
+      onPointerCancelCapture={stopPainting}
+      onLostPointerCapture={stopPainting}
+      onClickCapture={(event) => {
+        if (isSelectingHexes && !(event.target instanceof Element && event.target.closest("[data-map-ui], .maplibregl-control-container"))) {
+          event.preventDefault(); event.stopPropagation();
+        }
+      }}
       onPointerMove={(event) => { pointerOverMap.current = !(event.target instanceof Element && event.target.closest("[data-map-ui]")); }}
       onPointerEnter={() => { pointerOverMap.current = true; }}
       onPointerLeave={() => { pointerOverMap.current = false; }}
@@ -542,15 +620,9 @@ export function HexagonMap() {
         onDragStart={onDragStart}
         onDrag={onDrag}
         onDragEnd={onDragEnd}
-        onClick={(info, event) => {
-          if (!isSelectingHexes || !info.coordinate) return;
-          if (event.srcEvent instanceof MouseEvent && event.srcEvent.button !== 0) return;
-          const cell = latLngToCell(info.coordinate[1], info.coordinate[0], 7);
-          if (selectedHexes.has(cell) || selectionGrid.some(candidate => candidate.h3_index === cell)) toggleHexagon(cell);
-        }}
         getTooltip={getTooltip}
         getCursor={({ isDragging, isHovering }) =>
-          isDrawingAoi ? "crosshair" : isDragging ? "grabbing" : isHovering ? "pointer" : "grab"
+          isDrawingAoi || isSelectingHexes ? "crosshair" : isDragging ? "grabbing" : isHovering ? "pointer" : "grab"
         }
       />
 
@@ -562,7 +634,7 @@ export function HexagonMap() {
 
       {isSelectingHexes && <section data-map-ui aria-label="Hexagon area selection" className="absolute bottom-20 left-3 z-20 max-h-[55vh] w-[min(360px,calc(100%-24px))] overflow-y-auto rounded-lg border border-reference bg-panel p-3 text-xs text-ink shadow-lg">
         <h3 className="font-semibold">Select area by hexagons</h3>
-        <p className="mt-1 text-muted">Click cells to add or remove them. Select one connected area; unselected holes stay excluded. Cells without detections can also be selected.</p>
+        <p className="mt-1 text-muted">Hold and drag to select cells. Start on a selected cell to erase. Close a perimeter, then use Fill to select its interior. Select one connected area; holes stay excluded until filled.</p>
         <p className="mt-2 font-mono" aria-live="polite">{draftHexagons.length} / {MAX_SELECTED_HEXAGONS} cells · {hexArea.toFixed(2)} km²</p>
         {selectionGrid.length === 0 && <p role="status" className="mt-2">Zoom in to show the selection grid.</p>}
         {(hexSelectionError || (draftHexagons.length > 0 && hexPolygon.error)) && <p role="alert" className="mt-2 text-terracotta">{hexSelectionError ?? hexPolygon.error}</p>}
@@ -571,10 +643,14 @@ export function HexagonMap() {
           <ul aria-label="Selected hexagons" className="mt-1 max-h-28 overflow-y-auto font-mono">{draftHexagons.map(cell => <li key={cell}><button type="button" disabled={applyingHexagons} aria-label={`Remove hexagon ${cell}`} onClick={() => toggleHexagon(cell)} className="py-1 underline">{cell} ×</button></li>)}</ul>
         </details>}
         <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" disabled={!fillPreview.cells || loading || applyingHexagons} aria-describedby="hex-fill-hint"
+            onClick={() => { if (fillPreview.cells) { setHexSelectionError(null); setDraftHexagons(fillPreview.cells); } }}
+            className="border border-reference px-3 py-2 disabled:opacity-40">Fill</button>
           <button type="button" disabled={!hexPolygon.polygon || loading || applyingHexagons} onClick={() => void applyHexSelection()} className="border border-reference bg-reference px-3 py-2 text-white disabled:opacity-40">{applyingHexagons ? "Applying…" : "Apply hexagon area"}</button>
           <button type="button" disabled={applyingHexagons} onClick={() => setDraftHexagons([])} className="border border-rule px-3 py-2">Clear cells</button>
           <button type="button" disabled={applyingHexagons} onClick={() => { setSelectingHexes(false); setDraftHexagons([]); }} className="border border-rule px-3 py-2">Cancel selection</button>
         </div>
+        <p id="hex-fill-hint" className="mt-2 text-muted">{fillPreview.cells ? `Fill will add ${fillPreview.cells.length - draftHexagons.length} interior cells.` : fillPreview.hint}</p>
       </section>}
 
       {/* Basemap and layer controls remain clear of the explorer. */}

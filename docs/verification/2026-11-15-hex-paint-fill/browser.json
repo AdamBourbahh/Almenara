@@ -1,0 +1,501 @@
+{
+  "checks": [
+    "fast held-pointer stroke interpolates intermediate cells; revisiting does not erase",
+    "stroke beginning on selected cell erases consistently",
+    "pointer release outside map stops selection",
+    "window blur cancels an active stroke",
+    "open perimeter cannot fill",
+    "single clicks still toggle cells and closing perimeter enables Fill",
+    "Fill adds only seven enclosed cells to the twelve-cell perimeter",
+    "painting does not open Copilot",
+    "apply sends the exact filled AOI and preserves the selected day",
+    "Copilot uses the exact filled cells and day"
+  ],
+  "errors": [],
+  "perimeter": [
+    "87392a606ffffff",
+    "87392a610ffffff",
+    "87392a615ffffff",
+    "87392a616ffffff",
+    "87392a631ffffff",
+    "87392a634ffffff",
+    "87392a635ffffff",
+    "87392a788ffffff",
+    "87392a78bffffff",
+    "87392a78cffffff",
+    "87392a7a9ffffff",
+    "87392a7abffffff"
+  ],
+  "filled": [
+    "87392a606ffffff",
+    "87392a610ffffff",
+    "87392a614ffffff",
+    "87392a615ffffff",
+    "87392a616ffffff",
+    "87392a630ffffff",
+    "87392a631ffffff",
+    "87392a632ffffff",
+    "87392a633ffffff",
+    "87392a634ffffff",
+    "87392a635ffffff",
+    "87392a636ffffff",
+    "87392a788ffffff",
+    "87392a789ffffff",
+    "87392a78bffffff",
+    "87392a78cffffff",
+    "87392a78dffffff",
+    "87392a7a9ffffff",
+    "87392a7abffffff"
+  ],
+  "request": {
+    "aoi": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -4.683191905849596,
+            40.48985338931238
+          ],
+          [
+            -4.686688472833513,
+            40.50284004230458
+          ],
+          [
+            -4.702532328518198,
+            40.50717341945858
+          ],
+          [
+            -4.7060337021101715,
+            40.520160199809666
+          ],
+          [
+            -4.7218849774343665,
+            40.524492223543135
+          ],
+          [
+            -4.7253911622149465,
+            40.53747912664132
+          ],
+          [
+            -4.741249859775237,
+            40.54180979170232
+          ],
+          [
+            -4.753599378109497,
+            40.53315132821008
+          ],
+          [
+            -4.769462501552894,
+            40.53747840568273
+          ],
+          [
+            -4.781810840792973,
+            40.52881561077265
+          ],
+          [
+            -4.797678383339461,
+            40.53313909803563
+          ],
+          [
+            -4.810025537144396,
+            40.524471972116515
+          ],
+          [
+            -4.806502552455739,
+            40.511482842934626
+          ],
+          [
+            -4.818845923252067,
+            40.50281287183088
+          ],
+          [
+            -4.8153221618375985,
+            40.489823121239226
+          ],
+          [
+            -4.827661751301304,
+            40.481150308326
+          ],
+          [
+            -4.824137214600719,
+            40.46815993988041
+          ],
+          [
+            -4.808278681198396,
+            40.463843120999066
+          ],
+          [
+            -4.804758960481503,
+            40.450852874312154
+          ],
+          [
+            -4.788907830533904,
+            40.446534693298865
+          ],
+          [
+            -4.785392921234577,
+            40.43354457298957
+          ],
+          [
+            -4.769549192180486,
+            40.42922503509336
+          ],
+          [
+            -4.757217379473162,
+            40.437893392097266
+          ],
+          [
+            -4.741378060272938,
+            40.433570275360005
+          ],
+          [
+            -4.729045074464991,
+            40.4422343111707
+          ],
+          [
+            -4.71321017186679,
+            40.43790761820362
+          ],
+          [
+            -4.700876019272336,
+            40.446567332411334
+          ],
+          [
+            -4.704374164760603,
+            40.45955522027282
+          ],
+          [
+            -4.692036242492725,
+            40.468212091744256
+          ],
+          [
+            -4.695533599451774,
+            40.48119936394788
+          ],
+          [
+            -4.683191905849596,
+            40.48985338931238
+          ]
+        ]
+      ]
+    },
+    "start_year": 2000,
+    "end_year": 2026,
+    "exclude_industrial_flaring": true,
+    "enable_kalman_gap_filling": true,
+    "confidence_level": "nominal"
+  },
+  "chat": {
+    "request": {
+      "region_name": "Selected area at 40.486°, -4.755°",
+      "selected_day": null,
+      "selected_hex": null,
+      "aoi": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -4.683191905849596,
+              40.48985338931238
+            ],
+            [
+              -4.686688472833513,
+              40.50284004230458
+            ],
+            [
+              -4.702532328518198,
+              40.50717341945858
+            ],
+            [
+              -4.7060337021101715,
+              40.520160199809666
+            ],
+            [
+              -4.7218849774343665,
+              40.524492223543135
+            ],
+            [
+              -4.7253911622149465,
+              40.53747912664132
+            ],
+            [
+              -4.741249859775237,
+              40.54180979170232
+            ],
+            [
+              -4.753599378109497,
+              40.53315132821008
+            ],
+            [
+              -4.769462501552894,
+              40.53747840568273
+            ],
+            [
+              -4.781810840792973,
+              40.52881561077265
+            ],
+            [
+              -4.797678383339461,
+              40.53313909803563
+            ],
+            [
+              -4.810025537144396,
+              40.524471972116515
+            ],
+            [
+              -4.806502552455739,
+              40.511482842934626
+            ],
+            [
+              -4.818845923252067,
+              40.50281287183088
+            ],
+            [
+              -4.8153221618375985,
+              40.489823121239226
+            ],
+            [
+              -4.827661751301304,
+              40.481150308326
+            ],
+            [
+              -4.824137214600719,
+              40.46815993988041
+            ],
+            [
+              -4.808278681198396,
+              40.463843120999066
+            ],
+            [
+              -4.804758960481503,
+              40.450852874312154
+            ],
+            [
+              -4.788907830533904,
+              40.446534693298865
+            ],
+            [
+              -4.785392921234577,
+              40.43354457298957
+            ],
+            [
+              -4.769549192180486,
+              40.42922503509336
+            ],
+            [
+              -4.757217379473162,
+              40.437893392097266
+            ],
+            [
+              -4.741378060272938,
+              40.433570275360005
+            ],
+            [
+              -4.729045074464991,
+              40.4422343111707
+            ],
+            [
+              -4.71321017186679,
+              40.43790761820362
+            ],
+            [
+              -4.700876019272336,
+              40.446567332411334
+            ],
+            [
+              -4.704374164760603,
+              40.45955522027282
+            ],
+            [
+              -4.692036242492725,
+              40.468212091744256
+            ],
+            [
+              -4.695533599451774,
+              40.48119936394788
+            ],
+            [
+              -4.683191905849596,
+              40.48985338931238
+            ]
+          ]
+        ]
+      },
+      "period_start": "2021-08-16",
+      "period_end": "2021-08-16",
+      "prefer_map_context": true,
+      "exclude_industrial_flaring": true,
+      "enable_kalman_gap_filling": true,
+      "previous_context": null,
+      "conversation": [],
+      "user_question": "How many detections and what total FRP in MW in this selected area?"
+    },
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "**363 satellite detections** for 2021-08-16 to 2021-08-16. These are thermal observations, not a count of distinct fire incidents. [5]\n\n**Total summed FRP for the selected period: 8,192.71 MW**. [5]\n\nThis sums instantaneous FRP samples across the accepted detections in the selected area and dates. It is not a daily peak, simultaneous fire power or time-integrated energy.",
+      "citations": [
+        {
+          "id": "[5]",
+          "source_type": "NASA_DATASET",
+          "title": "NASA FIRMS active fire observations",
+          "authors_or_agency": "NASA EOSDIS LANCE",
+          "year": 2026,
+          "dataset_or_doi": "NASA Earthdata / FIRMS",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Selected area at 40.486°, -4.755°",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.683191905849596,
+                40.48985338931238
+              ],
+              [
+                -4.686688472833513,
+                40.50284004230458
+              ],
+              [
+                -4.702532328518198,
+                40.50717341945858
+              ],
+              [
+                -4.7060337021101715,
+                40.520160199809666
+              ],
+              [
+                -4.7218849774343665,
+                40.524492223543135
+              ],
+              [
+                -4.7253911622149465,
+                40.53747912664132
+              ],
+              [
+                -4.741249859775237,
+                40.54180979170232
+              ],
+              [
+                -4.753599378109497,
+                40.53315132821008
+              ],
+              [
+                -4.769462501552894,
+                40.53747840568273
+              ],
+              [
+                -4.781810840792973,
+                40.52881561077265
+              ],
+              [
+                -4.797678383339461,
+                40.53313909803563
+              ],
+              [
+                -4.810025537144396,
+                40.524471972116515
+              ],
+              [
+                -4.806502552455739,
+                40.511482842934626
+              ],
+              [
+                -4.818845923252067,
+                40.50281287183088
+              ],
+              [
+                -4.8153221618375985,
+                40.489823121239226
+              ],
+              [
+                -4.827661751301304,
+                40.481150308326
+              ],
+              [
+                -4.824137214600719,
+                40.46815993988041
+              ],
+              [
+                -4.808278681198396,
+                40.463843120999066
+              ],
+              [
+                -4.804758960481503,
+                40.450852874312154
+              ],
+              [
+                -4.788907830533904,
+                40.446534693298865
+              ],
+              [
+                -4.785392921234577,
+                40.43354457298957
+              ],
+              [
+                -4.769549192180486,
+                40.42922503509336
+              ],
+              [
+                -4.757217379473162,
+                40.437893392097266
+              ],
+              [
+                -4.741378060272938,
+                40.433570275360005
+              ],
+              [
+                -4.729045074464991,
+                40.4422343111707
+              ],
+              [
+                -4.71321017186679,
+                40.43790761820362
+              ],
+              [
+                -4.700876019272336,
+                40.446567332411334
+              ],
+              [
+                -4.704374164760603,
+                40.45955522027282
+              ],
+              [
+                -4.692036242492725,
+                40.468212091744256
+              ],
+              [
+                -4.695533599451774,
+                40.48119936394788
+              ],
+              [
+                -4.683191905849596,
+                40.48985338931238
+              ]
+            ]
+          ]
+        },
+        "period_start": "2021-08-16",
+        "period_end": "2021-08-16",
+        "h3_index": null
+      },
+      "answer_markdown": "**363 satellite detections** for 2021-08-16 to 2021-08-16. These are thermal observations, not a count of distinct fire incidents. [5]\n\n**Total summed FRP for the selected period: 8,192.71 MW**. [5]\n\nThis sums instantaneous FRP samples across the accepted detections in the selected area and dates. It is not a daily peak, simultaneous fire power or time-integrated energy.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube"
+      ]
+    }
+  },
+  "result": "passed"
+}

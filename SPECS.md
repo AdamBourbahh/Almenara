@@ -1,5 +1,18 @@
 # FIRMS-HARMONIZER: Technical, Physico-Mathematical & Interface Specification (36h War Plan)
 
+Hexagon painting and Fill (2026-11-15): holding the primary pointer paints cells
+continuously, with intermediate screen-segment samples for fast movements.
+Starting on a selected cell erases for the entire stroke; revisiting a cell does
+not toggle it again. Pointer capture, release/cancel/lost-capture and window blur
+terminate strokes safely. Map drag-panning and double-click zoom are disabled
+in cell-selection mode; painting does not trigger Copilot clicks. Fill is enabled
+only for a connected selection enclosing unselected cells. It fills holes of the
+actual cell union, preserving the concave exterior; it never uses a bounding box
+or convex hull. Oversized fills are rejected without altering the draft. Existing
+256-cell and Polygon limits, exact R7 round-trip verification, transactional Apply
+and date/context continuity remain in force. Fill changes only the draft until
+the user applies the area.
+
 Hexagon AOI selection (2026-11-15): the map offers a separate H3 R7 cell selection
 mode, including cells without detections. Draft cells are reversible and only
 become the AOI after Apply succeeds. A connected selection is converted to its
