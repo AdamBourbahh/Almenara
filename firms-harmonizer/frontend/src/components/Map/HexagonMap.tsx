@@ -114,8 +114,7 @@ const HEAT_RADAR: ReadonlyArray<readonly [number, number, number]> = [
   [240, 221, 74],
   [246, 150, 58],
   [222, 62, 45],
-  [176, 36, 135],
-  [245, 245, 245]
+  [176, 36, 135]
 ];
 
 function viewStateForAoi(aoi: GeoJSONPolygon, width: number, height: number, pitch: number): MapViewState {
@@ -159,6 +158,7 @@ export function HexagonMap() {
     isTracingCells,
     setTracingCells,
     aoiCells,
+    aoiNotice,
     setCustomBbox,
     isSynthetic
   } = useAnalysisStore(
@@ -174,6 +174,7 @@ export function HexagonMap() {
       isTracingCells: s.isTracingCells,
       setTracingCells: s.setTracingCells,
       aoiCells: s.aoiCells,
+      aoiNotice: s.aoiNotice,
       setCustomBbox: s.setCustomBbox,
       isSynthetic: s.isSynthetic
     }))
@@ -312,6 +313,9 @@ export function HexagonMap() {
     []
   );
   const legendStops = heatStyle === "heatmap" ? HEAT_RADAR : viewMode === "RAW" ? (theme === "dark" ? RAW_DARK : RAW_LIGHT) : THERMAL_LIGHT;
+  const heatReference = viewMode === "RAW" ? maxRaw : maxFre;
+  const heatZoom = Math.round(viewState.zoom);
+  const aoiCellFeatures = useMemo(() => (aoiCells ?? []).map((h3_index) => ({ h3_index })), [aoiCells]);
 
   const toggle3D = () => {
     const next = !is3D;
@@ -378,10 +382,11 @@ export function HexagonMap() {
         visible: showHeat && heatStyle === "heatmap",
         getPosition: (d) => d.position,
         getWeight: (d) => Math.log1p(Math.max(0, d.weight)),
-        aggregation: "SUM",
-        radiusPixels: 28,
+        aggregation: "MEAN",
+        radiusPixels: Math.max(10, Math.min(26, 8 + (heatZoom - 6) * 1.8)),
         intensity: 1,
-        threshold: 0.01,
+        colorDomain: [0, Math.log1p(Math.max(1, heatReference))],
+        debounceTimeout: 250,
         colorRange: heatColorRange,
         opacity: 0.9,
         pickable: false
@@ -390,7 +395,7 @@ export function HexagonMap() {
         id: "h3-hexagon-layer",
         data: hexagons,
         visible: showHeat && heatStyle === "cells",
-        pickable: true,
+        pickable: !trimming,
         onClick: ({ object }, event) => {
           const state = useAnalysisStore.getState();
           if (event.srcEvent instanceof MouseEvent && event.srcEvent.button !== 0) return;
@@ -426,6 +431,24 @@ export function HexagonMap() {
           getElevation: [maxFre, maxRaw, viewMode, mapPeriod]
         }
       }),
+      new H3HexagonLayer<{ h3_index: string }>({
+        id: "aoi-cells-layer",
+        data: aoiCellFeatures,
+        visible: heatStyle === "cells" && trimming,
+        pickable: true,
+        filled: true,
+        stroked: true,
+        extruded: false,
+        coverage: 1,
+        getHexagon: (d) => d.h3_index,
+        getFillColor: [29, 78, 216, 8],
+        getLineColor: [29, 78, 216, 140],
+        lineWidthUnits: "pixels",
+        getLineWidth: 0.6,
+        onClick: ({ object }) => {
+          if (object) void useAnalysisStore.getState().toggleAoiCell(object.h3_index);
+        }
+      }),
       new PolygonLayer<AoiFeature>({
         id: "aoi-outline",
         data: aoiData,
@@ -448,7 +471,7 @@ export function HexagonMap() {
         getLineWidth: 2
       })
     ];
-  }, [hexagons, heatPoints, heatColorRange, heatStyle, trimming, maxFre, maxRaw, mapPeriod, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable, isDrawingAoi]);
+  }, [hexagons, heatPoints, heatColorRange, heatStyle, trimming, aoiCellFeatures, heatReference, heatZoom, maxFre, maxRaw, mapPeriod, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable, isDrawingAoi]);
 
   const getTooltip = useCallback(
     ({ object }: PickingInfo<H3MapSummaryHex>) => {
@@ -621,6 +644,7 @@ export function HexagonMap() {
         {heatStyle === "cells" && trimming && !mapLoading && !mapError && hexagons.length > 0 && (
           <p className="mt-1 text-[10px] text-muted">Click cells to add or remove them from the area.</p>
         )}
+        {aoiNotice && <p className="mt-1 text-[10px] text-terracotta">{aoiNotice}</p>}
       </div>
     </div>
   );

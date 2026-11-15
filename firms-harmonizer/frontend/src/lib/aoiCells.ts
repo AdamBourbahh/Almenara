@@ -1,4 +1,4 @@
-import { cellsToMultiPolygon, polygonToCells } from "h3-js";
+import { cellsToMultiPolygon, gridDisk, polygonToCells } from "h3-js";
 
 export type CellPolygon = { type: "Polygon"; coordinates: number[][][] };
 
@@ -37,4 +37,29 @@ export function polygonFromCells(cells: readonly string[]): CellPolygon | null {
     }
   }
   return { type: "Polygon", coordinates: best };
+}
+
+/**
+ * True when removing `cell` leaves the rest of the set connected.
+ * Adding a cell never disconnects, so it always returns true in that case.
+ * Interior holes are allowed; only removals that would split the area into
+ * detached islands are rejected.
+ */
+export function removalKeepsConnected(cells: readonly string[], cell: string): boolean {
+  const remaining = cells.filter((item) => item !== cell);
+  if (remaining.length <= 1) return true;
+  const members = new Set(remaining);
+  const start = remaining[0];
+  const seen = new Set([start]);
+  const stack = [start];
+  while (stack.length > 0) {
+    const current = stack.pop() as string;
+    for (const neighbour of gridDisk(current, 1)) {
+      if (neighbour !== current && members.has(neighbour) && !seen.has(neighbour)) {
+        seen.add(neighbour);
+        stack.push(neighbour);
+      }
+    }
+  }
+  return seen.size === remaining.length;
 }
