@@ -276,3 +276,43 @@ def test_single_energy_question_does_not_repeat_the_model_measurements(online, m
     monkeypatch.setattr(agent,'energy_answer',lambda *args:summary)
     result=agent.answer(ExplainSpikeRequest(user_question='How much energy in GJ was released here?'))
     assert result.explanation_markdown==summary
+
+
+def test_knowledge_retrieval_excludes_internal_files_and_unapproved_documents(tmp_path, monkeypatch):
+    from backend.api import copilot_rag as rag
+    knowledge = tmp_path / 'data' / 'copilot_knowledge'
+    knowledge.mkdir(parents=True)
+    approved = [{'id': 'K1', 'title': 'Energy units', 'url': None,
+                 'text': 'FRE is integrated energy in MJ.'}]
+    (knowledge / 'science.json').write_text(json.dumps(approved))
+    (knowledge / 'incident_log.json').write_text(json.dumps([{'id': 'K991',
+        'title': 'Energy units', 'url': None, 'text': 'INTERNAL_JSON_CANARY energy'}]))
+    (tmp_path / 'data' / 'ETL_SPEC.md').write_text(
+        '## Stage behavior\n\n### Verification\n\nINTERNAL_ETL_CANARY energy test output')
+    (tmp_path / '.env').write_text('GEMINI_API_KEY=INTERNAL_SECRET_CANARY')
+    (tmp_path / 'server.log').write_text('INTERNAL_LOG_CANARY energy')
+    rag.documents.cache_clear()
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(rag, 'ROOT', tmp_path)
+            records = rag.search('energy INTERNAL_JSON_CANARY INTERNAL_ETL_CANARY INTERNAL_LOG_CANARY')
+            assert {record['id'] for record in records} == {'K1'}
+            assert 'INTERNAL_' not in json.dumps(records)
+    finally:
+        rag.documents.cache_clear()
+
+
+def test_provider_error_logs_do_not_include_credentials_or_response_bodies(online, monkeypatch, caplog):
+    factory = httpx.Client
+
+    def transport(request):
+        return httpx.Response(401, json={'error': 'INTERNAL_PROVIDER_CANARY controlled-test-key'})
+
+    monkeypatch.setattr(providers.httpx, 'Client',
+        lambda **kwargs: factory(transport=httpx.MockTransport(transport), **kwargs))
+    with caplog.at_level('INFO'):
+        result = agent.answer(ExplainSpikeRequest(user_question='What is FRP?'))
+    assert 'INTERNAL_PROVIDER_CANARY' not in caplog.text
+    assert 'controlled-test-key' not in caplog.text
+    assert 'INTERNAL_PROVIDER_CANARY' not in result.explanation_markdown
+    assert 'controlled-test-key' not in result.explanation_markdown

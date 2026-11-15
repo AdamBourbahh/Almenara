@@ -1,4 +1,4 @@
-"""Local FTS5/BM25 retrieval over versioned science notes and current ETL documentation."""
+"""Local FTS5/BM25 retrieval over explicitly approved public scientific notes."""
 from functools import lru_cache
 import json
 from pathlib import Path
@@ -10,22 +10,12 @@ ROOT=Path(__file__).resolve().parents[2]
 
 @lru_cache(maxsize=1)
 def documents():
-    records=[]
-    for path in sorted((ROOT/'data/copilot_knowledge').glob('*.json')):
-        records.extend(json.loads(path.read_text(encoding='utf-8')))
-    path=ROOT/'data/ETL_SPEC.md'
-    section_no=0
-    for section in re.split(r'(?m)^## ',path.read_text(encoding='utf-8')):
-        title=section.splitlines()[0].strip('# ') or 'ETL documentation'
-        if any(word in title.lower() for word in ('test','log','verification','evidence')):
-            continue
-        paragraphs=[p.strip() for p in section.split('\n\n') if p.strip() and not p.startswith(('```','platform ','cachedir:','rootdir:'))]
-        for paragraph in paragraphs:
-            if len(paragraph)>1800:
-                continue
-            records.append({'id':f'E{section_no}','title':title,'url':None,'text':paragraph})
-            section_no+=1
-    return records
+    # This is an explicit public knowledge source, not a repository search.
+    # Development reports, test outputs, logs and arbitrary added JSON files must
+    # never become scientific evidence or enter the model context.
+    path = ROOT / 'data/copilot_knowledge/science.json'
+    return json.loads(path.read_text(encoding='utf-8'))
+
 
 
 @lru_cache(maxsize=4)

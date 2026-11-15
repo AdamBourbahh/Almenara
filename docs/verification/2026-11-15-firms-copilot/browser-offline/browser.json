@@ -1,0 +1,1248 @@
+{
+  "records": [
+    {
+      "case": "browser loads real history in offline mode without any external request",
+      "result": "passed",
+      "requests": [
+        {
+          "url": "http://127.0.0.1:18501/api/cube/sync-status",
+          "body": null
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/analyze",
+          "body": {
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -69.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -31
+                  ]
+                ]
+              ]
+            },
+            "start_year": 2000,
+            "end_year": 2026,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "confidence_level": "nominal"
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/map-period?start_date=2026-01-01&end_date=2026-12-31",
+          "body": {
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -69.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -31
+                  ]
+                ]
+              ]
+            },
+            "start_year": 2026,
+            "end_year": 2026,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "confidence_level": "nominal"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "url": "http://127.0.0.1:18501/api/analyze",
+          "body": {
+            "data_source": "real",
+            "query_hash": "a247c45f9b87269323295be16761d9b3edca853479b84a19c42ad172488e51c7",
+            "aoi_area_km2": 150830.5896316692,
+            "calendar_days": 9510,
+            "first_date": "2000-11-01",
+            "last_date": "2026-11-14",
+            "map_hexagons": 9307
+          }
+        }
+      ]
+    },
+    {
+      "case": "partial year entry remains editable and Cancel preserves the applied year",
+      "result": "passed",
+      "requests": [],
+      "responses": []
+    },
+    {
+      "case": "leap-day selection reaches the backend with exactly one UTC date",
+      "result": "passed",
+      "requests": [
+        {
+          "url": "http://127.0.0.1:18501/api/map-period?start_date=2024-02-29&end_date=2024-02-29",
+          "body": {
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -69.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -31
+                  ]
+                ]
+              ]
+            },
+            "start_year": 2024,
+            "end_year": 2024,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "confidence_level": "nominal"
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "region_name": "Chilecito, La Rioja (Argentina)",
+            "selected_day": {
+              "date": "2024-02-29",
+              "year": 2024,
+              "doy": 60,
+              "raw_hotspot_count": 4,
+              "raw_frp_mw": 21.899999618530273,
+              "harmonized_fre_mj_km2": 0.20492936124287722,
+              "historical_cross_prior_fre": 0.4521211901680418,
+              "ci_95_lower": 0,
+              "ci_95_upper": 4.102988616733385,
+              "uncertainty_pct": 99.9,
+              "biomass_burned_tonnes": 11.37473883119046,
+              "pm25_emitted_kg": null,
+              "z_score_anomaly": -0.026248663008373002,
+              "is_gap_filled": false,
+              "is_forecast": false,
+              "gap_reason": null,
+              "active_sensors": [
+                "SNPP",
+                "NOAA-20",
+                "NOAA-21"
+              ],
+              "tooltip_narrative": "Observed energy is a sampling proxy. Zero reported energy does not establish no fire.",
+              "observation_status": "detected",
+              "pm25_factor_sd_kg": null
+            },
+            "selected_hex": null,
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -69.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -31
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2024-02-29",
+            "period_end": "2024-02-29",
+            "prefer_map_context": true,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "previous_context": null,
+            "conversation": [],
+            "user_question": "How many detections here?"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+            "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **4 satellite detections** in the **Chilecito, La Rioja (Argentina)** for **2024-02-29** (N20, N21, SNPP). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **21.90 MW**.\n- Strongest individual detection: **6.91 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+            "citations": [
+              {
+                "id": "[5]",
+                "source_type": "NASA_DATASET",
+                "title": "NASA FIRMS active fire observations",
+                "authors_or_agency": "NASA EOSDIS LANCE",
+                "year": 2026,
+                "dataset_or_doi": "NASA Earthdata / FIRMS",
+                "url": "https://firms.modaps.eosdis.nasa.gov/",
+                "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+              }
+            ],
+            "web_search_used": false,
+            "search_query_executed": null,
+            "model_used": "deterministic-local-observations",
+            "data_source": "real",
+            "map_context": {
+              "label": "Chilecito, La Rioja (Argentina)",
+              "aoi": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      -69.5,
+                      -31
+                    ],
+                    [
+                      -65.5,
+                      -31
+                    ],
+                    [
+                      -65.5,
+                      -27.5
+                    ],
+                    [
+                      -69.5,
+                      -27.5
+                    ],
+                    [
+                      -69.5,
+                      -31
+                    ]
+                  ]
+                ]
+              },
+              "period_start": "2024-02-29",
+              "period_end": "2024-02-29",
+              "h3_index": null
+            },
+            "answer_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **4 satellite detections** in the **Chilecito, La Rioja (Argentina)** for **2024-02-29** (N20, N21, SNPP). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **21.90 MW**.\n- Strongest individual detection: **6.91 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+            "provider_used": "deterministic-local-observations",
+            "episode_summary": null,
+            "guardrail_triggered": false,
+            "verified_calculations": null,
+            "suggested_prompts": [],
+            "evidence_sources": [
+              "local_cube"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case": "inclusive cross-year selection drives both yearly map requests and the same chat interval",
+      "result": "passed",
+      "requests": [
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "region_name": "Chilecito, La Rioja (Argentina)",
+            "selected_day": null,
+            "selected_hex": null,
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -69.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -31
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2025-12-31",
+            "period_end": "2026-01-02",
+            "prefer_map_context": true,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "previous_context": null,
+            "conversation": [],
+            "user_question": "How much energy in GJ here?"
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/map-period?start_date=2025-12-31&end_date=2025-12-31",
+          "body": {
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -69.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -31
+                  ]
+                ]
+              ]
+            },
+            "start_year": 2025,
+            "end_year": 2025,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "confidence_level": "nominal"
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/map-period?start_date=2026-01-01&end_date=2026-01-02",
+          "body": {
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -69.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -31
+                  ]
+                ]
+              ]
+            },
+            "start_year": 2026,
+            "end_year": 2026,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "confidence_level": "nominal"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "physical_classification": "LOCAL_ENERGY_SUMMARY",
+            "explanation_markdown": "**710.871 GJ** of mapped, observation-based energy proxy for **2025-12-31 to 2026-01-02** in **Chilecito, La Rioja (Argentina)**. [6]\n\nRegional temporal estimate: **710.871 GJ**, over **3 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **261.601 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **65.403 km²**; selected polygon: **150,830.590 km²**. Available through **2026-01-02**. Industrial sources excluded.\n\nRequested yearly totals: 2025: **365.928 GJ**; 2026: **344.944 GJ**. [6]\n\n### Satellite observations\n\nThe local FIRMS archive contains **37 satellite detections** in the **Chilecito, La Rioja (Argentina)** for **2025-12-31 to 2026-01-02** (N20, N21, SNPP). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **315.18 MW**.\n- Strongest individual detection: **19.38 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+            "citations": [
+              {
+                "id": "[5]",
+                "source_type": "NASA_DATASET",
+                "title": "NASA FIRMS active fire observations",
+                "authors_or_agency": "NASA EOSDIS LANCE",
+                "year": 2026,
+                "dataset_or_doi": "NASA Earthdata / FIRMS",
+                "url": "https://firms.modaps.eosdis.nasa.gov/",
+                "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+              },
+              {
+                "id": "[6]",
+                "source_type": "NASA_DATASET",
+                "title": "Local FIRMS-Harmonizer scientific cube",
+                "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+                "year": 2026,
+                "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+                "url": null,
+                "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+              },
+              {
+                "id": "[1]",
+                "source_type": "PEER_REVIEWED",
+                "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+                "authors_or_agency": "Wooster et al.",
+                "year": 2005,
+                "dataset_or_doi": "10.1029/2005JD006318",
+                "url": "https://doi.org/10.1029/2005JD006318",
+                "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+              }
+            ],
+            "web_search_used": false,
+            "search_query_executed": null,
+            "model_used": "deterministic-local-observations",
+            "data_source": "real",
+            "map_context": {
+              "label": "Chilecito, La Rioja (Argentina)",
+              "aoi": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      -69.5,
+                      -31
+                    ],
+                    [
+                      -65.5,
+                      -31
+                    ],
+                    [
+                      -65.5,
+                      -27.5
+                    ],
+                    [
+                      -69.5,
+                      -27.5
+                    ],
+                    [
+                      -69.5,
+                      -31
+                    ]
+                  ]
+                ]
+              },
+              "period_start": "2025-12-31",
+              "period_end": "2026-01-02",
+              "h3_index": null
+            },
+            "answer_markdown": "**710.871 GJ** of mapped, observation-based energy proxy for **2025-12-31 to 2026-01-02** in **Chilecito, La Rioja (Argentina)**. [6]\n\nRegional temporal estimate: **710.871 GJ**, over **3 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **261.601 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **65.403 km²**; selected polygon: **150,830.590 km²**. Available through **2026-01-02**. Industrial sources excluded.\n\nRequested yearly totals: 2025: **365.928 GJ**; 2026: **344.944 GJ**. [6]\n\n### Satellite observations\n\nThe local FIRMS archive contains **37 satellite detections** in the **Chilecito, La Rioja (Argentina)** for **2025-12-31 to 2026-01-02** (N20, N21, SNPP). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **315.18 MW**.\n- Strongest individual detection: **19.38 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+            "provider_used": "deterministic-local-observations",
+            "episode_summary": null,
+            "guardrail_triggered": false,
+            "verified_calculations": {
+              "items": [
+                {
+                  "label": "Total radiative energy",
+                  "formula": "Σ daily FRE (MJ/km²) × represented cell area (km²) ÷ 1,000 over 3 days = 710.871 GJ",
+                  "value": 710.8713800457941,
+                  "unit": "GJ"
+                },
+                {
+                  "label": "Consumed dry biomass",
+                  "formula": "710.871 GJ × 0.368 t/GJ = 261.601 t",
+                  "value": 261.6006678568522,
+                  "unit": "t"
+                }
+              ],
+              "note": "Energy is a model-derived estimate from sampled satellite observations, not a continuous physical measurement. Biomass uses the Wooster combustion factor of 0.368 t per GJ."
+            },
+            "suggested_prompts": [],
+            "evidence_sources": [
+              "local_cube",
+              "verified_calculation",
+              "knowledge"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case": "a reversed range is visibly rejected and leaves the applied interval intact",
+      "result": "passed",
+      "requests": [],
+      "responses": []
+    },
+    {
+      "case": "removing context stops geometry, dates and prior context from reaching the API",
+      "result": "passed",
+      "requests": [
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "region_name": "No attached location",
+            "selected_day": null,
+            "selected_hex": null,
+            "aoi": null,
+            "period_start": null,
+            "period_end": null,
+            "prefer_map_context": true,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "previous_context": null,
+            "conversation": [],
+            "user_question": "How many detections?"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "physical_classification": "INSUFFICIENT_CONTEXT",
+            "explanation_markdown": "Choose a place and a date or year to query local detections.",
+            "citations": [],
+            "web_search_used": false,
+            "search_query_executed": null,
+            "model_used": "deterministic-local-observations",
+            "data_source": "real",
+            "map_context": null,
+            "answer_markdown": "Choose a place and a date or year to query local detections.",
+            "provider_used": "deterministic-local-observations",
+            "episode_summary": null,
+            "guardrail_triggered": false,
+            "verified_calculations": null,
+            "suggested_prompts": [],
+            "evidence_sources": []
+          }
+        }
+      ]
+    },
+    {
+      "case": "an explicit new day reattaches context and excludes the previous interval history",
+      "result": "passed",
+      "requests": [
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "region_name": "Chilecito, La Rioja (Argentina)",
+            "selected_day": {
+              "date": "2026-07-24",
+              "year": 2026,
+              "doy": 205,
+              "raw_hotspot_count": 11,
+              "raw_frp_mw": 48.75999915599823,
+              "harmonized_fre_mj_km2": 0.5375417761746412,
+              "historical_cross_prior_fre": 4.781567435531265,
+              "ci_95_lower": 0,
+              "ci_95_upper": 4.3700893643561205,
+              "uncertainty_pct": 99.9,
+              "biomass_burned_tonnes": 29.836609443163923,
+              "pm25_emitted_kg": null,
+              "z_score_anomaly": -0.45066214290224593,
+              "is_gap_filled": false,
+              "is_forecast": false,
+              "gap_reason": null,
+              "active_sensors": [
+                "SNPP",
+                "NOAA-20",
+                "NOAA-21"
+              ],
+              "tooltip_narrative": "Observed energy is a sampling proxy. Zero reported energy does not establish no fire.",
+              "observation_status": "detected",
+              "pm25_factor_sd_kg": null
+            },
+            "selected_hex": null,
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -69.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -31
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "prefer_map_context": true,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "previous_context": null,
+            "conversation": [],
+            "user_question": "How many detections here?"
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/map-period?start_date=2026-07-24&end_date=2026-07-24",
+          "body": {
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -69.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -31
+                  ],
+                  [
+                    -65.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -27.5
+                  ],
+                  [
+                    -69.5,
+                    -31
+                  ]
+                ]
+              ]
+            },
+            "start_year": 2026,
+            "end_year": 2026,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "confidence_level": "nominal"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+            "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **11 satellite detections** in the **Chilecito, La Rioja (Argentina)** for **2026-07-24** (N20, N21, SNPP). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **48.76 MW**.\n- Strongest individual detection: **11.48 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+            "citations": [
+              {
+                "id": "[5]",
+                "source_type": "NASA_DATASET",
+                "title": "NASA FIRMS active fire observations",
+                "authors_or_agency": "NASA EOSDIS LANCE",
+                "year": 2026,
+                "dataset_or_doi": "NASA Earthdata / FIRMS",
+                "url": "https://firms.modaps.eosdis.nasa.gov/",
+                "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+              }
+            ],
+            "web_search_used": false,
+            "search_query_executed": null,
+            "model_used": "deterministic-local-observations",
+            "data_source": "real",
+            "map_context": {
+              "label": "Chilecito, La Rioja (Argentina)",
+              "aoi": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      -69.5,
+                      -31
+                    ],
+                    [
+                      -65.5,
+                      -31
+                    ],
+                    [
+                      -65.5,
+                      -27.5
+                    ],
+                    [
+                      -69.5,
+                      -27.5
+                    ],
+                    [
+                      -69.5,
+                      -31
+                    ]
+                  ]
+                ]
+              },
+              "period_start": "2026-07-24",
+              "period_end": "2026-07-24",
+              "h3_index": null
+            },
+            "answer_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **11 satellite detections** in the **Chilecito, La Rioja (Argentina)** for **2026-07-24** (N20, N21, SNPP). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **48.76 MW**.\n- Strongest individual detection: **11.48 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+            "provider_used": "deterministic-local-observations",
+            "episode_summary": null,
+            "guardrail_triggered": false,
+            "verified_calculations": null,
+            "suggested_prompts": [],
+            "evidence_sources": [
+              "local_cube"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case": "changing the area preserves the chosen date and sends the new polygon",
+      "result": "passed",
+      "requests": [
+        {
+          "url": "http://127.0.0.1:18501/api/analyze",
+          "body": {
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.5,
+                    40.199999999999996
+                  ],
+                  [
+                    -4.1,
+                    40.199999999999996
+                  ],
+                  [
+                    -4.1,
+                    40.6
+                  ],
+                  [
+                    -4.5,
+                    40.6
+                  ],
+                  [
+                    -4.5,
+                    40.199999999999996
+                  ]
+                ]
+              ]
+            },
+            "start_year": 2000,
+            "end_year": 2026,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "confidence_level": "nominal"
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/map-period?start_date=2026-07-24&end_date=2026-07-24",
+          "body": {
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.5,
+                    40.199999999999996
+                  ],
+                  [
+                    -4.1,
+                    40.199999999999996
+                  ],
+                  [
+                    -4.1,
+                    40.6
+                  ],
+                  [
+                    -4.5,
+                    40.6
+                  ],
+                  [
+                    -4.5,
+                    40.199999999999996
+                  ]
+                ]
+              ]
+            },
+            "start_year": 2026,
+            "end_year": 2026,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "confidence_level": "nominal"
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "region_name": "Selected area at 40.400°, -4.300°",
+            "selected_day": null,
+            "selected_hex": null,
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.5,
+                    40.199999999999996
+                  ],
+                  [
+                    -4.1,
+                    40.199999999999996
+                  ],
+                  [
+                    -4.1,
+                    40.6
+                  ],
+                  [
+                    -4.5,
+                    40.6
+                  ],
+                  [
+                    -4.5,
+                    40.199999999999996
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "prefer_map_context": true,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "previous_context": null,
+            "conversation": [],
+            "user_question": "How many detections here?"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "url": "http://127.0.0.1:18501/api/analyze",
+          "body": {
+            "data_source": "real",
+            "query_hash": "ceb0509e357b2de9936e4396151557bf9e59fb9b2a831eb60a5ca36e73dda2a2",
+            "aoi_area_km2": 1508.2788612775878,
+            "calendar_days": 9510,
+            "first_date": "2000-11-01",
+            "last_date": "2026-11-14",
+            "map_hexagons": 225
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+            "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **807 satellite detections** in the **Selected area at 40.400°, -4.300°** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **57,546.91 MW**.\n- Strongest individual detection: **1,237.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+            "citations": [
+              {
+                "id": "[5]",
+                "source_type": "NASA_DATASET",
+                "title": "NASA FIRMS active fire observations",
+                "authors_or_agency": "NASA EOSDIS LANCE",
+                "year": 2026,
+                "dataset_or_doi": "NASA Earthdata / FIRMS",
+                "url": "https://firms.modaps.eosdis.nasa.gov/",
+                "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+              }
+            ],
+            "web_search_used": false,
+            "search_query_executed": null,
+            "model_used": "deterministic-local-observations",
+            "data_source": "real",
+            "map_context": {
+              "label": "Selected area at 40.400°, -4.300°",
+              "aoi": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      -4.5,
+                      40.199999999999996
+                    ],
+                    [
+                      -4.1,
+                      40.199999999999996
+                    ],
+                    [
+                      -4.1,
+                      40.6
+                    ],
+                    [
+                      -4.5,
+                      40.6
+                    ],
+                    [
+                      -4.5,
+                      40.199999999999996
+                    ]
+                  ]
+                ]
+              },
+              "period_start": "2026-07-24",
+              "period_end": "2026-07-24",
+              "h3_index": null
+            },
+            "answer_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **807 satellite detections** in the **Selected area at 40.400°, -4.300°** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **57,546.91 MW**.\n- Strongest individual detection: **1,237.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+            "provider_used": "deterministic-local-observations",
+            "episode_summary": null,
+            "guardrail_triggered": false,
+            "verified_calculations": null,
+            "suggested_prompts": [],
+            "evidence_sources": [
+              "local_cube"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case": "clicking a real rendered hex attaches its exact H3 index and date",
+      "result": "passed",
+      "requests": [
+        {
+          "url": "http://127.0.0.1:18501/api/analyze",
+          "body": {
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.371869673105077,
+                    40.29287197221108
+                  ],
+                  [
+                    -3.9718696731050764,
+                    40.29287197221108
+                  ],
+                  [
+                    -3.9718696731050764,
+                    40.69287197221109
+                  ],
+                  [
+                    -4.371869673105077,
+                    40.69287197221109
+                  ],
+                  [
+                    -4.371869673105077,
+                    40.29287197221108
+                  ]
+                ]
+              ]
+            },
+            "start_year": 2000,
+            "end_year": 2026,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "confidence_level": "nominal"
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/map-period?start_date=2026-07-24&end_date=2026-07-24",
+          "body": {
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.371869673105077,
+                    40.29287197221108
+                  ],
+                  [
+                    -3.9718696731050764,
+                    40.29287197221108
+                  ],
+                  [
+                    -3.9718696731050764,
+                    40.69287197221109
+                  ],
+                  [
+                    -4.371869673105077,
+                    40.69287197221109
+                  ],
+                  [
+                    -4.371869673105077,
+                    40.29287197221108
+                  ]
+                ]
+              ]
+            },
+            "start_year": 2026,
+            "end_year": 2026,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "confidence_level": "nominal"
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "region_name": "Map cell at 40.493°, -4.172°",
+            "selected_day": {
+              "date": "2026-07-24",
+              "year": 2026,
+              "doy": 205,
+              "raw_hotspot_count": 659,
+              "raw_frp_mw": 49304.44037985802,
+              "harmonized_fre_mj_km2": 28303.407927468408,
+              "historical_cross_prior_fre": 1521.1536374467362,
+              "ci_95_lower": 28300.74519254045,
+              "ci_95_upper": 28306.070662396367,
+              "uncertainty_pct": 1,
+              "biomass_burned_tonnes": 15688.355373412256,
+              "pm25_emitted_kg": null,
+              "z_score_anomaly": 65.65842778648305,
+              "is_gap_filled": false,
+              "is_forecast": false,
+              "gap_reason": null,
+              "active_sensors": [
+                "Terra",
+                "Aqua",
+                "SNPP",
+                "NOAA-20",
+                "NOAA-21"
+              ],
+              "tooltip_narrative": "Observed energy is a sampling proxy. Zero reported energy does not establish no fire.",
+              "observation_status": "detected",
+              "pm25_factor_sd_kg": null
+            },
+            "selected_hex": {
+              "h3_index": "87390c820ffffff",
+              "mean_annual_fre": 175960.953125,
+              "raw_pixel_count": 1,
+              "trend_slope": 0,
+              "is_industrial_site": false,
+              "shannon_entropy": 0
+            },
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.371869673105077,
+                    40.29287197221108
+                  ],
+                  [
+                    -3.9718696731050764,
+                    40.29287197221108
+                  ],
+                  [
+                    -3.9718696731050764,
+                    40.69287197221109
+                  ],
+                  [
+                    -4.371869673105077,
+                    40.69287197221109
+                  ],
+                  [
+                    -4.371869673105077,
+                    40.29287197221108
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "prefer_map_context": true,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "previous_context": null,
+            "conversation": [],
+            "user_question": "How many detections in this hexagon?"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "url": "http://127.0.0.1:18501/api/analyze",
+          "body": {
+            "data_source": "real",
+            "query_hash": "4ab154a36819baa9782e5298d82e09214135a2bf4f336a817073eb93c6442947",
+            "aoi_area_km2": 1506.2285283976441,
+            "calendar_days": 9510,
+            "first_date": "2000-11-01",
+            "last_date": "2026-11-14",
+            "map_hexagons": 161
+          }
+        },
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+            "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **1 satellite detection** in the **Selected H3 cell 87390c820ffffff** for **2026-07-24** (Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **227.70 MW**.\n- Strongest individual detection: **227.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+            "citations": [
+              {
+                "id": "[5]",
+                "source_type": "NASA_DATASET",
+                "title": "NASA FIRMS active fire observations",
+                "authors_or_agency": "NASA EOSDIS LANCE",
+                "year": 2026,
+                "dataset_or_doi": "NASA Earthdata / FIRMS",
+                "url": "https://firms.modaps.eosdis.nasa.gov/",
+                "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+              }
+            ],
+            "web_search_used": false,
+            "search_query_executed": null,
+            "model_used": "deterministic-local-observations",
+            "data_source": "real",
+            "map_context": {
+              "label": "Selected H3 cell 87390c820ffffff",
+              "aoi": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      -4.175261118133144,
+                      40.50584587264336
+                    ],
+                    [
+                      -4.18761249902647,
+                      40.497265457734656
+                    ],
+                    [
+                      -4.184218908794724,
+                      40.48429108038296
+                    ],
+                    [
+                      -4.168479526271543,
+                      40.47989792289107
+                    ],
+                    [
+                      -4.15613084197882,
+                      40.48847689082822
+                    ],
+                    [
+                      -4.1595188433626165,
+                      40.501450462847664
+                    ],
+                    [
+                      -4.175261118133144,
+                      40.50584587264336
+                    ]
+                  ]
+                ]
+              },
+              "period_start": "2026-07-24",
+              "period_end": "2026-07-24",
+              "h3_index": "87390c820ffffff"
+            },
+            "answer_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **1 satellite detection** in the **Selected H3 cell 87390c820ffffff** for **2026-07-24** (Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **227.70 MW**.\n- Strongest individual detection: **227.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+            "provider_used": "deterministic-local-observations",
+            "episode_summary": null,
+            "guardrail_triggered": false,
+            "verified_calculations": null,
+            "suggested_prompts": [],
+            "evidence_sources": [
+              "local_cube"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "case": "clearing chat removes prior messages and a fresh question carries no hidden conversation",
+      "result": "passed",
+      "requests": [
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "region_name": "No attached location",
+            "selected_day": null,
+            "selected_hex": null,
+            "aoi": null,
+            "period_start": null,
+            "period_end": null,
+            "prefer_map_context": true,
+            "exclude_industrial_flaring": true,
+            "enable_kalman_gap_filling": true,
+            "previous_context": null,
+            "conversation": [],
+            "user_question": "What is FRP?"
+          }
+        }
+      ],
+      "responses": [
+        {
+          "url": "http://127.0.0.1:18501/api/explain-spike",
+          "body": {
+            "physical_classification": "SCIENTIFIC_EXPLANATION",
+            "explanation_markdown": "FRP is instantaneous fire radiative power in MW (one MJ per second). FRE is time-integrated energy in MJ; the dashboard reports daily density in MJ/km². Satellite power samples need a documented integration method before energy or biomass can be estimated. [1]",
+            "citations": [
+              {
+                "id": "[1]",
+                "source_type": "PEER_REVIEWED",
+                "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+                "authors_or_agency": "Wooster et al.",
+                "year": 2005,
+                "dataset_or_doi": "10.1029/2005JD006318",
+                "url": "https://doi.org/10.1029/2005JD006318",
+                "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+              }
+            ],
+            "web_search_used": false,
+            "search_query_executed": null,
+            "model_used": "deterministic-local-science",
+            "data_source": "real",
+            "map_context": null,
+            "answer_markdown": "FRP is instantaneous fire radiative power in MW (one MJ per second). FRE is time-integrated energy in MJ; the dashboard reports daily density in MJ/km². Satellite power samples need a documented integration method before energy or biomass can be estimated. [1]",
+            "provider_used": "deterministic-local-science",
+            "episode_summary": null,
+            "guardrail_triggered": false,
+            "verified_calculations": null,
+            "suggested_prompts": [],
+            "evidence_sources": [
+              "knowledge"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "external_requests": []
+}

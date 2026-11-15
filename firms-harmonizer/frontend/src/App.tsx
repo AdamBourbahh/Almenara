@@ -68,7 +68,7 @@ export default function App() {
 
           <div className="ml-auto flex max-w-full flex-wrap items-center gap-2 pb-2 2xl:pb-0">
             <CubeSyncWidget />
-            <button type="button" onClick={() => useAnalysisStore.getState().toggleCopilot()} className="flex items-center gap-1 border border-rule px-2 py-1.5 text-xs"><Sparkles className="h-4 w-4" />Fire Copilot</button>
+            <button type="button" onClick={() => useAnalysisStore.getState().toggleCopilot()} className="flex items-center gap-1 border border-rule px-2 py-1.5 text-xs"><Sparkles className="h-4 w-4" />FIRMS Copilot</button>
             <SettingsPanel />
 
           </div>

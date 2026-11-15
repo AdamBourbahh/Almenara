@@ -105,7 +105,7 @@ def test_domain_gate_refuses_before_any_model_database_or_web_call(monkeypatch, 
     assert result.physical_classification == 'OFF_TOPIC_REFUSAL'
     assert result.web_search_used is False and result.search_query_executed is None
     assert result.citations == [] and result.evidence_sources == ['guardrail']
-    assert 'Wildfire & Land Management Copilot' in result.explanation_markdown
+    assert 'FIRMS Copilot' in result.explanation_markdown
     assert 2 <= len(result.suggested_prompts) <= 3
     assert all('Chilecito' in prompt for prompt in result.suggested_prompts)
     assert 'As a land manager' not in result.explanation_markdown

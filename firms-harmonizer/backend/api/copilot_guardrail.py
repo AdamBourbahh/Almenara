@@ -79,7 +79,7 @@ def suggestions(req: ExplainSpikeRequest) -> list[str]:
 
 def refusal(req: ExplainSpikeRequest, data_source: str) -> ExplainSpikeResponse:
     prompts = suggestions(req)
-    text = ('I am a specialized Wildfire & Land Management Copilot. I focus on fire activity, burning seasons, '
+    text = ('I am FIRMS Copilot, specializing in wildfire and land management. I focus on fire activity, burning seasons, '
             'biomass and smoke estimates, land and forestry questions, and the satellite record behind this dashboard, '
             'so I cannot help with that request.\n\nQuestions I can answer here:\n\n' + '\n'.join(f'- {p}' for p in prompts))
     return ExplainSpikeResponse(physical_classification='OFF_TOPIC_REFUSAL', explanation_markdown=text,

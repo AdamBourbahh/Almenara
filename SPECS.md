@@ -839,7 +839,7 @@ All computation runs locally. The geometry/date/cube-keyed LRU caches completed 
 Cold timings include database aggregation and new model fitting. The risk endpoint stays
 separate from map, chronology and the existing nullable FRE forecast series.
 
-### 5.7 Evidence-first Fire Copilot (2026-11-14)
+### 5.7 Evidence-first FIRMS Copilot (2026-11-14)
 
 `POST /api/explain-spike` retains its existing fields and response shape. Additive,
 optional request fields `conversation` (at most 12 user/assistant turns, 6,000
@@ -876,7 +876,7 @@ scope precedence, follow-ups, exact dates, provenance, concurrency and provider 
 ### 5.6 Automatic map context and question-led answers (2026-11-14)
 
 An explicit area, hexagon or chronology selection automatically attaches location and
-its exact day/month/year to Fire Copilot. The composer shows one removable “Area and
+its exact day/month/year to FIRMS Copilot. The composer shows one removable “Area and
 day/period added as context” notice, with location and date. It has only an X action;
 there are no pin/follow-map controls or separate date inputs. Removing the attachment
 clears geometry, dates and prior-scope inference from subsequent requests. Hovering
@@ -1167,3 +1167,14 @@ controlled transport faults and real browser flows are reported separately.
 ## Branch consolidation (2026-11-15)
 
 All branch histories are consolidated in main. Streaming archive ETL, cloud/swath ancillary acquisition and the calculation/provenance Copilot tools coexist with the current scientific policy and Gemini incident investigator. Pipeline defaults and fixtures use the four current study regions; missing ancillary values remain null. Coordinated pipeline fixture/hash revisions preserve border, deduplication and SAMA controls without restoring retired regions. Numerical quantity checks preserve units; comparison questions may name years in either order while reversed explicit date ranges remain invalid. Backend contract hashes remain unchanged. See docs/verification/2026-11-15-branch-consolidation/ at the repository root for branch-tip inventory and test evidence.
+
+
+### FIRMS Copilot public knowledge boundary (2026-11-15)
+
+The interface and assistant identity use FIRMS Copilot. Local knowledge retrieval
+reads only the explicitly approved `data/copilot_knowledge/science.json`. Historical
+ETL documentation, verification reports, test fixtures, logs, environment files and
+arbitrary JSON documents are excluded from retrieval. Scientific measurements still
+come from the bounded database tools; curated incident URLs remain discovery leads
+and require independently retrieved article evidence. This is a retrieval boundary,
+not a guarantee that every model-generated claim is correct.

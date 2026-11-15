@@ -709,3 +709,27 @@ All branch histories are consolidated in main. Streaming archive ETL, cloud/swat
 
 Reintroduced the previous 512-position/16-ring limit together with the removal of the cell-traced AOI: the higher limit existed only to serve that feature. The 250,000 R7 cells and 1,250,000 km² geodesic area guards are unchanged.
 
+
+
+## 2026-11-15 ? FIRMS Copilot naming and evidence isolation
+
+Renamed the visible assistant and model identity to FIRMS Copilot. Retrieval now
+reads only the approved public `data/copilot_knowledge/science.json`; the historical
+ETL documentation previously admitted fixture numbers, obsolete publication claims
+and pytest summaries through nested headings. Other JSON additions, logs and
+environment files cannot enter this index. The read-only database tools and fetched
+incident articles remain separate evidence sources. No public API contract changed.
+
+Rebuilt the stale local real dataset through the current offline ETL: nominal
+729,742 rows, low-confidence 763,627 rows and high-confidence 126,695 rows, with
+1,577,454 accepted centers and 1,874,100 staging contributions. The generated EQM
+lookup is synchronized to these inputs. Missing ancillary values are null and
+measured MCD64A1 inputs are retained. The release pins validated data in the existing
+Artifact Registry; the application image no longer depends on a mutable download
+or a local Hugging Face write session.
+
+Audit portability fixes retain independent calculations: auxiliary values are
+checked against their input table rather than assumed absent; empty energy periods
+are checked as empty or exactly zero according to archive support; Windows event-loop
+initialization precedes blocking network sockets; screenshots use native file paths.
+Evidence and reproduction commands: `../docs/verification/2026-11-15-firms-copilot/`.

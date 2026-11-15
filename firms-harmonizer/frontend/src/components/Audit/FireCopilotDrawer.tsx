@@ -356,7 +356,7 @@ function VerifiedCalculationCard({ response }: { response: ExplainSpikeResponse 
 }
 
 // ============================================================================
-// Main Fire Copilot Drawer Component
+// Main FIRMS Copilot Drawer Component
 // ============================================================================
 
 export function FireCopilotDrawer() {
@@ -419,7 +419,7 @@ export function FireCopilotDrawer() {
 
       {/* Slide-over Drawer */}
       <aside
-        aria-label="Fire AI Copilot"
+        aria-label="FIRMS Copilot"
         className="absolute inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-rule bg-panel shadow-2xl transition-transform"
       >
         {/* Header */}
@@ -430,7 +430,7 @@ export function FireCopilotDrawer() {
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-serif text-base font-semibold text-ink">Fire AI Copilot</h3>
+                <h3 className="font-serif text-base font-semibold text-ink">FIRMS Copilot</h3>
                 <span className="inline-flex items-center gap-1 rounded-full bg-validated/10 px-2 py-0.5 text-[10px] font-medium text-validated border border-validated/25">
                   <Radio className="h-2.5 w-2.5 animate-pulse" />
                   Evidence first
@@ -472,7 +472,7 @@ export function FireCopilotDrawer() {
                 <Sparkles className="h-6 w-6" />
               </div>
               <h4 className="font-serif text-lg font-semibold text-ink">
-                Explore your fire data
+                Explore your FIRMS data
               </h4>
               <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted">
                 Ask about a place and date, or inspect the selected map area. Answers distinguish
@@ -517,7 +517,7 @@ export function FireCopilotDrawer() {
                     <div className="mb-2.5 flex flex-wrap items-center gap-1.5 border-b border-rule pb-2">
                       <span className="flex items-center gap-1 font-serif text-xs font-semibold text-ink">
                         <Bot className="h-3.5 w-3.5 text-reference" />
-                        FIRMS AI
+                        FIRMS Copilot
                       </span>
 
                       {/* Provider Badge */}
@@ -621,7 +621,7 @@ export function FireCopilotDrawer() {
               placeholder="Ask about a place, date or follow-up…"
               disabled={copilotLoading}
               maxLength={6000}
-              aria-label="Question for Fire Copilot"
+              aria-label="Question for FIRMS Copilot"
               className="flex-1 rounded border border-rule bg-paper px-3 py-2 text-xs text-ink placeholder:text-faint focus:border-reference focus:outline-none focus:ring-1 focus:ring-reference"
             />
             <button

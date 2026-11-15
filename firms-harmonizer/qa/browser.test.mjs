@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import {after, afterEach, before, test} from 'node:test';
 import {writeFile, mkdir} from 'node:fs/promises';
 import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
 import {chromium} from 'playwright';
 
 const requireFrontend=createRequire(new URL('../frontend/package.json',import.meta.url));
 const {cellToLatLng}=requireFrontend('h3-js');
 const origin=process.env.COPILOT_BROWSER_URL ?? 'http://127.0.0.1:15173';
-const output=new URL('../../docs/verification/2026-11-15-copilot-quality/',import.meta.url);
+const output=new URL(process.env.COPILOT_BROWSER_OUTPUT ?? '../../docs/verification/2026-11-15-firms-copilot/browser-offline/',import.meta.url);
 let browser,page,lastMap;
 const requests=[],responses=[],records=[],external=[];
 before(async()=>{
@@ -44,9 +45,12 @@ afterEach(async context=>{
   records.push({case:context.name,result:context.passed?'passed':'failed',requests:requests.splice(0),responses:responses.splice(0)});
 });
 after(async()=>{
-  await page.screenshot({path:new URL('browser-final.png',output).pathname});
-  await writeFile(new URL('browser.json',output),JSON.stringify({records,external_requests:external},null,2));
-  await browser.close();
+  try {
+    await page.screenshot({path:fileURLToPath(new URL('browser-final.png',output))});
+    await writeFile(new URL('browser.json',output),JSON.stringify({records,external_requests:external},null,2));
+  } finally {
+    await browser?.close();
+  }
 });
 async function picker(mode,start,end){
   await page.getByRole('button',{name:'Choose dates',exact:true}).click();
@@ -56,19 +60,19 @@ async function picker(mode,start,end){
 }
 async function apply(){await page.getByRole('button',{name:'Apply dates',exact:true}).click();}
 async function openChat(){
-  if(!await page.getByLabel('Fire AI Copilot',{exact:true}).count()) await page.getByRole('button',{name:'Fire Copilot',exact:true}).click();
+  if(!await page.getByLabel('FIRMS Copilot',{exact:true}).count()) await page.getByRole('button',{name:'FIRMS Copilot',exact:true}).click();
 }
 async function closeChat(){if(await page.getByTitle('Close Copilot',{exact:true}).count()) await page.getByTitle('Close Copilot',{exact:true}).click();}
 async function ask(question){
   await openChat();
   const response=page.waitForResponse(r=>r.url().includes('/api/explain-spike')&&r.request().method()==='POST',{timeout:60000});
-  await page.getByLabel('Question for Fire Copilot',{exact:true}).fill(question);
+  await page.getByLabel('Question for FIRMS Copilot',{exact:true}).fill(question);
   await page.getByTitle('Send question',{exact:true}).click();
   const received=await response;
   assert.equal(received.status(),200);
   const request=received.request().postDataJSON(),body=await received.json();
   assert.equal(body.data_source,'real');
-  await page.waitForFunction(()=>!document.querySelector('[aria-label="Question for Fire Copilot"]')?.disabled);
+  await page.waitForFunction(()=>!document.querySelector('[aria-label="Question for FIRMS Copilot"]')?.disabled);
   return {request,body};
 }
 async function searchCoordinates(lat,lon){

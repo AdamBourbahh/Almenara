@@ -139,3 +139,25 @@ rate-limit bucket because the server trusts the platform's forwarded client addr
 
 With a Hugging Face PRO subscription the same image can run as a Docker Space:
 `python deploy\publish.py space --repo <user>/firms-harmonizer --data-repo <user>/firms-harmonizer-data --wait`.
+
+
+## Pinned runtime data in Artifact Registry
+
+The active release uses the existing private image registry for runtime data.
+`RUNTIME_DATA_IMAGE` in GitHub Actions pins the data-only image by SHA-256 digest.
+The workflow copies its `/data` directory and verifies every published file checksum
+before building the application. It preserves the original timestamp manifest.
+This avoids cold-start downloads and does not require a Hugging Face write token.
+When this variable is absent, the workflow retains the public Hugging Face download path.
+
+After rebuilding and validating the real dataset, publish a new data version with:
+
+```powershell
+firms-harmonizer\.venv\Scripts\python deploy/runtime_data.py --image europe-west1-docker.pkg.dev/firms-harmonizer-2026/firms-harmonizer/runtime-data:<version>
+```
+
+Set `RUNTIME_DATA_IMAGE` to the resulting image digest before the next release.
+The data-only context contains only the existing publisher's explicit runtime file
+allowlist, its timestamp manifest and file checksums. It excludes environment files,
+logs, development reports, raw CSVs and source code. Application code still comes
+from the verified GitHub main commit; Gemini's secret reference remains in Cloud Run.

@@ -1,0 +1,4568 @@
+{
+  "files": [
+    {
+      "path": "data\\processed\\fire_cube.parquet",
+      "sha256": "5b5bf195555813fc2ff3b92ae15270a82c1bb8b55170c48f03f8acbf55fc4630",
+      "provenance": "real FIRMS inputs; locally rebuilt"
+    },
+    {
+      "path": "data\\processed\\staged_firms.parquet",
+      "sha256": "2cf2e7278e284bf1cc370ac88565388b84b6be5f1807b1ba02eced8044dbd4ab",
+      "provenance": "real FIRMS inputs; locally rebuilt"
+    }
+  ],
+  "records": [
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-23",
+        "period_end": "2026-07-23",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        986,
+        68541.01000000008,
+        "2026-07-23",
+        "2026-07-23"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2026-07-23",
+        "end": "2026-07-23",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 986,
+        "summed_frp_mw": 68541.01000000008,
+        "max_detection_frp_mw": 1830.4,
+        "first_detection": "2026-07-23",
+        "last_detection": "2026-07-23",
+        "sensors": [
+          "Aqua",
+          "N20",
+          "N21",
+          "SNPP",
+          "Terra"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-07-23",
+            "detections": 986,
+            "summed_frp_mw": 68541.01000000008
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-07-23",
+            "satellite": "Aqua",
+            "frp": 1830.4,
+            "latitude": 40.3678,
+            "longitude": -4.6504,
+            "acq_time": "1552",
+            "h3_index": "87392a68dffffff"
+          },
+          {
+            "date": "2026-07-23",
+            "satellite": "Aqua",
+            "frp": 1699.5,
+            "latitude": 40.3922,
+            "longitude": -4.5959,
+            "acq_time": "1552",
+            "h3_index": "87392a6f1ffffff"
+          },
+          {
+            "date": "2026-07-23",
+            "satellite": "Aqua",
+            "frp": 1692.6,
+            "latitude": 40.3961,
+            "longitude": -4.6022,
+            "acq_time": "1552",
+            "h3_index": "87392a6f5ffffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-07-23",
+            "detections": 986
+          }
+        ],
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[first-day]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        1860,
+        96106.79999999996,
+        "2026-07-24",
+        "2026-07-24"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2026-07-24",
+        "end": "2026-07-24",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 1860,
+        "summed_frp_mw": 96106.79999999996,
+        "max_detection_frp_mw": 1509.7,
+        "first_detection": "2026-07-24",
+        "last_detection": "2026-07-24",
+        "sensors": [
+          "Aqua",
+          "N20",
+          "N21",
+          "SNPP",
+          "Terra"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-07-24",
+            "detections": 1860,
+            "summed_frp_mw": 96106.79999999996
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-07-24",
+            "satellite": "Aqua",
+            "frp": 1509.7,
+            "latitude": 40.3508,
+            "longitude": -4.6131,
+            "acq_time": "1452",
+            "h3_index": "87392a6d4ffffff"
+          },
+          {
+            "date": "2026-07-24",
+            "satellite": "Aqua",
+            "frp": 1264.7,
+            "latitude": 40.3548,
+            "longitude": -4.6192,
+            "acq_time": "1452",
+            "h3_index": "87392a6f2ffffff"
+          },
+          {
+            "date": "2026-07-24",
+            "satellite": "Terra",
+            "frp": 1237.5,
+            "latitude": 40.3467,
+            "longitude": -4.3233,
+            "acq_time": "1009",
+            "h3_index": "87390c99effffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-07-24",
+            "detections": 1860
+          }
+        ],
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[diffusion-centers-only]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-23",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        2846,
+        164647.81000000017,
+        "2026-07-23",
+        "2026-07-24"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2026-07-23",
+        "end": "2026-07-24",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 2846,
+        "summed_frp_mw": 164647.80999999994,
+        "max_detection_frp_mw": 1830.4,
+        "first_detection": "2026-07-23",
+        "last_detection": "2026-07-24",
+        "sensors": [
+          "Aqua",
+          "N20",
+          "N21",
+          "SNPP",
+          "Terra"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-07-24",
+            "detections": 1860,
+            "summed_frp_mw": 96106.80000000003
+          },
+          {
+            "date": "2026-07-23",
+            "detections": 986,
+            "summed_frp_mw": 68541.00999999998
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-07-23",
+            "satellite": "Aqua",
+            "frp": 1830.4,
+            "latitude": 40.3678,
+            "longitude": -4.6504,
+            "acq_time": "1552",
+            "h3_index": "87392a68dffffff"
+          },
+          {
+            "date": "2026-07-23",
+            "satellite": "Aqua",
+            "frp": 1699.5,
+            "latitude": 40.3922,
+            "longitude": -4.5959,
+            "acq_time": "1552",
+            "h3_index": "87392a6f1ffffff"
+          },
+          {
+            "date": "2026-07-23",
+            "satellite": "Aqua",
+            "frp": 1692.6,
+            "latitude": 40.3961,
+            "longitude": -4.6022,
+            "acq_time": "1552",
+            "h3_index": "87392a6f5ffffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-07-23",
+            "detections": 986
+          },
+          {
+            "date": "2026-07-24",
+            "detections": 1860
+          }
+        ],
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[inclusive-range]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-28",
+        "period_end": "2026-07-28",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        70,
+        297.25,
+        "2026-07-28",
+        "2026-07-28"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2026-07-28",
+        "end": "2026-07-28",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 70,
+        "summed_frp_mw": 297.24999999999994,
+        "max_detection_frp_mw": 147.3,
+        "first_detection": "2026-07-28",
+        "last_detection": "2026-07-28",
+        "sensors": [
+          "Aqua",
+          "N20",
+          "N21",
+          "SNPP"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-07-28",
+            "detections": 70,
+            "summed_frp_mw": 297.24999999999994
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-07-28",
+            "satellite": "Aqua",
+            "frp": 147.3,
+            "latitude": 40.4064,
+            "longitude": -4.394,
+            "acq_time": "1546",
+            "h3_index": "87390c9b3ffffff"
+          },
+          {
+            "date": "2026-07-28",
+            "satellite": "Aqua",
+            "frp": 16.4,
+            "latitude": 40.3493,
+            "longitude": -4.7771,
+            "acq_time": "0443",
+            "h3_index": "87392a6b1ffffff"
+          },
+          {
+            "date": "2026-07-28",
+            "satellite": "Aqua",
+            "frp": 13.9,
+            "latitude": 40.342,
+            "longitude": -4.769,
+            "acq_time": "0443",
+            "h3_index": "87392a686ffffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-07-28",
+            "detections": 70
+          }
+        ],
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[after-cutoff]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-31",
+        "period_end": "2026-07-31",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        5,
+        233.2,
+        "2026-07-31",
+        "2026-07-31"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2026-07-31",
+        "end": "2026-07-31",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 5,
+        "summed_frp_mw": 233.2,
+        "max_detection_frp_mw": 70.55,
+        "first_detection": "2026-07-31",
+        "last_detection": "2026-07-31",
+        "sensors": [
+          "Aqua",
+          "N20",
+          "N21"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-07-31",
+            "detections": 5,
+            "summed_frp_mw": 233.2
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-07-31",
+            "satellite": "N20",
+            "frp": 70.55,
+            "latitude": 40.40487,
+            "longitude": -4.3908,
+            "acq_time": "1321",
+            "h3_index": "87390c9b3ffffff"
+          },
+          {
+            "date": "2026-07-31",
+            "satellite": "N20",
+            "frp": 70.55,
+            "latitude": 40.40816,
+            "longitude": -4.39159,
+            "acq_time": "1321",
+            "h3_index": "87390c9b3ffffff"
+          },
+          {
+            "date": "2026-07-31",
+            "satellite": "Aqua",
+            "frp": 31.1,
+            "latitude": 40.3227,
+            "longitude": -4.3316,
+            "acq_time": "1601",
+            "h3_index": "87390cd6dffffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-07-31",
+            "detections": 5
+          }
+        ],
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[reactivation]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-08-01",
+        "period_end": "2026-08-01",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        14,
+        497.96,
+        "2026-08-01",
+        "2026-08-01"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2026-08-01",
+        "end": "2026-08-01",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 14,
+        "summed_frp_mw": 497.96000000000004,
+        "max_detection_frp_mw": 206.33,
+        "first_detection": "2026-08-01",
+        "last_detection": "2026-08-01",
+        "sensors": [
+          "Aqua",
+          "N21",
+          "SNPP"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-08-01",
+            "detections": 14,
+            "summed_frp_mw": 497.96000000000004
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-08-01",
+            "satellite": "N21",
+            "frp": 206.33,
+            "latitude": 40.34548,
+            "longitude": -4.77804,
+            "acq_time": "1348",
+            "h3_index": "87392a6b3ffffff"
+          },
+          {
+            "date": "2026-08-01",
+            "satellite": "SNPP",
+            "frp": 41.46,
+            "latitude": 40.27457,
+            "longitude": -4.68467,
+            "acq_time": "1425",
+            "h3_index": "87392a69bffffff"
+          },
+          {
+            "date": "2026-08-01",
+            "satellite": "Aqua",
+            "frp": 30.5,
+            "latitude": 40.2762,
+            "longitude": -4.6934,
+            "acq_time": "1501",
+            "h3_index": "87392a69bffffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-08-01",
+            "detections": 14
+          }
+        ],
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[august]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-28",
+        "period_end": "2026-08-07",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        92,
+        1032.24,
+        "2026-07-28",
+        "2026-08-07"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2026-07-28",
+        "end": "2026-08-07",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 92,
+        "summed_frp_mw": 1032.24,
+        "max_detection_frp_mw": 206.33,
+        "first_detection": "2026-07-28",
+        "last_detection": "2026-08-07",
+        "sensors": [
+          "Aqua",
+          "N20",
+          "N21",
+          "SNPP"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-07-28",
+            "detections": 70,
+            "summed_frp_mw": 297.2500000000001
+          },
+          {
+            "date": "2026-08-01",
+            "detections": 14,
+            "summed_frp_mw": 497.96000000000004
+          },
+          {
+            "date": "2026-07-31",
+            "detections": 5,
+            "summed_frp_mw": 233.2
+          },
+          {
+            "date": "2026-07-30",
+            "detections": 2,
+            "summed_frp_mw": 1.07
+          },
+          {
+            "date": "2026-08-07",
+            "detections": 1,
+            "summed_frp_mw": 2.76
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-08-01",
+            "satellite": "N21",
+            "frp": 206.33,
+            "latitude": 40.34548,
+            "longitude": -4.77804,
+            "acq_time": "1348",
+            "h3_index": "87392a6b3ffffff"
+          },
+          {
+            "date": "2026-07-28",
+            "satellite": "Aqua",
+            "frp": 147.3,
+            "latitude": 40.4064,
+            "longitude": -4.394,
+            "acq_time": "1546",
+            "h3_index": "87390c9b3ffffff"
+          },
+          {
+            "date": "2026-07-31",
+            "satellite": "N20",
+            "frp": 70.55,
+            "latitude": 40.40816,
+            "longitude": -4.39159,
+            "acq_time": "1321",
+            "h3_index": "87390c9b3ffffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-07-28",
+            "detections": 70
+          },
+          {
+            "date": "2026-07-30",
+            "detections": 2
+          },
+          {
+            "date": "2026-07-31",
+            "detections": 5
+          },
+          {
+            "date": "2026-08-01",
+            "detections": 14
+          },
+          {
+            "date": "2026-08-07",
+            "detections": 1
+          }
+        ],
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[later-window]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2025-12-31",
+        "period_end": "2026-01-02",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        1,
+        0.87,
+        "2026-01-01",
+        "2026-01-01"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2025-12-31",
+        "end": "2026-01-02",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 1,
+        "summed_frp_mw": 0.87,
+        "max_detection_frp_mw": 0.87,
+        "first_detection": "2026-01-01",
+        "last_detection": "2026-01-01",
+        "sensors": [
+          "N21"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-01-01",
+            "detections": 1,
+            "summed_frp_mw": 0.87
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-01-01",
+            "satellite": "N21",
+            "frp": 0.87,
+            "latitude": 40.38272,
+            "longitude": -4.25391,
+            "acq_time": "0200",
+            "h3_index": "87390c98bffffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-01-01",
+            "detections": 1
+          }
+        ],
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[year-boundary]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2024-02-29",
+        "period_end": "2024-02-29",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        0,
+        0.0,
+        null,
+        null
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2024-02-29",
+        "end": "2024-02-29",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 0,
+        "summed_frp_mw": 0.0,
+        "max_detection_frp_mw": null,
+        "first_detection": null,
+        "last_detection": null,
+        "sensors": null,
+        "busiest_days": [],
+        "strongest_detections": [],
+        "daily_detections": [],
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[leap-day]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "high",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        460,
+        64513.890000000014,
+        "2026-07-24",
+        "2026-07-24"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2026-07-24",
+        "end": "2026-07-24",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 460,
+        "summed_frp_mw": 64513.89000000005,
+        "max_detection_frp_mw": 1509.7,
+        "first_detection": "2026-07-24",
+        "last_detection": "2026-07-24",
+        "sensors": [
+          "Aqua",
+          "N20",
+          "N21",
+          "SNPP",
+          "Terra"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-07-24",
+            "detections": 460,
+            "summed_frp_mw": 64513.89000000005
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-07-24",
+            "satellite": "Aqua",
+            "frp": 1509.7,
+            "latitude": 40.3508,
+            "longitude": -4.6131,
+            "acq_time": "1452",
+            "h3_index": "87392a6d4ffffff"
+          },
+          {
+            "date": "2026-07-24",
+            "satellite": "Aqua",
+            "frp": 1264.7,
+            "latitude": 40.3548,
+            "longitude": -4.6192,
+            "acq_time": "1452",
+            "h3_index": "87392a6f2ffffff"
+          },
+          {
+            "date": "2026-07-24",
+            "satellite": "Terra",
+            "frp": 1237.5,
+            "latitude": 40.3467,
+            "longitude": -4.3233,
+            "acq_time": "1009",
+            "h3_index": "87390c99effffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-07-24",
+            "detections": 460
+          }
+        ],
+        "confidence_level": "high",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[high-confidence]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "low",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        2130,
+        121537.82999999968,
+        "2026-07-24",
+        "2026-07-24"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2026-07-24",
+        "end": "2026-07-24",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 2130,
+        "summed_frp_mw": 121537.82999999974,
+        "max_detection_frp_mw": 1509.7,
+        "first_detection": "2026-07-24",
+        "last_detection": "2026-07-24",
+        "sensors": [
+          "Aqua",
+          "N20",
+          "N21",
+          "SNPP",
+          "Terra"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-07-24",
+            "detections": 2130,
+            "summed_frp_mw": 121537.82999999968
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-07-24",
+            "satellite": "Aqua",
+            "frp": 1509.7,
+            "latitude": 40.3508,
+            "longitude": -4.6131,
+            "acq_time": "1452",
+            "h3_index": "87392a6d4ffffff"
+          },
+          {
+            "date": "2026-07-24",
+            "satellite": "Aqua",
+            "frp": 1264.7,
+            "latitude": 40.3548,
+            "longitude": -4.6192,
+            "acq_time": "1452",
+            "h3_index": "87392a6f2ffffff"
+          },
+          {
+            "date": "2026-07-24",
+            "satellite": "Terra",
+            "frp": 1237.5,
+            "latitude": 40.3467,
+            "longitude": -4.3233,
+            "acq_time": "1009",
+            "h3_index": "87390c99effffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-07-24",
+            "detections": 2130
+          }
+        ],
+        "confidence_level": "low",
+        "industrial_excluded": true,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[all-confidence]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": false,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_observations"
+      ],
+      "expected": [
+        1860,
+        96106.79999999996,
+        "2026-07-24",
+        "2026-07-24"
+      ],
+      "expected_method": "Direct staging SQL; independently selected Shapely H3 centers; accepted confidence and industrial settings",
+      "response": {
+        "status": "ok",
+        "data_source": "real",
+        "scope": "Selected Sierra Oeste area",
+        "start": "2026-07-24",
+        "end": "2026-07-24",
+        "spatial_method": "H3 R7 cells with centers inside the study envelope; not an administrative boundary or fire perimeter.",
+        "area_km2": 2311.42,
+        "detections": 1860,
+        "summed_frp_mw": 96106.79999999996,
+        "max_detection_frp_mw": 1509.7,
+        "first_detection": "2026-07-24",
+        "last_detection": "2026-07-24",
+        "sensors": [
+          "Aqua",
+          "N20",
+          "N21",
+          "SNPP",
+          "Terra"
+        ],
+        "busiest_days": [
+          {
+            "date": "2026-07-24",
+            "detections": 1860,
+            "summed_frp_mw": 96106.79999999996
+          }
+        ],
+        "strongest_detections": [
+          {
+            "date": "2026-07-24",
+            "satellite": "Aqua",
+            "frp": 1509.7,
+            "latitude": 40.3508,
+            "longitude": -4.6131,
+            "acq_time": "1452",
+            "h3_index": "87392a6d4ffffff"
+          },
+          {
+            "date": "2026-07-24",
+            "satellite": "Aqua",
+            "frp": 1264.7,
+            "latitude": 40.3548,
+            "longitude": -4.6192,
+            "acq_time": "1452",
+            "h3_index": "87392a6f2ffffff"
+          },
+          {
+            "date": "2026-07-24",
+            "satellite": "Terra",
+            "frp": 1237.5,
+            "latitude": 40.3467,
+            "longitude": -4.3233,
+            "acq_time": "1009",
+            "h3_index": "87390c99effffff"
+          }
+        ],
+        "daily_detections": [
+          {
+            "date": "2026-07-24",
+            "detections": 1860
+          }
+        ],
+        "confidence_level": "nominal",
+        "industrial_excluded": false,
+        "catalogue_coverage": {
+          "chilecito_la_rioja": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "iberia_med": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "orlando_florida": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ],
+          "amazonas_manaus": [
+            [
+              "2000-11-01",
+              "2026-11-14"
+            ]
+          ]
+        },
+        "limits": "Counts are satellite detections, not distinct fires. FRP is instantaneous power summed over observations, not energy. No cause, burned area, ignition time or emissions can be inferred from these counts. No detections does not prove no fire; declared archive coverage does not guarantee cloud-free observations."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_observations_equal_independent_center_scan[industrial-included]",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ was released here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ was released here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-23",
+        "period_end": "2026-07-23",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 73830.88288256143
+      },
+      "expected_method": "Independent cube scan; available-sensor mean per cell times exact H3 area /1000; no RTS",
+      "response": {
+        "mapped_energy_gj": 73830.88288256143,
+        "mapped_biomass_tonnes": 27169.764900782608,
+        "mapped_footprint_km2": 289.84373001718933,
+        "mapped_detections": 986,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-07-23",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 73830.88288256146,
+        "area_km2": 2328.742409388672,
+        "days": 1,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 27169.764900782615,
+        "peak_day": "2026-07-23",
+        "peak_day_gj": 73830.88288256146,
+        "annual_gj": {
+          "2026": 73830.88288256146
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_equals_independent_per_cell_integration[first-day-energy]",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ was released here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ was released here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 85019.65068352611
+      },
+      "expected_method": "Independent cube scan; available-sensor mean per cell times exact H3 area /1000; no RTS",
+      "response": {
+        "mapped_energy_gj": 85019.65068352611,
+        "mapped_biomass_tonnes": 31287.23145153761,
+        "mapped_footprint_km2": 863.1462965358431,
+        "mapped_detections": 1860,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-07-24",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 85019.65068352608,
+        "area_km2": 2328.742409388672,
+        "days": 1,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 31287.231451537595,
+        "peak_day": "2026-07-24",
+        "peak_day_gj": 85019.65068352608,
+        "annual_gj": {
+          "2026": 85019.65068352608
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_equals_independent_per_cell_integration[peak-day-energy]",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ was released here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ was released here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-23",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 158850.53356608754
+      },
+      "expected_method": "Independent cube scan; available-sensor mean per cell times exact H3 area /1000; no RTS",
+      "response": {
+        "mapped_energy_gj": 158850.53356608754,
+        "mapped_biomass_tonnes": 58456.99635232022,
+        "mapped_footprint_km2": 884.5716887553291,
+        "mapped_detections": 2846,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-07-24",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 158850.53356608754,
+        "area_km2": 2328.742409388672,
+        "days": 2,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 58456.99635232021,
+        "peak_day": "2026-07-24",
+        "peak_day_gj": 85019.65068352608,
+        "annual_gj": {
+          "2026": 158850.53356608754
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_equals_independent_per_cell_integration[two-day-integral]",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ was released here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ was released here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-28",
+        "period_end": "2026-08-07",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 1186.417833683492
+      },
+      "expected_method": "Independent cube scan; available-sensor mean per cell times exact H3 area /1000; no RTS",
+      "response": {
+        "mapped_energy_gj": 1186.417833683492,
+        "mapped_biomass_tonnes": 436.6017627955251,
+        "mapped_footprint_km2": 144.86507231214668,
+        "mapped_detections": 92,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-08-07",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 1186.4178336834918,
+        "area_km2": 2328.742409388672,
+        "days": 11,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 436.601762795525,
+        "peak_day": "2026-08-01",
+        "peak_day_gj": 501.4075368675375,
+        "annual_gj": {
+          "2026": 1186.417833683492
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_equals_independent_per_cell_integration[small-later-signals]",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ was released here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ was released here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2025-12-31",
+        "period_end": "2026-01-02",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 2.380457610901871
+      },
+      "expected_method": "Independent cube scan; available-sensor mean per cell times exact H3 area /1000; no RTS",
+      "response": {
+        "mapped_energy_gj": 2.380457610901871,
+        "mapped_biomass_tonnes": 0.8760084008118886,
+        "mapped_footprint_km2": 5.347701788297838,
+        "mapped_detections": 1,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-01-02",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 2.380457610901871,
+        "area_km2": 2328.742409388672,
+        "days": 3,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 0.8760084008118886,
+        "peak_day": "2026-01-01",
+        "peak_day_gj": 2.380457610901871,
+        "annual_gj": {
+          "2025": 0.0,
+          "2026": 2.380457610901871
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_equals_independent_per_cell_integration[cross-year-integral]",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ was released here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ was released here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2024-02-29",
+        "period_end": "2024-02-29",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 0.0
+      },
+      "expected_method": "Independent cube scan; available-sensor mean per cell times exact H3 area /1000; no RTS",
+      "response": {
+        "mapped_energy_gj": 0.0,
+        "mapped_biomass_tonnes": 0.0,
+        "mapped_footprint_km2": 0.0,
+        "mapped_detections": 0,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2024-02-29",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 0.0,
+        "area_km2": 2328.742409388672,
+        "days": 1,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 0.0,
+        "peak_day": "2024-02-29",
+        "peak_day_gj": 0.0,
+        "annual_gj": {
+          "2024": 0.0
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_equals_independent_per_cell_integration[leap-day-energy]",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ was released here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ was released here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": false,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 85019.65068352611
+      },
+      "expected_method": "Independent cube scan; available-sensor mean per cell times exact H3 area /1000; no RTS",
+      "response": {
+        "mapped_energy_gj": 85019.65068352611,
+        "mapped_biomass_tonnes": 31287.23145153761,
+        "mapped_footprint_km2": 863.1462965358431,
+        "mapped_detections": 1860,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-07-24",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 85019.65068352608,
+        "area_km2": 2328.742409388672,
+        "days": 1,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 31287.231451537595,
+        "peak_day": "2026-07-24",
+        "peak_day_gj": 85019.65068352608,
+        "annual_gj": {
+          "2026": 85019.65068352608
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_equals_independent_per_cell_integration[industrial-energy]",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ was released here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ was released here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-11-13",
+        "period_end": "2026-11-15",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 0.0
+      },
+      "expected_method": "Independent cube scan; available-sensor mean per cell times exact H3 area /1000; no RTS",
+      "response": {
+        "mapped_energy_gj": 0.0,
+        "mapped_biomass_tonnes": 0.0,
+        "mapped_footprint_km2": 0.0,
+        "mapped_detections": 0,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-11-14",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 0.0,
+        "area_km2": 2328.742409388672,
+        "days": 2,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 0.0,
+        "peak_day": "2026-11-13",
+        "peak_day_gj": 0.0,
+        "annual_gj": {
+          "2026": 0.0
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_equals_independent_per_cell_integration[archive-truncation]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet",
+        "data/raw/spain_fire_archive_M-C61_847720.csv",
+        "data/raw/spain_fire_archive_M-C61_847720.csv",
+        "data/raw/spain_fire_archive_M-C61_847720.csv",
+        "data/raw/spain_fire_archive_M-C61_847720.csv",
+        "data/raw/spain_fire_archive_M-C61_847720.csv"
+      ],
+      "tools_executed": [
+        "independent CSV/staging/cube scan"
+      ],
+      "expected": "Each of five actual staged centers must exist with identical FRP and acquisition identity in its source CSV",
+      "expected_method": "source-sample",
+      "response": [
+        {
+          "source_file": "spain_fire_archive_M-C61_847720.csv",
+          "date": "2025-07-18",
+          "acq_time": "1509",
+          "latitude": 40.4379,
+          "longitude": -4.7272,
+          "frp_mw": 5430.0,
+          "raw_matches": 1
+        },
+        {
+          "source_file": "spain_fire_archive_M-C61_847720.csv",
+          "date": "2005-08-06",
+          "acq_time": "1237",
+          "latitude": 40.3013,
+          "longitude": -4.7857,
+          "frp_mw": 3914.0,
+          "raw_matches": 1
+        },
+        {
+          "source_file": "spain_fire_archive_M-C61_847720.csv",
+          "date": "2005-08-06",
+          "acq_time": "1237",
+          "latitude": 40.2978,
+          "longitude": -4.7908,
+          "frp_mw": 3408.0,
+          "raw_matches": 1
+        },
+        {
+          "source_file": "spain_fire_archive_M-C61_847720.csv",
+          "date": "2012-08-27",
+          "acq_time": "1406",
+          "latitude": 40.5406,
+          "longitude": -4.2833,
+          "frp_mw": 2209.0,
+          "raw_matches": 1
+        },
+        {
+          "source_file": "spain_fire_archive_M-C61_847720.csv",
+          "date": "2021-08-15",
+          "acq_time": "1204",
+          "latitude": 40.525,
+          "longitude": -4.8034,
+          "frp_mw": 2148.6,
+          "raw_matches": 1
+        }
+      ],
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_pipeline_provenance_and_transforms[source-sample]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "independent CSV/staging/cube scan"
+      ],
+      "expected": 0,
+      "expected_method": "deduplication",
+      "response": 0,
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_pipeline_provenance_and_transforms[deduplication]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "independent CSV/staging/cube scan"
+      ],
+      "expected": "PSF fractions sum to one per detection before bow-tie weighting",
+      "expected_method": "diffusion-conservation",
+      "response": 2.220446049250313e-16,
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_pipeline_provenance_and_transforms[diffusion-conservation]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "independent CSV/staging/cube scan"
+      ],
+      "expected": 1485428,
+      "expected_method": "cube-counts",
+      "response": 1485428,
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_pipeline_provenance_and_transforms[cube-counts]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "independent CSV/staging/cube scan"
+      ],
+      "expected": 729742,
+      "expected_method": "cube-confidence",
+      "response": 729742,
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_pipeline_provenance_and_transforms[cube-confidence]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "independent CSV/staging/cube scan"
+      ],
+      "expected": 0,
+      "expected_method": "null-ancillary",
+      "response": 0,
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_pipeline_provenance_and_transforms[null-ancillary]",
+      "result": "passed"
+    },
+    {
+      "question": "How many detections on July 23\u201324, 2026?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many detections on July 23\u201324, 2026?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "POST /api/explain-spike",
+        "local DuckDB tools"
+      ],
+      "expected": {
+        "resolved_period": [
+          "2026-07-23",
+          "2026-07-24"
+        ],
+        "data_source": "real"
+      },
+      "expected_method": "Literal calendar expectation; actual offline API over real archive",
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **2,846 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-23 to 2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **164,647.81 MW**.\n- Strongest individual detection: **1,830.40 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-local-observations",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-23",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        },
+        "answer_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **2,846 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-23 to 2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **164,647.81 MW**.\n- Strongest individual detection: **1,830.40 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "provider_used": "deterministic-local-observations",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": null,
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube"
+        ]
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_offline_http_uses_real_context_and_evidence[english-range-http]",
+      "result": "passed"
+    },
+    {
+      "question": "\u00bfCu\u00e1ntas detecciones hubo el 23 y 24 de julio de 2026?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "\u00bfCu\u00e1ntas detecciones hubo el 23 y 24 de julio de 2026?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "POST /api/explain-spike",
+        "local DuckDB tools"
+      ],
+      "expected": {
+        "resolved_period": [
+          "2026-07-23",
+          "2026-07-24"
+        ],
+        "data_source": "real"
+      },
+      "expected_method": "Literal calendar expectation; actual offline API over real archive",
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **2,846 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-23 to 2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **164,647.81 MW**.\n- Strongest individual detection: **1,830.40 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-local-observations",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-23",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        },
+        "answer_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **2,846 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-23 to 2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **164,647.81 MW**.\n- Strongest individual detection: **1,830.40 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "provider_used": "deterministic-local-observations",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": null,
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube"
+        ]
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_offline_http_uses_real_context_and_evidence[spanish-range-http]",
+      "result": "passed"
+    },
+    {
+      "question": "and the next day?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "and the next day?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "POST /api/explain-spike",
+        "local DuckDB tools"
+      ],
+      "expected": {
+        "resolved_period": [
+          "2026-07-25",
+          "2026-07-25"
+        ],
+        "data_source": "real"
+      },
+      "expected_method": "Literal calendar expectation; actual offline API over real archive",
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "### Answer\n\nThe selected area has satellite thermal detections **consistent with active burning**. They support a possible fire, but satellite hotspots alone do not confirm a wildfire: industrial heat and other burning can also produce detections. [5] Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **3,113 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-25** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **82,473.18 MW**.\n- Strongest individual detection: **1,898.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-offline-science",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-25",
+          "period_end": "2026-07-25",
+          "h3_index": null
+        },
+        "answer_markdown": "### Answer\n\nThe selected area has satellite thermal detections **consistent with active burning**. They support a possible fire, but satellite hotspots alone do not confirm a wildfire: industrial heat and other burning can also produce detections. [5] Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **3,113 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-25** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **82,473.18 MW**.\n- Strongest individual detection: **1,898.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "provider_used": "deterministic-offline-science",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": null,
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube"
+        ]
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_offline_http_uses_real_context_and_evidence[english-relative-http]",
+      "result": "passed"
+    },
+    {
+      "question": "\u00bfy el d\u00eda siguiente?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "\u00bfy el d\u00eda siguiente?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "POST /api/explain-spike",
+        "local DuckDB tools"
+      ],
+      "expected": {
+        "resolved_period": [
+          "2026-07-25",
+          "2026-07-25"
+        ],
+        "data_source": "real"
+      },
+      "expected_method": "Literal calendar expectation; actual offline API over real archive",
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "### Answer\n\nThe selected area has satellite thermal detections **consistent with active burning**. They support a possible fire, but satellite hotspots alone do not confirm a wildfire: industrial heat and other burning can also produce detections. [5] Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **3,113 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-25** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **82,473.18 MW**.\n- Strongest individual detection: **1,898.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-offline-science",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-25",
+          "period_end": "2026-07-25",
+          "h3_index": null
+        },
+        "answer_markdown": "### Answer\n\nThe selected area has satellite thermal detections **consistent with active burning**. They support a possible fire, but satellite hotspots alone do not confirm a wildfire: industrial heat and other burning can also produce detections. [5] Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **3,113 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-25** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **82,473.18 MW**.\n- Strongest individual detection: **1,898.50 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "provider_used": "deterministic-offline-science",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": null,
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube"
+        ]
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_offline_http_uses_real_context_and_evidence[spanish-relative-http]",
+      "result": "passed"
+    },
+    {
+      "question": "How many fires were there?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How many fires were there?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "POST /api/explain-spike",
+        "local DuckDB tools"
+      ],
+      "expected": {
+        "resolved_period": [
+          "2026-07-24",
+          "2026-07-24"
+        ],
+        "data_source": "real"
+      },
+      "expected_method": "Literal calendar expectation; actual offline API over real archive",
+      "response": {
+        "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+        "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-local-observations",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-24",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        },
+        "answer_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "provider_used": "deterministic-local-observations",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": null,
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube"
+        ]
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_offline_http_uses_real_context_and_evidence[fires-not-detections-http]",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ was released here?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ was released here?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "POST /api/explain-spike",
+        "local DuckDB tools"
+      ],
+      "expected": {
+        "resolved_period": [
+          "2026-07-24",
+          "2026-07-24"
+        ],
+        "data_source": "real"
+      },
+      "expected_method": "Literal calendar expectation; actual offline API over real archive",
+      "response": {
+        "physical_classification": "LOCAL_ENERGY_SUMMARY",
+        "explanation_markdown": "**85,019.651 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **85,019.651 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **31,287.231 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **863.146 km\u00b2**; selected polygon: **2,328.742 km\u00b2**. Available through **2026-07-24**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          },
+          {
+            "id": "[6]",
+            "source_type": "NASA_DATASET",
+            "title": "Local FIRMS-Harmonizer scientific cube",
+            "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+            "year": 2026,
+            "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+            "url": null,
+            "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+          },
+          {
+            "id": "[1]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+            "authors_or_agency": "Wooster et al.",
+            "year": 2005,
+            "dataset_or_doi": "10.1029/2005JD006318",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-local-observations",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-24",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        },
+        "answer_markdown": "**85,019.651 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **85,019.651 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **31,287.231 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **863.146 km\u00b2**; selected polygon: **2,328.742 km\u00b2**. Available through **2026-07-24**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "provider_used": "deterministic-local-observations",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": {
+          "items": [
+            {
+              "label": "Total radiative energy",
+              "formula": "\u03a3 daily FRE (MJ/km\u00b2) \u00d7 represented cell area (km\u00b2) \u00f7 1,000 over 1 days = 85,019.651 GJ",
+              "value": 85019.65068352608,
+              "unit": "GJ"
+            },
+            {
+              "label": "Consumed dry biomass",
+              "formula": "85,019.651 GJ \u00d7 0.368 t/GJ = 31,287.231 t",
+              "value": 31287.2314515376,
+              "unit": "t"
+            }
+          ],
+          "note": "Energy is a model-derived estimate from sampled satellite observations, not a continuous physical measurement. Biomass uses the Wooster combustion factor of 0.368 t per GJ."
+        },
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube",
+          "verified_calculation",
+          "knowledge"
+        ]
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_offline_http_uses_real_context_and_evidence[energy-http]",
+      "result": "passed"
+    },
+    {
+      "question": "Does local observation history actually end on July 27?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "Does local observation history actually end on July 27?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "observation_timeline",
+        "retrieve_observations"
+      ],
+      "expected": [
+        {
+          "date": "2026-07-22",
+          "detections": 98
+        },
+        {
+          "date": "2026-07-23",
+          "detections": 986
+        },
+        {
+          "date": "2026-07-24",
+          "detections": 1860
+        },
+        {
+          "date": "2026-07-25",
+          "detections": 3113
+        },
+        {
+          "date": "2026-07-26",
+          "detections": 2753
+        },
+        {
+          "date": "2026-07-27",
+          "detections": 1116
+        },
+        {
+          "date": "2026-07-28",
+          "detections": 70
+        },
+        {
+          "date": "2026-07-30",
+          "detections": 2
+        },
+        {
+          "date": "2026-07-31",
+          "detections": 5
+        },
+        {
+          "date": "2026-08-01",
+          "detections": 14
+        },
+        {
+          "date": "2026-08-07",
+          "detections": 1
+        }
+      ],
+      "expected_method": "Independent staging scan over explicitly labeled July 17\u2013August 8 comparison window",
+      "response": {
+        "status": "ok",
+        "selected_start": "2026-07-24",
+        "selected_end": "2026-07-24",
+        "comparison_start": "2026-07-17",
+        "comparison_end": "2026-08-08",
+        "archive_available_through": "2026-11-14",
+        "daily_detections": [
+          {
+            "date": "2026-07-22",
+            "detections": 98
+          },
+          {
+            "date": "2026-07-23",
+            "detections": 986
+          },
+          {
+            "date": "2026-07-24",
+            "detections": 1860
+          },
+          {
+            "date": "2026-07-25",
+            "detections": 3113
+          },
+          {
+            "date": "2026-07-26",
+            "detections": 2753
+          },
+          {
+            "date": "2026-07-27",
+            "detections": 1116
+          },
+          {
+            "date": "2026-07-28",
+            "detections": 70
+          },
+          {
+            "date": "2026-07-30",
+            "detections": 2
+          },
+          {
+            "date": "2026-07-31",
+            "detections": 5
+          },
+          {
+            "date": "2026-08-01",
+            "detections": 14
+          },
+          {
+            "date": "2026-08-07",
+            "detections": 1
+          }
+        ],
+        "last_detection_in_comparison": "2026-08-07",
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "limits": "This explicitly labeled comparison extends beyond selected dates without changing them. Later detections are local thermal observations, not proof of the same incident. A last detection or statistical episode end is not containment or extinction. Official duration requires matching incident records. These counts do not establish why detection rates changed: no matching coverage or fire-phase measurement is supplied. Thermal sensors can detect flaming and sufficiently hot smoldering; they do not observe only flaming fronts."
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_timeline_reports_actual_later_observations_without_changing_selection",
+      "result": "passed"
+    },
+    {
+      "question": "why does the map seem to stop on July 27 if the Madrid fire lasted fourteen days?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "why does the map seem to stop on July 27 if the Madrid fire lasted fourteen days?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "nominal",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet"
+      ],
+      "tools_executed": [
+        "actual offline HTTP routes and local tools"
+      ],
+      "expected": {
+        "network_attempts": 0
+      },
+      "expected_method": "Block DNS resolution and socket connection; run all six historical prompts over real local data",
+      "response": [
+        {
+          "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+          "explanation_markdown": "### Answer\n\nThe selected area has satellite thermal detections **consistent with active burning**. They support a possible fire, but satellite hotspots alone do not confirm a wildfire: industrial heat and other burning can also produce detections. [5] Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-offline-science",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected Sierra Oeste area",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "### Answer\n\nThe selected area has satellite thermal detections **consistent with active burning**. They support a possible fire, but satellite hotspots alone do not confirm a wildfire: industrial heat and other burning can also produce detections. [5] Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "provider_used": "deterministic-offline-science",
+          "episode_summary": null,
+          "guardrail_triggered": false,
+          "verified_calculations": null,
+          "suggested_prompts": [],
+          "evidence_sources": [
+            "local_cube"
+          ]
+        },
+        {
+          "physical_classification": "CAUSE_NOT_VERIFIED",
+          "explanation_markdown": "### Answer\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### What the local data show\n\n**1,860 satellite detections** in **Selected Sierra Oeste area**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\n### Next step\n\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            },
+            {
+              "id": "[2]",
+              "source_type": "PEER_REVIEWED",
+              "title": "The New VIIRS 375 m active fire detection product",
+              "authors_or_agency": "Schroeder et al.",
+              "year": 2014,
+              "dataset_or_doi": "10.1016/j.rse.2013.12.008",
+              "url": "https://doi.org/10.1016/j.rse.2013.12.008",
+              "relevance_note": "VIIRS active fire detection methodology."
+            },
+            {
+              "id": "[3]",
+              "source_type": "PEER_REVIEWED",
+              "title": "The Collection 6 MODIS active fire detection algorithm and fire products",
+              "authors_or_agency": "Giglio et al.",
+              "year": 2016,
+              "dataset_or_doi": "10.1016/j.rse.2016.02.054",
+              "url": "https://doi.org/10.1016/j.rse.2016.02.054",
+              "relevance_note": "MODIS active fire detection methodology."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-offline-science",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected Sierra Oeste area",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "### Answer\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### What the local data show\n\n**1,860 satellite detections** in **Selected Sierra Oeste area**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\n### Next step\n\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.",
+          "provider_used": "deterministic-offline-science",
+          "episode_summary": null,
+          "guardrail_triggered": false,
+          "verified_calculations": null,
+          "suggested_prompts": [],
+          "evidence_sources": [
+            "local_cube",
+            "knowledge"
+          ]
+        },
+        {
+          "physical_classification": "CAUSE_NOT_VERIFIED",
+          "explanation_markdown": "### Answer\n\nThe available reports **do not establish the ignition cause**. This means the cause is unverified in the evidence retrieved here; it does not establish that authorities have never determined it. [5]\n\n### What the local data show\n\n**1,860 satellite detections** in **Selected Sierra Oeste area**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\n### Next step\n\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            },
+            {
+              "id": "[2]",
+              "source_type": "PEER_REVIEWED",
+              "title": "The New VIIRS 375 m active fire detection product",
+              "authors_or_agency": "Schroeder et al.",
+              "year": 2014,
+              "dataset_or_doi": "10.1016/j.rse.2013.12.008",
+              "url": "https://doi.org/10.1016/j.rse.2013.12.008",
+              "relevance_note": "VIIRS active fire detection methodology."
+            },
+            {
+              "id": "[3]",
+              "source_type": "PEER_REVIEWED",
+              "title": "The Collection 6 MODIS active fire detection algorithm and fire products",
+              "authors_or_agency": "Giglio et al.",
+              "year": 2016,
+              "dataset_or_doi": "10.1016/j.rse.2016.02.054",
+              "url": "https://doi.org/10.1016/j.rse.2016.02.054",
+              "relevance_note": "MODIS active fire detection methodology."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-offline-science",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected Sierra Oeste area",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "### Answer\n\nThe available reports **do not establish the ignition cause**. This means the cause is unverified in the evidence retrieved here; it does not establish that authorities have never determined it. [5]\n\n### What the local data show\n\n**1,860 satellite detections** in **Selected Sierra Oeste area**, **2026-07-24**. These observations do not identify a unique fire, its ignition point or its cause. [5]\n\n### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Scientific context\n\n**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; these observations alone do not identify the ignition mechanism. Weather or fuel conditions cannot be assigned to this event without matching measurements or reports. [2] [3]\n\n### Next step\n\nProvide an incident name or a matching emergency-service or investigation report to check the reported cause.",
+          "provider_used": "deterministic-offline-science",
+          "episode_summary": null,
+          "guardrail_triggered": false,
+          "verified_calculations": null,
+          "suggested_prompts": [],
+          "evidence_sources": [
+            "local_cube",
+            "knowledge"
+          ]
+        },
+        {
+          "physical_classification": "LOCAL_ENERGY_SUMMARY",
+          "explanation_markdown": "**85,019.651 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **85,019.651 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **31,287.231 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **863.146 km\u00b2**; selected polygon: **2,328.742 km\u00b2**. Available through **2026-07-24**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            },
+            {
+              "id": "[6]",
+              "source_type": "NASA_DATASET",
+              "title": "Local FIRMS-Harmonizer scientific cube",
+              "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+              "year": 2026,
+              "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+              "url": null,
+              "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+            },
+            {
+              "id": "[1]",
+              "source_type": "PEER_REVIEWED",
+              "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+              "authors_or_agency": "Wooster et al.",
+              "year": 2005,
+              "dataset_or_doi": "10.1029/2005JD006318",
+              "url": "https://doi.org/10.1029/2005JD006318",
+              "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-local-observations",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected Sierra Oeste area",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "**85,019.651 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **85,019.651 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **31,287.231 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **863.146 km\u00b2**; selected polygon: **2,328.742 km\u00b2**. Available through **2026-07-24**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "provider_used": "deterministic-local-observations",
+          "episode_summary": null,
+          "guardrail_triggered": false,
+          "verified_calculations": {
+            "items": [
+              {
+                "label": "Total radiative energy",
+                "formula": "\u03a3 daily FRE (MJ/km\u00b2) \u00d7 represented cell area (km\u00b2) \u00f7 1,000 over 1 days = 85,019.651 GJ",
+                "value": 85019.65068352608,
+                "unit": "GJ"
+              },
+              {
+                "label": "Consumed dry biomass",
+                "formula": "85,019.651 GJ \u00d7 0.368 t/GJ = 31,287.231 t",
+                "value": 31287.2314515376,
+                "unit": "t"
+              }
+            ],
+            "note": "Energy is a model-derived estimate from sampled satellite observations, not a continuous physical measurement. Biomass uses the Wooster combustion factor of 0.368 t per GJ."
+          },
+          "suggested_prompts": [],
+          "evidence_sources": [
+            "local_cube",
+            "verified_calculation",
+            "knowledge"
+          ]
+        },
+        {
+          "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+          "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-local-observations",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected Sierra Oeste area",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **1,860 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **96,106.80 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+          "provider_used": "deterministic-local-observations",
+          "episode_summary": null,
+          "guardrail_triggered": false,
+          "verified_calculations": null,
+          "suggested_prompts": [],
+          "evidence_sources": [
+            "local_cube"
+          ]
+        },
+        {
+          "physical_classification": "LOCAL_OBSERVATION_TIMELINE",
+          "explanation_markdown": "The local archive does not stop on **2026-07-27**. Later observations in this area include 2026-07-28: 70 detections; 2026-07-30: 2 detections; 2026-07-31: 5 detections; 2026-08-01: 14 detections; 2026-08-07: 1 detections. [5]\n\nThis comparison covers 2026-07-17 to 2026-08-08; the attached selection remains 2026-07-24 to 2026-07-24. Later heat may belong to another incident. The claimed official incident duration is **unverified offline**. Matching containment, extinction and investigation records require external evidence; satellite detections alone cannot establish those dates.",
+          "citations": [
+            {
+              "id": "[5]",
+              "source_type": "NASA_DATASET",
+              "title": "NASA FIRMS active fire observations",
+              "authors_or_agency": "NASA EOSDIS LANCE",
+              "year": 2026,
+              "dataset_or_doi": "NASA Earthdata / FIRMS",
+              "url": "https://firms.modaps.eosdis.nasa.gov/",
+              "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+            }
+          ],
+          "web_search_used": false,
+          "search_query_executed": null,
+          "model_used": "deterministic-local-observations",
+          "data_source": "real",
+          "map_context": {
+            "label": "Selected area near Madrid",
+            "aoi": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    -4.8,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.2
+                  ],
+                  [
+                    -4.15,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.58
+                  ],
+                  [
+                    -4.8,
+                    40.2
+                  ]
+                ]
+              ]
+            },
+            "period_start": "2026-07-24",
+            "period_end": "2026-07-24",
+            "h3_index": null
+          },
+          "answer_markdown": "The local archive does not stop on **2026-07-27**. Later observations in this area include 2026-07-28: 70 detections; 2026-07-30: 2 detections; 2026-07-31: 5 detections; 2026-08-01: 14 detections; 2026-08-07: 1 detections. [5]\n\nThis comparison covers 2026-07-17 to 2026-08-08; the attached selection remains 2026-07-24 to 2026-07-24. Later heat may belong to another incident. The claimed official incident duration is **unverified offline**. Matching containment, extinction and investigation records require external evidence; satellite detections alone cannot establish those dates.",
+          "provider_used": "deterministic-local-observations",
+          "episode_summary": null,
+          "guardrail_triggered": false,
+          "verified_calculations": null,
+          "suggested_prompts": [],
+          "evidence_sources": [
+            "local_cube"
+          ]
+        }
+      ],
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_offline_historical_questions_cannot_open_a_network_socket",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ with low detection confidence?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ with low detection confidence?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "low",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet",
+        "data/processed/fire_cube_low.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 97388.74586004953
+      },
+      "expected_method": "Independent scan of the separately published confidence cube, per-cell available sensor fusion",
+      "response": {
+        "mapped_energy_gj": 97388.74586004953,
+        "mapped_biomass_tonnes": 35839.05847649823,
+        "mapped_footprint_km2": 895.2945598837631,
+        "mapped_detections": 2130,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-07-24",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 97388.74586004959,
+        "area_km2": 2328.742409388672,
+        "days": 1,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 35839.05847649825,
+        "peak_day": "2026-07-24",
+        "peak_day_gj": 97388.74586004959,
+        "annual_gj": {
+          "2026": 97388.74586004959
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_uses_same_confidence_cube_as_map_and_temporal_model[low]",
+      "result": "passed"
+    },
+    {
+      "question": "How much energy in GJ with high detection confidence?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ with high detection confidence?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "high",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet",
+        "data/processed/fire_cube_high.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 79429.8385765004
+      },
+      "expected_method": "Independent scan of the separately published confidence cube, per-cell available sensor fusion",
+      "response": {
+        "mapped_energy_gj": 79429.8385765004,
+        "mapped_biomass_tonnes": 29230.18059615215,
+        "mapped_footprint_km2": 766.6402096421008,
+        "mapped_detections": 460,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-07-24",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 79429.83857650042,
+        "area_km2": 2328.742409388672,
+        "days": 1,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 29230.180596152153,
+        "peak_day": "2026-07-24",
+        "peak_day_gj": 79429.83857650042,
+        "annual_gj": {
+          "2026": 79429.83857650042
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_uses_same_confidence_cube_as_map_and_temporal_model[high]",
+      "result": "passed"
+    }
+  ]
+}

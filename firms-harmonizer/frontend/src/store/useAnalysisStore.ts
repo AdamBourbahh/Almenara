@@ -194,7 +194,7 @@ interface AnalysisState {
   chaosError: string | null;
   chaosData: ChaosMonkeyResponse | null;
 
-  // Fire Copilot (Physics-First Web Grounding)
+  // FIRMS Copilot (Physics-First Web Grounding)
   isCopilotOpen: boolean;
   copilotLoading: boolean;
   copilotError: string | null;

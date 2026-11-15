@@ -1,0 +1,21 @@
+{
+  "tracked_text_files_scanned": 414,
+  "credential_patterns": [],
+  "retrieval_before": {
+    "documents": 139,
+    "included": "ETL development notes, fixtures, pytest result summaries and superseded six-region publication metrics"
+  },
+  "retrieval_after": {
+    "allowlist": [
+      "data/copilot_knowledge/science.json"
+    ],
+    "excluded": [
+      "ETL_SPEC.md",
+      "logs",
+      "environment files",
+      "arbitrary JSON additions",
+      "QA reports"
+    ]
+  },
+  "curated_incident_index": "Contains source URLs, not prewritten incident answers. Production still retrieves article evidence."
+}

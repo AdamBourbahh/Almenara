@@ -1,0 +1,771 @@
+{
+  "base": "http://127.0.0.1:18500",
+  "provenance": "Real HTTP and configured provider; no mocks",
+  "records": [
+    {
+      "id": "high-confidence",
+      "request": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "region_name": "Selected Sierra Oeste area",
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "user_question": "How much energy in GJ was recorded here?",
+        "confidence_level": "high"
+      },
+      "response": {
+        "physical_classification": "RETRIEVED_EVIDENCE",
+        "explanation_markdown": "**79,429.839 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **79,429.839 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **29,230.181 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **766.640 km²**; selected polygon: **2,328.742 km²**. Available through **2026-07-24**. Industrial sources excluded.",
+        "citations": [
+          {
+            "id": "[6]",
+            "source_type": "NASA_DATASET",
+            "title": "Local FIRMS-Harmonizer scientific cube",
+            "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+            "year": 2026,
+            "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+            "url": null,
+            "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+          },
+          {
+            "id": "[1]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+            "authors_or_agency": "Wooster et al.",
+            "year": 2005,
+            "dataset_or_doi": "10.1029/2005JD006318",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "gemini-agent/gemini-3.8-flash",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-24",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        },
+        "answer_markdown": "**79,429.839 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **79,429.839 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **29,230.181 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **766.640 km²**; selected polygon: **2,328.742 km²**. Available through **2026-07-24**. Industrial sources excluded.",
+        "provider_used": "gemini-agent/gemini-3.8-flash",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": {
+          "items": [
+            {
+              "label": "Total radiative energy",
+              "formula": "Σ daily FRE (MJ/km²) × represented cell area (km²) ÷ 1,000 over 1 days = 79,429.839 GJ",
+              "value": 79429.83857650039,
+              "unit": "GJ"
+            },
+            {
+              "label": "Consumed dry biomass",
+              "formula": "79,429.839 GJ × 0.368 t/GJ = 29,230.181 t",
+              "value": 29230.180596152142,
+              "unit": "t"
+            }
+          ],
+          "note": "Energy is a model-derived estimate from sampled satellite observations, not a continuous physical measurement. Biomass uses the Wooster combustion factor of 0.368 t per GJ."
+        },
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube",
+          "verified_calculation",
+          "knowledge"
+        ]
+      },
+      "seconds": 4.93,
+      "checks": {
+        "http": true,
+        "nonempty": true,
+        "real": true,
+        "no_internal_output": true,
+        "no_development_citations": true
+      },
+      "result": "passed"
+    },
+    {
+      "id": "low-confidence",
+      "request": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "region_name": "Selected Sierra Oeste area",
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "user_question": "How much energy in GJ was recorded here?",
+        "confidence_level": "low"
+      },
+      "response": {
+        "physical_classification": "LOCAL_ENERGY_SUMMARY",
+        "explanation_markdown": "**97,388.746 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **97,388.746 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **35,839.058 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **895.295 km²**; selected polygon: **2,328.742 km²**. Available through **2026-07-24**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          },
+          {
+            "id": "[6]",
+            "source_type": "NASA_DATASET",
+            "title": "Local FIRMS-Harmonizer scientific cube",
+            "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+            "year": 2026,
+            "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+            "url": null,
+            "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+          },
+          {
+            "id": "[1]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+            "authors_or_agency": "Wooster et al.",
+            "year": 2005,
+            "dataset_or_doi": "10.1029/2005JD006318",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-offline-science",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-24",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        },
+        "answer_markdown": "**97,388.746 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **97,388.746 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **35,839.058 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **895.295 km²**; selected polygon: **2,328.742 km²**. Available through **2026-07-24**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected Sierra Oeste area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "provider_used": "deterministic-offline-science",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": {
+          "items": [
+            {
+              "label": "Total radiative energy",
+              "formula": "Σ daily FRE (MJ/km²) × represented cell area (km²) ÷ 1,000 over 1 days = 97,388.746 GJ",
+              "value": 97388.74586004949,
+              "unit": "GJ"
+            },
+            {
+              "label": "Consumed dry biomass",
+              "formula": "97,388.746 GJ × 0.368 t/GJ = 35,839.058 t",
+              "value": 35839.05847649821,
+              "unit": "t"
+            }
+          ],
+          "note": "Energy is a model-derived estimate from sampled satellite observations, not a continuous physical measurement. Biomass uses the Wooster combustion factor of 0.368 t per GJ."
+        },
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube",
+          "verified_calculation",
+          "knowledge"
+        ]
+      },
+      "seconds": 11.55,
+      "checks": {
+        "http": true,
+        "nonempty": true,
+        "real": true,
+        "no_internal_output": true,
+        "no_development_citations": true
+      },
+      "result": "passed"
+    },
+    {
+      "id": "no-reconstruction",
+      "request": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "region_name": "Selected Sierra Oeste area",
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "user_question": "How much energy in GJ was recorded here?",
+        "enable_kalman_gap_filling": false
+      },
+      "response": {
+        "physical_classification": "RETRIEVED_EVIDENCE",
+        "explanation_markdown": "**85,019.651 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **85,019.651 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **31,287.231 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **863.146 km²**; selected polygon: **2,328.742 km²**. Available through **2026-07-24**. Industrial sources excluded.",
+        "citations": [
+          {
+            "id": "[6]",
+            "source_type": "NASA_DATASET",
+            "title": "Local FIRMS-Harmonizer scientific cube",
+            "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+            "year": 2026,
+            "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+            "url": null,
+            "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+          },
+          {
+            "id": "[1]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+            "authors_or_agency": "Wooster et al.",
+            "year": 2005,
+            "dataset_or_doi": "10.1029/2005JD006318",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "gemini-agent/gemini-3.8-flash",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-24",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        },
+        "answer_markdown": "**85,019.651 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **85,019.651 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **31,287.231 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **863.146 km²**; selected polygon: **2,328.742 km²**. Available through **2026-07-24**. Industrial sources excluded.",
+        "provider_used": "gemini-agent/gemini-3.8-flash",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": {
+          "items": [
+            {
+              "label": "Total radiative energy",
+              "formula": "Σ daily FRE (MJ/km²) × represented cell area (km²) ÷ 1,000 over 1 days = 85,019.651 GJ",
+              "value": 85019.65068352608,
+              "unit": "GJ"
+            },
+            {
+              "label": "Consumed dry biomass",
+              "formula": "85,019.651 GJ × 0.368 t/GJ = 31,287.231 t",
+              "value": 31287.2314515376,
+              "unit": "t"
+            }
+          ],
+          "note": "Energy is a model-derived estimate from sampled satellite observations, not a continuous physical measurement. Biomass uses the Wooster combustion factor of 0.368 t per GJ."
+        },
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube",
+          "verified_calculation",
+          "knowledge"
+        ]
+      },
+      "seconds": 5.93,
+      "checks": {
+        "http": true,
+        "nonempty": true,
+        "real": true,
+        "no_internal_output": true,
+        "no_development_citations": true
+      },
+      "result": "passed"
+    },
+    {
+      "id": "industrial-included",
+      "request": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "region_name": "Selected Sierra Oeste area",
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "user_question": "How much energy in GJ was recorded here?",
+        "exclude_industrial_flaring": false
+      },
+      "response": {
+        "physical_classification": "RETRIEVED_EVIDENCE",
+        "explanation_markdown": "**85,019.651 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **85,019.651 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **31,287.231 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **863.146 km²**; selected polygon: **2,328.742 km²**. Available through **2026-07-24**. Industrial sources included.",
+        "citations": [
+          {
+            "id": "[6]",
+            "source_type": "NASA_DATASET",
+            "title": "Local FIRMS-Harmonizer scientific cube",
+            "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+            "year": 2026,
+            "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+            "url": null,
+            "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+          },
+          {
+            "id": "[1]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+            "authors_or_agency": "Wooster et al.",
+            "year": 2005,
+            "dataset_or_doi": "10.1029/2005JD006318",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "gemini-agent/gemini-3.8-flash",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-24",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        },
+        "answer_markdown": "**85,019.651 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected Sierra Oeste area**. [6]\n\nRegional temporal estimate: **85,019.651 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **31,287.231 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **863.146 km²**; selected polygon: **2,328.742 km²**. Available through **2026-07-24**. Industrial sources included.",
+        "provider_used": "gemini-agent/gemini-3.8-flash",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": {
+          "items": [
+            {
+              "label": "Total radiative energy",
+              "formula": "Σ daily FRE (MJ/km²) × represented cell area (km²) ÷ 1,000 over 1 days = 85,019.651 GJ",
+              "value": 85019.65068352608,
+              "unit": "GJ"
+            },
+            {
+              "label": "Consumed dry biomass",
+              "formula": "85,019.651 GJ × 0.368 t/GJ = 31,287.231 t",
+              "value": 31287.2314515376,
+              "unit": "t"
+            }
+          ],
+          "note": "Energy is a model-derived estimate from sampled satellite observations, not a continuous physical measurement. Biomass uses the Wooster combustion factor of 0.368 t per GJ."
+        },
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube",
+          "verified_calculation",
+          "knowledge"
+        ]
+      },
+      "seconds": 5.21,
+      "checks": {
+        "http": true,
+        "nonempty": true,
+        "real": true,
+        "no_internal_output": true,
+        "no_development_citations": true
+      },
+      "result": "passed"
+    },
+    {
+      "id": "emissions",
+      "request": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "region_name": "Selected Sierra Oeste area",
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "user_question": "Estimate PM2.5 and CO2 emissions here and explain which inputs are missing."
+      },
+      "response": {
+        "physical_classification": "RETRIEVED_EVIDENCE",
+        "explanation_markdown": "For the selected area in Sierra Oeste on 2026-07-24, integrated fire radiative energy corresponds to an estimated 31,287.23 tonnes of dry biomass consumed. Applying standardized generic emission factors (9.5 kg PM2.5 and 1,580 kg CO2 per tonne of dry biomass) yields scenario emission estimates of approximately 297.23 tonnes of PM2.5 and 49,433.83 tonnes of CO2.\n\nThese figures represent scenario approximations rather than measured emissions [K6]. Rigorous, official PM2.5 accounting requires verified annual fuel-type and land-cover maps alongside fuel-specific emission factors, which are currently missing and leave direct fuel-specific PM2.5 values null [K6]. Additionally, the CO2 calculation relies on an assumed constant factor rather than in situ plume measurements or combustion completeness data, and satellite thermal energy does not directly measure ambient air quality or ground-level particulate concentrations [K6].\n\n### Smoke and carbon scenario\n\nFor **Selected Sierra Oeste area**, **2026-07-24 to 2026-07-24**, the integrated fire energy is **85,019.651 GJ**, equivalent to **31,287.231 tonnes** of dry biomass consumed. [1] [6]\n\n- PM2.5 (fine smoke particles): **297.229 tonnes** (297,228.699 kg).\n- CO2: **49,433.826 tonnes** (49,433,825.693 kg).\n\nScenario estimate from assumed generic emission factors (9.5 kg PM2.5 and 1,580 kg CO2 per tonne of dry biomass). It is not a measured emission, an air-quality concentration, or the dashboard's fuel-specific PM2.5 value, which stays unavailable without measured annual land-cover classes. Real factors vary with fuel type and how completely it burns. [11]",
+        "citations": [
+          {
+            "id": "[K6]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Biomass and emission estimates",
+            "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+            "year": 2026,
+            "dataset_or_doi": "Versioned public scientific note",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "Dry biomass consumed is estimated as 0.368 tonnes per GJ of integrated FRE. PM2.5 needs measured annual fuel classes and supported fuel-specific emission factors; missing or unsupported inputs remain null. CO2 in episode profiles uses an explicitly assumed constant factor, not measured emissions. Energy and biomass do not measure ambient air quality, health impacts, casualties, ecological damage or burned hectares."
+          },
+          {
+            "id": "[11]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Emission of trace gases and aerosols from biomass burning – an updated assessment",
+            "authors_or_agency": "Andreae",
+            "year": 2019,
+            "dataset_or_doi": "10.5194/acp-19-8523-2019",
+            "url": "https://doi.org/10.5194/acp-19-8523-2019",
+            "relevance_note": "Emission factors vary with fuel and combustion. The dossier uses explicitly assumed factors, not a biome-specific measurement from this paper."
+          },
+          {
+            "id": "[6]",
+            "source_type": "NASA_DATASET",
+            "title": "Local FIRMS-Harmonizer scientific cube",
+            "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+            "year": 2026,
+            "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+            "url": null,
+            "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+          },
+          {
+            "id": "[1]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+            "authors_or_agency": "Wooster et al.",
+            "year": 2005,
+            "dataset_or_doi": "10.1029/2005JD006318",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "gemini-agent/gemini-3.8-flash",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected Sierra Oeste area",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.8,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.2
+                ],
+                [
+                  -4.15,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.58
+                ],
+                [
+                  -4.8,
+                  40.2
+                ]
+              ]
+            ]
+          },
+          "period_start": "2026-07-24",
+          "period_end": "2026-07-24",
+          "h3_index": null
+        },
+        "answer_markdown": "For the selected area in Sierra Oeste on 2026-07-24, integrated fire radiative energy corresponds to an estimated 31,287.23 tonnes of dry biomass consumed. Applying standardized generic emission factors (9.5 kg PM2.5 and 1,580 kg CO2 per tonne of dry biomass) yields scenario emission estimates of approximately 297.23 tonnes of PM2.5 and 49,433.83 tonnes of CO2.\n\nThese figures represent scenario approximations rather than measured emissions [K6]. Rigorous, official PM2.5 accounting requires verified annual fuel-type and land-cover maps alongside fuel-specific emission factors, which are currently missing and leave direct fuel-specific PM2.5 values null [K6]. Additionally, the CO2 calculation relies on an assumed constant factor rather than in situ plume measurements or combustion completeness data, and satellite thermal energy does not directly measure ambient air quality or ground-level particulate concentrations [K6].\n\n### Smoke and carbon scenario\n\nFor **Selected Sierra Oeste area**, **2026-07-24 to 2026-07-24**, the integrated fire energy is **85,019.651 GJ**, equivalent to **31,287.231 tonnes** of dry biomass consumed. [1] [6]\n\n- PM2.5 (fine smoke particles): **297.229 tonnes** (297,228.699 kg).\n- CO2: **49,433.826 tonnes** (49,433,825.693 kg).\n\nScenario estimate from assumed generic emission factors (9.5 kg PM2.5 and 1,580 kg CO2 per tonne of dry biomass). It is not a measured emission, an air-quality concentration, or the dashboard's fuel-specific PM2.5 value, which stays unavailable without measured annual land-cover classes. Real factors vary with fuel type and how completely it burns. [11]",
+        "provider_used": "gemini-agent/gemini-3.8-flash",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": {
+          "items": [
+            {
+              "label": "Consumed dry biomass",
+              "formula": "85,019.651 GJ × 0.368 t/GJ = 31,287.231 t",
+              "value": 31287.2314515376,
+              "unit": "t"
+            },
+            {
+              "label": "PM2.5 scenario",
+              "formula": "31,287.231 t × 9.5 kg/t = 297,228.699 kg",
+              "value": 297228.6987896072,
+              "unit": "kg"
+            },
+            {
+              "label": "CO2 scenario",
+              "formula": "31,287.231 t × 1,580 kg/t = 49,433,825.693 kg",
+              "value": 49433825.6934294,
+              "unit": "kg"
+            }
+          ],
+          "note": "Scenario estimate from assumed generic emission factors (9.5 kg PM2.5 and 1,580 kg CO2 per tonne of dry biomass). It is not a measured emission, an air-quality concentration, or the dashboard's fuel-specific PM2.5 value, which stays unavailable without measured annual land-cover classes."
+        },
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube",
+          "verified_calculation",
+          "knowledge"
+        ]
+      },
+      "seconds": 6.05,
+      "checks": {
+        "http": true,
+        "nonempty": true,
+        "real": true,
+        "no_internal_output": true,
+        "no_development_citations": true
+      },
+      "result": "passed"
+    }
+  ],
+  "health": {
+    "status": "ok",
+    "duckdb": "ok",
+    "row_count": 729742,
+    "data_source": "real",
+    "cube_path": "C:\\Users\\Usuario\\Almenara\\Almenara\\firms-harmonizer\\data\\processed\\fire_cube.parquet",
+    "missing_columns": [],
+    "core": {
+      "compute_cross_prior": true,
+      "kalman_rts_smooth": true,
+      "fit_von_mises_year": true,
+      "phenology_trend": true,
+      "chow_test": true,
+      "wasserstein_w1_normalized": true,
+      "descriptive_r2": true,
+      "run_chaos_monkey_simulation": true
+    },
+    "core_signatures": {
+      "compute_cross_prior": null,
+      "kalman_rts_smooth": null,
+      "fit_von_mises_year": null,
+      "phenology_trend": null,
+      "chow_test": null,
+      "wasserstein_w1_normalized": null,
+      "descriptive_r2": null,
+      "run_chaos_monkey_simulation": null
+    },
+    "nrt": {
+      "status": "idle",
+      "last_poll_utc": null,
+      "last_success_utc": null,
+      "rows_ingested": 0,
+      "last_error": null
+    }
+  },
+  "private_paths": {
+    "/.env": 404,
+    "/server.log": 404,
+    "/data/ETL_SPEC.md": 404,
+    "/backend/api/copilot_agent.py": 404
+  },
+  "request_limit_status": 422,
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "provider_answers": 4,
+    "fallbacks": [
+      "low-confidence"
+    ]
+  }
+}

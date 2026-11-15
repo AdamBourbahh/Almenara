@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {writeFile} from 'node:fs/promises';
+import {writeFile, mkdir} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
 import {chromium} from 'playwright';
 
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH ?? '/usr/bin/chromium',headless:true,
@@ -18,18 +19,19 @@ try {
   await page.getByRole('button',{name:'Day',exact:true}).click();
   await page.getByLabel('Choose day',{exact:true}).fill('2026-07-24');
   await page.getByRole('button',{name:'Apply dates',exact:true}).click();
-  await page.getByRole('button',{name:'Fire Copilot',exact:true}).click();
+  await page.getByRole('button',{name:'FIRMS Copilot',exact:true}).click();
   const pending=page.waitForResponse(r=>r.url().endsWith('/api/explain-spike')&&r.request().method()==='POST',{timeout:60000});
-  await page.getByLabel('Question for Fire Copilot').fill('how much energy in GJ was released here?');
+  await page.getByLabel('Question for FIRMS Copilot').fill('how much energy in GJ was released here?');
   await page.getByTitle('Send question',{exact:true}).click();
   const response=await pending,body=await response.json(),request=response.request().postDataJSON();
   assert.equal(response.status(),200);assert.equal(body.data_source,'real');
   assert.match(body.model_used,/^(?:gemini|groq)-agent\//);
   assert.equal(request.period_start,'2026-07-24');assert.equal(body.map_context.period_start,request.period_start);
   assert.deepEqual(body.map_context.aoi,request.aoi);
-  await page.waitForFunction(()=>!document.querySelector('[aria-label="Question for Fire Copilot"]')?.disabled);
-  const directory=new URL('../../docs/verification/2026-11-15-copilot-quality/',import.meta.url);
-  await page.screenshot({path:new URL('browser-online.png',directory).pathname});
+  await page.waitForFunction(()=>!document.querySelector('[aria-label="Question for FIRMS Copilot"]')?.disabled);
+  const directory=new URL(process.env.COPILOT_BROWSER_OUTPUT ?? '../../docs/verification/2026-11-15-firms-copilot/browser-online/',import.meta.url);
+  await mkdir(directory,{recursive:true});
+  await page.screenshot({path:fileURLToPath(new URL('browser-online.png',directory))});
   await writeFile(new URL('browser-online.json',directory),JSON.stringify({request,response:body,result:'passed',
     expected:{data_source:'real',selected_day:'2026-07-24'},criterion:'Actual browser to HTTP API to the configured provider; exact selected geometry/date and real provenance'},null,2));
   console.log(body.model_used,body.data_source,body.explanation_markdown.slice(0,150));

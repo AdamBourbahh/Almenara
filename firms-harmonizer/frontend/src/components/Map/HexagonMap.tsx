@@ -396,7 +396,7 @@ export function HexagonMap() {
         `Period: ${mapPeriod}`,
         `Period fire energy: ${object.mean_annual_fre.toFixed(1)} MJ/km²`,
         `Period detections: ${object.raw_pixel_count.toLocaleString("en-US")}`,
-        "Click to attach this hexagon to Fire Copilot.",
+        "Click to attach this hexagon to FIRMS Copilot.",
         "Color: logarithmic scale, relative to the displayed period (95th percentile)",
         "Satellite observations do not establish the exact ignition time."
       ];

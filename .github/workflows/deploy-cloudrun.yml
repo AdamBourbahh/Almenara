@@ -27,6 +27,7 @@ jobs:
     env:
       GCP_PROJECT: ${{ vars.GCP_PROJECT }}
       DATA_REPO: ${{ vars.HF_DATA_REPO || 'andearlla/firms-harmonizer-data' }}
+      RUNTIME_DATA_IMAGE: ${{ vars.RUNTIME_DATA_IMAGE }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,11 +41,30 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install runtime data downloader
+        if: vars.RUNTIME_DATA_IMAGE == ''
         run: python -m pip install -r deploy/requirements.txt
       - name: Bundle published real data before building the image
+        if: vars.RUNTIME_DATA_IMAGE == ''
         run: >-
           hf download "$DATA_REPO" --repo-type dataset --local-dir firms-harmonizer/data
           --include "processed/**" "lookup/**" "cache/land_cover/**" "manifest.json"
+      - name: Bundle pinned runtime data from the image registry
+        if: vars.RUNTIME_DATA_IMAGE != ''
+        run: |
+          gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+          docker pull "$RUNTIME_DATA_IMAGE"
+          container_id=$(docker create "$RUNTIME_DATA_IMAGE")
+          trap 'docker rm -f "$container_id" >/dev/null' EXIT
+          mkdir -p firms-harmonizer/data
+          docker cp "$container_id:/data/." firms-harmonizer/data/
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('firms-harmonizer/data')
+          for name, expected in json.loads((root/'checksums.json').read_text()).items():
+              if hashlib.sha256((root/name).read_bytes()).hexdigest() != expected:
+                  raise SystemExit('Runtime data checksum mismatch: '+name)
+          PY
       - name: Deploy the verified main commit
         run: |
           current=$(git rev-parse HEAD)

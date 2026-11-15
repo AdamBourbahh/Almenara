@@ -105,6 +105,10 @@ def test_energy_equals_independent_per_cell_integration(oracle, start, end, excl
     expected = math.fsum(terms)
     actual = retrieve_energy(local.resolve_scope(req), req)
     audit(request.node, req, {'energy_gj': expected}, actual, ['retrieve_energy'], 'Independent cube scan; available-sensor mean per cell times exact H3 area /1000; no RTS')
+    if actual['status'] == 'empty':
+        assert not rows
+        assert expected == 0
+        return
     assert actual['status'] == 'ok'
     assert actual['data_source'] == 'real'
     assert actual['mapped_energy_gj'] == pytest.approx(expected, rel=1e-10, abs=1e-8)
@@ -143,9 +147,15 @@ def test_pipeline_provenance_and_transforms(oracle, check, request):
         expected = oracle.sql("select count(*) from (select distinct h3_r7,acq_date from staged where confidence_norm in ('nominal','high'))").fetchall()[0][0]
         ok = actual == expected and pq.read_schema(ROOT/'data/processed/fire_cube.parquet').metadata[b'confidence_level'] == b'nominal'
     else:
-        actual = oracle.sql('select count(*) filter(where burned_area_ha_mcd64 is not null),count(*) filter(where cloud_cover_pct is not null) from cube').fetchall()[0]
-        expected = (0,0)
-        ok = actual == expected
+        # Auxiliary products can be available on a real workstation. Missing
+        # joins must stay NULL; measured values must equal the published input.
+        actual = oracle.execute('''select count(*) from cube c
+            left join read_parquet(?) a on c.h3_r7=a.h3_r7
+                and DATE '1970-01-01' + c.epoch_day::INTEGER=a.acq_date::DATE
+            where c.burned_area_ha_mcd64 is distinct from a.burned_area_ha_mcd64
+               or c.cloud_cover_pct is distinct from a.cloud_cover_pct''',
+            [str(ROOT/'data/lookup/cell_day_ancillary.parquet')]).fetchone()[0]
+        expected, ok = 0, actual == 0
     audit(request.node, req, expected, actual, ['independent CSV/staging/cube scan'], check)
     if check=='source-sample':
         request.node.audit['files'] += ['data/raw/'+row['source_file'] for row in actual]
@@ -202,14 +212,16 @@ def test_offline_historical_questions_cannot_open_a_network_socket(oracle, monke
     def deny_network(*args,**kwargs):
         attempts.append(str(args[1:]))
         raise AssertionError('Offline answer attempted network access')
-    monkeypatch.setattr(socket.socket,'connect',deny_network)
-    monkeypatch.setattr(socket,'getaddrinfo',deny_network)
     questions=['is this a fire?','why did this happen?','the reason of the fire is known?',
                'how much energy in GJ was released here?','how many fires were there?',
                'why does the map seem to stop on July 27 if the Madrid fire lasted fourteen days?']
     received=[]
     req=globals()['request']('2026-07-24')
     with TestClient(app) as client:
+        # Windows initializes its event-loop self-pipe using a loopback socket
+        # pair. Block connections after TestClient has created that loop.
+        monkeypatch.setattr(socket.socket,'connect',deny_network)
+        monkeypatch.setattr(socket,'getaddrinfo',deny_network)
         for question in questions:
             req.user_question=question
             response=client.post('/api/explain-spike',json=req.model_dump(mode='json'))
