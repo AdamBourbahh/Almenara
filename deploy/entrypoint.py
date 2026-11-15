@@ -56,11 +56,13 @@ def restore_modification_times() -> int:
 
 def main() -> None:
     repo = os.environ.get("DATA_REPO", "").strip()
-    if repo:
+    if repo and not CUBE.is_file():
         log(f"Downloading runtime data from dataset {repo}.")
         started = time.monotonic()
         fetch_runtime_data(repo)
         log(f"Runtime data ready in {time.monotonic() - started:.1f} s; restored {restore_modification_times()} timestamps.")
+    elif CUBE.is_file():
+        restore_modification_times()
     if os.environ.get("USE_SYNTHETIC_CUBE") != "1" and not CUBE.is_file():
         raise SystemExit(f"[entrypoint] Real cube missing at {CUBE}. Set DATA_REPO to the published data "
                          "dataset, mount data/processed, or set USE_SYNTHETIC_CUBE=1 for the labelled demo cube.")
