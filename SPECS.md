@@ -998,3 +998,38 @@ methodology's four-second search suggestion after repeated live timeouts; the ag
 
 Public Pydantic and TypeScript API contracts are unchanged. Offline mode and provider
 failure retain local archive responses and explicit real/synthetic provenance.
+
+### Copilot quality verification and context integrity (2026-11-15)
+
+The selected provider is binding for both agent and auxiliary completions, including
+the default provider. A service failure falls back to local evidence without spending
+another provider's quota. Out-of-domain redirection is an explicit model-selected
+action and requires no fabricated citation.
+
+Shared-month date ranges preserve both inclusive endpoints; invalid and reversed
+dates request correction. A date mentioned as a chart cutoff is a premise to check,
+not an instruction to replace attached dates. Relative days use the retained context,
+while a fresh attachment takes precedence over stale history. Measurement tools may
+not replace resolved dates. Episode and report comparison windows remain separately
+labeled and never replace the returned map context. Confidence and industrial
+settings propagate to detections, mapped energy and episode profiling.
+
+The observation timeline tool checks later accepted centers within a bounded,
+explicit comparison window. It works locally in offline mode. Detection absence,
+official containment/extinction and claimed incident duration remain separate facts.
+Retrieved report leads cannot authorize factual citations without matched article
+passages. Explicit document commands cannot become incident evidence. Regional news
+does not establish a selected observation's membership in a named fire: no current
+tool joins an official incident perimeter to the observations.
+
+Numerical validation retains typed units and exact integer quantities. Decimal
+rounding is checked at its displayed precision instead of with a broad relative
+tolerance; known sensor identifiers are not measurements. Exact count and energy
+summaries are rendered by the server before explanatory prose when requested.
+The numerical and incident-match checks cover specified failure classes; they are
+not proof that every arbitrary natural-language claim is correct.
+
+Reproducible verification is in `firms-harmonizer/qa/` and
+`docs/verification/2026-11-15-copilot-quality/`. Real-file checks use independent
+Shapely center selection and direct CSV/Parquet scans. Live-provider conversations,
+controlled transport faults and real browser flows are reported separately.
