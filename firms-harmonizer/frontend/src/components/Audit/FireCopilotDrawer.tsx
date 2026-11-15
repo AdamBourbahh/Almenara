@@ -381,15 +381,50 @@ function speechChunks(markdown: string): string[] {
     .filter(Boolean);
 }
 
-function speechLanguage(text: string): string {
-  return /[áéíóúñ¿¡]/i.test(text) ? "es-ES" : "en-US";
+// The Copilot answers in English: always use an English voice, preferring the
+// most natural one installed (Edge "Natural" / Google voices), then en-US.
+function englishVoiceScore(voice: SpeechSynthesisVoice): number {
+  const lang = voice.lang.toLowerCase().replace("_", "-");
+  if (!lang.startsWith("en")) return -1;
+  let score = 0;
+  if (/natural|neural|online/i.test(voice.name)) score += 8;
+  if (/google/i.test(voice.name)) score += 4;
+  if (lang === "en-us") score += 2;
+  else if (lang === "en-gb") score += 1;
+  if (voice.localService) score += 0.5;
+  return score;
+}
+
+function pickEnglishVoice(): SpeechSynthesisVoice | null {
+  let best: SpeechSynthesisVoice | null = null;
+  let bestScore = -1;
+  for (const voice of window.speechSynthesis.getVoices()) {
+    const score = englishVoiceScore(voice);
+    if (score > bestScore) {
+      best = voice;
+      bestScore = score;
+    }
+  }
+  return best;
 }
 
 function useReadAloud() {
   const supported = typeof window !== "undefined" && "speechSynthesis" in window;
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [rate, setRate] = useState<number>(1);
-  const session = useRef({ token: 0, chunks: [] as string[], index: 0, lang: "en-US" });
+  const session = useRef({ token: 0, chunks: [] as string[], index: 0 });
+  const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
+
+  // Voices load asynchronously in Chrome/Edge: pick once they are available.
+  useEffect(() => {
+    if (!supported) return;
+    const refresh = () => {
+      voiceRef.current = pickEnglishVoice();
+    };
+    refresh();
+    window.speechSynthesis.addEventListener("voiceschanged", refresh);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", refresh);
+  }, [supported]);
 
   const playFrom = (startIndex: number, rateValue: number) => {
     const current = session.current;
@@ -404,7 +439,9 @@ function useReadAloud() {
       current.index = index;
       const utterance = new SpeechSynthesisUtterance(current.chunks[index]);
       utterance.rate = rateValue;
-      utterance.lang = current.lang;
+      const voice = voiceRef.current ?? pickEnglishVoice();
+      if (voice) utterance.voice = voice;
+      utterance.lang = voice?.lang ?? "en-US";
       utterance.onend = () => speakChunk(index + 1);
       utterance.onerror = () => {
         if (token === current.token) setSpeakingId(null);
@@ -430,7 +467,6 @@ function useReadAloud() {
     const chunks = speechChunks(markdown);
     if (!chunks.length) return;
     session.current.chunks = chunks;
-    session.current.lang = speechLanguage(chunks.join(" "));
     setSpeakingId(id);
     playFrom(0, rate);
   };
