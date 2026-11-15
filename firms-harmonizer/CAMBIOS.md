@@ -1,5 +1,25 @@
 # Change log — integration changes
 
+## 2026-11-15 — Free single-container deployment
+
+Added a root `Dockerfile` (frontend build stage plus Python runtime), `.dockerignore`
+allowlist, `deploy/` tooling and `.github/workflows/deploy-cloudrun.yml`. The app runs on
+Google Cloud Run (`deploy/cloudrun.py`) with runtime data in the Hugging Face dataset
+`andearlla/firms-harmonizer-data` (`deploy/publish.py`); see `docs/deploy.md`. Hugging Face
+Docker Spaces were the first target but now require a PRO subscription.
+
+`backend/api/main.py` now mounts the built frontend at `/` when `FRONTEND_DIST` names a
+directory containing `index.html`. It is mounted after the API router, so `/api/*` keeps
+precedence and unknown API paths still return 404. Without `FRONTEND_DIST` behaviour is
+unchanged. No API contract changed.
+
+The container entrypoint downloads runtime data from `DATA_REPO`, restores the original
+file modification times from the dataset manifest (cache keys and coverage revision stamps
+use them), and refuses to start without a real cube unless `USE_SYNTHETIC_CUBE=1`. Uvicorn
+trusts forwarded client addresses so per-client rate limits apply per visitor behind the
+platform proxy. Tests: `backend/tests/test_deploy_static.py` (single-origin routing, Space
+upload contents, timestamp restoration, missing-cube refusal).
+
 ## 2026-11-15 — Preserve episode dates during provider fallback
 
 The local investigator now forwards the resolved map/conversation period to the

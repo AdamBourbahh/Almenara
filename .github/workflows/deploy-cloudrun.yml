@@ -1,0 +1,43 @@
+name: Deploy to Cloud Run
+
+# Runs after the Verify workflow succeeds on main, or manually. It is skipped until the
+# repository variables GCP_PROJECT, GCP_WIF_PROVIDER and GCP_SERVICE_ACCOUNT are set
+# (see docs/deploy.md). Authentication uses Workload Identity Federation: no key is stored.
+on:
+  workflow_run:
+    workflows: [Verify]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cloudrun
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    if: >-
+      vars.GCP_WIF_PROVIDER != '' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python deploy/cloudrun.py --project "$GCP_PROJECT" deploy --data-repo "$DATA_REPO"
+        env:
+          GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+          DATA_REPO: ${{ vars.HF_DATA_REPO || 'andearlla/firms-harmonizer-data' }}

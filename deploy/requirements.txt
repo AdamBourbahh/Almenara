@@ -1,0 +1,2 @@
+# Deployment tooling: runtime data download in the container and Hugging Face publishing.
+huggingface_hub==2.3.0

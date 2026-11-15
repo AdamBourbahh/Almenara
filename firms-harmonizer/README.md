@@ -49,6 +49,13 @@ The offline ETL uses retained CSVs and builds nominal/high/all-confidence cubes.
 
 No real cube means startup fails with instructions. Synthetic mode requires explicit `USE_SYNTHETIC_CUBE=1`; the browser fixture separately requires `VITE_ALLOW_SYNTHETIC_FALLBACK=1`. Neither is scientific evidence.
 
+## Deployment
+
+Live at <https://firms-harmonizer-612652227111.europe-west1.run.app>. One Docker container on
+Google Cloud Run serves the API and the built frontend from one origin; runtime data is loaded
+from a public Hugging Face dataset at start-up. Traffic stays inside the Cloud Run free tier.
+See `../docs/deploy.md` for operations, costs and automatic redeploys.
+
 ## Observation and ancillary acquisition
 
 Public MODIS Terra/Aqua 1 km FireMask products can be acquired without an Earthdata account:
