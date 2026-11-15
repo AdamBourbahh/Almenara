@@ -20,6 +20,7 @@ A missing detection row is not evidence of either no fire or a satellite outage.
 - Primary PM2.5 emission estimates where annual measured MCD12Q1 land classes and supported fuel factors exist. Daily factor SD includes published inter-study factor spread and biomass-factor uncertainty; it excludes sampling/integration bias and is not a full uncertainty interval. Unsupported inputs or reconstructed days return null.
 - Descriptive burned-area R-squared from independent MCD64A1 cells, including cells without FIRMS detections, restricted to years with complete monthly tile inventories. Correlation is not out-of-sample validation.
 - Fire Copilot defaults to immediate archive-only answers. Online research is explicit and retains evidence/date/location checks.
+- Risk AI gives a local 24 h / 7 d / 14 d satellite thermal-event forecast for the selected AOI and date: a causal seasonal base rate plus a persistence state, an exact baseline + trend + anomaly decomposition, signed driver bars, a 14-day outlook and operational telemetry (observation coverage, FRP intensity band, phenology). Probabilities are not incident records, and 7/14-day values can be under-predicted where daily persistence is weak (details in `SPECS.md` §5.6).
 
 Chow p >0.1 and Wasserstein reduction >88% remain the original diagnostic gates. FAIL results are displayed unchanged. Passing them does not establish complete observation coverage or operational forecast accuracy.
 

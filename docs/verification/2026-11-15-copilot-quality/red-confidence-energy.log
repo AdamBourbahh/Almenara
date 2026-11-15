@@ -1,0 +1,72 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_____ test_energy_uses_same_confidence_cube_as_map_and_temporal_model[low] _____
+
+oracle = <_duckdb.DuckDBPyConnection object at 0x7485f160ca40>, level = 'low'
+request = <FixtureRequest for <Function test_energy_uses_same_confidence_cube_as_map_and_temporal_model[low]>>
+
+    @pytest.mark.parametrize('level',['low','high'])
+    def test_energy_uses_same_confidence_cube_as_map_and_temporal_model(oracle, level, request):
+        req=globals()['request']('2026-07-24',confidence_level=level,enable_kalman_gap_filling=False)
+        req.user_question=f'How much energy in GJ with {level} detection confidence?'
+        rows=oracle.execute('''select h3_r7,obs_terra_fre,obs_aqua_fre,obs_viirs_fre
+            from read_parquet(?) where h3_r7 in (select cell from selected) and epoch_day=? and industrial_prob<=0.75''',
+            [str(ROOT/f'data/processed/fire_cube_{level}.parquet'),(date(2026,7,24)-EPOCH).days]).fetchall()
+        terms=[]
+        for cell,*sensors in rows:
+            valid=[value for value in sensors if value is not None and math.isfinite(value)]
+            if valid:
+                terms.append(math.fsum(valid)/len(valid)*h3.cell_area(format(cell,'x'),unit='km^2')/1000)
+        expected=math.fsum(terms)
+        actual=retrieve_energy(local.resolve_scope(req),req)
+        audit(request.node,req,{'energy_gj':expected},actual,['retrieve_energy'],
+              'Independent scan of the separately published confidence cube, per-cell available sensor fusion')
+        request.node.audit['files'].append(f'data/processed/fire_cube_{level}.parquet')
+>       assert actual['mapped_energy_gj']==pytest.approx(expected,rel=1e-10,abs=1e-8)
+E       assert 84971.6656262539 == 97392.94174434057 ± 9.7e-06
+E
+E         comparison failed
+E         Obtained: 84971.6656262539
+E         Expected: 97392.94174434057 ± 9.7e-06
+
+qa/test_copilot_archive.py:242: AssertionError
+____ test_energy_uses_same_confidence_cube_as_map_and_temporal_model[high] _____
+
+oracle = <_duckdb.DuckDBPyConnection object at 0x7485f160ca40>, level = 'high'
+request = <FixtureRequest for <Function test_energy_uses_same_confidence_cube_as_map_and_temporal_model[high]>>
+
+    @pytest.mark.parametrize('level',['low','high'])
+    def test_energy_uses_same_confidence_cube_as_map_and_temporal_model(oracle, level, request):
+        req=globals()['request']('2026-07-24',confidence_level=level,enable_kalman_gap_filling=False)
+        req.user_question=f'How much energy in GJ with {level} detection confidence?'
+        rows=oracle.execute('''select h3_r7,obs_terra_fre,obs_aqua_fre,obs_viirs_fre
+            from read_parquet(?) where h3_r7 in (select cell from selected) and epoch_day=? and industrial_prob<=0.75''',
+            [str(ROOT/f'data/processed/fire_cube_{level}.parquet'),(date(2026,7,24)-EPOCH).days]).fetchall()
+        terms=[]
+        for cell,*sensors in rows:
+            valid=[value for value in sensors if value is not None and math.isfinite(value)]
+            if valid:
+                terms.append(math.fsum(valid)/len(valid)*h3.cell_area(format(cell,'x'),unit='km^2')/1000)
+        expected=math.fsum(terms)
+        actual=retrieve_energy(local.resolve_scope(req),req)
+        audit(request.node,req,{'energy_gj':expected},actual,['retrieve_energy'],
+              'Independent scan of the separately published confidence cube, per-cell available sensor fusion')
+        request.node.audit['files'].append(f'data/processed/fire_cube_{level}.parquet')
+>       assert actual['mapped_energy_gj']==pytest.approx(expected,rel=1e-10,abs=1e-8)
+E       assert 84971.6656262539 == 79403.9281360955 ± 7.9e-06
+E
+E         comparison failed
+E         Obtained: 84971.6656262539
+E         Expected: 79403.9281360955 ± 7.9e-06
+
+qa/test_copilot_archive.py:242: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /tmp/almenara-copilot-quality/firms-harmonizer/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED qa/test_copilot_archive.py::test_energy_uses_same_confidence_cube_as_map_and_temporal_model[low]
+FAILED qa/test_copilot_archive.py::test_energy_uses_same_confidence_cube_as_map_and_temporal_model[high]
+2 failed, 34 deselected, 1 warning in 1.80s

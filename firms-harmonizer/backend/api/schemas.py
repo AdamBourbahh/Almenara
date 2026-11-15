@@ -85,6 +85,8 @@ class RiskDailyProbability(ContractModel):
     date: date
     wildfire_prob_pct: float | None = Field(ge=0, le=100)
     accident_prob_pct: float | None = Field(ge=0, le=100)
+    baseline_prob_pct: float | None = Field(default=None, ge=0, le=100)
+    observed_event: bool | None = None
 
 
 class RiskHorizon(ContractModel):
@@ -103,6 +105,42 @@ class RiskFactor(ContractModel):
     impact_pct: float = Field(ge=0, le=100)
     direction: Literal["raises", "lowers"]
     description: str
+    signed_impact_pct: float | None = Field(default=None, ge=-100, le=100)
+    observed_value: float | None = None
+    unit: str | None = None
+
+
+class RiskObservationStatus(ContractModel):
+    status: str
+    coverage_nominal: bool
+    uncertainty_pct: float | None = Field(default=None, ge=0, le=100)
+    days_since_observation: int | None = Field(default=None, ge=0)
+
+
+class RiskIntensityRegime(ContractModel):
+    regime: str
+    guidance: str
+    intensity_mw: float | None = Field(default=None, ge=0)
+    diurnal_amplification_ratio: float | None = Field(default=None, ge=0)
+    contagion_origin: str | None = None
+    neighbor_frp_mw: float | None = Field(default=None, ge=0)
+
+
+class RiskPhenology(ContractModel):
+    days_to_peak: int | None = Field(default=None, ge=-183, le=183)
+    peak_date_label: str | None = None
+    kappa: float | None = Field(default=None, ge=0)
+    season_width_days: float | None = Field(default=None, ge=0, le=366)
+    decadal_shift_days: float | None = None
+    biomass_exposure_tonnes: float | None = Field(default=None, ge=0)
+    persistence_entropy: float | None = Field(default=None, ge=0, le=1)
+    fuel_regime: str | None = None
+
+
+class RiskOutlookPoint(ContractModel):
+    date: date
+    prob_pct: float | None = Field(default=None, ge=0, le=100)
+    baseline_prob_pct: float | None = Field(default=None, ge=0, le=100)
 
 
 class AIRiskAssessment(ContractModel):
@@ -120,6 +158,16 @@ class AIRiskAssessment(ContractModel):
     top_risk_factors: list[RiskFactor]
     industrial_risk_factors: list[RiskFactor]
     daily_probability_series: list[RiskDailyProbability]
+    baseline_climatology_pct: float | None = Field(default=None, ge=0, le=100)
+    multi_year_trend_delta_pct: float | None = Field(default=None, ge=-100, le=100)
+    short_term_anomaly_delta_pct: float | None = Field(default=None, ge=-100, le=100)
+    anomaly_multiplier: float | None = Field(default=None, ge=0)
+    markov_persistence: float | None = Field(default=None, ge=0, le=1)
+    horizon_explanation: str | None = None
+    observation: RiskObservationStatus | None = None
+    intensity: RiskIntensityRegime | None = None
+    phenology: RiskPhenology | None = None
+    outlook_series: list[RiskOutlookPoint] | None = None
 
 
 class RiskPredictionResponse(ContractModel):

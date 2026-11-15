@@ -271,7 +271,7 @@ Sorted physically by `ORDER BY h3_r4 ASC, epoch_day ASC, h3_r7 ASC` with `ZSTD` 
 
 ### 5.2 Pydantic v2 Contract (`backend/api/schemas.py`)
 
-**Authoritative source: `firms-harmonizer/backend/api/schemas.py`** (mirrored by `frontend/src/api/types.ts`). The block below is a verbatim copy as of 2026-11-15; changes are logged in `firms-harmonizer/CAMBIOS.md`. Nullable fields are `null` when their required inputs or scientific publication gates are unavailable. Forecast and PM2.5 support is conditional, as specified in section 1.
+**Authoritative source: `firms-harmonizer/backend/api/schemas.py`** (mirrored by `frontend/src/api/types.ts`). The block below is a verbatim copy as of 2026-11-15; changes are logged in `firms-harmonizer/CAMBIOS.md`. Nullable fields are `null` when their required inputs or scientific publication gates are unavailable, or when the source column / core output is unavailable. Forecast and PM2.5 support is conditional, as specified in section 1.
 
 ```python
 """Frozen, JSON-safe public API contracts; mirrored in frontend/src/api/types.ts."""
@@ -361,6 +361,8 @@ class RiskDailyProbability(ContractModel):
     date: date
     wildfire_prob_pct: float | None = Field(ge=0, le=100)
     accident_prob_pct: float | None = Field(ge=0, le=100)
+    baseline_prob_pct: float | None = Field(default=None, ge=0, le=100)
+    observed_event: bool | None = None
 
 
 class RiskHorizon(ContractModel):
@@ -379,6 +381,42 @@ class RiskFactor(ContractModel):
     impact_pct: float = Field(ge=0, le=100)
     direction: Literal["raises", "lowers"]
     description: str
+    signed_impact_pct: float | None = Field(default=None, ge=-100, le=100)
+    observed_value: float | None = None
+    unit: str | None = None
+
+
+class RiskObservationStatus(ContractModel):
+    status: str
+    coverage_nominal: bool
+    uncertainty_pct: float | None = Field(default=None, ge=0, le=100)
+    days_since_observation: int | None = Field(default=None, ge=0)
+
+
+class RiskIntensityRegime(ContractModel):
+    regime: str
+    guidance: str
+    intensity_mw: float | None = Field(default=None, ge=0)
+    diurnal_amplification_ratio: float | None = Field(default=None, ge=0)
+    contagion_origin: str | None = None
+    neighbor_frp_mw: float | None = Field(default=None, ge=0)
+
+
+class RiskPhenology(ContractModel):
+    days_to_peak: int | None = Field(default=None, ge=-183, le=183)
+    peak_date_label: str | None = None
+    kappa: float | None = Field(default=None, ge=0)
+    season_width_days: float | None = Field(default=None, ge=0, le=366)
+    decadal_shift_days: float | None = None
+    biomass_exposure_tonnes: float | None = Field(default=None, ge=0)
+    persistence_entropy: float | None = Field(default=None, ge=0, le=1)
+    fuel_regime: str | None = None
+
+
+class RiskOutlookPoint(ContractModel):
+    date: date
+    prob_pct: float | None = Field(default=None, ge=0, le=100)
+    baseline_prob_pct: float | None = Field(default=None, ge=0, le=100)
 
 
 class AIRiskAssessment(ContractModel):
@@ -396,6 +434,16 @@ class AIRiskAssessment(ContractModel):
     top_risk_factors: list[RiskFactor]
     industrial_risk_factors: list[RiskFactor]
     daily_probability_series: list[RiskDailyProbability]
+    baseline_climatology_pct: float | None = Field(default=None, ge=0, le=100)
+    multi_year_trend_delta_pct: float | None = Field(default=None, ge=-100, le=100)
+    short_term_anomaly_delta_pct: float | None = Field(default=None, ge=-100, le=100)
+    anomaly_multiplier: float | None = Field(default=None, ge=0)
+    markov_persistence: float | None = Field(default=None, ge=0, le=1)
+    horizon_explanation: str | None = None
+    observation: RiskObservationStatus | None = None
+    intensity: RiskIntensityRegime | None = None
+    phenology: RiskPhenology | None = None
+    outlook_series: list[RiskOutlookPoint] | None = None
 
 
 class RiskPredictionResponse(ContractModel):
@@ -683,28 +731,104 @@ estimates would leak later information and are excluded. A day between recorded
 observations without a cube row has no reported detection. This convention and changing
 sensor coverage limit what the forecast can infer about real fire activity.
 
-The first 60% supplies base-model fit data, the next 20% calibrates stacked logistic,
-boosted-stump and Gaussian naive Bayes outputs, and the final 20% supplies held-out
-forecasts and validation. Label windows may not cross those boundaries or extend past
-the record; flagged or explicitly missing windows are excluded from scoring. Metrics
-cover each target and horizon separately. The ensemble requires at least five events
-and five non-events in both fitting and calibration, plus 365 days of history.
-With less support, a causal prior shrinks the frequency in earlier complete windows
-toward a declared 0.5% daily prior with the weight of 100 windows. Bounded spatial,
-recent heat, seasonal and persistent-source terms adjust the prior log odds. A
-missing positive FRP reference uses a declared 1 MW threshold. Each horizon lists
-the targets using the prior in the additive `prior_targets` field. An AOI with
-no records receives an unavailable status. Brier score requires complete held-out
-windows and ROC-AUC also requires both classes. Reliability bins compare predicted
+**Seasonal base rate.** For target `m` and forecast day `t+k`, the base rate `b_m(t+k)` is the
+event-day frequency within day of year ±15 days of `t+k` in strictly earlier calendar years,
+using only valid days (observed and not gap-flagged). It is shrunk toward the pooled rate of all
+valid days through `t` with 31 pseudo-days (one window-year), and the pooled rate is itself
+shrunk toward a declared 0.5% daily prior with the weight of 100 days. A recent version uses
+the last five earlier years, shrunk toward the long-term rate with 62 pseudo-days. Both are
+causal: day `t` never sees a record dated after `t`.
+
+**24-hour model.** Each target gets one 24-hour fit. Its log-odds offset is
+`logit b_m(t+1) + s_m(t)`, where `s_m(t)` is a persistence-state lift: today's state is no
+event, an event run of 1-2 days, or a run of 3 or more days (an unobserved day carries no
+state). After an event `P(event tomorrow) = b + phi_s (1 - b)`, and after a non-event day
+`b (1 - phi_0)`. Each `phi` is a moment estimate from completed day pairs, shrunk toward zero
+with 10 pseudo-pairs and clipped to [0, 0.95], so a calm state never raises risk. Logistic,
+boosted-stump and Gaussian naive Bayes learners enter as centred residuals on that offset
+(calendar columns are zeroed because the offset already carries the annual cycle). Each
+learner's residual logit is calibrated in the large on the training rows, and a stacked
+logistic calibrator fitted on the calibration slice combines them. The first 60% of the record
+supplies learner fit rows (only rows whose offset rests on at least one prior-year window), the
+next 20% calibrates, and the final 20% supplies held-out forecasts and validation. Label
+windows may not cross those boundaries or extend past the record; flagged or explicitly missing
+windows are excluded from scoring. The combined target is the union event, constrained by the
+Frechet bounds `max(p_w, p_a) <= p_c <= min(1, p_w + p_a)`.
+
+**Prior path.** A fit requires at least 365 daily rows, a positive FRP reference, and at least
+five events and five non-events in both the fit rows and the calibration rows. Because fit rows
+need a prior-year seasonal window inside the first 60% of the record, series shorter than about
+1.7 years (roughly 610 days) cannot meet it in practice. Otherwise the target falls back to
+the offset plus declared, bounded spatial, recent-heat, seasonal and persistent-source terms
+(no fitted parameters), and each horizon lists it in the additive `prior_targets` field. A
+missing positive FRP reference uses a declared 1 MW threshold. An AOI with no records receives
+an unavailable status. During a run of missing observations the 24-hour estimate is blended
+toward the seasonal base rate of tomorrow, reaching it after seven days.
+
+**7- and 14-day horizons.** There are no separate per-horizon fits. The daily probabilities
+relax from the 24-hour value toward the seasonal base: `p_k = rho^(k-1) p_1 + (1 - rho^(k-1)) b(t+k)`,
+and the first-order autocorrelated Markov accumulation is
+`P_H = 1 - (1 - p_1) * prod_{k=2..H} (1 - p_k (1 - rho))`, which never decreases with `H`.
+`rho` is chosen from {0.55, 0.60, 0.65, 0.68, 0.70, 0.75, 0.80, 0.85} to minimise the 7-day
+Brier score on the calibration slice, per target, and defaults to 0.68 (the RTS Kalman `phi`)
+for prior-path targets. `markov_persistence` reports the combined target's `rho`.
+
+**Decomposition.** `baseline_climatology_pct` is the long-term combined base rate of tomorrow,
+`multi_year_trend_delta_pct` is the recent-five-year minus long-term base rate, and
+`short_term_anomaly_delta_pct` is the combined 24-hour risk minus both, so
+`baseline + trend + anomaly = combined_risk_pct` up to rounding. `anomaly_multiplier` is
+`combined_risk_pct / max(1, baseline_climatology_pct)`. Driver bars keep `impact_pct` as the
+share of absolute log-odds contributions (not a causal effect), and `signed_impact_pct` converts
+each contribution to probability points through the local logistic slope. The persistence-state
+lift is attributed to the feature carrying today's thermal state. Each driver has a physical
+`description`, an `observed_value` and a `unit`.
+
+**Operational telemetry** (all computed from rows dated on or before the origin).
+`observation.status` is nominal when the last three days are observed, unflagged and
+on average under 50% cloud; `uncertainty_pct` is the trailing seven-day mean of
+`max(missing-or-flagged, cloud fraction)` and `days_since_observation` counts back to the last
+observed row. `intensity.intensity_mw` is the highest mean FRP per detection (cell FRP divided
+by MODIS plus VIIRS detections, non-persistent cells) on the most recent of the last three days
+with data; the regime bands are below 25, 25-120, 120-350 and above 350 MW. `contagion_origin`
+is "Adjacent-cell spread" when 1-ring neighbours inside the area had FRP, otherwise "Isolated
+ignition inside area" or "No active heat". `diurnal_amplification_ratio` is the
+matched-days-weighted median of the ETL Aqua/Terra ratio in `data/lookup/diurnal_ratios.parquet`
+for the AOI's R4 cells and the origin month, and is null when the file is absent.
+`phenology` holds the energy-weighted circular peak (`days_to_peak`, `peak_date_label`), the
+Best-Fisher `kappa`, `season_width_days = min(365, 365.25 / sqrt(max(0.15, kappa)))`, the
+Theil-Sen `decadal_shift_days` over earlier years (null with fewer than five yearly peaks),
+`biomass_exposure_tonnes = 0.368 kg/MJ x trailing 7-day non-persistent FRP sum x 3,600 s / 1000`
+(the project's one-hour FRP integration proxy), `persistence_entropy` (normalised Shannon
+entropy of the trailing-year monthly FRP energy, persistent share included) and `fuel_regime`
+(below 0.60 vegetative; above 0.75 with at least half the energy persistent, persistent-source;
+otherwise mixed). `outlook_series` lists the 14 daily combined probabilities after the origin
+with their seasonal base rates. In `daily_probability_series`, each point carries the 24-hour
+forecast issued on that date, `baseline_prob_pct` (the wildfire recent base rate for the next
+day) and `observed_event` (whether the wildfire event occurred on that same date, null if the
+day was unobserved or flagged).
+
+**Limitations.** (1) The target is a satellite thermal-event proxy, not confirmed incidents.
+(2) The range of `rho` is a design constraint; measured lag-1 autocorrelation of the daily event
+indicator is lower in some regions (about 0.21 Orlando, about 0.42 Iberia, combined), so 7- and
+14-day probabilities are under-predicted there. Holdout Brier, combined target, before to after
+this recalibration: Orlando 7 d 0.186 to 0.215 and 14 d 0.167 to 0.196; Iberia 14 d 0.105 to
+0.132; 24 h equal or better in three of four presets (Chilecito 0.051 to 0.044, Manaus 0.085 to
+0.069, Iberia 0.159 to 0.161, Orlando 0.097 to 0.097). (3) `observation.uncertainty_pct` is an
+observation-coverage measure, not a Kalman posterior variance: RTS-smoothed values are
+deliberately not used because they leak future data. Cloud cover is absent in the current real
+cube. (4) Intensity uses satellite FRP per detection in MW as an equivalent scale, not fireline
+intensity in kW/m; `contagion_origin` sees only neighbours inside the selected area, so it
+cannot detect ingress from outside it. (5) Biomass exposure is an order-of-magnitude estimate.
+(6) The diurnal ratio is null without the ETL lookup, always so with the synthetic cube. (7)
+`backend/core/risk_predictor.py` reimplements Best-Fisher kappa, the day-of-year label, entropy
+and Theil-Sen locally, pinned by equivalence tests, because the core import allow-list test
+forbids sibling imports; the entropy shown is FRP-energy-weighted per month.
+
+The blackout benchmark replays historical cutoffs with the last 1, 3 or 7 days hidden, then
+scores forecasts against intact later FIRMS reports. The severity badge denotes the combined
+24-hour proxy likelihood, with boundaries at 20%, 50% and 75%. Brier score requires complete
+held-out windows and ROC-AUC also requires both classes. Reliability bins compare predicted
 means to observed frequencies.
-The combined estimate is trained on the union and constrained by its marginals.
-During a run of missing observations the estimate is blended toward the earlier
-event frequency, reaching that frequency after seven days when prior complete
-windows exist. The blackout benchmark replays historical cutoffs with the last 1,
-3 or 7 days hidden, then scores forecasts against intact later FIRMS reports.
-The severity badge denotes the combined 24-hour proxy likelihood, with boundaries at
-20%, 50% and 75%. Driver bars show shares of absolute model or prior log-odds contributions,
-not causal effects or ensemble probability changes.
 
 All computation runs locally. The geometry/date/cube-keyed LRU caches completed results.
 Cold timings include database aggregation and new model fitting. The risk endpoint stays
@@ -999,33 +1123,37 @@ methodology's four-second search suggestion after repeated live timeouts; the ag
 Public Pydantic and TypeScript API contracts are unchanged. Offline mode and provider
 failure retain local archive responses and explicit real/synthetic provenance.
 
-### Gemini-led incident evidence assessment (2026-11-15)
+### Copilot quality verification and context integrity (2026-11-15)
 
-This update supersedes the previous provider cascade and the 35-second agent budget.
-Gemini is the default for both the tool agent and auxiliary completion. Groq is an
-explicit alternative (`COPILOT_PROVIDER=groq`), with no automatic cross-provider
-fallback. Local retrieval, geometry, SQL and arithmetic are Python tools and do not
-require Groq. Offline mode, missing credentials and unrecoverable provider/output
-failures retain the deterministic local response.
+The selected provider is binding for both agent and auxiliary completions, including
+the default provider. A service failure falls back to local evidence without spending
+another provider's quota. Out-of-domain redirection is an explicit model-selected
+action and requires no fabricated citation.
 
-Google discovery may be refined once with a model-selected candidate/locality query;
-server-resolved coordinates and selected dates accompany each search. Retrieved
-article text reaches Gemini without a veto requiring its county/town names to match
-the map envelope label. Up to four sources are packed into a 5,500-character report
-payload, keeping complete sentences and explicit lead/article status. Lead-only
-sources cannot establish incident facts. Existing publisher and redirect restrictions
-remain in force. The legacy excerpt matcher also recognizes English activity dates.
+Shared-month date ranges preserve both inclusive endpoints; invalid and reversed
+dates request correction. A date mentioned as a chart cutoff is a premise to check,
+not an instruction to replace attached dates. Relative days use the retained context,
+while a fresh attachment takes precedence over stale history. Measurement tools may
+not replace resolved dates. Episode and report comparison windows remain separately
+labeled and never replace the returned map context. Confidence and industrial
+settings propagate to detections, mapped energy and episode profiling.
 
-Gemini assesses geographic/date relevance and reviews the incident draft against the
-retrieved articles before returning it. Reported identity, consequences and ignition
-remain separate; a regional candidate is not a confirmed match to selected cells.
-An article's missing ignition cause must not erase its documented incident context.
-This review is model-based, not independent verification or a guarantee against error.
-Selected dates and polygon centroids are valid context for numerical checks; exact
-measurement results remain server-rendered. Episode profiling cannot replace an
-explicitly selected map period with its wider analysis window.
+The observation timeline tool checks later accepted centers within a bounded,
+explicit comparison window. It works locally in offline mode. Detection absence,
+official containment/extinction and claimed incident duration remain separate facts.
+Retrieved report leads cannot authorize factual citations without matched article
+passages. Explicit document commands cannot become incident evidence. Regional news
+does not establish a selected observation's membership in a named fire: no current
+tool joins an official incident perimeter to the observations.
 
-The agent permits up to nine bounded processing steps, with a 55-second overall
-budget and 15-second provider turns; the browser timeout remains 60 seconds. Google
-discovery retains its 12-second budget and publisher reads their four-second cap.
-Public Python and TypeScript API contracts are unchanged.
+Numerical validation retains typed units and exact integer quantities. Decimal
+rounding is checked at its displayed precision instead of with a broad relative
+tolerance; known sensor identifiers are not measurements. Exact count and energy
+summaries are rendered by the server before explanatory prose when requested.
+The numerical and incident-match checks cover specified failure classes; they are
+not proof that every arbitrary natural-language claim is correct.
+
+Reproducible verification is in `firms-harmonizer/qa/` and
+`docs/verification/2026-11-15-copilot-quality/`. Real-file checks use independent
+Shapely center selection and direct CSV/Parquet scans. Live-provider conversations,
+controlled transport faults and real browser flows are reported separately.

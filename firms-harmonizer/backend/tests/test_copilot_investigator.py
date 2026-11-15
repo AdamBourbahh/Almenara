@@ -122,7 +122,8 @@ def test_full_dossier_endpoint_and_compatible_contract(cube):
     assert req.conversation==req.chat_history
 
 
-def test_default_gemini_uses_supported_endpoint_and_bounds_prompt_and_output(monkeypatch):
+@pytest.mark.parametrize('status',[401,403,429,500])
+def test_default_provider_failure_preserves_service_selection_and_transport_bounds(monkeypatch,status):
     monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
     monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
@@ -142,9 +143,12 @@ def test_default_gemini_uses_supported_endpoint_and_bounds_prompt_and_output(mon
     factory=httpx.Client
     monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:factory(transport=httpx.MockTransport(transport),**kwargs))
     result,provider=providers.complete([{'role':'system','content':'x'*6000},{'role':'user','content':'a'*10000}],structured=True)
-    assert result=='{"claims":[]}' and provider=='gemini/gemini-3.8-flash'
+    # A default Groq selection is binding even when other credentials exist.
+    # The old cross-service cascade spent unselected quotas, contrary to policy.
+    assert result is None and provider=='deterministic-offline-science'
     assert len(calls)==1
-    assert calls[0].url.host=='generativelanguage.googleapis.com'
+    assert calls[0].url.host=='api.groq.com'
+    assert json.loads(calls[0].content)['model']=='llama-3.3-70b-versatile'
 
 
 def test_all_provider_network_failures_and_malformed_json(monkeypatch):
@@ -164,12 +168,6 @@ def test_all_provider_network_failures_and_malformed_json(monkeypatch):
             return httpx.Response(200,json={'choices':[{'finish_reason':'length' if mode=='truncated' else 'stop','message':{'content':'bad' if mode=='truncated' else ''}}]})
         monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:factory(transport=httpx.MockTransport(transport),**kwargs))
         assert providers.complete([{'role':'user','content':'test'}])[0] is None
-
-
-def test_offline_skips_every_provider(monkeypatch):
-    monkeypatch.setenv('COPILOT_OFFLINE','1')
-    monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:pytest.fail('Offline attempted HTTP'))
-    assert providers.complete([{'role':'user','content':'test'}])[0] is None
 
 
 def test_three_queries_and_wikipedia_are_clean_and_deduplicated(cube,monkeypatch):

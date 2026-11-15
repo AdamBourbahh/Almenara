@@ -1,0 +1,47 @@
+....FFF                                                                  [100%]
+=================================== FAILURES ===================================
+_____ test_known_sensor_identifiers_are_not_mistaken_for_measured_numbers ______
+
+    def test_known_sensor_identifiers_are_not_mistaken_for_measured_numbers():
+        from backend.api.copilot_evidence import unsupported_numbers
+>       assert not unsupported_numbers('NOAA-20 and NOAA-21 observed thermal activity.', [{'sensors':['N20','N21']}])
+E       AssertionError: assert not ['20', '21']
+E        +  where ['20', '21'] = <function unsupported_numbers at 0x737b7116ba60>('NOAA-20 and NOAA-21 observed thermal activity.', [{'sensors': ['N20', 'N21']}])
+
+backend/tests/test_copilot_quality.py:204: AssertionError
+____ test_model_can_redirect_unrelated_requests_without_inventing_a_source _____
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x737b73d22f00>
+
+    def test_model_can_redirect_unrelated_requests_without_inventing_a_source(online, monkeypatch):
+        monkeypatch.setattr(agent,'turn',lambda *a,**k:{'tool_calls':[tool('redirect_out_of_domain')]})
+        result = agent.answer(ExplainSpikeRequest(user_question='Write a recipe for chocolate cake.'))
+>       assert result.model_used.startswith('groq-agent/')
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x737b7a112ab0>('groq-agent/')
+E        +    where <built-in method startswith of str object at 0x737b7a112ab0> = 'deterministic-offline-science'.startswith
+E        +      where 'deterministic-offline-science' = ExplainSpikeResponse(physical_classification='INSUFFICIENT_CONTEXT', explanation_markdown='### Answer\n\nThe local obs...ce and a date or year to query local detections.', provider_used='deterministic-offline-science', episode_summary=None).model_used
+
+backend/tests/test_copilot_quality.py:210: AssertionError
+------------------------------ Captured log call -------------------------------
+WARNING  backend.api.copilot_agent:copilot_agent.py:308 groq agent fallback (ValueError); tools=['redirect_out_of_domain', 'redirect_out_of_domain', 'redirect_out_of_domain', 'redirect_out_of_domain', 'redirect_out_of_domain', 'redirect_out_of_domain']
+_ test_reported_map_cutoff_is_a_reference_date_not_a_new_measurement_selection _
+
+    def test_reported_map_cutoff_is_a_reference_date_not_a_new_measurement_selection():
+        scope=local.resolve_scope(ExplainSpikeRequest(user_question='why does the map seem to stop on July 27 if the Madrid fire lasted fourteen days?',
+            period_start='2026-07-24',period_end='2026-07-24'))
+>       assert scope.start == scope.end == '2026-07-24'
+E       AssertionError: assert '2026-07-27' == '2026-07-24'
+E
+E         - 2026-07-24
+E         ?          ^
+E         + 2026-07-27
+E         ?          ^
+
+backend/tests/test_copilot_quality.py:219: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_copilot_quality.py::test_known_sensor_identifiers_are_not_mistaken_for_measured_numbers
+FAILED backend/tests/test_copilot_quality.py::test_model_can_redirect_unrelated_requests_without_inventing_a_source
+FAILED backend/tests/test_copilot_quality.py::test_reported_map_cutoff_is_a_reference_date_not_a_new_measurement_selection
+3 failed, 4 passed, 34 deselected in 0.36s

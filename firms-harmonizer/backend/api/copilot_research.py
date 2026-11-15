@@ -9,7 +9,6 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from html import unescape
-from html.parser import HTMLParser
 from backend.api.copilot_network import is_offline
 
 import logging
@@ -112,27 +111,6 @@ def google_search_reports(query: str) -> list[CitationReference]:
     except (httpx.HTTPError, ValueError, TypeError, AttributeError, KeyError, IndexError):
         log.info('Google source discovery unavailable; retained %s approved leads', len(reports))
     return reports
-
-
-class ArticleText(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.hidden = 0
-        self.parts = []
-
-    def handle_starttag(self, tag, attrs):
-        if tag in ("script", "style", "nav", "footer", "header", "noscript"):
-            self.hidden += 1
-
-    def handle_endtag(self, tag):
-        if tag in ("script", "style", "nav", "footer", "header", "noscript"):
-            self.hidden = max(0, self.hidden - 1)
-        if tag in ("p", "article", "section", "div", "li") and not self.hidden:
-            self.parts.append("\n")
-
-    def handle_data(self, data):
-        if not self.hidden:
-            self.parts.append(data)
 
 
 def official_article(citation: CitationReference) -> CitationReference:
@@ -269,7 +247,7 @@ def scientific_sources(question: str) -> list[CitationReference]:
 
 def supported_ignition_excerpt(citation: CitationReference, quote_text: str, scope) -> bool:
     """An incident claim needs an exact official excerpt and explicit event place/date."""
-    if "article text retrieved" not in citation.dataset_or_doi or source_tier(citation.url or "") != 2:
+    if instructional_text(quote_text) or "article text retrieved" not in citation.dataset_or_doi or source_tier(citation.url or "") != 2:
         return False
     quote_normalized = normalize(" ".join(quote_text.split()))
     article = normalize(" ".join(citation.relevance_note.split()))
@@ -305,9 +283,14 @@ def research_host_allowed(url: str) -> bool:
     return source_tier(url) > 0
 
 
+def instructional_text(text: str) -> bool:
+    """Retrieved commands are not factual incident evidence, even on a trusted host."""
+    return bool(re.search(r'ignore (?:all |previous |prior )*instructions|system prompt|assistant\s*:|reveal .*api.?key|override .*instructions', text, re.I))
+
+
 def supported_report_excerpt(citation: CitationReference, excerpt: str, scope) -> bool:
     """Validate attributed regional reporting without equating it with a satellite cell."""
-    if "article text retrieved" not in citation.dataset_or_doi or not source_tier(citation.url or ""):
+    if instructional_text(excerpt) or "article text retrieved" not in citation.dataset_or_doi or not source_tier(citation.url or ""):
         return False
     if not isinstance(excerpt, str) or not 5 <= len(excerpt.split()) <= 80 or re.search(r"https?://|[<>\[\]]", excerpt):
         return False
@@ -328,7 +311,6 @@ def supported_report_excerpt(citation: CitationReference, excerpt: str, scope) -
     if not terms or not any(t in text for t in terms) or not scope.start or not scope.end:
         return False
     # Explicit article dates can occur in the article header rather than beside each sentence.
-    years = {str(y) for y in range(int(scope.start[:4]), int(scope.end[:4])+1)}
     iso = re.findall(r"20\d{2}[-/]\d{2}[-/]\d{2}", text + " " + (citation.url or ""))
     if any(scope.start <= value.replace("/", "-") <= scope.end for value in iso):
         return True

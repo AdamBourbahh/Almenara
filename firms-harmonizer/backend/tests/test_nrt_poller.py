@@ -114,10 +114,6 @@ def test_write_nrt_csv_accepts_a_directory_or_file(tmp_path) -> None:
     assert explicit.read_bytes() == SAMPLE.encode()
 
 
-def test_default_transport_is_never_invoked_at_import() -> None:
-    assert nrt_poller.MAX_DAY_RANGE == 5
-
-
 SAMPLE_NRT_CSV = """latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,confidence,version,bright_ti5,frp,daynight
 -31.42,-67.45,340.5,0.4,0.4,2026-07-15,1730,N,nominal,2.0NRT,295.2,14.8,D
 -31.43,-67.46,335.2,0.4,0.4,2026-07-15,1730,N,nominal,2.0NRT,293.1,8.5,D

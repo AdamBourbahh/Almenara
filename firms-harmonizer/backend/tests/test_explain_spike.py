@@ -47,6 +47,7 @@ def real_archive(tmp_path, monkeypatch):
         cell = h3.latlng_to_cell(lat, lon, 7)
         rows.append(dict(latitude=lat, longitude=lon, acq_date=date.fromisoformat(day),
             acq_time='1300', satellite=sensor, frp=power, is_center=center,
+            confidence_norm='nominal', industrial_prob=0.0,
             h3_r4=int(h3.cell_to_parent(cell, 4), 16), h3_r7=int(cell, 16)))
     pq.write_table(pa.Table.from_pylist(rows), directory / 'staged_firms.parquet')
     monkeypatch.setattr(duckdb_engine, 'ROOT', tmp_path)

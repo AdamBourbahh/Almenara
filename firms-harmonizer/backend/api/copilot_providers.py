@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from backend.api.copilot_network import is_offline
 
-import json
 import logging
 import os
 from time import monotonic
@@ -57,10 +56,10 @@ def complete(messages: list[dict], *, structured: bool = False,
         ('groq-compatible', 'GROQ_API_KEY', 'https://api.groq.com/openai/v1/chat/completions',
          os.getenv('GROQ_FALLBACK_MODEL', 'openai/gpt-oss-120b')),
     ]
-    if selected == 'gemini':
-        providers = [('gemini', 'GEMINI_API_KEY', selected_url, selected_model)]
-    elif selected != 'groq':
-        providers = []
+    # Every explicit selection is binding, including an unsupported selection.
+    # Compatible models may be retried within the selected service only.
+    selected = os.getenv('COPILOT_PROVIDER', 'groq').lower()
+    providers = [p for p in providers if p[0].removesuffix('-compatible') == selected]
     messages = bounded_messages(messages)
     # A single deadline bounds the entire cascade, including exhausted quotas.
     deadline = monotonic() + min(10.0, timeout)

@@ -1,9 +1,54 @@
 [
   {
-    "localities": ["madrid", "sierra oeste", "san martin de valdeiglesias", "villa del prado", "robledo de chavela"],
+    "localities": [
+      "madrid",
+      "sierra oeste",
+      "san martin de valdeiglesias",
+      "villa del prado",
+      "robledo de chavela"
+    ],
     "report_date": "2026-07-24",
     "title": "Madrid regional government's report on the Sierra Oeste fire, 24 July 2026",
     "agency": "Comunidad de Madrid",
     "url": "https://www.comunidad.madrid/noticias/2026/07/24/diaz-ayuso-es-peor-incendio-historia-comunidad-madrid-prioridad-es-salvar-vidas"
+  },
+  {
+    "localities": [
+      "madrid",
+      "sierra oeste",
+      "san martin de valdeiglesias",
+      "villa del prado",
+      "robledo de chavela"
+    ],
+    "report_date": "2026-07-25",
+    "title": "Madrid emergency coordination report on merged Sierra Oeste fire fronts",
+    "agency": "Comunidad de Madrid",
+    "url": "https://www.comunidad.madrid/noticias/2026/07/25/diaz-ayuso-todos-medios-region-estan-trabajando-descanso"
+  },
+  {
+    "localities": [
+      "madrid",
+      "sierra oeste",
+      "san martin de valdeiglesias",
+      "villa del prado",
+      "robledo de chavela"
+    ],
+    "report_date": "2026-07-30",
+    "title": "Madrid report on operational de-escalation and continuing evacuations",
+    "agency": "Comunidad de Madrid",
+    "url": "https://www.comunidad.madrid/noticias/2026/07/30/diaz-ayuso-comprueba-situacion-terreno-afectado-incendios-sierra-oeste"
+  },
+  {
+    "localities": [
+      "madrid",
+      "sierra oeste",
+      "san martin de valdeiglesias",
+      "villa del prado",
+      "robledo de chavela"
+    ],
+    "report_date": "2026-07-30",
+    "title": "Order INT/788/2026: stabilization, de-escalation and continuing hot-spot work",
+    "agency": "Ministerio del Interior / BOE",
+    "url": "https://www.boe.es/diario_boe/txt.php?id=BOE-A-2026-16657"
   }
 ]

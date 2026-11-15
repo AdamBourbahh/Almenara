@@ -4,7 +4,6 @@ import { cellToLatLng } from "h3-js";
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
-  AIRiskAssessment,
   ChaosMonkeyResponse,
   CubeSyncStatusState,
   DailyCalendarCell,
@@ -58,20 +57,6 @@ export interface HoveredDay {
   clientY: number;
 }
 
-/** O(1) key for calendar lookups: 2022 / 226 -> 2022226. */
-export const calendarKey = (year: number, doy: number) => year * 1000 + doy;
-
-function buildCalendarIndex(data: AnalyzeResponse): Map<number, DailyCalendarCell> {
-  const index = new Map<number, DailyCalendarCell>();
-  for (const cell of data.calendar_series) index.set(calendarKey(cell.year, cell.doy), cell);
-  for (const cell of data.forecast_series ?? []) {
-    const key = calendarKey(cell.year, cell.doy);
-    if (!index.has(key)) index.set(key, { ...cell, is_forecast: true });
-  }
-  return index;
-}
-
-export const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export function isoDate(year: number, month: number, day: number): string {
   const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(day, last)).padStart(2, "0")}`;
@@ -202,15 +187,12 @@ interface AnalysisState {
   mapLoading: boolean;
   mapError: string | null;
   loadMapYear: () => Promise<void>;
-  /** year/doy -> cell (observed + forecast). Rebuilt once per response; used for O(1) hover. */
-  calendarIndex: Map<number, DailyCalendarCell>;
   isSynthetic: boolean;
 
   // Chaos Monkey
   chaosLoading: boolean;
   chaosError: string | null;
   chaosData: ChaosMonkeyResponse | null;
-  chaosIsSynthetic: boolean;
 
   // Fire Copilot (Physics-First Web Grounding)
   isCopilotOpen: boolean;
@@ -234,12 +216,10 @@ interface AnalysisState {
 
   // Actions
   setViewMode: (mode: ViewMode) => void;
-  toggleViewMode: () => void;
   setSplitCurtainPct: (pct: number) => void;
   setSelectedYear: (year: number, pin?: boolean) => void;
   setHoveredDay: (day: HoveredDay | null) => void;
   setExcludeIndustrial: (exclude: boolean) => Promise<void>;
-  setEnableKalman: (enable: boolean) => Promise<void>;
   setHighlightIndustrialOnMap: (highlight: boolean) => void;
   setDrawingAoi: (drawing: boolean) => void;
   loadPresetRegion: (presetKey: PresetKey) => Promise<void>;
@@ -260,14 +240,10 @@ interface AnalysisState {
 
   // Classical AI Risk Prediction
   riskResponse: RiskPredictionResponse | null;
-  riskAssessment: AIRiskAssessment | null;
   isRiskLoading: boolean;
   riskError: string | null;
   fetchRiskPredictionForAoi: (asOfDate?: string) => Promise<void>;
   clearRiskPrediction: () => void;
-  dateRiskPrompt: { x: number; y: number; date: string } | null;
-  showDateRiskPrompt: (date: string, x: number, y: number) => void;
-  dismissDateRiskPrompt: () => void;
 }
 
 // Request bookkeeping lives outside the state: it never drives rendering.
@@ -323,13 +299,11 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   mapPeriod: null,
   mapLoading: false,
   mapError: null,
-  calendarIndex: new Map(),
   isSynthetic: false,
 
   chaosLoading: false,
   chaosError: null,
   chaosData: null,
-  chaosIsSynthetic: false,
 
   isCopilotOpen: false,
   copilotLoading: false,
@@ -351,16 +325,10 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   // Classical AI Risk Prediction
   riskResponse: null,
-  riskAssessment: null,
   isRiskLoading: false,
   riskError: null,
-  dateRiskPrompt: null,
-  showDateRiskPrompt: (date, x, y) => set({ dateRiskPrompt: { date, x, y } }),
-  dismissDateRiskPrompt: () => set({ dateRiskPrompt: null }),
 
   setViewMode: (mode) => set({ viewMode: mode }),
-
-  toggleViewMode: () => set((s) => ({ viewMode: s.viewMode === "RAW" ? "HARMONIZED" : "RAW" })),
 
   setSplitCurtainPct: (pct) => set({ splitCurtainPct: Math.min(100, Math.max(0, Math.round(pct))) }),
 
@@ -375,7 +343,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const candidate = isoDate(clamped, get().selectedMonth ?? 1, get().selectedDay ?? 1);
     const bounded = candidate < (minDate ?? candidate) ? minDate! : candidate > (maxDate ?? candidate) ? maxDate! : candidate;
     const selection = previous ? dateSelection(bounded) : {};
-    set({ ...selection, selectedRange: null, dateRiskPrompt: null, hoveredDate: null, hoveredCell: null, hoveredDay: null, selectedYear: clamped, hasChosenYear: true, chaosData: null });
+    set({ ...selection, selectedRange: null, hoveredDate: null, hoveredCell: null, hoveredDay: null, selectedYear: clamped, hasChosenYear: true, chaosData: null });
     if (pin) get().attachCopilotContext();
     scheduleMapLoad();
   },
@@ -383,7 +351,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setSelectedMonth: (month, pin = true) => {
     if (month !== null && (!Number.isInteger(month) || month < 1 || month > 12)) return;
     if (month === get().selectedMonth && !get().selectedDate && !get().selectedRange) { if (pin) get().attachCopilotContext(); return; }
-    set({ selectedRange: null, dateRiskPrompt: null, selectedMonth: month, selectedDay: null, selectedDoy: null, selectedDate: null,
+    set({ selectedRange: null, selectedMonth: month, selectedDay: null, selectedDoy: null, selectedDate: null,
       isDatePinned: false, hasChosenYear: true, hoveredCell: null, hoveredDate: null, hoveredDay: null });
     if (pin) get().attachCopilotContext();
     scheduleMapLoad();
@@ -391,7 +359,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setSelectedDate: (iso, pin = true) => {
     if (iso === null) {
       if (!get().selectedDate && !get().selectedRange) return;
-      set({ selectedRange: null, dateRiskPrompt: null, selectedDate: null, selectedDay: null, selectedDoy: null, isDatePinned: false, hasChosenYear: true, hoveredDay: null, hoveredCell: null, hoveredDate: null });
+      set({ selectedRange: null, selectedDate: null, selectedDay: null, selectedDoy: null, isDatePinned: false, hasChosenYear: true, hoveredDay: null, hoveredCell: null, hoveredDate: null });
       if (pin) get().attachCopilotContext();
       scheduleMapLoad();
       return;
@@ -403,7 +371,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const bounded = [iso, minDate ?? `${startYear}-01-01`].sort()[1];
     const date = [bounded, maxDate ?? `${endYear}-12-31`].sort()[0];
     const changed = get().selectedDate !== date || Boolean(get().selectedRange);
-    set({ ...dateSelection(date), selectedRange: null, dateRiskPrompt: null, isDatePinned: pin, hasChosenYear: true, hoveredDay: null, hoveredCell: null, hoveredDate: null, chaosData: null });
+    set({ ...dateSelection(date), selectedRange: null, isDatePinned: pin, hasChosenYear: true, hoveredDay: null, hoveredCell: null, hoveredDate: null, chaosData: null });
     if (pin) get().attachCopilotContext();
     if (changed) scheduleMapLoad();
   },
@@ -417,7 +385,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       || end > (state.maxDate ?? `${state.endYear}-12-31`)) return;
     set({ selectedRange: { start, end }, selectedYear: Number(end.slice(0, 4)),
       selectedDate: null, selectedMonth: null, selectedDay: null, selectedDoy: null,
-      hasChosenYear: true, isDatePinned: false, dateRiskPrompt: null, chaosData: null,
+      hasChosenYear: true, isDatePinned: false, chaosData: null,
       hoveredDay: null, hoveredDate: null, hoveredCell: null });
     get().attachCopilotContext();
     scheduleMapLoad();
@@ -453,21 +421,13 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     await get().executeAnalysis(true);
   },
 
-  setEnableKalman: async (enable) => {
-    if (get().enableKalman === enable) return;
-    set({ enableKalman: enable });
-    if (get().copilotContext) get().attachCopilotContext();
-    await get().executeAnalysis(true);
-  },
-
   setHighlightIndustrialOnMap: (highlight) => set({ highlightIndustrialOnMap: highlight }),
 
-  setDrawingAoi: (drawing) => set(drawing ? { isDrawingAoi: true, dateRiskPrompt: null } : { isDrawingAoi: false }),
+  setDrawingAoi: (drawing) => set({ isDrawingAoi: drawing }),
 
   loadPresetRegion: async (presetKey) => {
     if (!(presetKey in PRESET_REGIONS)) return;
-    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null,
-      dateRiskPrompt: null });
+    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
     await get().executeAnalysis(true);
   },
@@ -478,8 +438,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
-    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null,
-      dateRiskPrompt: null });
+    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
     await get().executeAnalysis(true);
   },
@@ -599,7 +558,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       // First load shows the most recent year with data; the user's own year choice is preserved.
       const latestYear = indexes.maxDate ? Number(indexes.maxDate.slice(0, 4)) : get().selectedYear;
       const nextYear = get().hasChosenYear ? get().selectedYear : latestYear;
-      set({ ...indexes, selectedYear: nextYear, analysisData: data, calendarIndex: buildCalendarIndex(data), isSynthetic: data.data_source === "synthetic", loading: false, hoveredDay: null });
+      set({ ...indexes, selectedYear: nextYear, analysisData: data, isSynthetic: data.data_source === "synthetic", loading: false, hoveredDay: null });
       await get().loadMapYear();
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
@@ -624,7 +583,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         controller.signal
       );
       if (seq !== chaosSeq) return;
-      set({ chaosData: data, chaosIsSynthetic: data.data_source === "synthetic", chaosLoading: false });
+      set({ chaosData: data, chaosLoading: false });
     } catch (err: unknown) {
       if (seq !== chaosSeq || isAbortError(err)) return;
       set({ chaosError: err instanceof Error ? err.message : "Chaos Monkey simulation failed", chaosLoading: false });
@@ -793,7 +752,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     riskController?.abort();
     riskSeq++;
     riskRequestKey = null;
-    set({ riskResponse: null, riskAssessment: null, isRiskLoading: false, riskError: null });
+    set({ riskResponse: null, isRiskLoading: false, riskError: null });
   },
 
   fetchRiskPredictionForAoi: async (asOfDate?: string) => {
@@ -811,14 +770,13 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     riskController = controller;
     const seq = ++riskSeq;
     riskRequestKey = key;
-    set({ isRiskLoading: true, riskError: null, riskResponse: null, riskAssessment: null });
+    set({ isRiskLoading: true, riskError: null, riskResponse: null });
 
     try {
       const response = await fetchRiskPrediction(request, controller.signal);
       if (seq !== riskSeq) return;
       set({
         riskResponse: response,
-        riskAssessment: response.assessment ?? null,
         isRiskLoading: false,
         riskError: null
       });
@@ -826,7 +784,6 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       if (seq !== riskSeq || isAbortError(err)) return;
       set({
         riskResponse: null,
-        riskAssessment: null,
         isRiskLoading: false,
         riskError: err instanceof Error ? err.message : "Failed to compute fire risk prediction"
       });

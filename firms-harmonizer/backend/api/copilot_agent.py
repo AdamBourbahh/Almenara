@@ -1,6 +1,6 @@
 """The selected model chooses bounded read-only tools; Python owns SQL, geometry and numeric results."""
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 import json
 import logging
 import re
@@ -15,6 +15,7 @@ from backend.api import copilot_rag,copilot_providers,fire_copilot as local,copi
 from backend.api.copilot_metrics import retrieve_energy,energy_answer
 from backend.api.schemas import CitationReference,ExplainSpikeResponse,GeoJSONPolygon
 from backend.db import duckdb_engine
+from backend.api.copilot_evidence import unsupported_numbers, unsupported_incident_match
 
 log=logging.getLogger(__name__)
 SYSTEM = (
@@ -28,16 +29,12 @@ SYSTEM = (
     'Activity consistent with burning, confirmation of a named wildfire, ignition cause and spread conditions are separate conclusions. '
     'An unknown cause does not negate a reported fire. Do not infer ignition from wind, heat or satellite power. '
     'For event questions investigate matching place/date reports, prioritizing official agencies; use scientific papers for general mechanisms, not proof of a particular event. '
-    'You own incident research and synthesis: assess the retrieved article text against the selected coordinates and dates. '
-    'A map study label is not a municipality: reports may use nearby county or town names. Identify plausible named incidents as candidates with attributed evidence, '
-    'without claiming that each selected hexagon belongs to their perimeter. Distinguish publication date from dates of reported activity. '
-    'Never turn a regional candidate into a confirmed identity for the selected cells. Never infer high fuel loading, drought, wind or other spread drivers '
-    'unless the retrieved article actually reports them for this event. Activity on a date does not establish that the fire started on that date. '
-    'If an article identifies a regional fire but omits its ignition cause, explain that fire and what is documented; do not discard it or ask the user to do the search. '
-    'Use a refined incident search if the first search only supplies weak leads. A search lead without article text does not support incident facts. '
+    'For ambiguous why questions consider spread, observation behavior and incident development; do not automatically answer only about ignition. '
+    'Verify premises about when activity stops with the observation timeline and incident reports. A user-stated duration is a claim to check, not evidence. '
+    'A query date alone cannot diagnose a chart cutoff. Report whether later local detections exist and explicitly state whether a claimed incident duration is verified. '
     'Never claim to have searched unless the search tool ran. Cite only supplied source IDs; prioritize relevance over citation count. '
     'Use exact tool numbers and do not perform arithmetic in prose. Describe estimates as estimates; do not invent burned area, emissions or operational safety advice. '
-    'Use plain Markdown and readable units such as MJ/s, without LaTeX. Lead with a direct answer. Add Evidence and Limits only when helpful, keeping them brief and avoiding repeated measurements already shown by the server. '
+    'Use plain Markdown and readable units such as MJ/s, without LaTeX. Lead with a direct answer in one or two paragraphs, usually 80–140 words. Avoid section headings and repeated measurements already shown by the server. '
     'If evidence is insufficient, name the specific missing evidence and a useful next step.'
 )
 
@@ -63,11 +60,13 @@ def definition(name,description,properties):
 
 DATES={k:{'type':'string','description':'Optional ISO date YYYY-MM-DD; defaults to selected context.'} for k in ('start','end')}
 TOOLS=[
+ definition('redirect_out_of_domain','Politely redirect a request wholly unrelated to fire, satellite observations or the application. Never use for ambiguous questions about selected context or legitimate fire science.',{}),
  definition('search_knowledge','Search indexed local scientific methods, units, data coverage and limitations.',{'query':{'type':'string'}}),
  definition('query_observations','Query accepted satellite detections, FRP and busiest days for the resolved map area.',DATES),
  definition('query_energy','Calculate mapped and regional energy in GJ, biomass and yearly totals when the user requests these quantities or comparisons.',DATES),
- definition('profile_episode','Discover the main thermal episode when asked for progression, duration, consequences or a main-episode investigation. It is unnecessary for a simple activity check or incident-identity question.',{'target_date':{'type':'string'}}),
- definition('search_incident_reports','Investigate real-world incidents for the selected place and period. Retrieve official/reputable articles for your assessment of event identity, chronology, cause or spread. Optional query refines discovery with a candidate name or nearby locality; it never changes the selected area or period.',{'query':{'type':'string','maxLength':400}})]
+ definition('inspect_observation_timeline','Check whether detections really stop and compare a map cutoff with reported incident duration. Returns daily local observations in an explicitly labeled comparison window, retaining the selected dates.',{}),
+ definition('profile_episode','Discover the main thermal episode and estimate progression/duration and consequences.',{'target_date':{'type':'string'}}),
+ definition('search_incident_reports','Investigate real-world incidents for the selected place and period. Retrieve official/reputable reports for event identity, chronology, reported cause or spread; use this for event-specific questions.',{})]
 
 
 def turn(messages,*,finish=False,timeout=10,used=()):
@@ -104,15 +103,16 @@ def answer(req):
     citations={}
     evidence=[]
     rendered=[]
+    primary_calculation=None
     episode=None
     web=False
     queries=[]
     trace=[]
     incident_excerpts=[]
     ignition_evidence=False
+    web_report_count=0
     numeric_repairs=0
-    reviewed=False
-    article_evidence=False
+    identity_repairs=0
     pending_calls=[]
     batch_start=2
     def knowledge(query):
@@ -126,7 +126,7 @@ def answer(req):
         return [{'source_id':'['+d['id']+']','text':d['text']} for d in docs]
     evidence.extend(knowledge(req.user_question))
     context={'question':req.user_question[:2500],'scope':{'location':scope.locality or scope.label,'start':scope.start,'end':scope.end,'has_aoi':bool(scope.coordinates)},
-             'data_source':source,'client_selection_hints':{'forecast':bool(req.selected_day and req.selected_day.is_forecast),'reconstructed':bool(req.selected_day and req.selected_day.is_gap_filled),'industrial_candidate':bool(req.selected_hex and req.selected_hex.is_industrial_site)},'history':[{'role':m.role,'content':m.content[:600]} for m in req.conversation[-2:]],'knowledge':evidence[:2]}
+             'data_source':source,'client_selection_hints':{'start':req.period_start,'end':req.period_end,'forecast':bool(req.selected_day and req.selected_day.is_forecast),'reconstructed':bool(req.selected_day and req.selected_day.is_gap_filled),'industrial_candidate':bool(req.selected_hex and req.selected_hex.is_industrial_site)},'history':[{'role':m.role,'content':m.content[:600]} for m in req.conversation[-2:]],'knowledge':evidence[:2]}
     messages=[{'role':'system','content':SYSTEM},{'role':'user','content':json.dumps(context,ensure_ascii=False)}]
     deadline=monotonic()+55
     try:
@@ -158,6 +158,11 @@ def answer(req):
             name=call['function']['name']
             raw=json.loads(call['function']['arguments'])
             trace.append(name)
+            if name=='redirect_out_of_domain':
+                Args.model_validate(raw)
+                return ExplainSpikeResponse(physical_classification='OUT_OF_SCOPE',
+                    explanation_markdown='I can help with fire observations, reported incidents and the science behind this map. Ask about a selected area or date, detections, energy or satellite methods.',
+                    model_used=provider+'-agent/'+model,data_source=source)
             if name=='submit_answer':
                 final=Final.model_validate(raw)
                 if provider == 'gemini' and article_evidence and not reviewed:
@@ -190,15 +195,20 @@ def answer(req):
                         ids={item['source_id'] for item in evidence[:2] if isinstance(item,dict) and item.get('text')}
                 if not evidence or (not ids and not mentioned):
                     raise ValueError('Answer without retrieved evidence')
-                numbers=lambda value:[float(n.replace(',','')) for n in re.findall(r'\d+(?:,\d{3})*(?:\.\d+)?',re.sub(r'(?<=\d)[\u202f\u00a0](?=\d{3}\b)', '',value))]
-                # Dates and coordinates belong to the resolved scope as well as
-                # tool results. Repeating a selected date is not a new quantity.
-                available=numbers(json.dumps([evidence,{'start':scope.start,'end':scope.end,
-                    'centroid':researcher.geographic_context(scope)[1]}],ensure_ascii=False,default=str))
-                # Citation labels are identifiers, not measured quantities.
-                measured_text = re.sub(r'\[(?:[A-Z]*\d+(?:_\d+)?)\]', '', final.answer)
-                if any(not any(abs(n-v)<=max(.001,abs(v)*.0001) for v in available) for n in numbers(measured_text)):
-                    if numeric_repairs == 0 and step < 8:
+                if unsupported_incident_match(final.answer):
+                    if identity_repairs == 0 and step < 5:
+                        identity_repairs += 1
+                        messages.append({'role':'assistant','content':final.answer})
+                        messages.append({'role':'user','content':
+                            'The tools did not match selected observations to an official incident perimeter. '
+                            'Correct the affirmative identification: describe thermal activity as consistent with burning, '
+                            'and any named incident as regional context. Do not claim these detections belong to that incident. '
+                            'Answer in two concise paragraphs and retain only supported citations.'})
+                        continue
+                    raise ValueError('Unverified selected-incident identity')
+                invalid_numbers = unsupported_numbers(final.answer, evidence)
+                if invalid_numbers:
+                    if numeric_repairs == 0 and step < 5:
                         numeric_repairs += 1
                         messages.append({'role':'assistant','content':final.answer})
                         messages.append({'role':'user','content':
@@ -206,7 +216,7 @@ def answer(req):
                             'the server will show exact calculations separately. Retain source citations. Do not change the evidence or invent values. '
                             'Distinguish probable active burning from confirmation of a wildfire. Answer the actual question directly.'})
                         continue
-                    log.info('Unverified answer numbers: %s', [n for n in numbers(measured_text) if not any(abs(n-v)<=max(.001,abs(v)*.0001) for v in available)])
+                    log.info('Answer rejected: unsupported numerical claims')
                     raise ValueError('Unsupported numerical claim')
                 text=local.normalize_links(final.answer,list(citations.values()))
                 # Weather/spread excerpts cannot support a positive ignition claim.
@@ -229,6 +239,14 @@ def answer(req):
                 # Calculated results are always presented verbatim by the server.
                 if rendered:
                     text+='\n\n'+'\n\n'.join(dict.fromkeys(rendered))
+                if primary_calculation:
+                    measurement_tools=set(trace)&{'query_energy','query_observations','profile_episode','search_incident_reports','inspect_observation_timeline'}
+                    if measurement_tools=={'query_energy'} and local.quantitative_intent(req.user_question)[1]:
+                        # The complete server summary already answers a single
+                        # energy calculation. Repeating model numbers adds no evidence.
+                        text=primary_calculation
+                    else:
+                        text=primary_calculation+'\n\n'+text
                 used=set(re.findall(r'\[(?:[A-Z]*\d+(?:_\d+)?)\]',text))
                 log.info('%s agent tools: %s',provider,' -> '.join(trace))
                 return ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE',explanation_markdown=text,
@@ -243,16 +261,22 @@ def answer(req):
                 end=args.end.isoformat() if args.end else scope.end
                 if start and end and start>end:
                     raise ValueError('Invalid period order')
+                if scope.start and scope.end and (start, end) != (scope.start, scope.end):
+                    raise ValueError('Tool dates differ from the resolved selection')
                 selected=replace(scope,start=start,end=end)
                 if name=='query_observations':
                     result=local.retrieve_observations(selected)
                     citations[local.FIRMS.id]=local.FIRMS
-                    rendered.append(local.local_answer(selected,result,req.user_question))
+                    if result.get('status')=='ok' and re.search(r'\b(how many|cuant[oa]s|count|number|numero)\b',local.normalized(req.user_question)):
+                        primary_calculation=(f"**{result['detections']:,} satellite detections** for {selected.start} to {selected.end}. "
+                            'These are thermal observations, not a count of distinct fire incidents. [5]')
+                    else:
+                        rendered.append('\n\n'.join(local.local_answer(selected,result,req.user_question).split('\n\n')[:2]))
                     scope=selected
                 elif name=='query_energy':
                     result=retrieve_energy(selected,req)
                     citations.update({c.id:c for c in [local.CUBE,local.METHOD_SOURCES[0]]})
-                    rendered.append(energy_answer(selected,result,req))
+                    primary_calculation=energy_answer(selected,result,req)
                     if 'mapped_energy_gj' in result:
                         result={'status':result['status'],'start':selected.start,'end':selected.end,
                             'visible_map':{k:result[k] for k in ('mapped_energy_gj','mapped_biomass_tonnes','mapped_footprint_km2','mapped_detections')},
@@ -260,50 +284,63 @@ def answer(req):
                             'available_through':result['available_through'],'comparison_note':result['comparison_note']}
                     scope=selected
                 elif name=='profile_episode':
+                    target = args.target_date.isoformat() if args.target_date else (scope.start if scope.start == scope.end else None)
+                    if target and scope.start and scope.end and not scope.start <= target <= scope.end:
+                        raise ValueError('Episode anchor lies outside the selection')
                     result=researcher.profile_fire_episode_from_duckdb(GeoJSONPolygon(coordinates=scope.coordinates) if scope.coordinates else None,
-                        scope.label,args.target_date.isoformat() if args.target_date else None,scope.h3_index,
-                        enable_kalman_gap_filling=req.enable_kalman_gap_filling)
+                        scope.label,target,scope.h3_index,period_start=scope.start,period_end=scope.end,
+                        enable_kalman_gap_filling=req.enable_kalman_gap_filling,
+                        exclude_industrial_flaring=req.exclude_industrial_flaring,confidence_level=req.confidence_level)
                     episode=result
-                    if result.get('status')=='ok' and not (scope.start and scope.end):
-                        scope=replace(scope,start=result['window_start'],end=result['window_end'])
                     result={k:v for k,v in result.items() if k!='daily_series'}
                     citations.update({c.id:c for c in [local.CUBE]+local.METHOD_SOURCES+[researcher.EMISSIONS]})
+                elif name=='inspect_observation_timeline':
+                    from backend.api.copilot_timeline import observation_timeline
+                    result=observation_timeline(scope)
+                    citations[local.FIRMS.id]=local.FIRMS
                 elif name=='search_incident_reports':
                     if source=='synthetic':
                         result={'status':'synthetic','message':'Synthetic data cannot verify a real incident.'}
                     else:
+                        # Reports can be published after the observed day. Label this
+                        # research window separately; metrics and selection stay exact.
+                        report_scope = scope
+                        if scope.start and scope.end:
+                            report_scope = replace(scope,
+                                start=(date.fromisoformat(scope.start)-timedelta(days=7)).isoformat(),
+                                end=(date.fromisoformat(scope.end)+timedelta(days=15)).isoformat())
                         if provider == 'gemini':
-                            location, centroid = researcher.geographic_context(scope)
-                            position = f'near latitude {centroid[0]:.4f}, longitude {centroid[1]:.4f}' if centroid else ''
-                            query = f'{location} {position} wildfire official reports {scope.start} to {scope.end}. {args.query}'
-                            reports = local.research.enrich_official_reports(local.research.google_search_reports(query))
+                            location, _ = researcher.geographic_context(scope)
+                            query = f'{location} wildfire ignition spread chronology official reports {scope.start} to {scope.end}'
+                            discovered = local.research.google_search_reports(query)
+                            indexed = local.research.indexed_sources(report_scope)
+                            seen_urls = {report.url for report in indexed}
+                            reports = local.research.enrich_official_reports(indexed + [report for report in discovered if report.url not in seen_urls])
                         else:
-                            reports,query=researcher.investigate_fire_literature_and_web(scope,episode.get('peak_date') if episode else None)
-                        web=web or bool(reports)
+                            reports,query=researcher.investigate_fire_literature_and_web(report_scope,episode.get('peak_date') if episode else None)
+                        web=True
                         queries.append(query)
                         result=[]
                         assigned=[]
                         for report in reports:
                             # Reassign IDs across successive searches, retaining bodies only internally.
-                            marker='[W'+str(1+sum(k.startswith('[W') for k in citations))+']'
-                            assigned.append(report.model_copy(update={'id':marker}))
-                            passages=([p for p in local.research.incident_passages(report,scope) if local.research.supported_report_excerpt(report,p,scope)][:2]
-                                      if provider != 'gemini' else [])
+                            web_report_count += 1
+                            marker=f'[W{web_report_count}]'
+                            passages=[p for p in local.research.incident_passages(report,report_scope) if local.research.supported_report_excerpt(report,p,report_scope)][:2]
                             incident_excerpts.extend((marker,p) for p in passages)
                             ignition_evidence=ignition_evidence or any(local.research.supported_ignition_excerpt(report,p,scope) for p in passages)
-                            citations[marker]=report.model_copy(update={'id':marker,'relevance_note':'Retrieved incident evidence; a match to an individual satellite cell is not established.'})
-                            result.append({'source_id':marker,'title':report.title,'url':report.url,'verified_passages':passages,
+                            if passages:
+                                citations[marker]=report.model_copy(update={'id':marker,'relevance_note':'Retrieved incident evidence; a match to an individual satellite cell is not established.'})
+                            result.append({'source_id':marker if passages else None,'title':report.title,'url':report.url,'verified_passages':passages,
                                 'status':'article passages retrieved' if passages else 'Search lead only; incident facts unverified','ignition_evidence':ignition_evidence})
                         if provider == 'gemini':
                             article_evidence=article_evidence or any('article text retrieved' in r.dataset_or_doi for r in assigned)
                             result = {'status': 'approved_sources_retrieved' if reports else 'search_unavailable_or_no_approved_sources',
-                                      'reports': local.research.investigator_reports(assigned),
-                                      'limits': 'Assess article location, activity dates and candidate identity yourself. Retrieval does not prove a perimeter match. '
-                                      'Use article text for attributed incident facts and causes, never a search lead alone. '
-                                      'A failed or empty search does not establish that no incident or report exists.'}
+                                      'reports': result, 'research_start':report_scope.start,'research_end':report_scope.end,
+                                      'limits': 'This is a report research window, not a change to selected measurement dates. A failed or empty search does not establish that no incident or report exists. Only retrieved article passages are independent report evidence.'}
                 else:
                     result={'error':'Unknown tool. Use an advertised tool.'}
-            if name in ('query_energy','query_observations','profile_episode') and isinstance(result,dict):
+            if name in ('query_energy','query_observations','profile_episode','inspect_observation_timeline') and isinstance(result,dict):
                 result={**result,'sources':[{'source_id':c.id,'title':c.title} for c in citations.values() if c.id in ('[1]','[5]','[6]','[11]')]}
             evidence.append(result)
             # Bound conversation size by complete tool results; never slice JSON.

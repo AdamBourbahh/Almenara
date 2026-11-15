@@ -46,7 +46,8 @@ EMISSIONS = CitationReference(id='[11]', title='Emission of trace gases and aero
 def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: str,
         target_date: str | None = None, target_h3_index: str | None = None, *,
         period_start: str | None = None, period_end: str | None = None,
-        enable_kalman_gap_filling: bool = True) -> dict:
+        enable_kalman_gap_filling: bool = True, exclude_industrial_flaring: bool = True,
+        confidence_level: str = 'nominal') -> dict:
     """Profile a ±15-day episode using the local full-history scientific calculation.
 
     Auto-discovery selects the largest harmonized daily energy with accepted raw
@@ -55,8 +56,8 @@ def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: st
     """
     if target_date:
         anchor = date.fromisoformat(target_date)
-        if not 2001 <= anchor.year <= 2026:
-            return {'status': 'unsupported_period', 'message': 'The scientific cube supports 2001–2026, not the requested year.'}
+        if not 2000 <= anchor.year <= 2026:
+            return {'status': 'unsupported_period', 'message': 'The scientific cube supports November 2000–2026, not the requested year.'}
     if target_h3_index:
         valid = getattr(h3, 'is_valid_cell', getattr(h3, 'h3_is_valid', None))
         if not valid or not valid(target_h3_index):
@@ -77,31 +78,27 @@ def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: st
     if missing.intersection(queries.OBS_COLUMNS):
         return {'status': 'unavailable', 'message': 'Calibrated sensor energy is unavailable; raw MW cannot substitute for integrated FRE.'}
     with duckdb_engine.get_db_cursor() as cur:
-        cur.register('episode_r4', pa.table({'cell': pa.array(r4, type=pa.uint64())}))
-        cur.register('episode_r7', pa.table({'cell': pa.array(r7, type=pa.uint64())}))
+        selected_rows=queries.query_aoi_rows(cur,r4,r7,2000,2026,confidence_level=confidence_level)
+        cur.register('episode_cube',selected_rows)
         try:
             daily = cur.execute('''SELECT epoch_day, sum(raw_modis_cnt + raw_viirs_cnt)::BIGINT AS count,
                 sum(raw_modis_cnt)::BIGINT AS modis, sum(raw_viirs_cnt)::BIGINT AS viirs
-                FROM fire_cube WHERE h3_r4 IN (SELECT cell FROM episode_r4)
-                AND h3_r7 IN (SELECT cell FROM episode_r7) AND industrial_prob <= ?
-                AND year BETWEEN 2001 AND 2026 GROUP BY epoch_day ORDER BY epoch_day''', [0.75]).fetchall()
+                FROM episode_cube WHERE (NOT ? OR industrial_prob <= ?)
+                AND year BETWEEN 2000 AND 2026 GROUP BY epoch_day ORDER BY epoch_day''', [exclude_industrial_flaring,0.75]).fetchall()
             industrial = cur.execute('''SELECT count(DISTINCT h3_r7), coalesce(sum(raw_modis_cnt+raw_viirs_cnt),0)
-                FROM fire_cube WHERE h3_r4 IN (SELECT cell FROM episode_r4)
-                AND h3_r7 IN (SELECT cell FROM episode_r7) AND industrial_prob > ?''', [0.75]).fetchone()
-            cells = cur.execute('''SELECT DISTINCT printf('%x', h3_r7) FROM fire_cube
-                WHERE h3_r4 IN (SELECT cell FROM episode_r4)
-                AND h3_r7 IN (SELECT cell FROM episode_r7) ORDER BY 1 LIMIT 3''').fetchall()
+                FROM episode_cube WHERE industrial_prob > ?''', [0.75]).fetchone()
+            cells = cur.execute('''SELECT DISTINCT printf('%x', h3_r7) FROM episode_cube
+                ORDER BY 1 LIMIT 3''').fetchall()
         finally:
-            cur.unregister('episode_r4')
-            cur.unregister('episode_r7')
+            cur.unregister('episode_cube')
     if not daily or not any(row[1] > 0 for row in daily):
         return {'status': 'empty', 'message': 'No non-industrial satellite activity is available in this AOI. This does not prove no fire occurred.',
                 'industrial_candidate_cells': int(industrial[0]), 'industrial_candidate_detections': int(industrial[1])}
     # Reuse dashboard calibration, physical integration, confidence and gap logic.
     from backend.api.routes import analyze
-    response = analyze(AnalyzeRequest(aoi=aoi, start_year=2001, end_year=2026,
-        exclude_industrial_flaring=True, enable_kalman_gap_filling=enable_kalman_gap_filling,
-        forecast_days=0))
+    response = analyze(AnalyzeRequest(aoi=aoi, start_year=2000, end_year=2026,
+        exclude_industrial_flaring=exclude_industrial_flaring, enable_kalman_gap_filling=enable_kalman_gap_filling,
+        forecast_days=0,confidence_level=confidence_level))
     analysis = json.loads(response.body)
     series = analysis['calendar_series']
     counts = {(EPOCH + timedelta(days=int(r[0]))).isoformat(): int(r[1]) for r in daily}
@@ -178,6 +175,7 @@ def profile_fire_episode_from_duckdb(aoi: GeoJSONPolygon | None, region_name: st
         'sensor_active_days': sensors, 'gap_filling_occurred': any(c['is_gap_filled'] for c in episode),
         'gap_filled_days': sum(c['is_gap_filled'] for c in episode),
         'reconstruction_enabled': enable_kalman_gap_filling,
+        'confidence_level': confidence_level, 'industrial_excluded': exclude_industrial_flaring,
         'represented_area_km2': area, 'peak_represented_cell_area_km2': peak['fre_gj']*1000/peak['harmonized_fre_mj_km2'] if peak['harmonized_fre_mj_km2']>0 else 0., 'coverage_start': coverage_start, 'coverage_end': coverage_end,
         'window_start': window[0]['date'], 'window_end': window[-1]['date'],
         'left_censored': left == 0, 'right_censored': right == len(window)-1,
@@ -215,7 +213,7 @@ def investigate_fire_literature_and_web(scope, peak_date: str | None = None) -> 
     """Three targeted searches plus Wikipedia, bounded and fail-open to local science."""
     if is_offline() or duckdb_engine.data_source() == 'synthetic' or not scope.start:
         return [], ''
-    location, centroid = geographic_context(scope)
+    location, _ = geographic_context(scope)
     # Geographic descriptors are server-owned; never send prompt instructions as queries.
     clean = re.sub(r'[^\w ,/()-]', ' ', location)[:120]
     day = date.fromisoformat(peak_date or scope.start)

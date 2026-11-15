@@ -1,0 +1,11 @@
+{
+  "devDependencies": {
+    "playwright": "1.65.0"
+  },
+  "name": "almenara-copilot-qa",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test browser.test.mjs"
+  }
+}
