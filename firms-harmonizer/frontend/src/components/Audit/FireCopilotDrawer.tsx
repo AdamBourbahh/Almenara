@@ -15,7 +15,9 @@ import {
   ArrowRight,
   Calculator,
   Database,
-  ShieldAlert
+  ShieldAlert,
+  Square,
+  Volume2
 } from "lucide-react";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
 import type { CitationReference, CopilotEvidenceSource, ExplainSpikeResponse } from "../../api/types";
@@ -356,6 +358,94 @@ function VerifiedCalculationCard({ response }: { response: ExplainSpikeResponse 
 }
 
 // ============================================================================
+// Read-aloud (browser Web Speech API: offline, no backend, no API key)
+// ============================================================================
+
+const SPEECH_RATES = [1, 1.5, 2] as const;
+
+function speechChunks(markdown: string): string[] {
+  return markdown
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("|"))
+    .map((line) =>
+      line
+        .replace(/^[-*]\s+/, "")
+        .replace(/^#{1,6}\s+/, "")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .replace(/\[(?:[A-Z]*\d+(?:_\d+)?)\]/g, "")
+        .replace(/[*`]/g, "")
+        .trim()
+    )
+    .flatMap((line) => line.split(/(?<=[.!?])\s+/))
+    .filter(Boolean);
+}
+
+function speechLanguage(text: string): string {
+  return /[áéíóúñ¿¡]/i.test(text) ? "es-ES" : "en-US";
+}
+
+function useReadAloud() {
+  const supported = typeof window !== "undefined" && "speechSynthesis" in window;
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [rate, setRate] = useState<number>(1);
+  const session = useRef({ token: 0, chunks: [] as string[], index: 0, lang: "en-US" });
+
+  const playFrom = (startIndex: number, rateValue: number) => {
+    const current = session.current;
+    const token = ++current.token;
+    window.speechSynthesis.cancel();
+    const speakChunk = (index: number) => {
+      if (token !== current.token) return;
+      if (index >= current.chunks.length) {
+        setSpeakingId(null);
+        return;
+      }
+      current.index = index;
+      const utterance = new SpeechSynthesisUtterance(current.chunks[index]);
+      utterance.rate = rateValue;
+      utterance.lang = current.lang;
+      utterance.onend = () => speakChunk(index + 1);
+      utterance.onerror = () => {
+        if (token === current.token) setSpeakingId(null);
+      };
+      window.speechSynthesis.speak(utterance);
+    };
+    speakChunk(startIndex);
+  };
+
+  const stop = () => {
+    if (!supported) return;
+    session.current.token += 1;
+    window.speechSynthesis.cancel();
+    setSpeakingId(null);
+  };
+
+  const toggle = (id: string, markdown: string) => {
+    if (!supported) return;
+    if (speakingId === id) {
+      stop();
+      return;
+    }
+    const chunks = speechChunks(markdown);
+    if (!chunks.length) return;
+    session.current.chunks = chunks;
+    session.current.lang = speechLanguage(chunks.join(" "));
+    setSpeakingId(id);
+    playFrom(0, rate);
+  };
+
+  // Speed changes apply immediately: restart from the sentence being read.
+  const cycleRate = () => {
+    const next = SPEECH_RATES[(SPEECH_RATES.indexOf(rate as (typeof SPEECH_RATES)[number]) + 1) % SPEECH_RATES.length];
+    setRate(next);
+    if (supported && speakingId) playFrom(session.current.index, next);
+  };
+
+  return { supported, speakingId, rate, toggle, stop, cycleRate };
+}
+
+// ============================================================================
 // Main FIRMS Copilot Drawer Component
 // ============================================================================
 
@@ -384,6 +474,18 @@ export function FireCopilotDrawer() {
 
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const speech = useReadAloud();
+  const stopSpeech = speech.stop;
+  const hasMessages = copilotMessages.length > 0;
+
+  // Silence playback when the drawer closes, the chat is cleared, or on unmount.
+  useEffect(() => {
+    if (!isCopilotOpen || !hasMessages) stopSpeech();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCopilotOpen, hasMessages]);
+  useEffect(() => () => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+  }, []);
 
   useEffect(() => {
     if (isCopilotOpen) {
@@ -443,6 +545,17 @@ export function FireCopilotDrawer() {
           </div>
 
           <div className="flex items-center gap-1">
+            {speech.supported && (
+              <button
+                type="button"
+                onClick={speech.cycleRate}
+                className="rounded border border-rule px-1.5 py-1 font-mono text-[11px] tabular-nums text-muted hover:bg-paper hover:text-ink transition-colors"
+                title="Read-aloud speed (click to change)"
+                aria-label={`Read-aloud speed ${speech.rate}x. Click to change.`}
+              >
+                {speech.rate}x
+              </button>
+            )}
             {copilotMessages.length > 0 && (
               <button
                 type="button"
@@ -529,6 +642,32 @@ export function FireCopilotDrawer() {
 
                       {/* Provenance: which evidence this answer rests on */}
                       <EvidenceBadges response={msg.response} />
+
+                      {speech.supported && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            speech.toggle(
+                              msg.id,
+                              msg.response?.guardrail_triggered ? refusalBody(msg.content, msg.response.suggested_prompts) : msg.content
+                            )
+                          }
+                          className={`ml-auto inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                            speech.speakingId === msg.id
+                              ? "border-reference bg-reference/10 text-reference"
+                              : "border-rule text-muted hover:border-reference hover:text-ink"
+                          }`}
+                          title={speech.speakingId === msg.id ? "Stop reading" : "Read this answer aloud"}
+                          aria-pressed={speech.speakingId === msg.id}
+                        >
+                          {speech.speakingId === msg.id ? (
+                            <Square className="h-3 w-3" aria-hidden="true" />
+                          ) : (
+                            <Volume2 className="h-3 w-3" aria-hidden="true" />
+                          )}
+                          {speech.speakingId === msg.id ? "Stop" : "Listen"}
+                        </button>
+                      )}
                     </div>
 
                     {msg.response?.data_source === "synthetic" && (
