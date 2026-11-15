@@ -1,0 +1,24 @@
+# Allowlist: only what the image needs. Runtime data comes from the published dataset.
+*
+!Dockerfile
+!deploy/entrypoint.py
+!deploy/requirements.txt
+!firms-harmonizer/backend
+!firms-harmonizer/frontend
+!firms-harmonizer/data
+!firms-harmonizer/scripts
+
+firms-harmonizer/backend/tests
+firms-harmonizer/frontend/node_modules
+firms-harmonizer/frontend/dist
+firms-harmonizer/frontend/tests
+firms-harmonizer/data/raw
+firms-harmonizer/data/processed
+firms-harmonizer/data/cache
+firms-harmonizer/data/real
+firms-harmonizer/data/lookup/*.parquet
+!firms-harmonizer/data/lookup/modis_swath_gaps.parquet
+**/__pycache__
+**/*.pyc
+**/.env
+**/.env.*
