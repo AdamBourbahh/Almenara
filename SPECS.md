@@ -33,7 +33,7 @@ Industrial filtering requires a published upstream flare site-year within 1 km a
 
 Chaos Monkey excludes the target year from historical calibration and prior fitting, removes spatial forcing contaminated by previously hidden observations, and scores only actually affected days against an intact-input model reference. Recovery may exceed 100%; no sabotage produces zero RMSE and the defined 100% control.
 
-Request limits: 512 positions total, 16 rings, 1,250,000 km^2 geodesic preflight, 250,000 R7 cells, 6,000-character questions, ten conversation turns, 256 KiB request bodies, four analytical workers, 30 analytical requests/minute/client and ten Copilot requests/minute/client. Analysis cache: 64 entries and 128 MiB. Extra CORS origins require explicit configuration. Observations default to 366 dates/page, maximum 1,000.
+Request limits: 20,000 positions total, 64 rings, 1,250,000 km^2 geodesic preflight, 250,000 R7 cells, 6,000-character questions, ten conversation turns, 256 KiB request bodies, four analytical workers, 30 analytical requests/minute/client and ten Copilot requests/minute/client. Analysis cache: 64 entries and 128 MiB. Extra CORS origins require explicit configuration. Observations default to 366 dates/page, maximum 1,000.
 
 Sources: [NASA MODIS Fire Guide](https://www.earthdata.nasa.gov/s3fs-public/2023-09/MODIS_C6_C6.1_Fire_User_Guide_1.0.pdf), [NASA VIIRS Fire Guide](https://www.earthdata.nasa.gov/s3fs-public/2024-07/VIIRS_C2_AF-375m_User_Guide_1.0.pdf), [MCD64A1 fields and QA](https://ladsweb.modaps.eosdis.nasa.gov/filespec/MODIS/61/MCD64A1), [Andreae 2019](https://doi.org/10.5194/acp-19-8523-2019), [EOG MYC25Q4](https://doi.org/10.5281/zenodo.23091822).
 
@@ -295,8 +295,8 @@ class GeoJSONPolygon(ContractModel):
     def validate_rings(cls, rings: list[list[list[float]]]) -> list[list[list[float]]]:
         if not rings:
             raise ValueError("A polygon requires an exterior ring.")
-        if len(rings) > 16 or sum(map(len, rings)) > 512:
-            raise ValueError("A polygon supports at most 16 rings and 512 positions.")
+        if len(rings) > MAX_POLYGON_RINGS or sum(map(len, rings)) > MAX_POLYGON_VERTICES:
+            raise ValueError(f"A polygon supports at most {MAX_POLYGON_RINGS} rings and {MAX_POLYGON_VERTICES} positions.")
         for ring in rings:
             if len(ring) < 4 or ring[0] != ring[-1]:
                 raise ValueError("Polygon rings must be closed with at least four positions.")

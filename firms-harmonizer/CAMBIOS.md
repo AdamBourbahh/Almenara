@@ -684,3 +684,8 @@ clean; production build succeeds.
 ## Branch consolidation (2026-11-15)
 
 All branch histories are consolidated in main. Streaming archive ETL, cloud/swath ancillary acquisition and the calculation/provenance Copilot tools coexist with the current scientific policy and Gemini incident investigator. Pipeline defaults and fixtures use the four current study regions; missing ancillary values remain null. Coordinated pipeline fixture/hash revisions preserve border, deduplication and SAMA controls without restoring retired regions. Numerical quantity checks preserve units; comparison questions may name years in either order while reversed explicit date ranges remain invalid. Backend contract hashes remain unchanged. See docs/verification/2026-11-15-branch-consolidation/ at the repository root for branch-tip inventory and test evidence.
+
+## Cell-traced AOI vertex limit (2026-11-15)
+
+A cell-traced AOI follows every hexagon edge, so its boundary has far more positions than a hand-drawn box (395 cells produce about 161 vertices, and medium areas exceeded the previous 512-position limit). That returned HTTP 422 and left the map and chronology empty. The limit is now **20,000 positions and 64 rings**, defined once in `backend/api/schemas.py` and reused by `backend/db/queries.py`; `SPECS.md` is updated. The real guards remain 250,000 R7 cells and 1,250,000 km² geodesic area. `test_polygon_vertex_limit` uses the shared constant, so the boundary test follows the new value. The frontend also keeps the last rendered map and the chronology when an analysis or map-period request fails, and shows the error in the map legend.
+

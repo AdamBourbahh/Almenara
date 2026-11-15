@@ -159,6 +159,7 @@ export function HexagonMap() {
     setTracingCells,
     aoiCells,
     aoiNotice,
+    error,
     setCustomBbox,
     isSynthetic
   } = useAnalysisStore(
@@ -175,6 +176,7 @@ export function HexagonMap() {
       setTracingCells: s.setTracingCells,
       aoiCells: s.aoiCells,
       aoiNotice: s.aoiNotice,
+      error: s.error,
       setCustomBbox: s.setCustomBbox,
       isSynthetic: s.isSynthetic
     }))
@@ -645,6 +647,7 @@ export function HexagonMap() {
           <p className="mt-1 text-[10px] text-muted">Click cells to add or remove them from the area.</p>
         )}
         {aoiNotice && <p className="mt-1 text-[10px] text-terracotta">{aoiNotice}</p>}
+        {error && <p className="mt-1 text-[10px] text-terracotta">{error}</p>}
       </div>
     </div>
   );

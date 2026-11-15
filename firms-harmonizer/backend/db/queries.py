@@ -19,11 +19,10 @@ import pyarrow.parquet as pq
 from pyproj import Geod
 from shapely.geometry import Polygon
 
-from backend.api.schemas import H3MapSummaryHex
+from backend.api.schemas import H3MapSummaryHex, MAX_POLYGON_RINGS, MAX_POLYGON_VERTICES
 from backend.db import duckdb_engine
 
 MAX_R7_CELLS = 250_000
-MAX_POLYGON_VERTICES = 512
 INDUSTRIAL_THRESHOLD = 0.75
 EPOCH = np.datetime64("1970-01-01", "D")  # epoch_day = days since 1970-01-01 (SPECS.md §5.1)
 OBS_COLUMNS = ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre")
@@ -89,8 +88,8 @@ def polygon_area_km2(coords: list) -> float:
 
 def validate_polygon_topology(coords: list) -> None:
     """Raise ValueError for rings with zero area or self-intersecting edges."""
-    if len(coords) > 16 or sum(map(len, coords)) > 512:
-        raise ValueError("A polygon supports at most 16 rings and 512 positions.")
+    if len(coords) > MAX_POLYGON_RINGS or sum(map(len, coords)) > MAX_POLYGON_VERTICES:
+        raise ValueError(f"A polygon supports at most {MAX_POLYGON_RINGS} rings and {MAX_POLYGON_VERTICES} positions.")
     polygon = Polygon(coords[0], coords[1:])
     if not polygon.is_valid or polygon.is_empty or polygon.area <= 0:
         raise ValueError("Polygon rings must form a valid non-empty polygon.")

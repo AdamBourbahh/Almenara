@@ -5,6 +5,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+# A cell-traced AOI follows every hexagon edge, so its boundary has many more
+# positions than a hand-drawn box. The area and R7-cell caps remain the real guards.
+MAX_POLYGON_RINGS = 64
+MAX_POLYGON_VERTICES = 20_000
+
 
 class ContractModel(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -19,8 +24,8 @@ class GeoJSONPolygon(ContractModel):
     def validate_rings(cls, rings: list[list[list[float]]]) -> list[list[list[float]]]:
         if not rings:
             raise ValueError("A polygon requires an exterior ring.")
-        if len(rings) > 16 or sum(map(len, rings)) > 512:
-            raise ValueError("A polygon supports at most 16 rings and 512 positions.")
+        if len(rings) > MAX_POLYGON_RINGS or sum(map(len, rings)) > MAX_POLYGON_VERTICES:
+            raise ValueError(f"A polygon supports at most {MAX_POLYGON_RINGS} rings and {MAX_POLYGON_VERTICES} positions.")
         for ring in rings:
             if len(ring) < 4 or ring[0] != ring[-1]:
                 raise ValueError("Polygon rings must be closed with at least four positions.")

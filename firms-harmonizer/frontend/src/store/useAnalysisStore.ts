@@ -553,8 +553,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         isSynthetic: data.data_source === "synthetic" });
     } catch (err: unknown) {
       if (seq !== mapSeq || isAbortError(err)) return;
-      set({ mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: false,
-        mapError: err instanceof Error ? err.message : "Map period unavailable" });
+      // Keep the last rendered map instead of blanking it when a period request fails.
+      set({ mapLoading: false, mapError: err instanceof Error ? err.message : "Map period unavailable" });
     }
   },
 
@@ -564,6 +564,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     mapSeq++;
     clearTimeout(mapTimer);
     annualMapCache.clear();
+    const previousMap = get();
+    const keepMap = { mapHexagons: previousMap.mapHexagons, mapYear: previousMap.mapYear, mapPeriod: previousMap.mapPeriod };
     set({
       mapHexagons: [], mapYear: null, mapPeriod: null, mapLoading: true, mapError: null,
       hoveredDay: null, hoveredDate: null, hoveredCell: null,
@@ -597,7 +599,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       await get().loadMapYear();
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
-      set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false, mapLoading: false });
+      set({ error: err instanceof Error ? err.message : "Spatial analysis failed", loading: false, mapLoading: false, ...keepMap });
     } finally {
       if (analysisController === controller) analysisController = null;
     }
