@@ -1,6 +1,8 @@
 """Small, bounded provider cascade. External quotas never disable local answers."""
 from __future__ import annotations
 
+from backend.api.copilot_network import is_offline
+
 import json
 import logging
 import os
@@ -30,7 +32,7 @@ def bounded_messages(messages: list[dict]) -> list[dict]:
 def complete(messages: list[dict], *, structured: bool = False,
              schema: dict | None = None, timeout: float = 10,
              default_model: str = 'llama-3.3-70b-versatile') -> tuple[str | None, str]:
-    if os.getenv('COPILOT_OFFLINE') == '1':
+    if is_offline():
         return None, 'deterministic-offline-science'
     # GitHub Models itself retired in July 2026. Never send a PAT to a retired
     # default endpoint; an operator can explicitly supply a compatible gateway.

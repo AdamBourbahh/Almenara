@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from backend.api.science_adapter import KalmanInput
-from backend.api import core_contract, fire_copilot, copilot_researcher
+from backend.api import core_contract, fire_copilot, copilot_researcher, copilot_agent
 from backend.api.cache import (ANALYZE_CACHE, GEOMETRY_CACHE, CachedGeometry, CachedJSON, LRUCache, geometry_key,
                                make_cache_key)
 from backend.api.schemas import (AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse,
@@ -434,7 +434,7 @@ def explain_spike(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
             validate_polygon_topology(req.aoi.coordinates)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return copilot_researcher.answer(req)
+    return copilot_agent.answer(req)
 
 
 @router.post("/cube/sync", response_model=CubeSyncStatusResponse)

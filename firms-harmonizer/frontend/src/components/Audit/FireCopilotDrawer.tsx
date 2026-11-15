@@ -28,7 +28,7 @@ function parseInlineFormatting(text: string, citations: CitationReference[] = []
   // 2. Bold text: **bold**
   // 3. Inline code: `code`
   // 4. Citation pills: [1]..[99] or [W1]..[W99]
-  const pattern = /(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`|\[(?:W\d+|\d+)\])/g;
+  const pattern = /(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`|\[(?:[A-Z]*\d+(?:_\d+)?)\])/g;
   const parts = text.split(pattern);
 
   return parts.map((part, i) => {
@@ -75,7 +75,7 @@ function parseInlineFormatting(text: string, citations: CitationReference[] = []
     }
 
     // Citation badge: [1] or [W1]
-    const citMatch = part.match(/^\[(W\d+|\d+)\]$/);
+    const citMatch = part.match(/^\[([A-Z]*\d+(?:_\d+)?)\]$/);
     if (citMatch) {
       const id = citMatch[1];
       const isWeb = id.startsWith("W");

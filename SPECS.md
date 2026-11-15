@@ -770,3 +770,24 @@ inference API) was retired on 2026-07-30. The requested legacy provider is there
 skipped unless an operator supplies both `GITHUB_TOKEN` and an explicit
 `GITHUB_MODELS_ENDPOINT` for a compatible gateway. Gemini remains the subsequent
 provider. This avoids silently calling either retired GitHub inference URL.
+
+### 5.9 Groq tool agent and local document retrieval (2026-11-15)
+
+Online `/api/explain-spike` uses Groq native function calling instead of an intent
+keyword classifier. A short system message and five read-only tools let the model
+retrieve local knowledge (SQLite FTS5/BM25), query accepted observations, calculate
+scientific energy, profile an episode and search incident reports. Geometry is
+resolved by the server; tool arguments never contain SQL or arbitrary coordinates.
+A model-selected tool is executed once per request; up to three tool rounds precede
+a forced final response. Dates/arguments and citations are validated. Exact numeric
+results are also rendered by Python, independently of model prose. Unsupported
+numeric claims, malformed responses and provider failures return local evidence.
+
+The versioned corpus under `data/copilot_knowledge/` contains scientific notes with
+source links; ETL documentation is indexed in complete paragraphs, excluding test
+logs and verification sections. Retrieval uses an offline lexical index, not neural
+embeddings or model training. The model can reformulate retrieval queries. Prior
+turns, source passages and tool results have explicit size limits. The existing
+local scientific pipeline remains the offline/no-credentials fallback. Public
+contracts remain unchanged; citation rendering additionally supports K/E document
+markers. Groq quotas remain external constraints; fallback is reported explicitly.

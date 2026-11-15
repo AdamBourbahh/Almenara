@@ -6,6 +6,7 @@ from datetime import date
 import json
 import re
 
+from backend.api.copilot_network import is_forced_offline
 from backend.api import copilot_research as research
 from backend.api.schemas import ExplainSpikeResponse
 
@@ -69,7 +70,7 @@ def summary_matches_excerpt(summary: str, excerpt: str) -> bool:
 
 def causal_answer(req, scope, observed, source, *, search, complete, firms, methods, context) -> ExplainSpikeResponse:
     reports, papers, query = [], [], ""
-    if not scope.error and source != "synthetic":
+    if not scope.error and source != "synthetic" and not is_forced_offline():
         with ThreadPoolExecutor(max_workers=2) as executor:
             reports_future = executor.submit(search, scope)
             papers_future = executor.submit(research.scientific_sources, req.user_question)
@@ -181,7 +182,7 @@ def causal_answer(req, scope, observed, source, *, search, complete, firms, meth
         sections.append("### Incident sources\n\n" +
             f"Retrieved **{len(reports)} relevant report leads**, with official article text available for {len(official)}. "
             "Their match to the selected incident and its cause remains unconfirmed. " + " ".join(c.id for c in reports))
-    elif not scope.error and source != "synthetic":
+    elif not scope.error and source != "synthetic" and not is_forced_offline():
         sections.append("### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.")
     if not scope.error:
         science = ("**Ignition and spread are different questions.** MODIS and VIIRS detect thermal anomalies; "

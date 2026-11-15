@@ -8,6 +8,8 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import date, timedelta
+from backend.api.copilot_network import is_offline
+
 import calendar
 import json
 import logging
@@ -209,7 +211,7 @@ def geographic_context(scope) -> tuple[str, tuple[float,float] | None]:
 
 def investigate_fire_literature_and_web(scope, peak_date: str | None = None) -> tuple[list[CitationReference], str]:
     """Three targeted searches plus Wikipedia, bounded and fail-open to local science."""
-    if os.getenv('COPILOT_OFFLINE') == '1' or duckdb_engine.data_source() == 'synthetic' or not scope.start:
+    if is_offline() or duckdb_engine.data_source() == 'synthetic' or not scope.start:
         return [], ''
     location, centroid = geographic_context(scope)
     # Geographic descriptors are server-owned; never send prompt instructions as queries.

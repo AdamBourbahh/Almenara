@@ -422,3 +422,14 @@ Groq -> optional configured gateway -> Gemini -> deterministic fallback remains
 bounded by the same deadline and token budget. Partial reconstruction alongside
 real observations no longer suppresses incident research; the reconstruction gate
 requires a purely estimated point with no active sensor or raw detection.
+
+## 2026-11-15 — Groq agent, local document index and data tools
+
+The online Copilot uses native tool selection, with a compact system message,
+local FTS5/BM25 document retrieval and server-owned observations, energy, episode
+and report tools. No public API fields or types changed. The UI supports K/E local
+document source IDs. Offline and provider-failure handling reuse the local
+scientific path through a request-local ContextVar, without global environment or
+function mutation. Groq is the active provider; Gemini Search grounding is a
+separate potential provider integration and is not activated by a Gemini web-app
+subscription or by this change.

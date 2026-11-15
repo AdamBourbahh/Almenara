@@ -226,7 +226,7 @@ python scripts/08_validate_copilot_acceptance.py
 python scripts/08_validate_copilot_acceptance.py --live
 python -m pytest backend/tests/ -v
 python scripts/test_copilot_e2e.py
-python scripts/test_copilot_e2e.py --live
+python scripts/09_validate_copilot_agent.py
 cd frontend && node --test tests/*.test.mjs && npm run build
 ```
 
@@ -274,3 +274,25 @@ evidence, rather than substituting spread conditions. Relevant complete source
 sentences are packed before applying the provider context limit, so the serialized
 evidence is not truncated mid-JSON. This is a routing/context repair; the configured
 model remains GPT-OSS 120B on Groq, without a claim that it is the best free model.
+
+### Groq RAG and read-only tools
+
+The online Copilot now uses Groq native tool calling with a short instruction
+message. It chooses between local document retrieval, observations, energy,
+episode profiling and incident research, rather than a question-keyword router.
+SQLite FTS5/BM25 indexes the versioned science notes in `data/copilot_knowledge/`
+and current ETL documentation. This is lexical RAG, not embeddings or fine-tuning;
+the model can reformulate searches. Add reviewed documents to the corpus to expand
+coverage. Scientific quantities remain database calculations, displayed by Python.
+
+With `GROQ_API_KEY` configured the default agent model is `openai/gpt-oss-120b`.
+`COPILOT_OFFLINE=1`, missing credentials, provider errors and invalid answers use
+the existing local scientific fallback. A request-local offline override prevents
+repeating failed network calls without changing other users' requests. Rate limits
+can still cause fallback; no free-tier availability guarantee is made.
+
+`python scripts/09_validate_copilot_agent.py` exercises actual Groq calls and records
+which tools the model chose. Use `--question` and `--output` for individual cases.
+`pytest backend/tests/test_copilot_agent.py -q` covers orchestration and failures
+without using a provider account. Retrieved notes are not automatically certified
+incident evidence; answers retain source and uncertainty labels.

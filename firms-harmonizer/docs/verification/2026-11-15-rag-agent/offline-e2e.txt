@@ -1,0 +1,12 @@
+1_first_time_region PASS
+2_targeted_spike PASS
+3_industrial_trap PASS
+4_instrumental_jump PASS
+5_adversarial_and_offline PASS
+5b_network_failure_real_episode PASS
+6_out_of_range PASS
+7_invalid_date PASS
+8_unknown_location PASS
+10_empty_question PASS
+11_prompt_injection PASS
+12/12 PASS; report: /home/adam-bourbahh/Documents/Almenara/firms-harmonizer/data/processed/copilot_e2e.json

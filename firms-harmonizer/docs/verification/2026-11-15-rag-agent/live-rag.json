@@ -1,0 +1,63 @@
+[
+  {
+    "question": "What does FRP mean?",
+    "tools": [],
+    "passed": true,
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "**FRP (Fire Radiative Power)** is the instantaneous fire radiative power measured by satellites, expressed in megawatts (MW). It represents the rate at which a fire emits radiant energy at a given moment (equivalent to megajoules per second). [K1]",
+      "citations": [
+        {
+          "id": "[K1]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Fire radiative power and energy",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "FRP is instantaneous fire radiative power in MW, equivalent to MJ per second. FRE is energy integrated over time in MJ. One GJ is 1000 MJ. Summing instantaneous satellite FRP samples does not give energy. The local scientific energy tool integrates calibrated daily FRE over the cube cells represented each day. Estimates depend on temporal reconstruction and sensor coverage."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "groq-agent/openai/gpt-oss-120b",
+      "data_source": "real",
+      "map_context": {
+        "label": "Selected map area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "h3_index": null
+      },
+      "answer_markdown": "**FRP (Fire Radiative Power)** is the instantaneous fire radiative power measured by satellites, expressed in megawatts (MW). It represents the rate at which a fire emits radiant energy at a given moment (equivalent to megajoules per second). [K1]",
+      "provider_used": "groq-agent/openai/gpt-oss-120b",
+      "episode_summary": null
+    }
+  }
+]

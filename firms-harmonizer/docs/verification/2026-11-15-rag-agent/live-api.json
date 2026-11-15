@@ -1,0 +1,75 @@
+[
+  {
+    "question": "How much energy in GJ was released here?",
+    "tools": [
+      "query_energy"
+    ],
+    "passed": true,
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "The integrated fire‑radiative energy released in the Sierra Oeste on **2026‑07‑24** was **≈ 206,708 GJ**[6][1].\n\n### Energy result\n\nFor **Selected map area**, **2026-07-24 to 2026-07-24**, the scientific cube gives **206,708.318 GJ** of integrated fire radiative energy. [6]\n\n### Scope and method\n\nThis uses RTS Kalman reconstruction, with industrial heat sources excluded. The calculation covers **2,311.424 km²** of selected H3 cells and **1 days**, including **0 reconstructed days**. It uses the dashboard's 2001–2026 analysis history, then selects the requested inclusive dates.\n\n### Derived estimates\n\n- Estimated dry biomass consumed: **76,068.661 tonnes** (0.368 kg/MJ). This is a model-derived estimate, not measured burned area or emissions. [1]\n\n- The highest-energy day in this period is **2026-07-24** with **206,708.318 GJ**. [6]\n\n### Interpretation\n\nGJ = Σ daily FRE (MJ/km²) × the cube cell area represented on that day (km²) / 1,000. The full polygon area is not used for every day. Model density averages sensors with different spatial coverage; totals are derived estimates. This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. Raw detection counts below use accepted centers before the scientific industrial-source filter.",
+      "citations": [
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        },
+        {
+          "id": "[1]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+          "authors_or_agency": "Wooster et al.",
+          "year": 2005,
+          "dataset_or_doi": "10.1029/2005JD006318",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "groq-agent/openai/gpt-oss-120b",
+      "data_source": "real",
+      "map_context": {
+        "label": "Selected map area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "h3_index": null
+      },
+      "answer_markdown": "The integrated fire‑radiative energy released in the Sierra Oeste on **2026‑07‑24** was **≈ 206,708 GJ**[6][1].\n\n### Energy result\n\nFor **Selected map area**, **2026-07-24 to 2026-07-24**, the scientific cube gives **206,708.318 GJ** of integrated fire radiative energy. [6]\n\n### Scope and method\n\nThis uses RTS Kalman reconstruction, with industrial heat sources excluded. The calculation covers **2,311.424 km²** of selected H3 cells and **1 days**, including **0 reconstructed days**. It uses the dashboard's 2001–2026 analysis history, then selects the requested inclusive dates.\n\n### Derived estimates\n\n- Estimated dry biomass consumed: **76,068.661 tonnes** (0.368 kg/MJ). This is a model-derived estimate, not measured burned area or emissions. [1]\n\n- The highest-energy day in this period is **2026-07-24** with **206,708.318 GJ**. [6]\n\n### Interpretation\n\nGJ = Σ daily FRE (MJ/km²) × the cube cell area represented on that day (km²) / 1,000. The full polygon area is not used for every day. Model density averages sensors with different spatial coverage; totals are derived estimates. This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. Raw detection counts below use accepted centers before the scientific industrial-source filter.",
+      "provider_used": "groq-agent/openai/gpt-oss-120b",
+      "episode_summary": null
+    }
+  }
+]

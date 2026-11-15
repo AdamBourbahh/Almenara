@@ -5,6 +5,8 @@ study envelope and executes parameterized SQL; the model never supplies SQL or g
 """
 from __future__ import annotations
 
+from backend.api.copilot_network import is_offline
+
 import calendar
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -327,7 +329,7 @@ def safe_url(url: str) -> bool:
 
 def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
     """Search independent official and news lanes without broadening attached dates."""
-    if os.getenv("COPILOT_OFFLINE") == "1":
+    if is_offline():
         return [], ""
     cache_key = json.dumps([scope.label, scope.start, scope.end, scope.search_query])
     cached = SEARCH_CACHE.get(cache_key)
@@ -701,7 +703,7 @@ def answer(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
         elif not scope.error and not metrics_question:
             prose = ("The available evidence does not establish which named incident these detections belong to or its ignition cause. "
                      "A matching incident report or fire perimeter would be needed to link them.")
-            if not reports and os.getenv("COPILOT_OFFLINE") != "1":
+            if not reports and not is_offline():
                 prose += " No relevant web results were retrieved; this does not imply an undocumented fire."
         if reports:
             prose += "\n\nCandidate reports to check for a matching location and date:\n" + "\n".join(f"- {r.title} {r.id}" for r in reports)
