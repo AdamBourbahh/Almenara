@@ -525,7 +525,13 @@ def fetch_observed_detections(cells_r4: list[int], cells_r7: list[int], start_ye
 
 def fetch_risk_daily(cells_r4: list[int], cells_r7: list[int], start_year: int,
                      end_year: int, cutoff_epoch: int) -> dict[str, np.ndarray]:
-    """Aggregate causal FRP features without reusing retrospective ETL classifications."""
+    """Aggregate causal FRP features without reusing retrospective ETL classifications.
+
+    Every array is aligned with ``epoch_day`` and strictly causal (day t uses rows with epoch_day <= t).
+    ``vegetation_frp`` is the sum of the day's non-persistent cell FRP; ``peak_detection_frp`` is the highest
+    mean FRP per detection (cell FRP / max(modis + viirs detections, 1)) among those same non-persistent
+    cells (MW, 0.0 on days without rows).
+    """
     if not cells_r7:
         return {}
     missing = set(duckdb_engine.missing_columns())
@@ -540,6 +546,7 @@ def fetch_risk_daily(cells_r4: list[int], cells_r7: list[int], start_year: int,
     query_sql = (
         "WITH source AS ("
         "    SELECT h3_r7, epoch_day, greatest(raw_frp_mw, 0)::DOUBLE AS frp, "
+        "           coalesce(raw_modis_cnt, 0)::DOUBLE + coalesce(raw_viirs_cnt, 0)::DOUBLE AS detections, "
         + cloud + " AS cloud, " + gap + " AS gap, "
         "           month(DATE '1970-01-01' + epoch_day::INTEGER) AS month_idx "
         + _SPATIAL_FILTER + " AND epoch_day <= ?"
@@ -552,7 +559,7 @@ def fetch_risk_daily(cells_r4: list[int], cells_r7: list[int], start_year: int,
         "        PARTITION BY h3_r7 ORDER BY epoch_day RANGE BETWEEN 365 PRECEDING AND 1 PRECEDING"
         "    )"
         ") "
-        "SELECT h3_r7, epoch_day, frp, cloud, gap, "
+        "SELECT h3_r7, epoch_day, frp, detections, cloud, gap, "
         "       coalesce(past_days >= 12 AND past_months >= 9 AND spread <= 0.8, false) AS persistent, "
         "       greatest(0, (ln(1 + frp) - baseline) / greatest(0.25, spread)) AS excursion "
         "FROM history"
@@ -570,6 +577,7 @@ def fetch_risk_daily(cells_r4: list[int], cells_r7: list[int], start_year: int,
         try:
             by_day = cur.sql("""
                 SELECT epoch_day, sum(frp) FILTER (WHERE NOT persistent) AS vegetation_frp,
+                       max(frp / greatest(detections, 1)) FILTER (WHERE NOT persistent) AS peak_detection_frp,
                        sum(frp) FILTER (WHERE persistent) / nullif(sum(frp), 0) AS persistent_share,
                        max(excursion) FILTER (WHERE persistent AND frp > 0) AS industrial_z,
                        avg(cloud) AS cloud, bit_or(gap) AS gap
@@ -604,7 +612,7 @@ def fetch_risk_daily(cells_r4: list[int], cells_r7: list[int], start_year: int,
     days = _int_col(by_day, "epoch_day")
     epoch = np.arange(days[0], days[-1] + 1, dtype=np.int64)
     result = {"epoch_day": epoch}
-    for name in ("vegetation_frp", "persistent_share", "industrial_z", "cloud", "gap"):
+    for name in ("vegetation_frp", "peak_detection_frp", "persistent_share", "industrial_z", "cloud", "gap"):
         values = np.full(len(epoch), np.nan if name == "cloud" else 0.0)
         rows = _float_col(by_day, name)
         values[days - epoch[0]] = rows if name == "cloud" else np.nan_to_num(rows)
@@ -612,3 +620,36 @@ def fetch_risk_daily(cells_r4: list[int], cells_r7: list[int], start_year: int,
     result["neighbor_frp"] = np.zeros(len(epoch))
     result["neighbor_frp"][_int_col(spatial, "epoch_day") - epoch[0]] = _float_col(spatial, "neighbor_frp")
     return result
+
+
+LOOKUP_DIR = duckdb_engine.ROOT / "data/lookup"
+
+
+def fetch_risk_diurnal_ratio(cells_r4: list[int], month: int) -> float | None:
+    """matched_days-weighted median Aqua(13:30)/Terra(10:30) FRP ratio over the AOI's R4 cells for a month.
+
+    A weighted median is used because the ratio is heavy-tailed (near-zero Terra FRP gives degenerate cells) and a mean is dominated by them.
+
+    Reads the optional ETL artefact ``data/lookup/diurnal_ratios.parquet``; returns None when it is
+    absent or unreadable, when no row matches, or when the result is not finite and positive.
+    """
+    path = LOOKUP_DIR / "diurnal_ratios.parquet"
+    if not len(cells_r4) or not path.is_file():
+        return None
+    try:
+        table = pq.read_table(path, columns=["h3_r4", "month", "ratio", "matched_days"])
+    except (OSError, pa.ArrowException):
+        return None
+    wanted = pa.array(np.asarray(cells_r4, dtype=np.uint64))
+    keep = pc.and_(pc.is_in(table["h3_r4"].cast(pa.uint64()), value_set=wanted),
+                   pc.equal(table["month"].cast(pa.int64()), int(month)))
+    rows = table.filter(keep)
+    ratio = rows["ratio"].to_numpy(zero_copy_only=False).astype(float)
+    weight = rows["matched_days"].to_numpy(zero_copy_only=False).astype(float)
+    ok = np.isfinite(ratio) & (ratio > 0) & np.isfinite(weight) & (weight > 0)
+    if not ok.any():
+        return None
+    order = np.argsort(ratio[ok], kind="stable")
+    cumulative = np.cumsum(weight[ok][order])
+    value = float(ratio[ok][order][np.searchsorted(cumulative, cumulative[-1] / 2.0)])
+    return value if np.isfinite(value) and value > 0 else None

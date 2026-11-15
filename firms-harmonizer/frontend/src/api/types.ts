@@ -42,6 +42,42 @@ export interface RiskFactor {
   impact_pct: number;
   direction: "raises" | "lowers";
   description: string;
+  signed_impact_pct?: number | null;
+  observed_value?: number | null;
+  unit?: string | null;
+}
+
+export interface RiskObservationStatus {
+  status: string;
+  coverage_nominal: boolean;
+  uncertainty_pct?: number | null;
+  days_since_observation?: number | null;
+}
+
+export interface RiskIntensityRegime {
+  regime: string;
+  guidance: string;
+  intensity_mw?: number | null;
+  diurnal_amplification_ratio?: number | null;
+  contagion_origin?: string | null;
+  neighbor_frp_mw?: number | null;
+}
+
+export interface RiskPhenology {
+  days_to_peak?: number | null;
+  peak_date_label?: string | null;
+  kappa?: number | null;
+  season_width_days?: number | null;
+  decadal_shift_days?: number | null;
+  biomass_exposure_tonnes?: number | null;
+  persistence_entropy?: number | null;
+  fuel_regime?: string | null;
+}
+
+export interface RiskOutlookPoint {
+  date: string;
+  prob_pct?: number | null;
+  baseline_prob_pct?: number | null;
 }
 
 export interface AIRiskAssessment {
@@ -58,7 +94,23 @@ export interface AIRiskAssessment {
   model_metrics: RiskValidation & { model_weights: Record<string, number> };
   top_risk_factors: RiskFactor[];
   industrial_risk_factors: RiskFactor[];
-  daily_probability_series: { date: string; wildfire_prob_pct: number | null; accident_prob_pct: number | null }[];
+  daily_probability_series: {
+    date: string;
+    wildfire_prob_pct: number | null;
+    accident_prob_pct: number | null;
+    baseline_prob_pct?: number | null;
+    observed_event?: boolean | null;
+  }[];
+  baseline_climatology_pct?: number | null;
+  multi_year_trend_delta_pct?: number | null;
+  short_term_anomaly_delta_pct?: number | null;
+  anomaly_multiplier?: number | null;
+  markov_persistence?: number | null;
+  horizon_explanation?: string | null;
+  observation?: RiskObservationStatus | null;
+  intensity?: RiskIntensityRegime | null;
+  phenology?: RiskPhenology | null;
+  outlook_series?: RiskOutlookPoint[] | null;
 }
 
 export interface RiskPredictionResponse {
