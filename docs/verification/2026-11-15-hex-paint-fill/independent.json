@@ -1,0 +1,12 @@
+{
+  "exact_r7_cells": 19,
+  "holes_after_fill": 0,
+  "perimeter_cells": 12,
+  "interior_cells_added": 7,
+  "perimeter_detections": 120,
+  "filled_detections": 363,
+  "interior_detections_added": 243,
+  "filled_summed_frp_mw": 8192.709999999997,
+  "matched_chat": true,
+  "date": "2021-08-16"
+}

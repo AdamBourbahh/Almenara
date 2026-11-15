@@ -722,6 +722,14 @@ clean; production build succeeds.
 
 ## Branch consolidation (2026-11-15)
 
+Hexagon painting/Fill follow-up: select continuously with a held primary pointer,
+interpolating intermediate cells. Starting on a selected cell erases consistently;
+revisits are idempotent. Capture/release and cancellation prevent stuck painting
+or accidental map panning/Copilot clicks. Add a Fill control for closed perimeters:
+fill only enclosed cells of the union, preserving the exterior shape and enforcing
+limits atomically. The filled selection uses the unchanged exact polygon/Apply
+flow. Add geometry, interpolation and real-browser paint/erase/fill verification.
+
 Hexagon AOI mode: add an optional exact H3 R7 selection grid and selected-cell
 overlay to the existing DeckGL instance. Clicking toggles cells, Clear and Cancel
 leave the applied AOI untouched, and Apply uses the existing transactional area
