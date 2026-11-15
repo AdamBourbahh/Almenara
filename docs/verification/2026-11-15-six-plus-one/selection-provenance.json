@@ -145,5 +145,26 @@
       ]
     ],
     "novelty_scope": "Tracked QA/docs/scripts at baseline 39c8a9c; no claim about unavailable private chat history."
+  },
+  {
+    "zone": "Fresh holdout after geographic correction",
+    "h3": "873829872ffffff",
+    "centroid_lat_lon": [
+      36.59740544748615,
+      2.8831328666199734
+    ],
+    "previous_tracked_qa_matches": [],
+    "archive_rows": 2133,
+    "maximum_industrial_probability": 0.0,
+    "measured_cloud_rows": 0,
+    "rows_with_gap_flag": 13,
+    "measured_annual_igbp": [
+      [
+        2023,
+        12,
+        1.0
+      ]
+    ],
+    "novelty_scope": "Not asked in any prior live round; no selected-cell identifier in tracked QA/docs/scripts at baseline 39c8a9c."
   }
 ]
