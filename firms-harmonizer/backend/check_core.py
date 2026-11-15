@@ -1,7 +1,7 @@
 """Conformance runner for Adam's backend/core against the API contract (see CAMBIOS.md).
 
 Usage:  python -m backend.check_core [--synthetic]
-Runs every agreed core function on inputs from a declared real region (Cerrado for synthetic mode), 2001-2026,
+Runs every agreed core function on inputs from a declared real region (Chilecito for synthetic mode), 2001-2026,
 n=9496 days), validates each output with backend.api.core_contract.call and prints PASS / FAIL / MISSING,
 signature problems and the time per call.
 Exit codes: 0 = all pass, 1 = at least one contract violation, crash or signature problem,
@@ -23,17 +23,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-CERRADO = [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0], [-57.2, -16.0], [-57.2, -17.8]]]  # SPECS.md Ã‚Â§5.3 preset
+CHILECITO = [[[-69.5, -31], [-65.5, -31], [-65.5, -27.5], [-69.5, -27.5], [-69.5, -31]]]  # Official study region.
 TARGET_YEAR = 2022
 
 
 def validation_regions():
     """Use declared real-data regions, retaining pilot fixtures for explicit synthetic mode."""
-    if os.environ.get("USE_SYNTHETIC_CUBE") == "1":
-        return {"cerrado_brazil": (-57.2, -17.8, -55.2, -16.0),
-                "california_usa": (-121.2, 38.0, -119.5, 40.2),
-                "iberia_med": (-6.5, 37.2, -3.2, 39.8),
-                "niger_delta_flaring": (5.6, 4.6, 7.2, 5.8)}
     regions = json.loads((ROOT / "data/regions.json").read_text(encoding="utf-8"))
     return {name: tuple(region["bounds"]) for name, region in regions.items() if region.get("coverage")}
 

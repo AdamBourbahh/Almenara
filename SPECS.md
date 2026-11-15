@@ -2,66 +2,46 @@
 
 - **Challenge:** NASA Space Apps Challenge 2026 — *Harmonization of MODIS and VIIRS Hot Spots*
 - **Target Global Awards:** *Best Use of Science*, *Best Use of Data*, *Best Use of Technology*, *Galactic Impact*
-- **Core Objective:** Harmonize 26 years of satellite fire observations (2000–2026) from MODIS (`MCD14ML`) and VIIRS (`VNP14IMG` / `VJ114IMG`) into a continuous, statistically audited **Spatial Density of Fire Radiative Energy ($\text{FRE}$, in $\text{MJ} \cdot \text{km}^{-2} \cdot \text{day}^{-1}$)** and **14-Day Operational Burning Forecast** with $< 15\text{ ms}$ query latency and 60 FPS GPU rendering.
+- **Core Objective:** Analyze and harmonize sampled fire-energy observations from MODIS and VIIRS, with explicit observation coverage, physical unit checks and conditional scientific publication gates.
 
 ---
 
-## 1. NASA Space Apps Judging Rubric & Strategic Evaluation Matrix (Scores 1 to 5)
+## 1. Current scope and acceptance (2026-11-15)
 
-Each criterion is evaluated on a rigorous 1 to 5 scale by the NASA Space Apps Global Judging Committee. Below is the operational alignment, criteria definition, scoring justification, and technical proof demonstrating why FIRMS-Harmonizer scores **5/5 across all dimensions**:
+This section supersedes the original judging/pitch claims. The product analyses sampled fire-energy proxies for Chilecito, Iberia, Orlando and Amazonas/Manaus. It does not promise real-time incident prediction, full observation coverage, passing diagnostic thresholds, independently validated emissions, or a particular query latency without measured evidence.
 
-### 1.1 The 5 Evaluation Criteria & 5/5 Evidence Matrix
+The user-authorized `all-nighter` remediation coordinates changes across all ownership tracks. Public schema changes are recorded in `firms-harmonizer/CAMBIOS.md` and mirrored in TypeScript. Scientific correctness takes precedence over preserving obsolete frozen-test expectations; revised tests retain the original physical/robustness gates.
 
-| NASA Criterion (1–5) | Official Criteria Definition (ES / EN) | Key Project Capabilities & Technical Proof | 5/5 Scoring Justification & Global Award Target |
-| :--- | :--- | :--- | :--- |
-| **1. Impact (Impacto)** | **ES:** *Qué magnitud tiene el problema que resolvéis y a cuánta gente o ciencia ayuda realmente.*<br><br>**EN:** Evaluates the scale, real-world utility, and transformative potential for humanitarian, environmental, and scientific domains. | - **26-Year Unbroken Climate Record (2000–2026):** Resolves the $+420\%$ artificial jump in fire counts, restoring decadal comparability for IPCC reporting.<br>- **Thermodynamic Conversion:** Direct conversion from $\text{FRE}$ ($\text{MJ}\cdot\text{km}^{-2}\cdot\text{day}^{-1}$) to consumed biomass ($0.368\text{ kg}\cdot\text{MJ}^{-1}$) and emissions ($\text{PM}_{2.5} / \text{CO}_2$).<br>- **14-Day Operational Risk Predictor:** Machine-learning calibrated spatial thermal risk forecasting (`POST /api/predict-risk`).<br>- **One-Click Export:** Standardized CSV export ready for emergency services, firefighters, and climate scientists. | **Transforms raw noisy satellite hotspots into actionable lifesaving intelligence and audited carbon/smoke accounting.** Helps civil protection, environmental managers, and climate research institutes globally (*Target: Galactic Impact & Local Impact*). |
-| **2. Creativity (Creatividad)** | **ES:** *Si vuestro enfoque aporta algo original y no es un simple visor genérico de datos.*<br><br>**EN:** Evaluates whether the solution breaks existing paradigms through novel algorithmic, scientific, or interactive approaches. | - **Cross-Sensor Historical Guard ($\mu_{\text{cross}}$):** Embedded within the Rauch-Tung-Striebel (RTS) Kalman filter to prevent exponential decay to zero during dual-satellite blackouts.<br>- **Interactive "Chaos Monkey" Sabotage Simulator:** Judges can actively stress-test and sabotage satellite feeds live on stage and observe real-time recovery ($>90\%$).<br>- **2012 Time-Machine Split Curtain:** Visual slider exposing the raw satellite discontinuity vs. physical harmonization.<br>- **Circular von Mises Clock:** Direct visualization of decadal phenological fire season shifts. | **Rejects the naive industry approach of plotting raw point coordinates on a map.** Introduces a stochastic physical filter with climatological memory that judges can actively test (*Target: Best Use of Technology*). |
-| **3. Validity (Validez)** | **ES:** *Si tiene rigor científico, funciona técnicamente de verdad y es usable.*<br><br>**EN:** Evaluates scientific soundness, mathematical rigor, reproducibility, offline functionality, and real-world feasibility. | - **Automated Statistical Audit Engine:** Live execution of the **Chow Structural Break F-Test** at Jan 2012 ($p > 0.10$), **Wasserstein-1 Distance ($W_1$)** ($>88\%$ reduction in divergence), and cross-validation $R^2$ against independent `MCD64A1` Burned Area.<br>- **Analytical 95% Confidence Intervals:** Derived via the numerically stabilized scalar Joseph covariance update ($P_{t\vert{}T}$).<br>- **100% Offline-First (Airplane Mode):** Local DuckDB execution over pre-indexed Parquet cubes (<15 ms query time). | **Judges do not need to take our word for it: the application mathematically proves its own validity in real time.** Zero placeholders, 235 passing automated tests, verified contracts, and real physical units (*Target: Best Use of Science*). |
-| **4. Relevance (Relevancia)** | **ES:** *Si responde directamente a lo que pide el reto e integra datos reales de la NASA como pieza central (no de adorno).*<br><br>**EN:** Evaluates direct adherence to the challenge prompt, central reliance on NASA Earth Science data, and solving the explicit core problem. | - **Deep Physical Fusion of 5 Official NASA Products:** MODIS (`MCD14ML`), VIIRS SNPP (`VNP14IMG`), VIIRS NOAA-20/21 (`VJ114IMG`), Land Cover Biomes (`MCD12Q1`), and Burned Area (`MCD64A1`).<br>- **Solves Geometric & Radiometric Discrepancy:** Off-nadir elliptical PSF diffusion on Uber H3 Res 7 ($5.161\text{ km}^2$), along-track bow-tie overlap correction ($\eta_{\text{overlap}}$), and Empirical Quantile Mapping (EQM) with Generalized Pareto Distribution (GPD) left-tail compensation. | **NASA satellite telemetry is the computational engine of the entire platform.** Directly solves the fundamental technical challenge proposed by NASA FIRMS scientists (*Target: Best Use of Data*). |
-| **5. Presentation (Presentación)** | **ES:** *La calidad de vuestro pitch/vídeo demo (máximo 30 segundos o 7 diapositivas en la entrega web) y cómo contáis la historia.*<br><br>**EN:** Evaluates storytelling clarity, user experience design, pitch video timing (max 30s), slide structure (max 7 slides), and visual impact. | - **NASA Mission Control Dark UI:** Built with 60 FPS GPU acceleration (Deck.gl WebGL2 + HTML5 2D `<canvas>` with offscreen diagonal hatching).<br>- **Bilingual Accessibility:** 100% English UI and documentation per global judging rules, with Spanish operational persona mapping.<br>- **Structured Deliverables:** 30-second elevator pitch script and 7-slide official web presentation architecture. | **Delivers instant storytelling within 30 seconds.** Any judge immediately sees the 2012 flaw, slides the harmonization curtain, triggers the Chaos Monkey, and views the decadal climate shift (*Target: Best Storytelling*). |
+Canonical energy is `E(t) = sum_h(mean_available_s(FRE[h,t,s]) * exact_cell_area[h])`. Polygon-normalized density is `E(t) / WGS84_polygon_area`. Regional mean-active-cell density must never be multiplied by a historical union of burning-cell areas. The available-sensor fusion occurs inside each cell before summation.
+
+Detection absence, clear observed zero, cloud/unprocessed coverage, confirmed outage and forecast are distinct. Unknown dates are not automatically reconstructed. Only explicit observation-gap evidence permits reconstruction. The actual archive range bounds history; future values belong only in the forecast series. November/December 2000 is queryable. Partial calendar years do not enter the Chow annual regression, Wasserstein era comparison or phenology trend.
+
+Coverage policy update (2026-11-15): the fixed requirement of 95% complete whole-region days is replaced by temporal selection among 70/80/90/95% terrestrial support thresholds. Coverage is an exact-H3-area-weighted union of qualified cells across sensors, weighted by preceding-year measured land/water pixel fractions. Unknown land/water area remains potential unobserved land in the denominator; entirely missing land classifications remain unavailable. Legacy packed masks retain their >=95% valid-sample cell qualification and >=50% sampled-area screen. Consequently this is a sampled qualified-cell support proxy, not a pixel-exact measurement of observed terrestrial area. Historical observed-zero semantics remain conservative and unchanged.
+
+Selection uses the penultimate year of monthly rolling origins after at least three training years. The final year is reserved for validation of the single chosen threshold; failure does not trigger selection of a different candidate. All candidates use high-support (>=95%) origins and labels, never cloudy zeros. Reports include 1/7/14-day MAE, persistence/climatology baselines, signed bias, nominal-95% interval coverage and seasonal representation. Publication still requires >=12 cases per horizon, all four seasonal groups, MAE no worse than either baseline, and >=90% interval coverage in both selection and holdout. No qualifying candidate means null plus an explicit reason. These tests validate the sampled thermal proxy, not independently measured physical energy. No missing energy is upscaled by dividing by coverage.
+
+Run `python scripts/13_validate_coverage.py` to atomically publish matching `land_*.npz` preset indexes and `coverage-policy.json`. Arbitrary AOIs without a matching published index retain an unavailable forecast. Incomplete support or a weak reserved-year result must keep publication blocked.
+
+
+`confidence_level` means minimum detection confidence: low includes all accepted levels; nominal includes nominal/high; high includes high only. The ETL publishes separate confidence cubes and the API rejects an unavailable threshold explicitly.
+
+PM2.5 requires measured annual MCD12Q1 classes and supported fuel-factor mappings. Andreae (2019) Table 1 field factors (g/kg dry matter) are savanna/grassland 6.7 (SD 3.3), tropical forest 8.3 (3.3), temperate forest 18.5 (14.4), boreal forest 18.7 (15.9), open agricultural residue 8.2 (4.4). IGBP 8–10 maps to savanna/grassland; 12 to agricultural residue; 1–5 to forest by latitude (tropical <=23.5°, boreal >=50°, otherwise temperate). Other fuels, mixed/unknown classes and missing years remain unsupported. This mapping is a fuel proxy, not direct fuel measurement. Daily factor SD preserves common fuel-factor correlation and includes the 0.015 kg/MJ biomass-factor SD, but excludes observation/integration bias. Reconstructed or unsupported emissions remain null.
+
+Observation-mask summaries use each product's actual daily-band dates. Public MODIS 1 km masks cannot establish VIIRS coverage or absence of sub-threshold fire. An observed zero requires one sensor covering the entire requested R7 set, >=95% valid sampled pixels in each cell, >=50% cell-area-equivalent samples, no mask fire pixels, and no accepted FIRMS detection. Missing masks stay unknown. Summaries are bit-packed; complete preset indexes are atomically published.
+
+Industrial filtering requires a published upstream flare site-year within 1 km and temporal persistence. The positional screen uses a 1 km dispersion scale instead of seven metres. Published-site matching is not an independently calibrated classifier, and no-match does not establish no industrial heat. EOG excludes refinery/LNG sources from this reference.
+
+Chaos Monkey excludes the target year from historical calibration and prior fitting, removes spatial forcing contaminated by previously hidden observations, and scores only actually affected days against an intact-input model reference. Recovery may exceed 100%; no sabotage produces zero RMSE and the defined 100% control.
+
+Request limits: 512 positions total, 16 rings, 1,250,000 km^2 geodesic preflight, 250,000 R7 cells, 6,000-character questions, ten conversation turns, 256 KiB request bodies, four analytical workers, 30 analytical requests/minute/client and ten Copilot requests/minute/client. Analysis cache: 64 entries and 128 MiB. Extra CORS origins require explicit configuration. Observations default to 366 dates/page, maximum 1,000.
+
+Sources: [NASA MODIS Fire Guide](https://www.earthdata.nasa.gov/s3fs-public/2023-09/MODIS_C6_C6.1_Fire_User_Guide_1.0.pdf), [NASA VIIRS Fire Guide](https://www.earthdata.nasa.gov/s3fs-public/2024-07/VIIRS_C2_AF-375m_User_Guide_1.0.pdf), [MCD64A1 fields and QA](https://ladsweb.modaps.eosdis.nasa.gov/filespec/MODIS/61/MCD64A1), [Andreae 2019](https://doi.org/10.5194/acp-19-8523-2019), [EOG MYC25Q4](https://doi.org/10.5281/zenodo.23091822).
+
+The remaining derivation records the original physics model; this current-scope section and executable contracts take precedence over historical performance/pitch claims below.
 
 ---
 
-### 1.2 NASA Space Apps Potential Considerations — Feature Implementation Matrix
-
-The NASA Space Apps challenge guidelines suggest key potential considerations. FIRMS-Harmonizer has implemented **100% of these recommendations into production code**:
-
-| NASA Challenge Consideration | Technical Implementation in Platform | Source Code & Component Reference |
-| :--- | :--- | :--- |
-| **1. Interactive Web Application (Draw AOI & Coordinates)** | - Freehand bounding box and polygon drawing on the live map.<br>- Preset pilot regions covering diverse ecosystems (Cerrado, California, Iberia, Niger Delta).<br>- Dynamic latitude/longitude bounds processing with topological validation and H3 two-level hierarchical filtering (`H3_r4` Zone Map pruning $\to$ `H3_r7` native cells). | `frontend/src/components/Map/AoiDrawControl.tsx`<br>`frontend/src/components/Map/HexagonMap.tsx`<br>`backend/db/queries.py:get_hierarchical_h3_filter` |
-| **2. Accessible Color Ramps** | - Colorblind-safe sequential thermal palettes (Viridis, Plasma, and Thermal dark gradient).<br>- Clear visual contrast exceeding WCAG AAA standards on a high-contrast NASA Mission Control palette (`#0B0E14` paper, `#E6EDF3` ink, gold `#E3B341` forecasts, neon magenta industrial highlights). | `frontend/src/index.css`<br>`frontend/src/components/Map/HexagonMap.tsx:HEX_PALETTE`<br>`frontend/src/components/Calendar/HatchPatternDefs.ts` |
-| **3. Depict a Burning Calendar** | - Single HTML5 2D `<canvas>` rendering all **$26\text{ years} \times 366\text{ days} = 9,516\text{ cells}$** at 60 FPS.<br>- Interactive day, month, and year inspection.<br>- Diagonal hatch overlay (`OffscreenCanvas` pattern) distinguishing **Kalman gap-filled days** ($45^\circ$ hatch) and **14-day forecasts** (gold hatch).<br>- Interactive 2012 split-screen curtain slider. | `frontend/src/components/Calendar/BurningCalendarCanvas.tsx`<br>`frontend/src/components/Calendar/CalendarTooltip.tsx`<br>`frontend/src/views/CalendarPage.tsx` |
-| **4. Key Indices, Figures & Historical Comparisons** | - **Hotspot Counts vs. Harmonized $\text{FRE}$:** Eliminates the $+420\%$ sensor bias.<br>- **Anomalies against Multi-Year Averages:** Daily $Z$-score anomaly ($\frac{x_t - \mu_{\text{cross}}(d_t)}{\sigma_{\text{cross}}(d_t)}$) and circular phenology trend.<br>- **Physical Biomass & Smoke Accounting:** Consumed biomass (tonnes) and $\text{PM}_{2.5}$ smoke emissions.<br>- **Circular von Mises Clock:** Displays seasonal fire concentration ($\hat{\kappa}$) and decadal peak day drift ($\hat{\mu}$). | `frontend/src/components/Charts/PolarVonMisesClock.tsx`<br>`frontend/src/components/Charts/KalmanUncertaintyBandChart.tsx`<br>`frontend/src/components/Audit/AuditMetricsPanel.tsx` |
-
----
-
-### 1.3 Target User Personas & Real-World Operational Impact
-
-FIRMS-Harmonizer is engineered specifically for four core operational and scientific stakeholder groups:
-
-```mermaid
-flowchart TD
-    Core[("FIRMS-Harmonizer Core Engine<br>(26-Year Harmonized FRE Cube)")]
-    
-    Core --> P1["1. Early Warning & Responders<br>(Protección Civil, 112)"]
-    Core --> P2["2. Firefighters & Brigades<br>(INFOCA, Wildfire Crews)"]
-    Core --> P3["3. Scientists & Researchers<br>(IPCC, Climate & Carbon)"]
-    Core --> P4["4. Land & Forestry Managers<br>(Parques Naturales, Forestales)"]
-    
-    P1 --- D1["• 14-day thermal risk predictor<br>• Real-time smoke warnings (PM2.5)<br>• Grounded AI Copilot with citations"]
-    P2 --- D2["• Real detection centers (/api/observations)<br>• Flame front contagion tracking<br>• 1-click tactical CSV export"]
-    P3 --- D3["• Continuous 2000-2026 series<br>• Chow test p > 0.10 (no 2012 jump)<br>• Validated against MCD64A1 burn scars"]
-    P4 --- D4["• Phenological season shift (days/decade)<br>• Industrial flaring decoupling (H_temp > 0.75)<br>• Post-fire biomass loss accounting"]
-```
-
-#### 1. Early Warning & Emergency Responders *(Equipos de alerta temprana y respuesta ante emergencias: Protección Civil, 112, Servicios de Emergencias)*
-- **Core Needs:** Anticipate extreme fire activity before it breaches control perimeters; protect population health from toxic smoke plumes.
-- **How ALMENARA Solves It:**
-  - **14-Day Operational Thermal Predictor (`/api/predict-risk`):** Machine-learning risk models calibrated on historical antecedents.
-  - **Atmospheric Smoke Warning:** Instant conversion of Fire Radiative Energy ($\text{FRE}$) to daily $\text{PM}_{2.5}$ and $\text{CO}_2$ tonnage using Wooster combustion factors ($\beta = 0.368\text{ kg}\cdot\text{MJ}^{-1}$).
-  - **Evidence-First Fire Copilot (`/api/explain-spike`):** Natural language interrogation of thermal anomalies backed by real-time web news and peer-reviewed scientific citations.
-
-#### 2. Firefighters & Tactical Brigades *(Bomberos y brigadas forestales de extinción: INFOCA en Andalucía, UME, Wildland Firefighters)*
+## 2. Firefighters & Tactical Brigades *(Bomberos y brigadas forestales de extinción: INFOCA en Andalucía, UME, Wildland Firefighters)*
 - **Core Needs:** Clear operational view of active flame fronts without sensor duplication; resilient decision-support tools that function offline in remote mountainous areas.
 - **How ALMENARA Solves It:**
   - **Bow-Tie De-duplication & Spatial Contagion:** Deformed off-nadir MODIS pixels ($4.8 \times 2.0\text{ km}$) are geometrically diffused across Uber H3 hexagons, preventing false double-counting of flame fronts.
@@ -291,11 +271,12 @@ Sorted physically by `ORDER BY h3_r4 ASC, epoch_day ASC, h3_r7 ASC` with `ZSTD` 
 
 ### 5.2 Pydantic v2 Contract (`backend/api/schemas.py`)
 
-**Authoritative source: `firms-harmonizer/backend/api/schemas.py`** (mirrored by `frontend/src/api/types.ts`). The block below is a verbatim copy as of 2026-11-14; changes are logged in `firms-harmonizer/CAMBIOS.md`. Nullable fields are `null` when out of MVP scope (14-day forecast, PM2.5, tooltips) or when the source column / core output is unavailable.
+**Authoritative source: `firms-harmonizer/backend/api/schemas.py`** (mirrored by `frontend/src/api/types.ts`). The block below is a verbatim copy as of 2026-11-15; changes are logged in `firms-harmonizer/CAMBIOS.md`. Nullable fields are `null` when their required inputs or scientific publication gates are unavailable. Forecast and PM2.5 support is conditional, as specified in section 1.
 
 ```python
 """Frozen, JSON-safe public API contracts; mirrored in frontend/src/api/types.ts."""
 
+from datetime import date, datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -314,6 +295,8 @@ class GeoJSONPolygon(ContractModel):
     def validate_rings(cls, rings: list[list[list[float]]]) -> list[list[list[float]]]:
         if not rings:
             raise ValueError("A polygon requires an exterior ring.")
+        if len(rings) > 16 or sum(map(len, rings)) > 512:
+            raise ValueError("A polygon supports at most 16 rings and 512 positions.")
         for ring in rings:
             if len(ring) < 4 or ring[0] != ring[-1]:
                 raise ValueError("Polygon rings must be closed with at least four positions.")
@@ -325,8 +308,8 @@ class GeoJSONPolygon(ContractModel):
 
 class AnalyzeRequest(ContractModel):
     aoi: GeoJSONPolygon
-    start_year: int = Field(default=2001, ge=2001, le=2026)
-    end_year: int = Field(default=2026, ge=2001, le=2026)
+    start_year: int = Field(default=2001, ge=2000, le=2026)
+    end_year: int = Field(default=2026, ge=2000, le=2026)
     exclude_industrial_flaring: bool = True
     enable_kalman_gap_filling: bool = True
     forecast_days: int = Field(default=14, ge=0, le=14)
@@ -337,6 +320,91 @@ class AnalyzeRequest(ContractModel):
         if self.start_year > self.end_year:
             raise ValueError("start_year must not exceed end_year.")
         return self
+
+
+class RiskPredictionRequest(ContractModel):
+    aoi: GeoJSONPolygon
+    start_year: int = Field(default=2001, ge=2000, le=2026)
+    end_year: int = Field(default=2026, ge=2000, le=2026)
+    as_of_date: date | None = None
+
+    @model_validator(mode="after")
+    def validate_period(self) -> "RiskPredictionRequest":
+        if self.start_year > self.end_year:
+            raise ValueError("start_year must not exceed end_year.")
+        if self.as_of_date and not self.start_year <= self.as_of_date.year <= self.end_year:
+            raise ValueError("as_of_date must fall inside the requested years.")
+        if self.as_of_date and self.as_of_date > datetime.now(timezone.utc).date():
+            raise ValueError('Forecast origin cannot be in the future.')
+        return self
+
+
+class RiskReliabilityBin(ContractModel):
+    samples: int = Field(ge=1)
+    mean_predicted_pct: float = Field(ge=0, le=100)
+    observed_pct: float = Field(ge=0, le=100)
+
+
+class RiskValidation(ContractModel):
+    samples: int = Field(ge=0)
+    positives: int = Field(ge=0)
+    brier_score: float | None = Field(ge=0, le=1)
+    roc_auc: float | None = Field(ge=0, le=1)
+    reliability: list[RiskReliabilityBin]
+
+
+class RiskModelMetrics(RiskValidation):
+    model_weights: dict[str, float]
+
+
+class RiskDailyProbability(ContractModel):
+    date: date
+    wildfire_prob_pct: float | None = Field(ge=0, le=100)
+    accident_prob_pct: float | None = Field(ge=0, le=100)
+
+
+class RiskHorizon(ContractModel):
+    days: Literal[1, 7, 14]
+    wildfire_prob_pct: float | None = Field(ge=0, le=100)
+    accident_prob_pct: float | None = Field(ge=0, le=100)
+    combined_risk_pct: float | None = Field(ge=0, le=100)
+    wildfire_validation: RiskValidation
+    accident_validation: RiskValidation
+    combined_validation: RiskValidation
+    prior_targets: list[Literal["wildfire", "accident", "combined"]] = Field(default_factory=list)
+
+
+class RiskFactor(ContractModel):
+    feature: str
+    impact_pct: float = Field(ge=0, le=100)
+    direction: Literal["raises", "lowers"]
+    description: str
+
+
+class AIRiskAssessment(ContractModel):
+    as_of_date: date
+    last_observation_date: date | None = None
+    validation_start_date: date
+    wildfire_prob_24h_pct: float | None = Field(ge=0, le=100)
+    wildfire_prob_7d_pct: float | None = Field(ge=0, le=100)
+    industrial_accident_prob_pct: float | None = Field(ge=0, le=100)
+    combined_risk_pct: float | None = Field(ge=0, le=100)
+    overall_hazard_level: Literal["LOW", "MODERATE", "HIGH", "CRITICAL"] | None
+    vegetation_event_threshold_mw: float = Field(gt=0)
+    horizons: list[RiskHorizon]
+    model_metrics: RiskModelMetrics
+    top_risk_factors: list[RiskFactor]
+    industrial_risk_factors: list[RiskFactor]
+    daily_probability_series: list[RiskDailyProbability]
+
+
+class RiskPredictionResponse(ContractModel):
+    data_source: Literal["real", "synthetic"]
+    target: Literal["satellite_thermal_event_proxy"] = "satellite_thermal_event_proxy"
+    assessment: AIRiskAssessment | None
+    unavailable_reason: str | None = None
+    model_time_ms: float = Field(ge=0)
+    execution_time_ms: float = Field(ge=0)
 
 
 class DailyCalendarCell(ContractModel):
@@ -358,6 +426,8 @@ class DailyCalendarCell(ContractModel):
     gap_reason: str | None
     active_sensors: list[str]
     tooltip_narrative: str | None
+    observation_status: Literal['detected', 'observed_zero', 'reconstructed', 'unknown', 'forecast'] = 'unknown'
+    pm25_factor_sd_kg: float | None = None
 
 
 class VonMisesPhenologyYear(ContractModel):
@@ -395,6 +465,15 @@ class H3MapSummaryHex(ContractModel):
     shannon_entropy: float
 
 
+class EnergyForecastValidation(ContractModel):
+    horizon_days: int
+    samples: int
+    mae: float
+    persistence_mae: float
+    climatology_mae: float
+    interval_coverage_pct: float
+
+
 class AnalyzeResponse(ContractModel):
     data_source: Literal["real", "synthetic"]
     query_hash: str
@@ -406,11 +485,14 @@ class AnalyzeResponse(ContractModel):
     phenology_by_year: list[VonMisesPhenologyYear]
     audit_metrics: ScientificAuditMetrics | None
     map_hexagons: list[H3MapSummaryHex]
+    coverage_note: str = 'Sparse detections do not establish complete observation coverage.'
+    forecast_validation: list[EnergyForecastValidation] = Field(default_factory=list)
+    forecast_unavailable_reason: str | None = None
 
 
 class ChaosMonkeyRequest(ContractModel):
     aoi: GeoJSONPolygon
-    target_year: int = Field(default=2022, ge=2001, le=2026)
+    target_year: int = Field(default=2022, ge=2000, le=2026)
     drop_fraction: float = Field(default=0.25, ge=0, le=1)
     simulate_dual_blackout: bool = True
     random_seed: int = Field(default=42, ge=0)
@@ -460,10 +542,10 @@ class ExplainSpikeRequest(ContractModel):
     region_name: str = "Unknown Region"
     selected_day: DailyCalendarCell | None = None
     selected_hex: H3MapSummaryHex | None = None
-    user_question: str = ""
+    user_question: str = Field(default="", max_length=6000)
     aoi: GeoJSONPolygon | None = None
     confidence_level: Literal["low", "nominal", "high"] = "nominal"
-    conversation: list[CopilotTurn] = Field(default_factory=list, max_length=12)
+    conversation: list[CopilotTurn] = Field(default_factory=list, max_length=10)
     period_start: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     period_end: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     prefer_map_context: bool = False
@@ -481,13 +563,44 @@ class ExplainSpikeResponse(ContractModel):
     model_used: str = "deterministic-fallback"
     data_source: Literal["real", "synthetic"] = "synthetic"
     map_context: CopilotMapContext | None = None
+
+
+class CubeSyncRequest(ContractModel):
+    days: int | None = Field(default=None, ge=1, le=30)
+    sync_full_month: bool = False
+    regions: list[str] | None = None
+
+
+class CubeSyncStatusResponse(ContractModel):
+    status: Literal["idle", "in_progress", "success", "error"]
+    last_synced_utc: str | None = None
+    new_detections_count: int = 0
+    date_coverage_start: str | None = None
+    date_coverage_end: str | None = None
+    regions_updated: list[str] = Field(default_factory=list)
+    message: str | None = None
+    data_source: Literal["real", "synthetic"] = "real"
+    error: str | None = None
+
+
+
+
+class MapPeriodResponse(ContractModel):
+    """Spatial observations only; legacy hex energy field is summed over these dates."""
+
+    data_source: Literal["real", "synthetic"]
+    start_date: date
+    end_date: date
+    map_hexagons: list[H3MapSummaryHex]
+    execution_time_ms: float
 ```
 
-### 5.3 Preset Pilot Regions (`frontend/src/api/types.ts`)
-1. **`cerrado_brazil` (Cerrado & Pantanal, Brazil):** `lon: -57.2 to -55.2, lat: -17.8 to -16.0` (Demonstrates the $+420\%$ Jan 2012 raw count jump vs. Chow Test pass and `MCD64A1` $R^2 = 0.91$).
-2. **`california_usa` (Sierra Nevada, California):** `lon: -121.2 to -119.5, lat: 38.0 to 40.2` (Demonstrates von Mises phenological shift $+19$ days and the synthetic Aug 2022 Aqua-blackout RTS reconstruction scenario).
-3. **`iberia_med` (Iberian Peninsula / Mediterranean):** `lon: -6.5 to -3.2, lat: 37.2 to 39.8` (Demonstrates hierarchical `H3_r4` $\to$ `H3_r7` coastal precision and local operational impact).
-4. **`niger_delta_flaring` (Niger Delta Gas Flaring Control):** `lon: 5.6 to 7.2, lat: 4.6 to 5.8` (Demonstrates Shannon temporal entropy filter $H_{\text{temp}} > 0.75$ removing $95\%$ of stationary oil flares).
+### 5.3 Official study regions
+
+- **chilecito_la_rioja** ? Chilecito, La Rioja (Argentina); bounds `[west,south,east,north] = [-69.5, -31, -65.5, -27.5]`.
+- **iberia_med** ? Iberian Peninsula / Mediterranean (Spain); bounds `[west,south,east,north] = [-9.5, 36, 4, 44]`.
+- **orlando_florida** ? Orlando, Florida (USA); bounds `[west,south,east,north] = [-82.0, 28.0, -80.7, 29.3]`.
+- **amazonas_manaus** ? Amazonas / Manaus (Brazil); bounds `[west,south,east,north] = [-62.0, -5.0, -58.0, -1.0]`.
 
 ### 5.4 Exact spatial map periods (2026-11-14 integration)
 
@@ -516,7 +629,7 @@ the first satellite detection does not establish the actual ignition time.
 
 The current UI displays accepted, deduplicated FIRMS detection centers from the real staging dataset. `POST /api/observations` accepts a `GeoJSONPolygon` directly and returns real provenance, daily counts, summed instantaneous FRP in MW, all five instrument labels, per-R7 counts/FRP, first/last detection dates and the aggregation method. It never calls the scientific core, fills missing dates, estimates emissions or forecasts. No detections on a date does not establish zero fire activity or complete observation coverage. Counts are detections, not distinct fire events. Staging retains the ingestion quality and SAMA/date filters; raw FRP is not footprint-corrected or EQM-adjusted.
 
-The active region catalogue is `firms-harmonizer/data/regions.json`: entries with declared `coverage` are offered by the frontend. Current regions are Orlando, Manaus, Chilecito and the full Iberia study rectangle. Rectangles are study envelopes, not administrative boundaries. Section 5.3 and the frozen TypeScript preset helper describe legacy scientific demo cases and are not the active observations catalogue. Existing `/api/analyze` and `/api/chaos-monkey` contracts remain unchanged and are not used by the observations UI.
+The active region catalogue is `firms-harmonizer/data/regions.json`: entries with declared `coverage` are offered by the frontend. Current regions are Orlando, Manaus, Chilecito and the full Iberia study rectangle. Rectangles are study envelopes, not administrative boundaries. Section 5.3 uses this same registry; the duplicate TypeScript preset helper has been removed. Existing `/api/analyze` and `/api/chaos-monkey` contracts remain unchanged and are not used by the observations UI.
 
 ### 5.6 Offline satellite thermal event predictor
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import threading
+import sys
 from collections import OrderedDict
 from typing import Any
 
@@ -11,6 +12,18 @@ import numpy as np
 import orjson
 
 DEFAULT_MAXSIZE = 64
+
+
+def _size(value):
+    if isinstance(value, CachedJSON):
+        return len(value.head) + len(value.tail)
+    if isinstance(value, dict):
+        return sys.getsizeof(value) + sum(_size(k) + _size(v) for k, v in value.items())
+    if isinstance(value, (tuple, list)):
+        return sys.getsizeof(value) + sum(map(_size, value))
+    if hasattr(value, 'model_dump_json'):
+        return len(value.model_dump_json().encode())
+    return sys.getsizeof(value)
 
 
 def make_cache_key(cells: list[int], params: dict, cube_mtime_ns: int) -> str:
@@ -22,10 +35,13 @@ def make_cache_key(cells: list[int], params: dict, cube_mtime_ns: int) -> str:
 
 
 class LRUCache:
-    def __init__(self, maxsize: int = DEFAULT_MAXSIZE) -> None:
+    def __init__(self, maxsize: int = DEFAULT_MAXSIZE, maxbytes: int = 128 * 1024 * 1024) -> None:
         if maxsize < 1:
             raise ValueError("maxsize must be >= 1")
         self.maxsize = maxsize
+        self.maxbytes = maxbytes
+        self._bytes = 0
+        self._sizes: dict[str, int] = {}
         self._data: OrderedDict[str, Any] = OrderedDict()
         self._lock = threading.Lock()
 
@@ -38,14 +54,25 @@ class LRUCache:
 
     def put(self, key: str, value: Any) -> None:
         with self._lock:
+            size = _size(value)
+            if key in self._data:
+                self._bytes -= self._sizes.pop(key)
+                del self._data[key]
+            if size > self.maxbytes:
+                return
             self._data[key] = value
+            self._sizes[key] = size
+            self._bytes += size
             self._data.move_to_end(key)
-            while len(self._data) > self.maxsize:
-                self._data.popitem(last=False)
+            while len(self._data) > self.maxsize or self._bytes > self.maxbytes:
+                old, _ = self._data.popitem(last=False)
+                self._bytes -= self._sizes.pop(old)
 
     def clear(self) -> None:
         with self._lock:
             self._data.clear()
+            self._sizes.clear()
+            self._bytes = 0
 
     def __len__(self) -> int:
         with self._lock:

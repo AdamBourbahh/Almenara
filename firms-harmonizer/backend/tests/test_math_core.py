@@ -225,7 +225,7 @@ def test_core_has_only_allowed_imports():
                 assert all(alias.name.split('.')[0] in allowed for alias in node.names)
             elif isinstance(node, ast.ImportFrom):
                 assert (node.module.split('.')[0] in allowed
-                        or node.module in {"backend.api.schemas", "backend.core.kalman_rts"})
+                        or node.module in {"backend.api.schemas", "backend.core.kalman_rts", "backend.core.energy_forecast"})
 
 
 def test_cross_prior_calibrates_sensors_and_is_periodic():

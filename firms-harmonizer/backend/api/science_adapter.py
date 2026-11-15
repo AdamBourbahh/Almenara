@@ -67,11 +67,17 @@ def phenology_trend(years, peaks):
 def chow_test(values, years, doy):
     years, inverse, counts = np.unique(years, return_inverse=True, return_counts=True)
     annual = np.bincount(inverse, weights=values) / counts
-    return dependency('chow_test')(years, annual)
+    lengths = np.array([int((np.datetime64(f'{year + 1}-01-01') - np.datetime64(f'{year}-01-01')).astype(int)) for year in years])
+    complete = counts == lengths
+    return dependency('chow_test')(years[complete], annual[complete])
 
 
 def wasserstein_w1_normalized(values, years):
     values, years = np.asarray(values, dtype=float), np.asarray(years)
+    unique, inverse, counts = np.unique(years, return_inverse=True, return_counts=True)
+    lengths = np.array([int((np.datetime64(f'{year + 1}-01-01') - np.datetime64(f'{year}-01-01')).astype(int)) for year in unique])
+    keep = (counts == lengths)[inverse]
+    values, years = values[keep], years[keep]
     pre = years < 2012
     if not pre.any() or pre.all():
         raise ValueError('Wasserstein comparison needs observations on both sides of 2012.')
@@ -93,7 +99,7 @@ def run_chaos_monkey_simulation(daily, target_year, drop_fraction, simulate_dual
         [str(date) for date in dates], daily['doy'][selected], obs[selected],
         daily['neighbor_fre_lag1'][selected], daily['cloud_cover_pct'][selected],
         drop_fraction=drop_fraction, simulate_dual_blackout=simulate_dual_blackout,
-        random_seed=random_seed, full_doy_history=daily['doy'], full_y_obs_history=obs,
+        random_seed=random_seed, full_doy_history=daily['doy'][~selected], full_y_obs_history=obs[~selected],
     )
     # The HTTP boundary supplies the cube's actual provenance, not the core's
     # experiment label. No synthetic observations are introduced by this adapter.

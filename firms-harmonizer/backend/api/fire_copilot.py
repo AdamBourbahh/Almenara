@@ -327,11 +327,11 @@ def safe_url(url: str) -> bool:
 
 def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
     """Search independent official and news lanes without broadening attached dates."""
-    if os.getenv("COPILOT_OFFLINE") == "1":
+    if os.getenv("COPILOT_OFFLINE", "1") == "1":
         return [], ""
     cache_key = json.dumps([scope.label, scope.start, scope.end, scope.search_query])
     cached = SEARCH_CACHE.get(cache_key)
-    if cached and monotonic() - cached[0] < 600:
+    if cached and monotonic() - cached[0] < (600 if cached[1] else 30):
         return cached[1], cached[2]
     location = scope.locality or scope.label.split(" study envelope")[0]
     period = scope.start if scope.start == scope.end else f"{scope.start or ''} {scope.end or ''}"
@@ -373,8 +373,7 @@ def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
     candidates = [c.model_copy(update={"id": f"[W{i+1}]"}) for i,c in enumerate(list(unique.values())[:8])]
     citations = research.enrich_official_reports(candidates)
     executed = official + " | " + news
-    if citations:
-        SEARCH_CACHE.put(cache_key, (monotonic(), citations, executed))
+    SEARCH_CACHE.put(cache_key, (monotonic(), citations, executed))
     return citations, executed
 
 
@@ -442,7 +441,7 @@ def filter_reports(scope: Scope, results: list[dict]) -> list[CitationReference]
 def complete(messages: list[dict], *, structured: bool = False, timeout: float = 18.0,
              schema: dict | None = None) -> tuple[str | None, str]:
     """At most two configured models; do not retry authentication or quota failures."""
-    if os.getenv("COPILOT_OFFLINE") == "1":
+    if os.getenv("COPILOT_OFFLINE", "1") == "1":
         return None, "deterministic-offline-science"
     key = os.getenv("GROQ_API_KEY")
     if not key:
@@ -730,7 +729,7 @@ def answer(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
         elif not scope.error and not metrics_question:
             prose = ("The available evidence does not establish which named incident these detections belong to or its ignition cause. "
                      "A matching incident report or fire perimeter would be needed to link them.")
-            if not reports and os.getenv("COPILOT_OFFLINE") != "1":
+            if not reports and os.getenv("COPILOT_OFFLINE", "1") != "1":
                 prose += " No relevant web results were retrieved; this does not imply an undocumented fire."
         if reports:
             prose += "\n\nCandidate reports to check for a matching location and date:\n" + "\n".join(f"- {r.title} {r.id}" for r in reports)

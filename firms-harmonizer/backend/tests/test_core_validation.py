@@ -12,8 +12,7 @@ from backend.api import cache as cache_mod
 from backend.api import core_contract
 from backend.api.main import app
 
-CERRADO = {"type": "Polygon", "coordinates": [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0],
-                                               [-57.2, -16.0], [-57.2, -17.8]]]}  # ASSUMPTION (SPECS.md §5.3 preset)
+CHILECITO = {'type': 'Polygon', 'coordinates': [[[-69.5, -31], [-65.5, -31], [-65.5, -27.5], [-69.5, -27.5], [-69.5, -31]]]}  # ASSUMPTION (SPECS.md §5.3 preset)
 STAGES = {"h3", "db", "core", "build", "validate", "serialize"}
 
 
@@ -104,7 +103,7 @@ def test_broken_outputs_raise_contract_violation(fake_core, monkeypatch, name, i
 def test_api_returns_500_naming_the_violating_function(client, fake_core, monkeypatch):
     bad = lambda obs, u, p: SimpleNamespace(x_smooth=np.ones(len(obs)), p_smooth=-np.ones(len(obs)))  # noqa: E731
     use_core(monkeypatch, {**fake_core, "kalman_rts_smooth": bad})
-    r = client.post("/api/analyze", json={"aoi": CERRADO})
+    r = client.post("/api/analyze", json={"aoi": CHILECITO})
     assert r.status_code == 500 and "kalman_rts_smooth" in r.text
 
 
@@ -126,8 +125,8 @@ def _stages(header):
 
 
 def test_server_timing_header_and_cached_json(client, fake_core):
-    cold = client.post("/api/analyze", json={"aoi": CERRADO})
-    hit = client.post("/api/analyze", json={"aoi": CERRADO})
+    cold = client.post("/api/analyze", json={"aoi": CHILECITO})
+    hit = client.post("/api/analyze", json={"aoi": CHILECITO})
     assert cold.status_code == hit.status_code == 200
     assert STAGES <= _stages(cold.headers["server-timing"])
     assert "cache" in _stages(hit.headers["server-timing"])

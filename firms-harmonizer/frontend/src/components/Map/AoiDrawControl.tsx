@@ -187,7 +187,7 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
       </div>
 
 
-      <div className="mt-3 space-y-1.5 border-t border-rule pt-3">
+      {analysisData?.map_hexagons.some((hex) => hex.is_industrial_site) ? <div className="mt-3 space-y-1.5 border-t border-rule pt-3">
         <label className="flex cursor-pointer items-start gap-2 text-[11px] text-muted">
           <input
             type="checkbox"
@@ -196,8 +196,8 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
             className="mt-0.5 h-3.5 w-3.5 accent-industrial"
           />
           <span>
-            Hide industrial heat (refineries and flares)
-            <span className="block text-[10px] text-faint">Shannon temporal entropy H &gt; 0.75</span>
+            Hide documented upstream flare heat
+            <span className="block text-[10px] text-faint">Catalogue match plus temporal persistence</span>
           </span>
         </label>
         <label className="flex cursor-pointer items-center gap-2 text-[11px] text-muted">
@@ -209,7 +209,7 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
           />
           Highlight flares on the map
         </label>
-      </div>
+      </div> : <p className="mt-3 border-t border-rule pt-3 text-[10px] text-faint">No documented upstream flare matches in this analysis.</p>}
 
     </div>
   );

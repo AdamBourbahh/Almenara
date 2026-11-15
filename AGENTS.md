@@ -1,13 +1,19 @@
 # AGENT.MD — Multi-Agent Vibe-Coding Rules, Team Ownership & Guardrails
 
 - **Project:** `firms-harmonizer` (NASA Space Apps Challenge 2026)
-- **Primary Reference:** Always read `@specs.md` before creating or editing any file.
+- **Primary Reference:** Always read `SPECS.md` before creating or editing any file.
+
+## Active integration authorization (2026-11-15)
+
+The user approved the complete all-nighter remediation plan and authorized one integrating agent to edit all ownership tracks on branch `all-nighter`. This authorization supersedes track-only editing for this task. Coordinated contract and frozen-test changes are recorded in `firms-harmonizer/CAMBIOS.md` and the current scientific specification. Do not restore obsolete forecasts/PM2.5/CORS assertions or retired regions merely to preserve historical fixtures.
+
+New modules: API request limits belong to the API track; energy forecasting/emission factors to the science track; burned-area, emissions-input and packed observation adapters to the DB track; acquisition scripts 09–13 and run_pipeline/verify_frozen_tests to ETL/shared infrastructure; browser synthetic fixtures to frontend; requirements.lock and root GitHub CI to shared infrastructure. The audit regression suite is shared.
 
 ---
 
 ## 1. GOLDEN RULES FOR ALL AI CODING AGENTS
 1. **ZERO PLACEHOLDERS:** Never leave `# TODO`, `pass`, `...`, or stubbed functions. Every file must be 100% complete and production-ready.
-2. **FROZEN CONTRACTS:** Never rename, delete, or change types in `backend/api/schemas.py` or `frontend/src/api/types.ts`. The only sanctioned exceptions are the additive/nullable changes of 2026-11-14 recorded in `firms-harmonizer/CAMBIOS.md` (`data_source` added; `forecast_series`, `pm25_emitted_kg`, `tooltip_narrative`, `audit_metrics`, `total_pm25_emitted_tonnes` and `burned_area_r2_*` nullable). Any further change must be coordinated across both files, `SPECS.md` and `CAMBIOS.md`.
+2. **FROZEN CONTRACTS:** Never rename, delete, or change types in `backend/api/schemas.py` or `frontend/src/api/types.ts`. The only sanctioned exceptions are the additive/nullable changes of 2026-11-14 recorded in `firms-harmonizer/CAMBIOS.md` (`data_source` added; `forecast_series`, `pm25_emitted_kg`, `tooltip_narrative`, `audit_metrics`, `total_pm25_emitted_tonnes` and `burned_area_r2_*` nullable). The coordinated 2026-11-15 additions and semantic changes in CAMBIOS.md are also approved. Any further change must be coordinated across both files, `SPECS.md` and `CAMBIOS.md`.
 3. **100% ENGLISH UI & DOCS:** All UI text, tooltips, chart labels, audit verdicts, and `README.md` must be in **English** per NASA Space Apps Global Judging eligibility rules.
 4. **OFFLINE-FIRST RESILIENCE:** Both backend and frontend must work with Wi-Fi turned off (Airplane Mode). The synthetic fixture cube is **opt-in only**: with `USE_SYNTHETIC_CUBE=1` the API serves `data/processed/fire_cube_synthetic.parquet` (generated via `scripts/00_bootstrap_synthetic_cube.py` if missing). Without it, the API refuses to start if the real `data/processed/fire_cube.parquet` is missing or is itself synthetic. Every response carries `data_source: "real" | "synthetic"`. Never fall back to synthetic data silently.
 
@@ -66,4 +72,5 @@ In `backend/core/kalman_rts.py`:
 
 ### Guardrail 6: Single WebGL2 Context in Deck.gl & Single 2D `<canvas>` in Calendar
 1. Mount `<DeckGL>` once in `HexagonMap.tsx` and only update `data` and `updateTriggers` on `H3HexagonLayer` (avoids Chrome's 16 WebGL context limit).
-2. Render all $26 \times 366 = 9,516$ calendar cells in a single HTML5 `<canvas>` 2D element using `OffscreenCanvas` / `ctx.createPattern` for diagonal hatching on `is_gap_filled === true` and `is_forecast === true`.
+2. Render all available calendar-year rows × 366 daily cells in a single HTML5 `<canvas>` 2D element using `OffscreenCanvas` / `ctx.createPattern` for diagonal hatching on `is_gap_filled === true` and `is_forecast === true`.
+Coverage-policy follow-up: backend/core/coverage_policy.py belongs to science; backend/db/land_coverage.py to DB; script 13 to ETL; test_coverage_policy.py is shared. The user authorized this coordinated follow-up.

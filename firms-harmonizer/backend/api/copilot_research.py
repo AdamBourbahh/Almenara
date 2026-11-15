@@ -78,7 +78,7 @@ class ArticleText(HTMLParser):
 
 def official_article(citation: CitationReference) -> CitationReference:
     """No arbitrary hosts, redirects, cookies, unbounded bodies or model-supplied URLs."""
-    if os.getenv("COPILOT_OFFLINE") == "1" or source_tier(citation.url or "") == 0:
+    if os.getenv("COPILOT_OFFLINE", "1") == "1" or source_tier(citation.url or "") == 0:
         return citation
     cached = ARTICLE_CACHE.get(citation.url)
     if cached and monotonic() - cached[0] < 1800:
@@ -146,7 +146,7 @@ def enrich_official_reports(citations: list[CitationReference]) -> list[Citation
             hosts.add(host)
     targets = official[:2] + distinct_news[:2]
     targets += [c for c in official[2:] + news[2:] if c not in targets][:4-len(targets)]
-    if not targets or os.getenv("COPILOT_OFFLINE") == "1":
+    if not targets or os.getenv("COPILOT_OFFLINE", "1") == "1":
         return citations
     with ThreadPoolExecutor(max_workers=4) as executor:
         enriched = {c.id: result for c, result in zip(targets, executor.map(official_article, targets))}
@@ -155,7 +155,7 @@ def enrich_official_reports(citations: list[CitationReference]) -> list[Citation
 
 def scientific_sources(question: str) -> list[CitationReference]:
     """Crossref is a bibliographic registry, never a detector of incident truth."""
-    if os.getenv("COPILOT_OFFLINE") == "1":
+    if os.getenv("COPILOT_OFFLINE", "1") == "1":
         return []
     q = normalize(question)
     topic = ("wildfire remote sensing fire radiative power MODIS VIIRS" if re.search(r"\b(frp|fre|modis|viirs|energy|energia)\b", q)
@@ -307,7 +307,7 @@ def indexed_sources(scope) -> list[CitationReference]:
     """Curated source URLs supplement discovery; answers still require fetched evidence."""
     import json
     from pathlib import Path
-    if os.getenv('COPILOT_OFFLINE') == '1' or not scope.start or not scope.end:
+    if os.getenv('COPILOT_OFFLINE', '1') == '1' or not scope.start or not scope.end:
         return []
     entries=json.loads((Path(__file__).resolve().parents[2]/'data/copilot_sources.json').read_text())
     locality=normalize((scope.locality or '')+' '+scope.label)

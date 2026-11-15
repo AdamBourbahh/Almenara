@@ -30,7 +30,7 @@ def run_chaos_monkey_simulation(
     Without external history each call learns its own retrospective prior.
     Naive FRE is the uncalibrated available-sensor mean, zero on total outages.
     Dropped days count only dates where an existing observation was removed.
-    Recovery is 100*sum(reconstructed FRE)/sum(reference FRE); values above 100
+    Recovery uses only affected dates: 100*sum(reconstructed FRE)/sum(reference FRE); values above 100
     indicate over-recovery. RMSE is measured on those actually affected dates.
     """
     obs = np.asarray(y_obs, dtype=float)
@@ -58,12 +58,13 @@ def run_chaos_monkey_simulation(
             raise ValueError("Supplied full history must contain at least one day.")
         fixed_prior = (np.broadcast_to(gains[0], obs.shape).copy(), lut[days.astype(int) - 1], lut)
 
-    def estimate(observations):
+    def estimate(observations, spatial=None):
+        spatial = u_spatial if spatial is None else spatial
         if fixed_prior is None:
             return rts_kalman_smoother_with_cross_guard(
-                observations, u_spatial, days, cloud_cover, forecast_days=0,
+                observations, spatial, days, cloud_cover, forecast_days=0,
             )
-        return _smooth_with_prior(observations, u_spatial, days, cloud_cover, fixed_prior, forecast_days=0)
+        return _smooth_with_prior(observations, spatial, days, cloud_cover, fixed_prior, forecast_days=0)
 
     intact = estimate(obs)
     truth = intact['x_smooth']
@@ -81,14 +82,17 @@ def run_chaos_monkey_simulation(
     affected = np.any(np.isfinite(obs) & np.isnan(sabotaged), axis=1)
     available = np.isfinite(sabotaged)
     naive = np.sum(np.where(available, sabotaged, 0.0), axis=1) / np.maximum(available.sum(axis=1), 1)
-    restored = estimate(sabotaged)
+    sabotaged_spatial = np.asarray(u_spatial, dtype=float).copy()
+    if n:
+        sabotaged_spatial[np.r_[False, affected[:-1]]] = np.nan
+    restored = estimate(sabotaged, sabotaged_spatial)
     reconstructed = restored['x_smooth']
     if affected.any():
         naive_rmse = float(np.sqrt(np.mean((naive[affected] - truth[affected])**2)))
         kalman_rmse = float(np.sqrt(np.mean((reconstructed[affected] - truth[affected])**2)))
     else:
         naive_rmse = kalman_rmse = 0.0
-    reference_energy, restored_energy = float(truth.sum()), float(reconstructed.sum())
+    reference_energy, restored_energy = float(truth[affected].sum()), float(reconstructed[affected].sum())
     recovery = (100.0 * (restored_energy / reference_energy) if reference_energy > 0
                 else 100.0 if restored_energy == 0 else 0.0)
     return ChaosMonkeyResponse(

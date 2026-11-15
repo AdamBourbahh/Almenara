@@ -97,22 +97,22 @@ def footprint(lat, lon, cell, scan, track, modis):
 
 
 def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
-    files = sorted([p for p in (ROOT / raw_dir).glob("*.csv") if not p.name.startswith("sync_")])
+    files = sorted((ROOT / raw_dir).glob("*.csv"))
     if not files:
         raise SystemExit("No FIRMS CSVs found. Use script 04 --bootstrap for the offline fixture.")
     regions = load_regions()
     land_cover_path = ROOT / "data/lookup/igbp_cells.parquet"
-    land_cover = {}
-    if land_cover_path.exists():
-        cells = pq.read_table(land_cover_path, columns=["h3_r7", "igbp_biome"]).to_pylist()
-        for record in cells:
-            cell, biome = record["h3_r7"], record["igbp_biome"]
-            if cell in land_cover or biome is None or not 1 <= biome <= 17:
-                raise ValueError(f"Invalid or duplicate land-cover class for {cell}: {biome}")
-            land_cover[cell] = biome
+    land_cover_schema = pq.read_schema(land_cover_path) if land_cover_path.exists() else None
     rows, monthly, positions = [], {}, {}
     seen = set()
     with duckdb.connect() as con:
+        if land_cover_schema is not None:
+            con.read_parquet(str(land_cover_path)).create_view('land_cover')
+            keys = 'h3_r7, year' if 'year' in land_cover_schema.names else 'h3_r7'
+            invalid = con.execute('SELECT 1 FROM land_cover WHERE igbp_biome IS NULL OR igbp_biome NOT BETWEEN 1 AND 17 LIMIT 1').fetchone()
+            duplicate = con.execute('SELECT '+keys+' FROM land_cover GROUP BY '+keys+' HAVING count(*) > 1 LIMIT 1').fetchone()
+            if invalid or duplicate:
+                raise ValueError('Invalid or duplicate land-cover class.')
         for path in sorted(files, key=lambda p: ("nrt" in p.name.lower(), p.name)):
             cursor = con.execute("SELECT * FROM read_csv_auto(?, all_varchar=true)", [str(path)])
             columns = [item[0].lower() for item in cursor.description]
@@ -148,9 +148,6 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
                 confidence = {"l": "low", "n": "nominal", "h": "high"}.get(confidence, confidence)
                 mir = row.get("bright_ti4") or row.get("brightness")
                 tir = row.get("bright_ti5") or row.get("bright_t31")
-                region = region_at(lat, lon, regions)
-                if region is None:
-                    raise ValueError(f"Detection outside configured regions in {path.name}: {lat}, {lon}")
                 cell = h3.latlng_to_cell(lat, lon, 7)
                 r10 = h3.latlng_to_cell(lat, lon, 10)
                 row.update(latitude=lat, longitude=lon, acq_date=day, acq_time=acq_time,
@@ -160,6 +157,9 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
                            brightness_tir=float(tir) if tir else None)
                 if sama_artifact(row):
                     continue
+                region = region_at(lat, lon, regions)
+                if region is None:
+                    raise ValueError(f"Detection outside configured regions in {path.name}: {lat}, {lon}")
                 monthly.setdefault(r10, np.zeros(12))[day.month - 1] += 1
                 positions.setdefault(r10, []).append((lat, lon))
                 rows.append((row, cell, r10, region, path.name, modis))
@@ -178,7 +178,10 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
                 score = 1 / (1 + np.exp(-22 * (entropy - .72)))
             coords = np.asarray(positions[cell])
             metres = coords * [111195, 111195 * np.cos(np.radians(coords[:, 0].mean()))]
-            scores[cell] = (entropy, score if metres.var(axis=0).sum() < 50 else 0.0)
+            # A seven-metre gate is far below satellite geolocation uncertainty.
+            # Use a footprint-scale dispersion screen; catalogue confirmation below
+            # prevents seasonal/persistent vegetation heat being called a flare.
+            scores[cell] = (entropy, score if metres.var(axis=0).sum() < 1000 ** 2 else 0.0)
 
         con.execute("""CREATE TABLE detections (
             latitude DOUBLE, longitude DOUBLE, acq_date DATE, acq_time VARCHAR,
@@ -191,8 +194,15 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
         )""")
         import pyarrow as pa
         records = []
+        from backend.db.industrial_reference import load_matcher
+        reference_match = load_matcher(ROOT)
+        confirmed_sites = {}
         fields = [item[0] for item in con.execute("DESCRIBE detections").fetchall()]
         for row, cell, r10, region, filename, modis in rows:
+            site_year = (r10, row['acq_date'].year)
+            if site_year not in confirmed_sites:
+                confirmed_sites[site_year] = reference_match(row['latitude'], row['longitude'], row['acq_date'].year)
+            confirmed = confirmed_sites[site_year]
             bowtie_calc = getattr(footprint_h3, "compute_modis_bowtie_overlap_weight", None)
             weight = float(bowtie_calc(row["track"])) if callable(bowtie_calc) and modis else (1 / row["track"] if modis and row["track"] > 1.35 else 1.0)
             for target, fraction in footprint(row["latitude"], row["longitude"], cell,
@@ -201,14 +211,22 @@ def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
                 record.update(h3_r4=int(h3.cell_to_parent(target, 4), 16), h3_r7=int(target, 16),
                               h3_r10=int(r10, 16), is_center=target == cell, bowtie_weight=weight,
                               footprint_weight=float(fraction), corrected_frp=row["frp"] * weight * fraction,
-                              h_temp=scores[r10][0], industrial_prob=scores[r10][1], region=region,
-                              igbp_biome=land_cover.get(int(target, 16), regions[region]["nominal_biome"]),
+                              h_temp=scores[r10][0], industrial_prob=scores[r10][1] if confirmed else 0.0, region=region,
+                              igbp_biome=regions[region]["nominal_biome"],
                               scan_bin=scan_bin(row["scan"], row["satellite"]),
                               source_file=filename, sensor_bit=SENSOR_BITS[row["satellite"]])
                 records.append({field: record[field] for field in fields})
         # Arrow must infer unsigned H3 indices explicitly for a stable staging contract.
         schema = con.sql("SELECT * FROM detections").limit(0).arrow().schema
         table = pa.Table.from_pylist(records, schema=schema)
+        if land_cover_schema is not None:
+            con.register('staged_detections', table)
+            condition = 'd.h3_r7=l.h3_r7'
+            if 'year' in land_cover_schema.names:
+                condition += ' AND year(d.acq_date)=l.year'
+            if 'dominant_fraction' in land_cover_schema.names:
+                condition += ' AND l.dominant_fraction >= 0.5'
+            table = con.execute('SELECT d.* REPLACE (coalesce(l.igbp_biome,d.igbp_biome)::UTINYINT AS igbp_biome) FROM staged_detections d LEFT JOIN land_cover l ON '+condition).to_arrow_table().cast(schema)
         out = ROOT / output_path
         out.parent.mkdir(parents=True, exist_ok=True)
         pq.write_table(table, out, compression="zstd")

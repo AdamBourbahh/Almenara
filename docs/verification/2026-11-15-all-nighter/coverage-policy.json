@@ -1,0 +1,1006 @@
+{
+  "chilecito_la_rioja": {
+    "selected_threshold": null,
+    "selection_candidate": null,
+    "candidates": [
+      {
+        "threshold": 0.7,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 0.612939157288854,
+              "persistence_mae": 0.36817806332031866,
+              "climatology_mae": 0.8199607842359671,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.5443925667150838
+            },
+            {
+              "horizon_days": 7,
+              "samples": 5,
+              "mae": 1.0555663375169986,
+              "persistence_mae": 0.4939958705680215,
+              "climatology_mae": 1.0556312857318406,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.8257420837722979
+            },
+            {
+              "horizon_days": 14,
+              "samples": 3,
+              "mae": 1.8161014256363124,
+              "persistence_mae": 0.7505786823920749,
+              "climatology_mae": 1.8161014331024417,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.8161014256363124
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 1.4123832890109917,
+              "persistence_mae": 1.9698477413192266,
+              "climatology_mae": 1.2388648453956186,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.4123832890109917
+            },
+            {
+              "horizon_days": 7,
+              "samples": 4,
+              "mae": 1.8029404510141709,
+              "persistence_mae": 1.7794875987192023,
+              "climatology_mae": 1.803112434989955,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.847857476694525
+            },
+            {
+              "horizon_days": 14,
+              "samples": 3,
+              "mae": 2.0416249778286253,
+              "persistence_mae": 0.1735666350134236,
+              "climatology_mae": 2.041624983947315,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.609123156958341
+            }
+          ],
+          "season_groups": 3
+        }
+      },
+      {
+        "threshold": 0.8,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 0.4748996083286473,
+              "persistence_mae": 0.36817806332031866,
+              "climatology_mae": 0.8227908726728603,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.3769488694765908
+            },
+            {
+              "horizon_days": 7,
+              "samples": 5,
+              "mae": 1.0619126269938266,
+              "persistence_mae": 0.4939958705680215,
+              "climatology_mae": 1.0643316381704655,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.8312766045597654
+            },
+            {
+              "horizon_days": 14,
+              "samples": 3,
+              "mae": 1.830159509197428,
+              "persistence_mae": 0.7505786823920749,
+              "climatology_mae": 1.8301697820318925,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.830159509197428
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 1.3198207007961518,
+              "persistence_mae": 1.9698477413192266,
+              "climatology_mae": 0.8895624030690332,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.3198207007961518
+            },
+            {
+              "horizon_days": 7,
+              "samples": 4,
+              "mae": 1.3582301076802197,
+              "persistence_mae": 1.7794875987192023,
+              "climatology_mae": 1.362648410276142,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.4102746194335914
+            },
+            {
+              "horizon_days": 14,
+              "samples": 3,
+              "mae": 1.4163659974822533,
+              "persistence_mae": 0.1735666350134236,
+              "climatology_mae": 1.4163688125523146,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.9860837537265376
+            }
+          ],
+          "season_groups": 3
+        }
+      },
+      {
+        "threshold": 0.9,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 0.48322629498725683,
+              "persistence_mae": 0.36817806332031866,
+              "climatology_mae": 0.8462926230494741,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.38552285552743254
+            },
+            {
+              "horizon_days": 7,
+              "samples": 5,
+              "mae": 1.0921173528471475,
+              "persistence_mae": 0.4939958705680215,
+              "climatology_mae": 1.0949182958927617,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.8685461979075889
+            },
+            {
+              "horizon_days": 14,
+              "samples": 3,
+              "mae": 1.8668125074392983,
+              "persistence_mae": 0.7505786823920749,
+              "climatology_mae": 1.8668258756414813,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.8668125074392983
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 1.3397506367379366,
+              "persistence_mae": 1.9698477413192266,
+              "climatology_mae": 0.9118925981300852,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.3397506367379366
+            },
+            {
+              "horizon_days": 7,
+              "samples": 4,
+              "mae": 1.1465014008070065,
+              "persistence_mae": 1.7794875987192023,
+              "climatology_mae": 1.1515262916709412,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.19969914926613994
+            },
+            {
+              "horizon_days": 14,
+              "samples": 3,
+              "mae": 1.0928430290233628,
+              "persistence_mae": 0.1735666350134236,
+              "climatology_mae": 1.0928465804597034,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.6257157115634532
+            }
+          ],
+          "season_groups": 3
+        }
+      },
+      {
+        "threshold": 0.95,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 0.4621656194183066,
+              "persistence_mae": 0.36817806332031866,
+              "climatology_mae": 0.8893579666216793,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.3567102152144998
+            },
+            {
+              "horizon_days": 7,
+              "samples": 5,
+              "mae": 0.9021057437868863,
+              "persistence_mae": 0.4939958705680215,
+              "climatology_mae": 0.9071344631290987,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.6935097926336502
+            },
+            {
+              "horizon_days": 14,
+              "samples": 3,
+              "mae": 1.521592962255049,
+              "persistence_mae": 0.7505786823920749,
+              "climatology_mae": 1.521646282072373,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.521592962255049
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 1.307255761764332,
+              "persistence_mae": 1.9698477413192266,
+              "climatology_mae": 0.7664467185677843,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.307255761764332
+            },
+            {
+              "horizon_days": 7,
+              "samples": 4,
+              "mae": 0.9406864380466989,
+              "persistence_mae": 1.7794875987192023,
+              "climatology_mae": 0.9498572365271002,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.01896734222774077
+            },
+            {
+              "horizon_days": 14,
+              "samples": 3,
+              "mae": 1.0826841745948899,
+              "persistence_mae": 0.1735666350134236,
+              "climatology_mae": 1.08269923157257,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.6066281779310078
+            }
+          ],
+          "season_groups": 3
+        }
+      }
+    ],
+    "reason": "No coverage threshold passed chronological selection and the reserved final-year validation.",
+    "known_land_denominator_days": 2196,
+    "experiment_coverage_start": "2020-11-10",
+    "mean_supported_land_fraction": 0.8628333171837437,
+    "method": "Qualified-cell area proxy, union across sensors; preceding-year measured land/water fractions; no cloud filling or energy upscaling"
+  },
+  "iberia_med": {
+    "selected_threshold": null,
+    "selection_candidate": null,
+    "candidates": [
+      {
+        "threshold": 0.7,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 3,
+              "mae": 0.22156516543624039,
+              "persistence_mae": 0.20699500373886406,
+              "climatology_mae": 0.5044291981496093,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.1780211583769065
+            },
+            {
+              "horizon_days": 7,
+              "samples": 3,
+              "mae": 0.7858857121266706,
+              "persistence_mae": 0.7697729423263836,
+              "climatology_mae": 0.787152453572714,
+              "interval_coverage_pct": 100.0,
+              "bias": -0.22462556850260942
+            },
+            {
+              "horizon_days": 14,
+              "samples": 1,
+              "mae": 1.2940273507560438,
+              "persistence_mae": 0.1983513413697774,
+              "climatology_mae": 1.294115214757015,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.2940273507560438
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 13.105360069809501,
+              "persistence_mae": 25.167917005054363,
+              "climatology_mae": 8.775618089351351,
+              "interval_coverage_pct": 80.0,
+              "bias": 12.434031938284354
+            },
+            {
+              "horizon_days": 7,
+              "samples": 5,
+              "mae": 5.937982748369249,
+              "persistence_mae": 34.85687068356324,
+              "climatology_mae": 5.24955992554725,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.7298059793011549
+            },
+            {
+              "horizon_days": 14,
+              "samples": 4,
+              "mae": 4.726218882361634,
+              "persistence_mae": 40.039321719697796,
+              "climatology_mae": 4.752197224979652,
+              "interval_coverage_pct": 100.0,
+              "bias": -0.6319766239233688
+            }
+          ],
+          "season_groups": 3
+        }
+      },
+      {
+        "threshold": 0.8,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 3,
+              "mae": 0.22184406445183089,
+              "persistence_mae": 0.20699500373886406,
+              "climatology_mae": 0.5171128032282181,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.1886875834653605
+            },
+            {
+              "horizon_days": 7,
+              "samples": 3,
+              "mae": 0.7757468776434319,
+              "persistence_mae": 0.7697729423263836,
+              "climatology_mae": 0.7768947214953358,
+              "interval_coverage_pct": 100.0,
+              "bias": -0.19208354426302945
+            },
+            {
+              "horizon_days": 14,
+              "samples": 1,
+              "mae": 1.309265513369743,
+              "persistence_mae": 0.1983513413697774,
+              "climatology_mae": 1.3093575295727733,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.309265513369743
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 13.102619581774302,
+              "persistence_mae": 25.167917005054363,
+              "climatology_mae": 8.782181353399396,
+              "interval_coverage_pct": 80.0,
+              "bias": 12.453785104340561
+            },
+            {
+              "horizon_days": 7,
+              "samples": 5,
+              "mae": 6.011156458486925,
+              "persistence_mae": 34.85687068356324,
+              "climatology_mae": 5.325333749427441,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.8029392534096951
+            },
+            {
+              "horizon_days": 14,
+              "samples": 4,
+              "mae": 4.732056921882181,
+              "persistence_mae": 40.039321719697796,
+              "climatology_mae": 4.7579077133910594,
+              "interval_coverage_pct": 100.0,
+              "bias": -0.6205533498603559
+            }
+          ],
+          "season_groups": 3
+        }
+      },
+      {
+        "threshold": 0.9,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 3,
+              "mae": 0.23255787407902626,
+              "persistence_mae": 0.20699500373886406,
+              "climatology_mae": 0.564098255651757,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.20954284578239749
+            },
+            {
+              "horizon_days": 7,
+              "samples": 3,
+              "mae": 0.7158943583572034,
+              "persistence_mae": 0.7697729423263836,
+              "climatology_mae": 0.7166956246653625,
+              "interval_coverage_pct": 100.0,
+              "bias": -0.07289096755561242
+            },
+            {
+              "horizon_days": 14,
+              "samples": 1,
+              "mae": 1.365550864939742,
+              "persistence_mae": 0.1983513413697774,
+              "climatology_mae": 1.3656561426411427,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.365550864939742
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 13.19955295085568,
+              "persistence_mae": 25.167917005054363,
+              "climatology_mae": 8.828262696805963,
+              "interval_coverage_pct": 80.0,
+              "bias": 12.590714614180833
+            },
+            {
+              "horizon_days": 7,
+              "samples": 5,
+              "mae": 6.123262898388196,
+              "persistence_mae": 34.85687068356324,
+              "climatology_mae": 5.414929901498754,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.9505097459284272
+            },
+            {
+              "horizon_days": 14,
+              "samples": 4,
+              "mae": 4.77479490283036,
+              "persistence_mae": 40.039321719697796,
+              "climatology_mae": 4.802326252675993,
+              "interval_coverage_pct": 100.0,
+              "bias": -0.5504319133202467
+            }
+          ],
+          "season_groups": 3
+        }
+      },
+      {
+        "threshold": 0.95,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 3,
+              "mae": 0.21892218983898018,
+              "persistence_mae": 0.20699500373886406,
+              "climatology_mae": 0.5668753068314977,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.210013335634357
+            },
+            {
+              "horizon_days": 7,
+              "samples": 3,
+              "mae": 0.721732985374417,
+              "persistence_mae": 0.7697729423263836,
+              "climatology_mae": 0.7211448424909248,
+              "interval_coverage_pct": 100.0,
+              "bias": 0.10838532757894825
+            },
+            {
+              "horizon_days": 14,
+              "samples": 1,
+              "mae": 1.5851661845509273,
+              "persistence_mae": 0.1983513413697774,
+              "climatology_mae": 1.5852357938061548,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.5851661845509273
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 5,
+              "mae": 13.192206158406663,
+              "persistence_mae": 25.167917005054363,
+              "climatology_mae": 8.907072604599746,
+              "interval_coverage_pct": 80.0,
+              "bias": 12.608237990899791
+            },
+            {
+              "horizon_days": 7,
+              "samples": 5,
+              "mae": 6.311140374255825,
+              "persistence_mae": 34.85687068356324,
+              "climatology_mae": 5.554854781409288,
+              "interval_coverage_pct": 100.0,
+              "bias": 1.2169029142204033
+            },
+            {
+              "horizon_days": 14,
+              "samples": 4,
+              "mae": 4.734569392175793,
+              "persistence_mae": 40.039321719697796,
+              "climatology_mae": 4.760828095492142,
+              "interval_coverage_pct": 100.0,
+              "bias": -0.42016001652969437
+            }
+          ],
+          "season_groups": 3
+        }
+      }
+    ],
+    "reason": "No coverage threshold passed chronological selection and the reserved final-year validation.",
+    "known_land_denominator_days": 2196,
+    "experiment_coverage_start": "2020-11-10",
+    "mean_supported_land_fraction": 0.8483860498620702,
+    "method": "Qualified-cell area proxy, union across sensors; preceding-year measured land/water fractions; no cloud filling or energy upscaling"
+  },
+  "orlando_florida": {
+    "selected_threshold": null,
+    "selection_candidate": null,
+    "candidates": [
+      {
+        "threshold": 0.7,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 7,
+              "mae": 15.820729343432477,
+              "persistence_mae": 22.79039182189188,
+              "climatology_mae": 13.94941204080648,
+              "interval_coverage_pct": 100.0,
+              "bias": 8.895036830645093
+            },
+            {
+              "horizon_days": 7,
+              "samples": 7,
+              "mae": 21.559038952368372,
+              "persistence_mae": 32.48090223426715,
+              "climatology_mae": 21.55877497923462,
+              "interval_coverage_pct": 100.0,
+              "bias": -9.954234453230798
+            },
+            {
+              "horizon_days": 14,
+              "samples": 5,
+              "mae": 25.005238949544626,
+              "persistence_mae": 32.782280674597615,
+              "climatology_mae": 25.00523894365147,
+              "interval_coverage_pct": 100.0,
+              "bias": -5.925541991095516
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 4,
+              "mae": 21.13614010272096,
+              "persistence_mae": 10.651810406781276,
+              "climatology_mae": 24.204743789795863,
+              "interval_coverage_pct": 100.0,
+              "bias": 21.13614010272096
+            },
+            {
+              "horizon_days": 7,
+              "samples": 7,
+              "mae": 17.029611995777937,
+              "persistence_mae": 12.963932583013626,
+              "climatology_mae": 17.029763894387546,
+              "interval_coverage_pct": 100.0,
+              "bias": 16.063259884896414
+            },
+            {
+              "horizon_days": 14,
+              "samples": 6,
+              "mae": 15.841631865373564,
+              "persistence_mae": 1.8887849189310515,
+              "climatology_mae": 15.841631870774394,
+              "interval_coverage_pct": 100.0,
+              "bias": 15.841631865373564
+            }
+          ],
+          "season_groups": 3
+        }
+      },
+      {
+        "threshold": 0.8,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 7,
+              "mae": 15.88931405059395,
+              "persistence_mae": 22.79039182189188,
+              "climatology_mae": 14.042520572199532,
+              "interval_coverage_pct": 100.0,
+              "bias": 9.06516327610983
+            },
+            {
+              "horizon_days": 7,
+              "samples": 7,
+              "mae": 21.358581341550924,
+              "persistence_mae": 32.48090223426715,
+              "climatology_mae": 21.35831983919406,
+              "interval_coverage_pct": 100.0,
+              "bias": -9.644453684324876
+            },
+            {
+              "horizon_days": 14,
+              "samples": 5,
+              "mae": 25.106718962545056,
+              "persistence_mae": 32.782280674597615,
+              "climatology_mae": 25.106718957372625,
+              "interval_coverage_pct": 100.0,
+              "bias": -5.605053611054817
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 4,
+              "mae": 21.41230923709913,
+              "persistence_mae": 10.651810406781276,
+              "climatology_mae": 24.55963270814652,
+              "interval_coverage_pct": 100.0,
+              "bias": 21.41230923709913
+            },
+            {
+              "horizon_days": 7,
+              "samples": 7,
+              "mae": 17.267069018585627,
+              "persistence_mae": 12.963932583013626,
+              "climatology_mae": 17.267221467132508,
+              "interval_coverage_pct": 100.0,
+              "bias": 16.357798778207957
+            },
+            {
+              "horizon_days": 14,
+              "samples": 6,
+              "mae": 16.1538908341431,
+              "persistence_mae": 1.8887849189310515,
+              "climatology_mae": 16.153890839659418,
+              "interval_coverage_pct": 100.0,
+              "bias": 16.1538908341431
+            }
+          ],
+          "season_groups": 3
+        }
+      },
+      {
+        "threshold": 0.9,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 7,
+              "mae": 16.024480791602652,
+              "persistence_mae": 22.79039182189188,
+              "climatology_mae": 14.251377495419343,
+              "interval_coverage_pct": 100.0,
+              "bias": 9.338792925466594
+            },
+            {
+              "horizon_days": 7,
+              "samples": 7,
+              "mae": 21.45598297250897,
+              "persistence_mae": 32.48090223426715,
+              "climatology_mae": 21.455748740199358,
+              "interval_coverage_pct": 100.0,
+              "bias": -9.242136786073857
+            },
+            {
+              "horizon_days": 14,
+              "samples": 5,
+              "mae": 25.37682003357103,
+              "persistence_mae": 32.782280674597615,
+              "climatology_mae": 25.37682002933143,
+              "interval_coverage_pct": 100.0,
+              "bias": -5.070570392907618
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 4,
+              "mae": 21.871596461507785,
+              "persistence_mae": 10.651810406781276,
+              "climatology_mae": 25.10732276195121,
+              "interval_coverage_pct": 100.0,
+              "bias": 21.871596461507785
+            },
+            {
+              "horizon_days": 7,
+              "samples": 7,
+              "mae": 17.504440272388358,
+              "persistence_mae": 12.963932583013626,
+              "climatology_mae": 17.50459036058685,
+              "interval_coverage_pct": 100.0,
+              "bias": 16.769628023023042
+            },
+            {
+              "horizon_days": 14,
+              "samples": 6,
+              "mae": 16.542129986038088,
+              "persistence_mae": 1.8887849189310515,
+              "climatology_mae": 16.542129990960337,
+              "interval_coverage_pct": 100.0,
+              "bias": 16.542129986038088
+            }
+          ],
+          "season_groups": 3
+        }
+      },
+      {
+        "threshold": 0.95,
+        "selection": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 7,
+              "mae": 16.237229767375442,
+              "persistence_mae": 22.79039182189188,
+              "climatology_mae": 14.499073512506348,
+              "interval_coverage_pct": 100.0,
+              "bias": 9.843433949784544
+            },
+            {
+              "horizon_days": 7,
+              "samples": 7,
+              "mae": 21.444852663753974,
+              "persistence_mae": 32.48090223426715,
+              "climatology_mae": 21.444606623148605,
+              "interval_coverage_pct": 100.0,
+              "bias": -8.687567413168676
+            },
+            {
+              "horizon_days": 14,
+              "samples": 5,
+              "mae": 25.561639437277577,
+              "persistence_mae": 32.782280674597615,
+              "climatology_mae": 25.56163943234253,
+              "interval_coverage_pct": 100.0,
+              "bias": -4.297086205811015
+            }
+          ],
+          "season_groups": 3
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 4,
+              "mae": 22.46167458103868,
+              "persistence_mae": 10.651810406781276,
+              "climatology_mae": 25.83311485853508,
+              "interval_coverage_pct": 100.0,
+              "bias": 22.46167458103868
+            },
+            {
+              "horizon_days": 7,
+              "samples": 7,
+              "mae": 17.84012971412024,
+              "persistence_mae": 12.963932583013626,
+              "climatology_mae": 17.840285381058614,
+              "interval_coverage_pct": 100.0,
+              "bias": 17.467570064624248
+            },
+            {
+              "horizon_days": 14,
+              "samples": 6,
+              "mae": 17.25708232519563,
+              "persistence_mae": 1.8887849189310515,
+              "climatology_mae": 17.257082330087933,
+              "interval_coverage_pct": 100.0,
+              "bias": 17.25708232519563
+            }
+          ],
+          "season_groups": 3
+        }
+      }
+    ],
+    "reason": "No coverage threshold passed chronological selection and the reserved final-year validation.",
+    "known_land_denominator_days": 2196,
+    "experiment_coverage_start": "2020-11-10",
+    "mean_supported_land_fraction": 0.8407237749360812,
+    "method": "Qualified-cell area proxy, union across sensors; preceding-year measured land/water fractions; no cloud filling or energy upscaling"
+  },
+  "amazonas_manaus": {
+    "selected_threshold": null,
+    "selection_candidate": null,
+    "candidates": [
+      {
+        "threshold": 0.7,
+        "selection": {
+          "metrics": [],
+          "season_groups": 0
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 2,
+              "mae": 24.904423826723527,
+              "persistence_mae": 3.357361319701186,
+              "climatology_mae": 60.87918671178675,
+              "interval_coverage_pct": 100.0,
+              "bias": -17.509365871982087
+            },
+            {
+              "horizon_days": 7,
+              "samples": 1,
+              "mae": 15.513416244500126,
+              "persistence_mae": 21.513119224623818,
+              "climatology_mae": 15.366175676686973,
+              "interval_coverage_pct": 100.0,
+              "bias": -15.513416244500126
+            },
+            {
+              "horizon_days": 14,
+              "samples": 1,
+              "mae": 6.0412056873204065,
+              "persistence_mae": 7.539573856393268,
+              "climatology_mae": 6.04814588749144,
+              "interval_coverage_pct": 100.0,
+              "bias": 6.0412056873204065
+            }
+          ],
+          "season_groups": 2
+        }
+      },
+      {
+        "threshold": 0.8,
+        "selection": {
+          "metrics": [],
+          "season_groups": 0
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 2,
+              "mae": 23.682871084644646,
+              "persistence_mae": 3.357361319701186,
+              "climatology_mae": 59.189432116174224,
+              "interval_coverage_pct": 100.0,
+              "bias": -16.186791536511763
+            },
+            {
+              "horizon_days": 7,
+              "samples": 1,
+              "mae": 15.037090716696278,
+              "persistence_mae": 21.513119224623818,
+              "climatology_mae": 14.867580187122764,
+              "interval_coverage_pct": 100.0,
+              "bias": -15.037090716696278
+            },
+            {
+              "horizon_days": 14,
+              "samples": 1,
+              "mae": 6.884314125935944,
+              "persistence_mae": 7.539573856393268,
+              "climatology_mae": 6.892837855159744,
+              "interval_coverage_pct": 100.0,
+              "bias": 6.884314125935944
+            }
+          ],
+          "season_groups": 2
+        }
+      },
+      {
+        "threshold": 0.9,
+        "selection": {
+          "metrics": [],
+          "season_groups": 0
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 2,
+              "mae": 23.1113518684907,
+              "persistence_mae": 3.357361319701186,
+              "climatology_mae": 56.808648285254414,
+              "interval_coverage_pct": 100.0,
+              "bias": -15.243387954558116
+            },
+            {
+              "horizon_days": 7,
+              "samples": 1,
+              "mae": 14.443868667173458,
+              "persistence_mae": 21.513119224623818,
+              "climatology_mae": 14.242790452119962,
+              "interval_coverage_pct": 100.0,
+              "bias": -14.443868667173458
+            },
+            {
+              "horizon_days": 14,
+              "samples": 1,
+              "mae": 8.0258616148122,
+              "persistence_mae": 7.539573856393268,
+              "climatology_mae": 8.035561361020505,
+              "interval_coverage_pct": 100.0,
+              "bias": 8.0258616148122
+            }
+          ],
+          "season_groups": 2
+        }
+      },
+      {
+        "threshold": 0.95,
+        "selection": {
+          "metrics": [],
+          "season_groups": 0
+        },
+        "holdout": {
+          "metrics": [
+            {
+              "horizon_days": 1,
+              "samples": 2,
+              "mae": 23.02581756846716,
+              "persistence_mae": 3.357361319701186,
+              "climatology_mae": 54.15836539949447,
+              "interval_coverage_pct": 100.0,
+              "bias": -14.874200375291608
+            },
+            {
+              "horizon_days": 7,
+              "samples": 1,
+              "mae": 13.472476666079537,
+              "persistence_mae": 21.513119224623818,
+              "climatology_mae": 13.271663437060518,
+              "interval_coverage_pct": 100.0,
+              "bias": -13.472476666079537
+            },
+            {
+              "horizon_days": 14,
+              "samples": 1,
+              "mae": 10.033032114816205,
+              "persistence_mae": 7.539573856393268,
+              "climatology_mae": 10.041686402314454,
+              "interval_coverage_pct": 100.0,
+              "bias": 10.033032114816205
+            }
+          ],
+          "season_groups": 2
+        }
+      }
+    ],
+    "reason": "No coverage threshold passed chronological selection and the reserved final-year validation.",
+    "known_land_denominator_days": 2196,
+    "experiment_coverage_start": "2020-11-10",
+    "mean_supported_land_fraction": 0.7061628869608502,
+    "method": "Qualified-cell area proxy, union across sensors; preceding-year measured land/water fractions; no cloud filling or energy upscaling"
+  }
+}

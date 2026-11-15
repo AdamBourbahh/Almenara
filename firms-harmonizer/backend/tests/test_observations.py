@@ -25,7 +25,8 @@ def test_observations_aggregates_only_detection_centers(tmp_path, monkeypatch):
     assert len(result['daily'])==1 and result['daily'][0]['date']=='2026-01-02'
     assert result['daily'][0]['raw_frp_mw']==15
     assert set(result['daily'][0]['sensors'])=={'Terra','Aqua','SNPP','N20','N21'}
-    assert result['map_hexagons']==[{'h3_index':cell,'detection_count':5,'raw_frp_mw':15.}]
+    assert result['map_hexagons']==[] and result['total_days']==1
+    assert queries.fetch_observed_detections(*queries.get_hierarchical_h3_filter(polygon.coordinates)[:2],2000,2026)['map_hexagons']==[{'h3_index':cell,'detection_count':5,'raw_frp_mw':15.}]
     assert result['first_observed_date']==result['last_observed_date']=='2026-01-02'
     missing=queries.fetch_observed_detections([],[],2000,2026)
     assert missing=={'daily':[],'map_hexagons':[]}

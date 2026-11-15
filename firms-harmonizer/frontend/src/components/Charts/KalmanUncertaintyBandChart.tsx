@@ -7,7 +7,7 @@ import type { AnalyzeResponse, DailyCalendarCell } from "../../api/types";
 /**
  * Kalman reconstruction + 14-day outlook, rewritten for the editorial theme.
  * Normal mode: observed year + 95 % CI + historical prior + forecast cone.
- * Stress mode: ground truth vs naive collapse vs cross-guard vs RTS Kalman.
+ * Stress mode: intact-input model reference vs naive collapse vs cross-guard vs RTS Kalman.
  */
 
 const WIDTH = 780;
@@ -44,6 +44,7 @@ interface NormalPoint {
   upper: number;
   isForecast: boolean;
   isGap: boolean;
+  known: boolean;
 }
 
 function buildNormal(data: AnalyzeResponse, year: number, month: number | null): { points: NormalPoint[]; historical: number } | null {
@@ -56,6 +57,7 @@ function buildNormal(data: AnalyzeResponse, year: number, month: number | null):
     lower: c.ci_95_lower,
     upper: c.ci_95_upper,
     isForecast: false,
+    known: c.observation_status !== "unknown",
     isGap: c.is_gap_filled
   }));
   for (const c of data.forecast_series ?? []) {
@@ -67,20 +69,35 @@ function buildNormal(data: AnalyzeResponse, year: number, month: number | null):
       lower: c.ci_95_lower,
       upper: c.ci_95_upper,
       isForecast: true,
+      known: true,
       isGap: false
     });
   }
   return { points, historical: cells.length };
 }
 
-function line(pts: Array<{ x: number; y: number }>): string {
-  return pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
+function line(pts: Array<{ x: number; y: number; known?: boolean }>): string {
+  let pen = false;
+  return pts.map((point) => {
+    if (point.known === false) { pen = false; return ""; }
+    const command = `${pen ? "L" : "M"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+    pen = true;
+    return command;
+  }).join(" ");
 }
-function band(pts: Array<{ x: number; up: number; lo: number }>): string {
-  if (pts.length === 0) return "";
-  const top = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.up.toFixed(2)}`).join(" ");
-  const bottom = [...pts].reverse().map((p) => `L ${p.x.toFixed(2)} ${p.lo.toFixed(2)}`).join(" ");
-  return `${top} ${bottom} Z`;
+function band(pts: Array<{ x: number; up: number; lo: number; known?: boolean }>): string {
+  const runs: typeof pts[] = [];
+  let run: typeof pts = [];
+  for (const point of pts) {
+    if (point.known === false) { if (run.length) runs.push(run); run = []; }
+    else run.push(point);
+  }
+  if (run.length) runs.push(run);
+  return runs.map((points) => {
+    const top = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.up.toFixed(2)}`).join(" ");
+    const bottom = [...points].reverse().map((p) => `L ${p.x.toFixed(2)} ${p.lo.toFixed(2)}`).join(" ");
+    return `${top} ${bottom} Z`;
+  }).join(" ");
 }
 function fmtDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -120,7 +137,7 @@ export function KalmanUncertaintyBandChart() {
     const { points, historical } = normal;
     const count = points.length;
     const yMax = Math.max(1, ...points.map((p) => Math.max(p.upper, p.fre, p.prior))) * 1.12;
-    const historicalPts = points.slice(0, historical).map((p, i) => ({ x: scaleX(i, count), fre: scaleY(p.fre, yMax), prior: scaleY(p.prior, yMax), up: scaleY(p.upper, yMax), lo: scaleY(p.lower, yMax) }));
+    const historicalPts = points.slice(0, historical).map((p, i) => ({ known: p.known, x: scaleX(i, count), fre: scaleY(p.fre, yMax), prior: scaleY(p.prior, yMax), up: scaleY(p.upper, yMax), lo: scaleY(p.lower, yMax) }));
     const forecastPts = points.slice(Math.max(0, historical - 1)).map((p, i) => ({ x: scaleX(Math.max(0, historical - 1) + i, count), fre: scaleY(p.fre, yMax), up: scaleY(p.upper, yMax), lo: scaleY(p.lower, yMax) }));
     const gapRuns: Array<{ start: number; end: number }> = [];
     let start = -1;
@@ -209,6 +226,7 @@ export function KalmanUncertaintyBandChart() {
     }
     const p = normal?.points[hover];
     if (!p) return null;
+    if (!p.known) return <div className="pointer-events-none absolute top-2 z-20 border border-rule bg-panel p-2 text-xs">{fmtDate(p.date)}: observation coverage unknown</div>;
     return (
       <div className="pointer-events-none absolute top-2 z-20 w-52 -translate-x-1/2 border border-rule bg-panel p-2 text-[10px] tnum" style={{ left: `${leftPct}%` }}>
         <p className="mb-1 flex items-center justify-between font-serif text-xs text-ink">
@@ -235,7 +253,7 @@ export function KalmanUncertaintyBandChart() {
 
       </header>
 
-      {active && <p aria-label="Chart active day" className="mb-3 text-xs text-ink tnum">{active.date} · DOY {active.doy} · FRE {active.harmonized_fre_mj_km2.toFixed(1)} MJ/km² · 95% CI [{active.ci_95_lower.toFixed(1)}, {active.ci_95_upper.toFixed(1)}] · Prior {active.historical_cross_prior_fre.toFixed(1)} · Raw {active.raw_hotspot_count}</p>}
+      {active && active.observation_status !== "unknown" && <p aria-label="Chart active day" className="mb-3 text-xs text-ink tnum">{active.date} · DOY {active.doy} · FRE {active.harmonized_fre_mj_km2.toFixed(1)} MJ/km² · 95% CI [{active.ci_95_lower.toFixed(1)}, {active.ci_95_upper.toFixed(1)}] · Prior {active.historical_cross_prior_fre.toFixed(1)} · Raw {active.raw_hotspot_count}</p>}
       <p className="mb-4 max-w-2xl text-sm leading-relaxed text-muted">
         Repaired days are reconstructed from the cross-sensor prior and neighbouring observations when a
         measurement is missing, instead of letting the series fall to zero. The stress test wipes 25% of the
@@ -262,7 +280,7 @@ export function KalmanUncertaintyBandChart() {
         </button>
         {chaosData && (
           <span className="border border-validated/40 bg-validated/10 px-2 py-1 text-xs text-validated tnum">
-            Energy recovered {chaosData.seasonal_energy_recovered_pct.toFixed(1)}%
+            Affected-day energy recovered {chaosData.seasonal_energy_recovered_pct.toFixed(1)}%
           </span>
         )}
         {chaosError && <span className="text-xs text-bias">{chaosError}</span>}
@@ -306,7 +324,7 @@ export function KalmanUncertaintyBandChart() {
                     ))}
                     {normalView.forecastPts.length > 1 && <path d={band(normalView.forecastPts)} fill={FORECAST_FILL} stroke="rgba(29,78,216,0.35)" strokeDasharray="3 3" />}
                     <path d={line(normalView.historicalPts.map((p) => ({ x: p.x, y: p.prior })))} fill="none" stroke={PRIOR} strokeWidth={1.1} strokeDasharray="2 3" />
-                    <path d={line(normalView.historicalPts.map((p) => ({ x: p.x, y: p.fre })))} fill="none" stroke={MAIN} strokeWidth={1.8} />
+                    <path d={line(normalView.historicalPts.map((p) => ({ known: p.known, x: p.x, y: p.fre })))} fill="none" stroke={MAIN} strokeWidth={1.8} />
                     {normalView.forecastPts.length > 1 && <path d={line(normalView.forecastPts.map((p) => ({ x: p.x, y: p.fre })))} fill="none" stroke={FORECAST} strokeWidth={1.6} strokeDasharray="5 3" />}
                   </>
                 )
@@ -317,7 +335,7 @@ export function KalmanUncertaintyBandChart() {
                 return indices.length ? <rect x={scaleX(indices[0], count)} y={M.top} width={Math.max(1, scaleX(indices[indices.length - 1], count) - scaleX(indices[0], count))} height={PH} fill="rgba(29,78,216,0.08)" /> : null;
               })()}
               {hoverX !== null && <g aria-label="Active day marker"><line x1={hoverX} x2={hoverX} y1={M.top} y2={M.top + PH} stroke="var(--color-reference)" strokeDasharray="3 3" />
-                {active && <circle cx={hoverX} cy={scaleY(active.harmonized_fre_mj_km2, yMax)} r={4} fill={MAIN} stroke="var(--color-panel)" strokeWidth={2} />}</g>}
+                {active && active.observation_status !== "unknown" && <circle cx={hoverX} cy={scaleY(active.harmonized_fre_mj_km2, yMax)} r={4} fill={MAIN} stroke="var(--color-panel)" strokeWidth={2} />}</g>}
               <rect x={M.left} y={M.top} width={PW} height={PH} fill="transparent" onMouseMove={handleMove} onMouseLeave={() => setHoveredCell(null)} onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const index = Math.max(0, Math.min(count - 1, Math.round((e.clientX - rect.left) / rect.width * (count - 1))));

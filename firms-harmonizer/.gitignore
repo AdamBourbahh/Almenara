@@ -26,3 +26,5 @@ data/cache/
 .aider.chat.history.md
 .aider.input.history
 .aider.tags.cache.v*/
+
+data/processed/observation_coverage/

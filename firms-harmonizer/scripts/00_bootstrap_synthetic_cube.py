@@ -19,21 +19,14 @@ if str(ROOT) not in sys.path:
 
 # Centers are strictly inside the four bounding boxes in SPECS.md section 5.3.
 # Keep the tuple interface used by the downstream ETL and benchmark scripts.
-REGIONS = {
-    "cerrado_brazil": (-16.9, -56.2, 220.0, 9),
-    "california_usa": (39.1, -120.35, 220.0, 8),
-    "iberia_med": (38.5, -4.85, 205.0, 8),
-    "niger_delta_flaring": (5.2, 6.4, 220.0, 12),
-}
-REGION_BOUNDS = {
-    "cerrado_brazil": (-57.2, -17.8, -55.2, -16.0),
-    "california_usa": (-121.2, 38.0, -119.5, 40.2),
-    "iberia_med": (-6.5, 37.2, -3.2, 39.8),
-    "niger_delta_flaring": (5.6, 4.6, 7.2, 5.8),
-}
+import json
+REGISTRY = json.loads((ROOT / "data/regions.json").read_text(encoding="utf-8"))
+REGIONS = {key: (*value["fixture_center"], 220.0, value["nominal_biome"])
+           for key, value in REGISTRY.items()}
+REGION_BOUNDS = {key: tuple(value["bounds"]) for key, value in REGISTRY.items()}
 
 CUBE_SCHEMA = pa.schema([
-    pa.field(name, dtype, nullable=name.startswith("obs_"))
+    pa.field(name, dtype, nullable=name.startswith("obs_") or name in {"cloud_cover_pct", "burned_area_ha_mcd64"})
     for name, dtype in [
         ("h3_r4", pa.uint64()), ("h3_r7", pa.uint64()),
         ("epoch_day", pa.uint16()), ("year", pa.uint16()), ("doy", pa.uint16()),
@@ -102,111 +95,6 @@ def _chow(values: np.ndarray, years: np.ndarray, doy: np.ndarray) -> tuple[float
     separate = rss(design[before], values[before]) + rss(design[~before], values[~before])
     stat = max(0.0, (pooled - separate) / 4 / (separate / (len(t) - 8) + 1e-8))
     return stat, float(f_distribution.sf(stat, 4, len(t) - 8))
-
-
-def _write_mock(table: pa.Table, dates: np.ndarray, truth: np.ndarray,
-                years: np.ndarray, doy: np.ndarray, elapsed_ms: float) -> None:
-    """Complete bounded Cerrado response using explicit synthetic oracle truth."""
-    import orjson
-    from scipy.ndimage import gaussian_filter1d
-    from scipy.stats import kendalltau, theilslopes, wasserstein_distance
-    from backend.api.schemas import AnalyzeResponse
-
-    count = len(dates)
-    region = region_cells(*REGIONS["cerrado_brazil"][:2])
-    area = len(region) * 5.161
-    latent = truth[:len(region)].mean(axis=0)
-    data = table.filter(pa.compute.is_in(table["h3_r7"], value_set=pa.array([
-        int(c, 16) for c in region
-    ], type=pa.uint64()))).to_pydict()
-    epoch = np.asarray(data["epoch_day"])
-    day_index = epoch - int((dates[0] - np.datetime64("1970-01-01")).astype(int))
-    raw = np.bincount(day_index, weights=np.asarray(data["raw_modis_cnt"]) + np.asarray(data["raw_viirs_cnt"]), minlength=count)
-    raw_frp = np.bincount(day_index, weights=data["raw_frp_mw"], minlength=count)
-    biome_proxy = np.bincount(day_index, weights=data["burned_area_ha_mcd64"], minlength=count)
-    masks = np.zeros(count, dtype=np.uint8)
-    gaps = np.zeros(count, dtype=np.uint8)
-    np.bitwise_or.at(masks, day_index, data["sensor_obs_mask"])
-    np.bitwise_or.at(gaps, day_index, data["gap_status_mask"])
-    prior = np.bincount(doy - 1, weights=latent, minlength=366) / np.maximum(1, np.bincount(doy - 1, minlength=366))
-    prior = gaussian_filter1d(prior, sigma=5, mode="wrap")
-    cells = []
-    def cell(date: str, year: int, ordinal: int, value: float, cross: float,
-             raw_count: int, power: float, mask: int, gap: int, forecast: bool) -> dict:
-        biomass = 0.368 * value * area / 1000
-        margin = value * (0.25 if forecast else 0.12)
-        return dict(date=date, year=year, doy=ordinal, raw_hotspot_count=raw_count,
-                    raw_frp_mw=power, harmonized_fre_mj_km2=value,
-                    historical_cross_prior_fre=cross, ci_95_lower=max(0, value-margin),
-                    ci_95_upper=value+margin, uncertainty_pct=100*margin/max(value, 1e-8),
-                    biomass_burned_tonnes=biomass, pm25_emitted_kg=biomass*9.5,
-                    z_score_anomaly=(value-cross)/max(float(latent.std()), 1e-8),
-                    is_gap_filled=bool(gap), is_forecast=forecast,
-                    gap_reason="Cloud blackout" if gap == 8 else "Aqua outage" if gap else None,
-                    active_sensors=[s for bit, s in [(1,"Terra"),(2,"Aqua"),(4,"VIIRS")] if mask & bit],
-                    tooltip_narrative="Synthetic forecast from circular climatology." if forecast else
-                    "Synthetic latent-energy fixture; uncertainty is illustrative, not a Kalman estimate.")
-    for i, date in enumerate(dates):
-        cells.append(cell(str(date), int(years[i]), int(doy[i]), float(latent[i]), float(prior[doy[i]-1]),
-                          int(raw[i]), float(raw_frp[i]), int(masks[i]), int(gaps[i]), False))
-    future = np.arange(np.datetime64("2027-01-01"), np.datetime64("2027-01-15"))
-    forecasts = [cell(str(d), 2027, i+1, float(prior[i]), float(prior[i]), 0, 0., 0, 0, True)
-                 for i, d in enumerate(future)]
-    phenology = []
-    for year in range(2001, 2027):
-        selected = years == year
-        angles = 2*np.pi*(doy[selected]-1)/365.25
-        weights = latent[selected]
-        c, s = np.sum(weights*np.cos(angles))/weights.sum(), np.sum(weights*np.sin(angles))/weights.sum()
-        r = min(float(np.hypot(c, s)), 1-1e-8)
-        kappa = (2*r+r**3+5*r**5/6 if r < .53 else
-                 -.4+1.39*r+.43/(1-r) if r < .85 else 1/(r**3-4*r*r+3*r))
-        peak = 1+(np.arctan2(s,c) % (2*np.pi))*365.25/(2*np.pi)
-        label = str(np.datetime64(f"{year}-01-01") + np.timedelta64(round(peak)-1,"D"))
-        phenology.append(dict(year=year, peak_doy_mu=float(peak), peak_date_label=label,
-                              concentration_kappa=kappa, season_width_days=365.25/np.sqrt(kappa),
-                              total_annual_fre_gj=float(weights.sum()*area/1000)))
-    raw_f, raw_p = _chow(raw, years, doy)
-    harm_f, harm_p = _chow(latent, years, doy)
-    before = years < 2012
-    # Within-period raw vs calibrated proxy diagnostics, in the same FRE units.
-    raw_density = raw / len(region) * 18
-    w_raw = wasserstein_distance(raw_density[before], raw_density[~before])
-    w_harm = wasserstein_distance(latent[before], latent[~before])
-    peaks = np.asarray([p["peak_doy_mu"] for p in phenology])
-    slope = float(theilslopes(peaks, np.arange(2001,2027)).slope*10)
-    audit = dict(chow_test_f_stat_raw=raw_f, chow_test_p_val_raw=raw_p,
-                 chow_test_f_stat_harm=harm_f, chow_test_p_val_harm=harm_p,
-                 wasserstein_w1_raw=w_raw, wasserstein_w1_harm=w_harm,
-                 burned_area_r2_raw=float(np.corrcoef(raw, biome_proxy)[0,1]**2),
-                 burned_area_r2_harm=float(np.corrcoef(latent, biome_proxy)[0,1]**2),
-                 phenology_shift_days_per_decade=slope, mann_kendall_p_value=float(kendalltau(np.arange(26),peaks).pvalue),
-                 industrial_false_positives_removed=0,
-                 total_biomass_burned_kt=float(latent.sum()*area*.368/1e6),
-                 total_pm25_emitted_tonnes=float(latent.sum()*area*.368*.0095/1000),
-                 executive_verdict_en=("Synthetic integration fixture. Harmonized Chow gate: "
-                     + ("PASS" if harm_p > .10 else "FAIL")
-                     + ". Chow and Wasserstein are simulated diagnostics; burned-area R² is squared proxy correlation, not independent validation. No production Kalman results are claimed."))
-    response = dict(data_source="synthetic", query_hash=hashlib.sha256(b"synthetic-cerrado-2001-2026-v1").hexdigest(),
-                    execution_time_ms=elapsed_ms, aoi_area_km2=area, total_h3_cells=len(region),
-                    calendar_series=cells, forecast_series=forecasts, phenology_by_year=phenology,
-                    audit_metrics=audit, map_hexagons=[])
-    for h in sorted(set(data["h3_r7"])):
-        selected = np.asarray(data["h3_r7"]) == h
-        cell_index = region.index(f"{h:x}")
-        cell_energy = truth[cell_index]
-        annual = np.asarray([cell_energy[years == year].sum() for year in range(2001, 2027)])
-        months = dates.astype("datetime64[M]").astype(int) % 12
-        monthly = np.bincount(months, weights=cell_energy, minlength=12)
-        fractions = monthly / monthly.sum()
-        entropy = float(np.clip(-np.sum(fractions*np.log(fractions+1e-12))/np.log(12),0,1))
-        response["map_hexagons"].append(dict(h3_index=f"{h:x}", mean_annual_fre=float(annual.mean()),
-            raw_pixel_count=int((np.asarray(data["raw_modis_cnt"])[selected]+np.asarray(data["raw_viirs_cnt"])[selected]).sum()),
-            trend_slope=float(theilslopes(annual, np.arange(2001,2027)).slope),
-            is_industrial_site=bool(data["industrial_prob"][np.flatnonzero(selected)[0]] > .75), shannon_entropy=entropy))
-    validated = AnalyzeResponse.model_validate(response)
-    mock = ROOT / "data/mock/mock_analyze_response.json"
-    mock.write_bytes(orjson.dumps(validated.model_dump(), option=orjson.OPT_APPEND_NEWLINE))
 
 
 SYNTHETIC_PATH = ROOT / "data/processed/fire_cube_synthetic.parquet"
@@ -322,8 +210,6 @@ def generate_bootstrap_cube(
                 [str(staged)],
             )
         staged.replace(path)
-    if write_mock:
-        _write_mock(table, dates, truth, years, doy, (perf_counter() - started) * 1000)
     return str(path)
 
 

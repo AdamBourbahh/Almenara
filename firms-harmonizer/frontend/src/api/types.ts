@@ -93,12 +93,14 @@ export interface DailyCalendarCell {
   uncertainty_pct: number;
   biomass_burned_tonnes: number;
   pm25_emitted_kg: number | null;
+  pm25_factor_sd_kg: number | null;
   z_score_anomaly: number;
   is_gap_filled: boolean;
   is_forecast: boolean;
   gap_reason: string | null;
   active_sensors: Array<string>;
   tooltip_narrative: string | null;
+  observation_status: "detected" | "observed_zero" | "reconstructed" | "unknown" | "forecast";
 }
 
 export interface VonMisesPhenologyYear {
@@ -136,6 +138,15 @@ export interface H3MapSummaryHex {
   shannon_entropy: number;
 }
 
+export interface EnergyForecastValidation {
+  horizon_days: number;
+  samples: number;
+  mae: number;
+  persistence_mae: number;
+  climatology_mae: number;
+  interval_coverage_pct: number;
+}
+
 export interface AnalyzeResponse {
   data_source: "real" | "synthetic";
   query_hash: string;
@@ -147,6 +158,9 @@ export interface AnalyzeResponse {
   phenology_by_year: Array<VonMisesPhenologyYear>;
   audit_metrics: ScientificAuditMetrics | null;
   map_hexagons: Array<H3MapSummaryHex>;
+  coverage_note: string;
+  forecast_validation: Array<EnergyForecastValidation>;
+  forecast_unavailable_reason: string | null;
 }
 
 export interface ChaosMonkeyRequest {
@@ -223,42 +237,6 @@ export interface ExplainSpikeResponse {
   data_source?: "real" | "synthetic";
   map_context?: CopilotMapContext | null;
 }
-
-/** Pilot regions = SPECS.md §5.3 bounds (the synthetic cube places its cells inside them). */
-export const PRESET_REGIONS = {
-  cerrado_brazil: {
-    name: "Cerrado & Pantanal, Brazil",
-    center: [-56.2, -16.9],
-    aoi: { type: "Polygon", coordinates: [[
-      [-57.2, -17.8], [-55.2, -17.8], [-55.2, -16], [-57.2, -16], [-57.2, -17.8],
-    ]] },
-  },
-  california_usa: {
-    name: "Sierra Nevada, California",
-    center: [-120.35, 39.1],
-    aoi: { type: "Polygon", coordinates: [[
-      [-121.2, 38], [-119.5, 38], [-119.5, 40.2], [-121.2, 40.2], [-121.2, 38],
-    ]] },
-  },
-  iberia_med: {
-    name: "Mediterranean Iberia",
-    center: [-4.85, 38.5],
-    aoi: { type: "Polygon", coordinates: [[
-      [-6.5, 37.2], [-3.2, 37.2], [-3.2, 39.8], [-6.5, 39.8], [-6.5, 37.2],
-    ]] },
-  },
-  niger_delta_flaring: {
-    name: "Niger Delta gas flaring",
-    center: [6.4, 5.2],
-    aoi: { type: "Polygon", coordinates: [[
-      [5.6, 4.6], [7.2, 4.6], [7.2, 5.8], [5.6, 5.8], [5.6, 4.6],
-    ]] },
-  },
-} as const satisfies Record<string, {
-  name: string;
-  center: [number, number];
-  aoi: GeoJSONPolygon;
-}>;
 
 // ============================================================================
 // Cube Synchronization (Live NASA FIRMS -> Master Parquet/DuckDB Cube)

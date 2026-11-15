@@ -16,8 +16,8 @@ from backend.api import cache as cache_mod
 from backend.api.schemas import H3MapSummaryHex
 from backend.db import duckdb_engine, queries
 
-CERRADO = [[[-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0], [-57.2, -16.0], [-57.2, -17.8]]]  # ASSUMPTION (SPECS.md §5.3 preset)
-NIGER = [[[5.0, 4.0], [7.0, 4.0], [7.0, 6.0], [5.0, 6.0], [5.0, 4.0]]]
+CHILECITO = [[[-69.5, -31], [-65.5, -31], [-65.5, -27.5], [-69.5, -27.5], [-69.5, -31]]]  # ASSUMPTION (SPECS.md §5.3 preset)
+AMAZONAS = [[[-62, -5], [-58, -5], [-58, -1], [-62, -1], [-62, -5]]]
 OCEAN = [[[-30.5, -30.5], [-29.5, -30.5], [-29.5, -29.5], [-30.5, -29.5], [-30.5, -30.5]]]
 HEX = r"[0-9a-f]{15}"
 SPEC_COLUMNS = {
@@ -28,7 +28,7 @@ SPEC_COLUMNS = {
 DAILY_KEYS = {
     "epoch_day", "year", "doy", "raw_modis_cnt", "raw_viirs_cnt", "raw_frp_mw", "obs_terra_fre",
     "obs_aqua_fre", "obs_viirs_fre", "neighbor_fre_lag1", "cloud_cover_pct", "gap_status_mask",
-    "sensor_obs_mask", "burned_area_ha_mcd64",
+    "sensor_obs_mask", "burned_area_ha_mcd64", "observed_energy_mj", "observation_known", "observed_zero", "pm25_emitted_kg", "coverage_complete", "pm25_factor_sd_kg",
 }
 
 
@@ -58,24 +58,24 @@ def fetch(coords, start=2001, end=2026, exclude=True):
 # ---------------- hierarchical filter ----------------
 
 def test_filter_equals_direct_r7_polyfill_and_unique_parents():
-    r4, r7, area = queries.get_hierarchical_h3_filter(CERRADO)
-    assert r7 and r7 == direct_r7(CERRADO)
+    r4, r7, area = queries.get_hierarchical_h3_filter(CHILECITO)
+    assert r7 and r7 == direct_r7(CHILECITO)
     assert all(type(c) is int for c in r4 + r7)
     assert r4 == sorted({h3.str_to_int(h3.cell_to_parent(h3.int_to_str(c), 4)) for c in r7})
     assert area == pytest.approx(sum(h3.cell_area(h3.int_to_str(c), unit="km^2") for c in r7))
 
 
 def test_filter_keeps_border_parents_that_r4_polyfill_misses():
-    r4, _, _ = queries.get_hierarchical_h3_filter(CERRADO)
-    r4_direct = {h3.str_to_int(c) for c in h3.polygon_to_cells(latlng_poly(CERRADO), 4)}
+    r4, _, _ = queries.get_hierarchical_h3_filter(CHILECITO)
+    r4_direct = {h3.str_to_int(c) for c in h3.polygon_to_cells(latlng_poly(CHILECITO), 4)}
     assert set(r4) - r4_direct
 
 
 def test_filter_respects_geojson_lon_lat_order():
-    _, r7, _ = queries.get_hierarchical_h3_filter(CERRADO)
+    _, r7, _ = queries.get_hierarchical_h3_filter(CHILECITO)
     for c in r7:
         lat, lng = h3.cell_to_latlng(h3.int_to_str(c))
-        assert -17.81 < lat < -15.99 and -57.21 < lng < -55.19
+        assert -31.01 < lat < -27.49 and -69.51 < lng < -65.49
 
 
 def test_tiny_polygon_has_no_centroid_fallback():
@@ -90,21 +90,21 @@ def test_topology_validation_rejects_bowtie():
     bowtie = [[[-49.0, -17.0], [-47.0, -15.0], [-47.0, -17.0], [-49.0, -15.0], [-49.0, -17.0]]]
     with pytest.raises(ValueError):
         queries.validate_polygon_topology(bowtie)
-    queries.validate_polygon_topology(CERRADO)
+    queries.validate_polygon_topology(CHILECITO)
 
 
 # ---------------- queries ----------------
 
 def test_query_returns_exactly_cube_cells_inside_polygon(engine):
-    _, r7, _ = queries.get_hierarchical_h3_filter(CERRADO)
+    _, r7, _ = queries.get_hierarchical_h3_filter(CHILECITO)
     cube_cells = set(pq.read_table(engine.cube_path(), columns=["h3_r7"])["h3_r7"].to_pylist())
     expected = sorted(h3.int_to_str(c) for c in set(r7) & cube_cells)
     assert expected
-    assert [h.h3_index for h in fetch(CERRADO, exclude=False).hexagons] == expected
+    assert [h.h3_index for h in fetch(CHILECITO, exclude=False).hexagons] == expected
 
 
 def test_query_filters_r7_after_r4(engine):
-    center = h3.latlng_to_cell(-16.9, -56.2, 7)  # synthetic cube cerrado_brazil centre
+    center = h3.latlng_to_cell(-29.25, -67.5, 7)  # synthetic Chilecito centre
     lat, lng = h3.cell_to_latlng(center)
     small = square(lng, lat, 0.003)
     _, r7, _ = queries.get_hierarchical_h3_filter(small)
@@ -119,7 +119,7 @@ def test_ocean_has_no_data(engine):
 
 
 def test_daily_contract(engine):
-    agg = fetch(CERRADO, 2015, 2016)
+    agg = fetch(CHILECITO, 2015, 2016)
     d = agg.daily
     assert set(d) == DAILY_KEYS
     assert all(isinstance(v, np.ndarray) and len(v) == 731 for v in d.values())
@@ -130,7 +130,7 @@ def test_daily_contract(engine):
 
 
 def test_industrial_exclusion_contract(engine):
-    keep, drop = fetch(NIGER, exclude=False), fetch(NIGER, exclude=True)
+    keep, drop = fetch(AMAZONAS, exclude=False), fetch(AMAZONAS, exclude=True)
     total = int(keep.daily["raw_modis_cnt"].sum() + keep.daily["raw_viirs_cnt"].sum())
     assert keep.industrial_false_positives_removed == 0 and total > 0
     kept = int(drop.daily["raw_modis_cnt"].sum() + drop.daily["raw_viirs_cnt"].sum())
@@ -141,7 +141,7 @@ def test_industrial_exclusion_contract(engine):
 
 
 def test_hexagon_format(engine):
-    hexes = fetch(CERRADO).hexagons
+    hexes = fetch(CHILECITO).hexagons
     assert hexes and all(isinstance(h, H3MapSummaryHex) for h in hexes)
     import re
     for h in hexes:

@@ -70,7 +70,7 @@ export const CalendarTooltip: React.FC = () => {
             {isForecast ? "Forecast energy" : "Harmonized energy"}
           </span>
           <span className="text-sm font-medium text-thermal-4 tnum">
-            {fmt(cell.harmonized_fre_mj_km2)}{" "}
+            {cell.observation_status === "unknown" ? "Unknown" : fmt(cell.harmonized_fre_mj_km2)}{" "}
             <span className="text-[10px] font-normal text-faint">MJ/km²</span>
           </span>
         </div>
@@ -85,7 +85,7 @@ export const CalendarTooltip: React.FC = () => {
         </div>
       </div>
 
-      <div className="mb-3 space-y-1 border border-rule p-2 text-[11px] tnum">
+      {cell.observation_status === "unknown" ? <p className="mb-3 border border-rule p-2 text-xs text-muted">Observation coverage is unknown. No fire energy was reconstructed for this date.</p> : <div className="mb-3 space-y-1 border border-rule p-2 text-[11px] tnum">
         <div className="flex justify-between text-muted">
           <span>95% range</span>
           <span className="text-ink">
@@ -110,18 +110,20 @@ export const CalendarTooltip: React.FC = () => {
           <div className="flex justify-between text-muted">
             <span>Biomass · PM2.5</span>
             <span className="text-ink">
-              {fmt(cell.biomass_burned_tonnes, 1)} t · {fmt(cell.pm25_emitted_kg, 0)} kg
+              {fmt(cell.biomass_burned_tonnes, 1)} t · {fmt(cell.pm25_emitted_kg, 0)} kg{cell.pm25_factor_sd_kg != null ? ` (factor SD ${fmt(cell.pm25_factor_sd_kg, 0)} kg)` : ""}
             </span>
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         {isForecast ? (
           <span className="inline-flex items-center gap-1 border border-terracotta/40 bg-terracotta/10 px-2 py-0.5 text-[10px] text-terracotta">
             <TrendingUp className="h-3 w-3" />
-            14-day operational forecast
+            Model energy forecast
           </span>
+        ) : cell.observation_status === "unknown" ? (
+          <span className="text-[10px] text-muted">Unknown observation coverage</span>
         ) : cell.is_gap_filled ? (
           <span className="inline-flex items-center gap-1 border border-reference/40 bg-reference/10 px-2 py-0.5 text-[10px] text-reference">
             <Wrench className="h-3 w-3" />
@@ -135,7 +137,7 @@ export const CalendarTooltip: React.FC = () => {
         ) : (
           <span className="inline-flex items-center gap-1 border border-validated/40 bg-validated/10 px-2 py-0.5 text-[10px] text-validated">
             <ShieldCheck className="h-3 w-3" />
-            Clean observation
+            Recorded observation
           </span>
         )}
 

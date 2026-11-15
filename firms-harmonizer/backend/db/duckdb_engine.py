@@ -32,7 +32,9 @@ OPTIONAL_COLUMNS = ("igbp_biome", "sensor_obs_mask", "gap_status_mask", "cloud_c
 DataSource = Literal["real", "synthetic"]
 
 _MASTER_CONN: duckdb.DuckDBPyConnection | None = None
-_INIT_LOCK = threading.Lock()
+_INIT_LOCK = threading.RLock()
+_ACTIVE = {}
+_RETIRED = set()
 _DATA_SOURCE: DataSource | None = None
 _CUBE_PATH: Path | None = None
 _MISSING: list[str] = []
@@ -108,27 +110,46 @@ def init_engine() -> duckdb.DuckDBPyConnection:
 
 
 def reload_engine() -> duckdb.DuckDBPyConnection:
-    """Close the master connection and reopen it to refresh views from parquet."""
+    """Publish a fresh engine without closing cursors used by in-flight requests."""
     global _MASTER_CONN, _DATA_SOURCE, _CUBE_PATH, _MISSING
+    path, source = resolve_cube(REAL_CUBE_PATH, SYNTHETIC_CUBE_PATH,
+                                os.environ.get("USE_SYNTHETIC_CUBE") == "1")
+    conn = duckdb.connect(":memory:")
+    try:
+        conn.read_parquet(str(path)).create_view("fire_cube")
+        missing = missing_optional_columns([row[0] for row in conn.execute("DESCRIBE fire_cube").fetchall()])
+    except Exception:
+        conn.close()
+        raise
     with _INIT_LOCK:
-        if _MASTER_CONN is not None:
-            try:
-                _MASTER_CONN.close()
-            except Exception:
-                pass
-            _MASTER_CONN = None
-    return init_engine()
-
+        old = _MASTER_CONN
+        _MASTER_CONN, _DATA_SOURCE, _CUBE_PATH, _MISSING = conn, source, path, missing
+        if old is not None:
+            if _ACTIVE.get(old, 0):
+                _RETIRED.add(old)
+            else:
+                old.close()
+    return conn
 
 
 @contextmanager
 def get_db_cursor() -> Iterator[duckdb.DuckDBPyConnection]:
-    """Isolated cursor per request; always closed."""
-    cur = init_engine().cursor()
+    """Isolated cursor per request, keeping its master alive until release."""
+    with _INIT_LOCK:
+        master = init_engine()
+        cur = master.cursor()
+        _ACTIVE[master] = _ACTIVE.get(master, 0) + 1
     try:
         yield cur
     finally:
         cur.close()
+        with _INIT_LOCK:
+            _ACTIVE[master] -= 1
+            if not _ACTIVE[master]:
+                del _ACTIVE[master]
+                if master in _RETIRED:
+                    _RETIRED.remove(master)
+                    master.close()
 
 
 def data_source() -> DataSource:
