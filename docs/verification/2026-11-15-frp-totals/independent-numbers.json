@@ -1,0 +1,11 @@
+{
+  "method": "Independent direct Parquet scan with selected H3 cell centers; nominal/high confidence; industrial probability <= 0.75",
+  "detections": 119,
+  "summed_frp_mw": 3328.57,
+  "dates": [
+    "2021-08-15",
+    "2021-08-16",
+    "2021-08-17",
+    "2021-08-18"
+  ]
+}

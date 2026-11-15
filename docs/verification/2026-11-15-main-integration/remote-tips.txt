@@ -1,0 +1,6 @@
+origin 9d21e6422327e2bf1060d903c34cfc4c1babc340
+origin/deploy/huggingface-space 72737629eb88ea576e2f517de3275281f63e42c5
+origin/front-end 98cf4f86f32f470dcf76a7f10b343dd121599356
+origin/main 9d21e6422327e2bf1060d903c34cfc4c1babc340
+origin/pc-adam c635a27e7120fe25c090ec0fa47333bea2b080d6
+origin/pitch/slides-modis-viirs 2d14f7b43390555f96d9306d394b9044150f9efd

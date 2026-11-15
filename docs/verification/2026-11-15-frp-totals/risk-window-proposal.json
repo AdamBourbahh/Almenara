@@ -1,0 +1,9 @@
+{
+  "original_days": 9506,
+  "bounded_days": 9500,
+  "all_arrays_aligned": true,
+  "origin_unchanged": true,
+  "assessment_available": true,
+  "as_of_date": "2026-11-14",
+  "method": "Proposal only: slice every aligned input array to the last MAX_DAYS after extending through the forecast origin; no production risk files modified."
+}

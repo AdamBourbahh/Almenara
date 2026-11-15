@@ -1,0 +1,105 @@
+{
+  "request": {
+    "region_name": "Selected area at 40.400\u00b0, -4.500\u00b0",
+    "selected_day": null,
+    "selected_hex": null,
+    "aoi": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -4.7,
+            40.199999999999996
+          ],
+          [
+            -4.3,
+            40.199999999999996
+          ],
+          [
+            -4.3,
+            40.6
+          ],
+          [
+            -4.7,
+            40.6
+          ],
+          [
+            -4.7,
+            40.199999999999996
+          ]
+        ]
+      ]
+    },
+    "period_start": "2021-08-14",
+    "period_end": "2021-08-22",
+    "prefer_map_context": true,
+    "exclude_industrial_flaring": true,
+    "enable_kalman_gap_filling": true,
+    "previous_context": null,
+    "conversation": [],
+    "user_question": "How many satellite detections and what summed FRP in MW are recorded here? Are these separate fires?"
+  },
+  "status": 200,
+  "response": {
+    "physical_classification": "SCIENTIFIC_EXPLANATION",
+    "explanation_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **119 satellite detections** in the **Selected area at 40.400\u00b0, -4.500\u00b0** for **2021-08-14 to 2021-08-22** (Aqua, N20, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **3,328.57 MW**.\n- Strongest individual detection: **449.00 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+    "citations": [
+      {
+        "id": "[5]",
+        "source_type": "NASA_DATASET",
+        "title": "NASA FIRMS active fire observations",
+        "authors_or_agency": "NASA EOSDIS LANCE",
+        "year": 2026,
+        "dataset_or_doi": "NASA Earthdata / FIRMS",
+        "url": "https://firms.modaps.eosdis.nasa.gov/",
+        "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+      }
+    ],
+    "web_search_used": false,
+    "search_query_executed": null,
+    "model_used": "deterministic-local-observations",
+    "data_source": "real",
+    "map_context": {
+      "label": "Selected area at 40.400\u00b0, -4.500\u00b0",
+      "aoi": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -4.7,
+              40.199999999999996
+            ],
+            [
+              -4.3,
+              40.199999999999996
+            ],
+            [
+              -4.3,
+              40.6
+            ],
+            [
+              -4.7,
+              40.6
+            ],
+            [
+              -4.7,
+              40.199999999999996
+            ]
+          ]
+        ]
+      },
+      "period_start": "2021-08-14",
+      "period_end": "2021-08-22",
+      "h3_index": null
+    },
+    "answer_markdown": "### Satellite observations\n\nThe local FIRMS archive contains **119 satellite detections** in the **Selected area at 40.400\u00b0, -4.500\u00b0** for **2021-08-14 to 2021-08-22** (Aqua, N20, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **3,328.57 MW**.\n- Strongest individual detection: **449.00 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+    "provider_used": "deterministic-local-observations",
+    "episode_summary": null,
+    "guardrail_triggered": false,
+    "verified_calculations": null,
+    "suggested_prompts": [],
+    "evidence_sources": [
+      "local_cube"
+    ]
+  }
+}

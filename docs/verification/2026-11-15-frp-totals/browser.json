@@ -1,0 +1,260 @@
+{
+  "turns": [
+    {
+      "question": "How many satellite detections and what summed FRP in MW are recorded here? Are these separate fires?",
+      "status": 200,
+      "seconds": 5.804,
+      "request": {
+        "region_name": "Selected area at 40.400°, -4.500°",
+        "selected_day": null,
+        "selected_hex": null,
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.7,
+                40.199999999999996
+              ],
+              [
+                -4.3,
+                40.199999999999996
+              ],
+              [
+                -4.3,
+                40.6
+              ],
+              [
+                -4.7,
+                40.6
+              ],
+              [
+                -4.7,
+                40.199999999999996
+              ]
+            ]
+          ]
+        },
+        "period_start": "2021-08-14",
+        "period_end": "2021-08-22",
+        "prefer_map_context": true,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": null,
+        "conversation": [],
+        "user_question": "How many satellite detections and what summed FRP in MW are recorded here? Are these separate fires?"
+      },
+      "response": {
+        "physical_classification": "RETRIEVED_EVIDENCE",
+        "explanation_markdown": "**119 satellite detections** for 2021-08-14 to 2021-08-22. These are thermal observations, not a count of distinct fire incidents. [5]\n\n**Total summed FRP for the selected period: 3,328.57 MW**. [5]\n\nThis sums instantaneous FRP samples across the accepted detections in the selected area and dates. It is not a daily peak, simultaneous fire power or time-integrated energy.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "gemini-agent/gemini-3.8-flash",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected area at 40.400°, -4.500°",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.7,
+                  40.199999999999996
+                ],
+                [
+                  -4.3,
+                  40.199999999999996
+                ],
+                [
+                  -4.3,
+                  40.6
+                ],
+                [
+                  -4.7,
+                  40.6
+                ],
+                [
+                  -4.7,
+                  40.199999999999996
+                ]
+              ]
+            ]
+          },
+          "period_start": "2021-08-14",
+          "period_end": "2021-08-22",
+          "h3_index": null
+        },
+        "answer_markdown": "**119 satellite detections** for 2021-08-14 to 2021-08-22. These are thermal observations, not a count of distinct fire incidents. [5]\n\n**Total summed FRP for the selected period: 3,328.57 MW**. [5]\n\nThis sums instantaneous FRP samples across the accepted detections in the selected area and dates. It is not a daily peak, simultaneous fire power or time-integrated energy.",
+        "provider_used": "gemini-agent/gemini-3.8-flash",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": null,
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube"
+        ]
+      }
+    },
+    {
+      "question": "¿Cuál es el FRP total en MW de todo el periodo seleccionado?",
+      "status": 200,
+      "seconds": 5.537,
+      "request": {
+        "region_name": "Selected area at 40.400°, -4.500°",
+        "selected_day": null,
+        "selected_hex": null,
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.7,
+                40.199999999999996
+              ],
+              [
+                -4.3,
+                40.199999999999996
+              ],
+              [
+                -4.3,
+                40.6
+              ],
+              [
+                -4.7,
+                40.6
+              ],
+              [
+                -4.7,
+                40.199999999999996
+              ]
+            ]
+          ]
+        },
+        "period_start": "2021-08-14",
+        "period_end": "2021-08-22",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": true,
+        "previous_context": {
+          "label": "Selected area at 40.400°, -4.500°",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.7,
+                  40.199999999999996
+                ],
+                [
+                  -4.3,
+                  40.199999999999996
+                ],
+                [
+                  -4.3,
+                  40.6
+                ],
+                [
+                  -4.7,
+                  40.6
+                ],
+                [
+                  -4.7,
+                  40.199999999999996
+                ]
+              ]
+            ]
+          },
+          "period_start": "2021-08-14",
+          "period_end": "2021-08-22",
+          "h3_index": null
+        },
+        "conversation": [
+          {
+            "role": "user",
+            "content": "How many satellite detections and what summed FRP in MW are recorded here? Are these separate fires?"
+          },
+          {
+            "role": "assistant",
+            "content": "**119 satellite detections** for 2021-08-14 to 2021-08-22. These are thermal observations, not a count of distinct fire incidents. [5]\n\n**Total summed FRP for the selected period: 3,328.57 MW**. [5]\n\nThis sums instantaneous FRP samples across the accepted detections in the selected area and dates. It is not a daily peak, simultaneous fire power or time-integrated energy."
+          }
+        ],
+        "user_question": "¿Cuál es el FRP total en MW de todo el periodo seleccionado?"
+      },
+      "response": {
+        "physical_classification": "RETRIEVED_EVIDENCE",
+        "explanation_markdown": "**119 satellite detections** for 2021-08-14 to 2021-08-22. These are thermal observations, not a count of distinct fire incidents. [5]\n\n**Total summed FRP for the selected period: 3,328.57 MW**. [5]\n\nThis sums instantaneous FRP samples across the accepted detections in the selected area and dates. It is not a daily peak, simultaneous fire power or time-integrated energy.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "gemini-agent/gemini-3.8-flash",
+        "data_source": "real",
+        "map_context": {
+          "label": "Selected area at 40.400°, -4.500°",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -4.7,
+                  40.199999999999996
+                ],
+                [
+                  -4.3,
+                  40.199999999999996
+                ],
+                [
+                  -4.3,
+                  40.6
+                ],
+                [
+                  -4.7,
+                  40.6
+                ],
+                [
+                  -4.7,
+                  40.199999999999996
+                ]
+              ]
+            ]
+          },
+          "period_start": "2021-08-14",
+          "period_end": "2021-08-22",
+          "h3_index": null
+        },
+        "answer_markdown": "**119 satellite detections** for 2021-08-14 to 2021-08-22. These are thermal observations, not a count of distinct fire incidents. [5]\n\n**Total summed FRP for the selected period: 3,328.57 MW**. [5]\n\nThis sums instantaneous FRP samples across the accepted detections in the selected area and dates. It is not a daily peak, simultaneous fire power or time-integrated energy.",
+        "provider_used": "gemini-agent/gemini-3.8-flash",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": null,
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube"
+        ]
+      }
+    }
+  ],
+  "errors": []
+}
