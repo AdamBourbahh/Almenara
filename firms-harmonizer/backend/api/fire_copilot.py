@@ -28,7 +28,7 @@ import pyarrow as pa
 
 from backend.api.schemas import CitationReference, CopilotMapContext, ExplainSpikeRequest, ExplainSpikeResponse
 from backend.api.cache import LRUCache
-from backend.api.copilot_metrics import energy_answer, retrieve_energy
+from backend.api.copilot_metrics import energy_answer, energy_calculations, retrieve_energy
 from backend.api import copilot_research as research
 from backend.api.copilot_answers import causal_answer, is_causal
 from backend.api.copilot_guidance import guidance
@@ -348,7 +348,7 @@ def search_reports(scope: Scope) -> tuple[list[CitationReference], str]:
         key = os.getenv("TAVILY_API_KEY")
         if key:
             try:
-                with httpx.Client(timeout=5.0) as client:
+                with httpx.Client(timeout=4.0) as client:
                     response = client.post("https://api.tavily.com/search", json={"api_key": key,
                         "query": query, "max_results": 8, "search_depth": "basic"})
                     response.raise_for_status()
@@ -632,7 +632,8 @@ def answer(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
         return ExplainSpikeResponse(physical_classification=("LOCAL_ENERGY_SUMMARY" if energy["status"] == "ok"
             else classify(req, scope, observed)), explanation_markdown=text,
             citations=[c for c in citations if c.id in text], model_used="deterministic-local-observations",
-            data_source=source, map_context=map_context(scope))
+            data_source=source, map_context=map_context(scope),
+            verified_calculations=energy_calculations(energy) if energy["status"] == "ok" else None)
     if causal and initial_classification != "SCIENTIFIC_EXPLANATION":
         return causal_answer(req, scope, observed, source, search=search_reports, complete=complete,
             firms=FIRMS, methods=METHOD_SOURCES, context=map_context(scope))

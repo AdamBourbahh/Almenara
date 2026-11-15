@@ -58,5 +58,41 @@
     "title": "Visible map versus regional energy estimate",
     "url": "https://doi.org/10.1029/2005JD006318",
     "text": "The visible map integrates calibrated observations per H3 cell and does not include regional Kalman reconstruction. The regional model first averages each sensor over potentially different sets of cells, then combines sensors and optionally reconstructs missing values. These are different estimators, so totals can differ even with reconstruction disabled. Compare the same area, inclusive dates and industrial settings. Biomass must use the matching energy: 0.368 tonnes per GJ. Observed cell footprint differs from selected polygon area; neither is measured burned area. A full-year selection can contain only the days available before the archive cutoff."
+  },
+  {
+    "id": "K11",
+    "title": "Fire season timing: peak burning date, season duration and decadal drift",
+    "url": null,
+    "text": "The fire season tool summarises each complete calendar year by its peak burning date, the energy-weighted circular centre of that year's fire activity, and by its season duration in days, an effective seasonal width derived from how concentrated the activity is. Decadal drift is the Theil-Sen slope of the yearly peak dates in days per decade: positive means the peak arrives later, negative earlier. Its p-value is a rank test without correction for year-to-year correlation. A weakly seasonal year gives a long duration and an unstable peak. Partial years are excluded. This describes when satellites record fire energy, not when ignitions are permitted or likely."
+  },
+  {
+    "id": "K12",
+    "title": "Period comparison, percentage change and the internal calculator",
+    "url": null,
+    "text": "Comparisons between two years, seasons or months are computed by the server from the same daily series as the dashboard: total energy, dry biomass consumed, mean daily energy and the highest single day for each period, with percentage change equal to second minus first, divided by first, times 100. A percentage change is undefined when the first period is zero. The language model never performs this arithmetic; each figure is shown with its formula as a verified calculation. A period that runs past the archive end is compared on its available days only, and differences in satellite coverage between periods can contribute to a change."
+  },
+  {
+    "id": "K13",
+    "title": "Thermal risk outlook and intensity regimes",
+    "url": null,
+    "text": "The risk outlook reports the probability that satellites record high non-persistent heat or a persistent-source thermal excursion within 24 hours, 7 days and 14 days. It is a satellite thermal-event proxy, not a forecast of a confirmed ignition. The 24-hour figure is the sum of a seasonal baseline for that time of year, a multi-year shift comparing recent years with the long record, and a short-term surge from recent heat and activity in adjacent cells. Longer windows accumulate with day-to-day persistence instead of treating days as independent. Intensity regimes use per-detection radiative power: below 25 MW low surface intensity, 25 to 120 MW moderate surface fire, 120 to 350 MW high intensity, above 350 MW extreme. These bands are indicative and do not replace an on-site assessment."
+  },
+  {
+    "id": "K14",
+    "title": "Validated burned area from MCD64A1",
+    "url": "https://ladsweb.modaps.eosdis.nasa.gov/filespec/MODIS/61/MCD64A1",
+    "text": "Burned area in hectares comes only from the MCD64A1 500 m burned-area product, when its complete monthly tiles have been published locally for the area and year. It includes burned cells that have no active-fire detection, and it can miss small or low-intensity burns. Fire energy per burned hectare divides the model-derived energy of the same calendar years by that area. When MCD64A1 is not available the answer is unavailable: detection counts, radiative power and energy cannot be converted into hectares."
+  },
+  {
+    "id": "K15",
+    "title": "Historically quiet windows for planned burning",
+    "url": null,
+    "text": "The quiet-window tool averages the daily fire energy density and the previous-day energy of adjacent cells for each calendar day across the full record, then ranks 30-day windows from the lowest values. It shows when satellites have historically recorded the least fire activity and the least spread between neighbouring cells in the selected area. It is not a burn authorisation or a weather forecast: fuel moisture, wind, staffing and local regulations decide whether a prescribed or agricultural burn is safe. Days without a detection count as quiet although cloud can hide activity."
+  },
+  {
+    "id": "K16",
+    "title": "Reconstructed days and stationary industrial heat",
+    "url": null,
+    "text": "A reconstructed day is one where an evidenced sensor outage or cloud cover left no usable observation and the daily energy was estimated by smoothing. Days with no coverage evidence are left unfilled rather than assumed to be zero. Stationary industrial heat, such as gas flaring, is screened by year-round persistence and a match to published flare sites; vegetation fire is seasonal and moves. The data-quality tool reports how many cells carry the persistent-source flag and their share of all detections. The flag is a screening result: it does not name a facility, and an unflagged cell is not proof of vegetation fire."
   }
 ]

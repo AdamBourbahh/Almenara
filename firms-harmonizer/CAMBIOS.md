@@ -1,5 +1,91 @@
 # Change log — integration changes
 
+## 2026-11-15 — Copilot domain gate, calculation engine and provenance
+
+**Contract (additive, optional; existing clients unaffected).** `ExplainSpikeResponse`
+gains four fields, mirrored in `frontend/src/api/types.ts`:
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `guardrail_triggered` | `bool` | `False` | The domain gate declined the question before any model, database or web call. |
+| `verified_calculations` | `dict \| None` | `None` | `{"items": [{"label", "formula", "value", "unit"}], "note"}`: server-computed formulas with their exact results. |
+| `suggested_prompts` | `list[str]` (max 4) | `[]` | Starter questions for the attached region, returned with a refusal. |
+| `evidence_sources` | list of `local_cube`, `verified_calculation`, `web`, `knowledge`, `guardrail` | `[]` | Evidence families the answer rests on. |
+
+No request field changed. `physical_classification` remains a free string; new values are
+`OFF_TOPIC_REFUSAL` and `LOCAL_CALCULATION`.
+
+**Domain gate** (`backend/api/copilot_guardrail.py`, called first in
+`copilot_agent.answer` and `copilot_researcher.answer`). A deterministic lexical screen
+refuses instruction-override attempts, code/creative-writing tasks, unrelated topics
+(finance, sport, celebrities, recipes, medicine, general trivia) unless the question also
+carries a fire/land/satellite term, and questions longer than four words with no domain,
+map-context or date signal. Short follow-ups pass. It is a screen, not a classifier:
+a determined paraphrase can pass it, and the agent's system prompt still restricts scope.
+
+**Calculation engine** (`backend/api/copilot_metrics.py`). All figures derive from the
+dashboard's `/api/analyze` series (same filters, same cache entry) or `/api/predict-risk`:
+period-over-period comparison with percentage change; fire-season timing (peak date,
+duration, Theil-Sen drift in days per decade, optionally over the last N years);
+reconstructed days and persistent-source cells; MCD64A1 burned area with energy per
+hectare; 30-day historically quiet windows; ranked thermal events; thermal risk outlook;
+and a smoke scenario. Each is exposed as an agent tool and through a deterministic offline
+router (`copilot_researcher.local_calculation`), so they work with `COPILOT_OFFLINE=1`.
+
+**Numerical gate.** Prose figures must still equal a tool result within 0.01%. After the
+single repair attempt, sentences with unsupported figures are now removed and the
+server-rendered calculation is kept, instead of discarding the whole answer. An answer
+left with no supported sentence still falls back to the local engine.
+
+**Web search.** `search_incident_reports` runs only for event context, official reports
+or regulations (`copilot_agent.wants_reports`); otherwise the tool returns
+`not_investigative` without a network call. A provider failure or timeout now reports
+`model_used = "deterministic-offline-science"`. The Tavily call in `fire_copilot` drops
+from 5 s to 4 s. The 12-second Google discovery budget is unchanged (see the Gemini entry).
+
+**Drawer.** Provenance badges, an expandable verified-calculation card, tappable prompts
+after a refusal, and starter questions adapted to the attached area and period. Pure
+logic lives in `frontend/src/components/Audit/copilotPresentation.ts`.
+
+**Limitations to know.**
+- The smoke scenario applies generic factors (9.5 kg PM2.5 and 1,580 kg CO2 per tonne of
+  dry biomass). This reintroduces, as a labelled scenario only, the generic factor that the
+  dossier dropped on 2026-11-15; the dashboard's fuel-specific `pm25_emitted_kg` is unchanged
+  and stays null without measured land cover. Without an attached area the Copilot still
+  answers that these totals are unavailable.
+- Burned area is reported only where MCD64A1 complete years are published locally; in
+  synthetic mode it is always unavailable.
+- Quiet windows count days without a detection as quiet, although cloud can hide activity,
+  and are explicitly not a burn authorisation.
+- The risk outlook uses the end of the selected period as its origin, so a past selection
+  gives a past-dated outlook.
+- `copilot_rag` now reads its sources as UTF-8 explicitly (they were mis-decoded on Windows).
+
+**Validation:** backend 590 passed, 1 failed (`test_real_cube_november_2026_coverage_and_schema`:
+the local real cube ends 2026-11-01, unrelated); frozen-test hashes OK; frontend `tsc`
+clean, 55/55 tests, production build OK. On Windows the backend suite needs `PYTHONUTF8=1`
+for `test_core_has_only_allowed_imports`, which reads `risk_predictor.py` with the locale codec.
+
+## 2026-11-15 — Risk AI recalibration and operational telemetry (branch `feat/risk-calibration`)
+
+Merged from `feat/risk-calibration`; this entry records its contract additions, which were
+not logged with that commit. All are optional and default to `None`.
+
+- `AIRiskAssessment`: `baseline_climatology_pct`, `multi_year_trend_delta_pct`,
+  `short_term_anomaly_delta_pct` (their sum is `combined_risk_pct` up to rounding),
+  `anomaly_multiplier`, `markov_persistence`, `horizon_explanation`, `observation`
+  (`RiskObservationStatus`), `intensity` (`RiskIntensityRegime`), `phenology`
+  (`RiskPhenology`), `outlook_series` (`RiskOutlookPoint`).
+- `RiskFactor`: `signed_impact_pct`, `observed_value`, `unit`.
+- `RiskDailyProbability`: `baseline_prob_pct`, `observed_event`.
+
+Behaviour: the 24-hour probability is anchored to a causal seasonal base rate (day of year
+±15 days, earlier years only); 7- and 14-day windows accumulate through a first-order
+persistence chain with ρ in [0.55, 0.85] instead of independent fits; intensity regimes
+use per-detection FRP. Known limits from that work: the ρ floor of 0.55 under-predicts
+7/14-day windows where day-to-day persistence is weaker (Orlando, Iberia), and large
+regions can exceed 10% on days that are not physically calm.
+
 ## 2026-11-15 — Integration with updated origin/main
 
 Preserved upstream inclusive chronology ranges, map search/scale, settings, local

@@ -11,7 +11,7 @@ import duckdb
 from fastapi import HTTPException
 from pydantic import BaseModel,ConfigDict,Field
 
-from backend.api import copilot_rag,copilot_providers,fire_copilot as local,copilot_researcher as researcher
+from backend.api import copilot_guardrail,copilot_metrics as metrics,copilot_rag,copilot_providers,fire_copilot as local,copilot_researcher as researcher
 from backend.api.copilot_metrics import retrieve_energy,energy_answer
 from backend.api.schemas import CitationReference,ExplainSpikeResponse,GeoJSONPolygon
 from backend.db import duckdb_engine
@@ -29,7 +29,10 @@ SYSTEM = (
     'An unknown cause does not negate a reported fire. Do not infer ignition from wind, heat or satellite power. '
     'For event questions investigate matching place/date reports, prioritizing official agencies; use scientific papers for general mechanisms, not proof of a particular event. '
     'Never claim to have searched unless the search tool ran. Cite only supplied source IDs; prioritize relevance over citation count. '
-    'Use exact tool numbers and do not perform arithmetic in prose. Describe estimates as estimates; do not invent burned area, emissions or operational safety advice. '
+    'Every percentage change, total, biomass, smoke, burned-area, season-timing or risk figure must come from a calculation tool; never derive one yourself. '
+    'Prefer practical terms: total energy (GJ), dry biomass consumed (tonnes), peak burning date, season duration (days), drift in days per decade, burned hectares, reconstructed days during cloud or sensor outages, and stationary industrial flaring versus vegetation fire. '
+    'Never address the reader by a role or profession. '
+    'Use exact tool numbers and do not perform arithmetic in prose.Describe estimates as estimates; do not invent burned area, emissions or operational safety advice. '
     'Use plain Markdown and readable units such as MJ/s, without LaTeX. Lead with a direct answer. Add Evidence and Limits only when helpful, keeping them brief and avoiding repeated measurements already shown by the server. '
     'If evidence is insufficient, name the specific missing evidence and a useful next step.'
 )
@@ -41,6 +44,8 @@ class Args(BaseModel):
     start:date|None=None
     end:date|None=None
     target_date:date|None=None
+    compare_start:date|None=None
+    compare_end:date|None=None
 
 
 class Final(BaseModel):
@@ -60,6 +65,15 @@ TOOLS=[
  definition('query_observations','Query accepted satellite detections, FRP and busiest days for the resolved map area.',DATES),
  definition('query_energy','Calculate mapped and regional energy in GJ, biomass and yearly totals when the user requests these quantities or comparisons.',DATES),
  definition('profile_episode','Discover the main thermal episode and estimate progression/duration and consequences.',{'target_date':{'type':'string'}}),
+ definition('compare_periods','Compare two periods of the selected area: energy, dry biomass, mean and peak day, with percentage change. start/end is the first period; compare_start/compare_end the second.',
+    {**DATES,**{k:{'type':'string','description':'ISO date YYYY-MM-DD of the second period.'} for k in ('compare_start','compare_end')}}),
+ definition('estimate_emissions','Scenario estimate of PM2.5 smoke and CO2 from consumed dry biomass, with its assumptions.',DATES),
+ definition('query_fire_season','Typical peak burning date, season duration in days and its drift in days per decade over the record.',{}),
+ definition('query_risk_outlook','Thermal risk for the next 24 hours, 7 and 14 days, intensity regime and main physical drivers.',{'target_date':{'type':'string'}}),
+ definition('query_data_quality','Days reconstructed during cloud cover or sensor outages, and stationary industrial heat sources versus vegetation fire.',DATES),
+ definition('query_burned_area','MCD64A1 validated burned area in hectares by year and fire energy per burned hectare.',DATES),
+ definition('find_quiet_burn_windows','Historical 30-day windows with the least fire energy and neighbour spread, for planning prescribed or agricultural burns.',{}),
+ definition('rank_thermal_events','Rank the largest thermal events recorded in the area by energy, with dates, duration and biomass.',DATES),
  definition('search_incident_reports','Investigate real-world incidents for the selected place and period. Retrieve official/reputable reports for event identity, chronology, reported cause or spread; use this for event-specific questions.',{})]
 
 
@@ -85,7 +99,49 @@ def turn(messages,*,finish=False,timeout=10,used=()):
     return choice['message']
 
 
+CALCULATION_TOOLS=('compare_periods','estimate_emissions','query_fire_season','query_risk_outlook','query_data_quality',
+    'query_burned_area','find_quiet_burn_windows','rank_thermal_events')
+CUBE_TOOLS=('query_energy','query_observations','profile_episode')+CALCULATION_TOOLS
+REPORT_INTENT=re.compile(r'report|news|noticia|official|oficial|agency|authorit|regulat|normativa|ordinance|permit|\blaw\b|\bley\b|incident|what happened|led to|evacuat|damage|casualt|contain|extinguish|\bwho\b|named|identity')
+MARKER=r'\[(?:[A-Z]*\d+(?:_\d+)?)\]'
+
+
+def wants_reports(question):
+    """Web retrieval is reserved for real-world event context, official reports and regulations."""
+    return bool(researcher.is_investigative(question) or local.is_causal(question) or REPORT_INTENT.search(local.normalized(question)))
+
+
+def strip_unsupported(text,supported):
+    """Drop every sentence carrying a number absent from the tool results."""
+    return ' '.join(s for s in re.split(r'(?<=[.!?])\s+|\n+',text) if s.strip() and supported(s)).strip()
+
+
+def provenance(response):
+    """Label which evidence families a finished answer rests on; never upgrades a claim."""
+    if not isinstance(response,ExplainSpikeResponse) or response.guardrail_triggered:
+        return response
+    ids={c.id for c in response.citations}
+    sources=[]
+    if ids & {'[5]','[6]'} or response.episode_summary or response.verified_calculations:
+        sources.append('local_cube')
+    if response.verified_calculations:
+        sources.append('verified_calculation')
+    if response.web_search_used:
+        sources.append('web')
+    if any(i[1:2] in ('K','E') or i in ('[1]','[2]','[3]','[4]','[10]','[11]') for i in ids):
+        sources.append('knowledge')
+    response.evidence_sources=sources
+    return response
+
+
 def answer(req):
+    """Domain gate first; then the tool agent online, or the local engine offline."""
+    if copilot_guardrail.assess(req.user_question):
+        return copilot_guardrail.refusal(req,duckdb_engine.data_source())
+    return provenance(_answer(req))
+
+
+def _answer(req):
     """No intent-keyword routing in the online path. Offline behavior stays local."""
     provider, key, _, model = copilot_providers.agent_config()
     if local.is_offline() or not key:
@@ -106,6 +162,7 @@ def answer(req):
     numeric_repairs=0
     pending_calls=[]
     batch_start=2
+    calculations=[]
     def knowledge(query):
         docs=copilot_rag.search(query)
         for doc in docs:
@@ -168,7 +225,9 @@ def answer(req):
                 available=numbers(json.dumps(evidence,ensure_ascii=False,default=str))
                 # Citation labels are identifiers, not measured quantities.
                 measured_text = re.sub(r'\[(?:[A-Z]*\d+(?:_\d+)?)\]', '', final.answer)
-                if any(not any(abs(n-v)<=max(.001,abs(v)*.0001) for v in available) for n in numbers(measured_text)):
+                # Every figure in the prose must equal a tool result within 0.01%.
+                supported=lambda value:all(any(abs(n-v)<=max(.001,abs(v)*.0001) for v in available) for n in numbers(re.sub(MARKER,'',value)))
+                if not supported(measured_text):
                     if numeric_repairs == 0 and step < 5:
                         numeric_repairs += 1
                         messages.append({'role':'assistant','content':final.answer})
@@ -178,7 +237,13 @@ def answer(req):
                             'Distinguish probable active burning from confirmation of a wildfire. Answer the actual question directly.'})
                         continue
                     log.info('Unverified answer numbers: %s', [n for n in numbers(measured_text) if not any(abs(n-v)<=max(.001,abs(v)*.0001) for v in available)])
-                    raise ValueError('Unsupported numerical claim')
+                    # Keep only sentences whose figures the tools produced. The verified
+                    # server calculation appended below then carries the numbers verbatim.
+                    kept=strip_unsupported(final.answer,supported)
+                    if not kept or not rendered:
+                        raise ValueError('Unsupported numerical claim')
+                    final=Final(answer=kept,citation_ids=final.citation_ids)
+                    mentioned=set(re.findall(MARKER,kept))
                 text=local.normalize_links(final.answer,list(citations.values()))
                 # Weather/spread excerpts cannot support a positive ignition claim.
                 if incident_excerpts and not ignition_evidence:
@@ -205,7 +270,8 @@ def answer(req):
                 return ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE',explanation_markdown=text,
                     citations=[c for k,c in citations.items() if k in used],model_used=provider+'-agent/'+model,
                     data_source=source,web_search_used=web,search_query_executed=' | '.join(queries) or None,
-                    map_context=local.map_context(scope),episode_summary=episode)
+                    map_context=local.map_context(scope),episode_summary=episode,
+                    verified_calculations=metrics.merge_verified(*calculations))
             args=Args.model_validate(raw)
             if name=='search_knowledge':
                 result=knowledge(args.query or req.user_question)
@@ -224,6 +290,7 @@ def answer(req):
                     result=retrieve_energy(selected,req)
                     citations.update({c.id:c for c in [local.CUBE,local.METHOD_SOURCES[0]]})
                     rendered.append(energy_answer(selected,result,req))
+                    calculations.append(metrics.energy_calculations(result) if 'days' in result else None)
                     if 'mapped_energy_gj' in result:
                         result={'status':result['status'],'start':selected.start,'end':selected.end,
                             'visible_map':{k:result[k] for k in ('mapped_energy_gj','mapped_biomass_tonnes','mapped_footprint_km2','mapped_detections')},
@@ -239,6 +306,41 @@ def answer(req):
                         scope=replace(scope,start=result['window_start'],end=result['window_end'])
                     result={k:v for k,v in result.items() if k!='daily_series'}
                     citations.update({c.id:c for c in [local.CUBE]+local.METHOD_SOURCES+[researcher.EMISSIONS]})
+                elif name in CALCULATION_TOOLS:
+                    calc=None
+                    if name=='compare_periods':
+                        if not (start and end and args.compare_start and args.compare_end) or args.compare_start>args.compare_end:
+                            raise ValueError('Two complete periods are required')
+                        result=metrics.retrieve_comparison(selected,req,(start,end),(args.compare_start.isoformat(),args.compare_end.isoformat()))
+                        text,calc=metrics.comparison_answer(selected,result),metrics.comparison_calculations(result)
+                    elif name=='estimate_emissions':
+                        result=metrics.retrieve_emissions(selected,req)
+                        text,calc=metrics.emissions_answer(selected,result),metrics.emissions_calculations(result)
+                        citations[researcher.EMISSIONS.id]=researcher.EMISSIONS
+                    elif name=='query_fire_season':
+                        result=metrics.retrieve_phenology(selected,req)
+                        text,calc=metrics.phenology_answer(selected,result),metrics.phenology_calculations(result)
+                    elif name=='query_risk_outlook':
+                        result=metrics.retrieve_risk(replace(selected,end=args.target_date.isoformat()) if args.target_date else selected,req)
+                        text=metrics.risk_answer(selected,result)
+                    elif name=='query_data_quality':
+                        result=metrics.retrieve_data_quality(selected,req)
+                        text=metrics.quality_answer(selected,result)
+                        citations.update({c.id:c for c in [local.METHOD_SOURCES[3],researcher.ELVIDGE]})
+                    elif name=='query_burned_area':
+                        result=metrics.retrieve_burned_area(selected,req)
+                        text,calc=metrics.burned_area_answer(selected,result),metrics.burned_area_calculations(result)
+                    elif name=='find_quiet_burn_windows':
+                        result=metrics.retrieve_low_activity_windows(selected,req)
+                        text=metrics.windows_answer(selected,result)
+                    else:
+                        result=metrics.retrieve_top_events(selected,req,args.start.isoformat() if args.start else None,args.end.isoformat() if args.end else None)
+                        text,calc=metrics.events_answer(selected,result),metrics.events_calculations(result)
+                    citations.update({c.id:c for c in [local.CUBE,local.METHOD_SOURCES[0]]})
+                    rendered.append(text)
+                    calculations.append(calc)
+                elif name=='search_incident_reports' and not wants_reports(req.user_question):
+                    result={'status':'not_investigative','message':'Web retrieval is reserved for real-world event context, official reports and regulations. Answer from the local tools.'}
                 elif name=='search_incident_reports':
                     if source=='synthetic':
                         result={'status':'synthetic','message':'Synthetic data cannot verify a real incident.'}
@@ -266,7 +368,7 @@ def answer(req):
                                       'reports': result, 'limits': 'A failed or empty search does not establish that no incident or report exists. Only retrieved article passages are independent report evidence.'}
                 else:
                     result={'error':'Unknown tool. Use an advertised tool.'}
-            if name in ('query_energy','query_observations','profile_episode') and isinstance(result,dict):
+            if name in CUBE_TOOLS and isinstance(result,dict):
                 result={**result,'sources':[{'source_id':c.id,'title':c.title} for c in citations.values() if c.id in ('[1]','[5]','[6]','[11]')]}
             evidence.append(result)
             # Bound conversation size by complete tool results; never slice JSON.
@@ -283,4 +385,8 @@ def answer(req):
         log.warning('%s agent fallback (%s); tools=%s',provider,type(exc).__name__,trace)
         from backend.api.copilot_network import offline_context
         with offline_context():
-            return researcher.answer(req)
+            fallback=researcher.answer(req)
+        # A provider outage or timeout is reported as the local engine, never as the model.
+        if isinstance(fallback,ExplainSpikeResponse) and not fallback.guardrail_triggered:
+            fallback.model_used=fallback.provider_used='deterministic-offline-science'
+        return fallback

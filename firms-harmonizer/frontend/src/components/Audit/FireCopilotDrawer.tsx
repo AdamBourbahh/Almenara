@@ -12,11 +12,15 @@ import {
   Satellite,
   Trash2,
   Radio,
-  ArrowRight
+  ArrowRight,
+  Calculator,
+  Database,
+  ShieldAlert
 } from "lucide-react";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
-import type { CitationReference } from "../../api/types";
+import type { CitationReference, CopilotEvidenceSource, ExplainSpikeResponse } from "../../api/types";
 import { CopilotContextPanel } from "./CopilotContextPanel";
+import { calculationItems, evidenceBadges, refusalBody, starterPrompts } from "./copilotPresentation";
 
 // ============================================================================
 // Markdown & Inline Formatting Helpers
@@ -284,6 +288,74 @@ const CitationCard: React.FC<CitationCardProps> = ({ citation }) => {
 };
 
 // ============================================================================
+// Provenance Badges & Verified Calculation Card
+// ============================================================================
+
+const BADGE_STYLE: Record<CopilotEvidenceSource, { icon: typeof Database; className: string }> = {
+  local_cube: { icon: Database, className: "border-reference/30 bg-reference/10 text-reference" },
+  verified_calculation: { icon: Calculator, className: "border-validated/30 bg-validated/10 text-validated" },
+  web: { icon: Globe, className: "border-terracotta/30 bg-terracotta/10 text-terracotta" },
+  knowledge: { icon: BookOpen, className: "border-rule-strong bg-paper text-muted" },
+  guardrail: { icon: ShieldAlert, className: "border-bias/30 bg-bias/10 text-bias" }
+};
+
+function EvidenceBadges({ response }: { response: ExplainSpikeResponse | undefined }) {
+  const badges = evidenceBadges(response);
+  if (!badges.length) return null;
+  return (
+    <ul aria-label="How this answer was produced" className="flex flex-wrap items-center gap-1.5">
+      {badges.map((badge) => {
+        const { icon: Icon, className } = BADGE_STYLE[badge.kind];
+        return (
+          <li
+            key={badge.kind}
+            title={badge.detail}
+            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-4 ${className}`}
+          >
+            <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span>{badge.label}</span>
+            <span className="sr-only">: {badge.detail}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function VerifiedCalculationCard({ response }: { response: ExplainSpikeResponse | undefined }) {
+  const items = calculationItems(response);
+  if (!items.length) return null;
+  const note = response?.verified_calculations?.note;
+  return (
+    <details className="group mt-3 rounded border border-validated/25 bg-validated/5">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded px-3 py-2 text-xs font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-reference [&::-webkit-details-marker]:hidden">
+        <span className="flex items-center gap-1.5">
+          <Calculator className="h-3.5 w-3.5 text-validated" aria-hidden="true" />
+          Verified calculation
+          <span className="font-normal text-faint">
+            · {items.length} {items.length === 1 ? "formula" : "formulas"}
+          </span>
+        </span>
+        <ArrowRight className="h-3 w-3 text-faint transition-transform duration-150 ease-out group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+      </summary>
+      <div className="border-t border-validated/20 px-3 py-2.5">
+        <dl className="space-y-2">
+          {items.map((item, index) => (
+            <div key={`${item.label}-${index}`}>
+              <dt className="text-[11px] font-medium text-muted">{item.label}</dt>
+              <dd className="mt-0.5 overflow-x-auto whitespace-nowrap font-mono text-[11px] tabular-nums text-ink">{item.formula}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-2.5 text-[10px] leading-relaxed text-faint">
+          Computed by the server from the local record, not by the language model.{note ? ` ${note}` : ""}
+        </p>
+      </div>
+    </details>
+  );
+}
+
+// ============================================================================
 // Main Fire Copilot Drawer Component
 // ============================================================================
 
@@ -293,6 +365,7 @@ export function FireCopilotDrawer() {
     copilotLoading,
     copilotError,
     copilotMessages,
+    copilotContext,
     closeCopilot,
     askCopilot,
     clearCopilotMessages
@@ -302,6 +375,7 @@ export function FireCopilotDrawer() {
       copilotLoading: s.copilotLoading,
       copilotError: s.copilotError,
       copilotMessages: s.copilotMessages,
+      copilotContext: s.copilotContext,
       closeCopilot: s.closeCopilot,
       askCopilot: s.askCopilot,
       clearCopilotMessages: s.clearCopilotMessages
@@ -331,6 +405,8 @@ export function FireCopilotDrawer() {
   };
 
   if (!isCopilotOpen) return null;
+
+  const starters = starterPrompts(copilotContext);
 
   return (
     <>
@@ -405,22 +481,21 @@ export function FireCopilotDrawer() {
 
               <div className="mt-6 w-full space-y-2 text-left">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-faint">
-                  Suggested inquiries:
+                  Suggested inquiries
                 </p>
-                {[
-                  "How much energy in GJ and how many detections are in this area?",
-                  "Show energy by year for this area from 2020 to 2025.",
-                  "Which days had the most detections near Manaus in September 2024?",
-                  "Can satellite FRP tell us the cause or burned area?"
-                ].map((q, i) => (
+                {starters.caption && (
+                  <p className="break-words text-[11px] text-muted">For {starters.caption}</p>
+                )}
+                {starters.prompts.map((q) => (
                   <button
-                    key={i}
+                    key={q}
                     type="button"
+                    disabled={copilotLoading}
                     onClick={() => handleQuickQuestion(q)}
-                    className="group flex w-full items-center justify-between rounded border border-rule bg-panel px-3 py-2 text-xs text-muted hover:border-reference hover:bg-paper hover:text-ink transition-colors"
+                    className="group flex min-h-10 w-full items-center justify-between gap-3 rounded border border-rule bg-panel px-3 py-2 text-left text-xs text-muted transition-colors duration-150 ease-out hover:border-reference hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-reference active:scale-[0.99] disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:scale-100"
                   >
                     <span>{q}</span>
-                    <ArrowRight className="h-3 w-3 text-faint group-hover:text-reference transition-colors" />
+                    <ArrowRight className="h-3 w-3 shrink-0 text-faint transition-colors duration-150 group-hover:text-reference" aria-hidden="true" />
                   </button>
                 ))}
               </div>
@@ -446,12 +521,14 @@ export function FireCopilotDrawer() {
                       </span>
 
                       {/* Provider Badge */}
-                      {msg.response?.model_used && (
+                      {msg.response?.model_used && !msg.response.guardrail_triggered && (
                         <span className="rounded border border-rule bg-paper px-1.5 py-0.5 font-mono text-[10px] text-faint">
-                          {msg.response.model_used.startsWith("deterministic") ? "Local evidence" : "AI assisted"}
+                          {/^(deterministic|offline)/.test(msg.response.model_used) ? "Local evidence" : "AI assisted"}
                         </span>
                       )}
 
+                      {/* Provenance: which evidence this answer rests on */}
+                      <EvidenceBadges response={msg.response} />
                     </div>
 
                     {msg.response?.data_source === "synthetic" && (
@@ -463,7 +540,34 @@ export function FireCopilotDrawer() {
                       </p>
                     )}
                     {/* Markdown Body */}
-                    <div className="text-[13px] text-ink">{renderMarkdownBlocks(msg.content, msg.response?.citations)}</div>
+                    <div className="text-[13px] text-ink">
+                      {renderMarkdownBlocks(
+                        msg.response?.guardrail_triggered ? refusalBody(msg.content, msg.response.suggested_prompts) : msg.content,
+                        msg.response?.citations
+                      )}
+                    </div>
+
+                    {/* Questions offered after a declined request */}
+                    {msg.response?.guardrail_triggered && (msg.response.suggested_prompts?.length ?? 0) > 0 && (
+                      <div className="mt-3 space-y-1.5">
+                        <p className="text-[11px] font-medium text-faint">Questions I can answer here</p>
+                        {msg.response.suggested_prompts!.map((q) => (
+                          <button
+                            key={q}
+                            type="button"
+                            disabled={copilotLoading}
+                            onClick={() => handleQuickQuestion(q)}
+                            className="group flex min-h-9 w-full items-center justify-between gap-3 rounded border border-rule bg-paper/60 px-2.5 py-1.5 text-left text-xs text-muted transition-colors duration-150 ease-out hover:border-reference hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-reference disabled:opacity-50 motion-reduce:transition-none"
+                          >
+                            <span>{q}</span>
+                            <ArrowRight className="h-3 w-3 shrink-0 text-faint transition-colors duration-150 group-hover:text-reference" aria-hidden="true" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Exact server formulas behind the figures above */}
+                    <VerifiedCalculationCard response={msg.response} />
 
                     {/* Verifiable References List */}
                     {msg.response?.citations && msg.response.citations.length > 0 && (

@@ -293,6 +293,26 @@ export interface ExplainSpikeResponse {
   answer_markdown?: string;
   provider_used?: string;
   episode_summary?: Record<string, unknown> | null;
+  /** True when the domain gate declined an off-topic or instruction-override request. */
+  guardrail_triggered?: boolean;
+  /** Server-computed formulas shown verbatim; the language model never produces these numbers. */
+  verified_calculations?: VerifiedCalculations | null;
+  suggested_prompts?: string[];
+  evidence_sources?: CopilotEvidenceSource[];
+}
+
+export type CopilotEvidenceSource = "local_cube" | "verified_calculation" | "web" | "knowledge" | "guardrail";
+
+export interface VerifiedCalculationItem {
+  label: string;
+  formula: string;
+  value: number | null;
+  unit: string;
+}
+
+export interface VerifiedCalculations {
+  items: VerifiedCalculationItem[];
+  note?: string | null;
 }
 
 // ============================================================================

@@ -11,10 +11,10 @@ ROOT=Path(__file__).resolve().parents[2]
 def documents():
     records=[]
     for path in sorted((ROOT/'data/copilot_knowledge').glob('*.json')):
-        records.extend(json.loads(path.read_text()))
+        records.extend(json.loads(path.read_text(encoding='utf-8')))
     path=ROOT/'data/ETL_SPEC.md'
     section_no=0
-    for section in re.split(r'(?m)^## ',path.read_text()):
+    for section in re.split(r'(?m)^## ',path.read_text(encoding='utf-8')):
         title=section.splitlines()[0].strip('# ') or 'ETL documentation'
         if any(word in title.lower() for word in ('test','log','verification','evidence')):
             continue

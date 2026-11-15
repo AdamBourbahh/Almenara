@@ -361,6 +361,8 @@ class RiskDailyProbability(ContractModel):
     date: date
     wildfire_prob_pct: float | None = Field(ge=0, le=100)
     accident_prob_pct: float | None = Field(ge=0, le=100)
+    baseline_prob_pct: float | None = Field(default=None, ge=0, le=100)
+    observed_event: bool | None = None
 
 
 class RiskHorizon(ContractModel):
@@ -379,6 +381,42 @@ class RiskFactor(ContractModel):
     impact_pct: float = Field(ge=0, le=100)
     direction: Literal["raises", "lowers"]
     description: str
+    signed_impact_pct: float | None = Field(default=None, ge=-100, le=100)
+    observed_value: float | None = None
+    unit: str | None = None
+
+
+class RiskObservationStatus(ContractModel):
+    status: str
+    coverage_nominal: bool
+    uncertainty_pct: float | None = Field(default=None, ge=0, le=100)
+    days_since_observation: int | None = Field(default=None, ge=0)
+
+
+class RiskIntensityRegime(ContractModel):
+    regime: str
+    guidance: str
+    intensity_mw: float | None = Field(default=None, ge=0)
+    diurnal_amplification_ratio: float | None = Field(default=None, ge=0)
+    contagion_origin: str | None = None
+    neighbor_frp_mw: float | None = Field(default=None, ge=0)
+
+
+class RiskPhenology(ContractModel):
+    days_to_peak: int | None = Field(default=None, ge=-183, le=183)
+    peak_date_label: str | None = None
+    kappa: float | None = Field(default=None, ge=0)
+    season_width_days: float | None = Field(default=None, ge=0, le=366)
+    decadal_shift_days: float | None = None
+    biomass_exposure_tonnes: float | None = Field(default=None, ge=0)
+    persistence_entropy: float | None = Field(default=None, ge=0, le=1)
+    fuel_regime: str | None = None
+
+
+class RiskOutlookPoint(ContractModel):
+    date: date
+    prob_pct: float | None = Field(default=None, ge=0, le=100)
+    baseline_prob_pct: float | None = Field(default=None, ge=0, le=100)
 
 
 class AIRiskAssessment(ContractModel):
@@ -396,6 +434,16 @@ class AIRiskAssessment(ContractModel):
     top_risk_factors: list[RiskFactor]
     industrial_risk_factors: list[RiskFactor]
     daily_probability_series: list[RiskDailyProbability]
+    baseline_climatology_pct: float | None = Field(default=None, ge=0, le=100)
+    multi_year_trend_delta_pct: float | None = Field(default=None, ge=-100, le=100)
+    short_term_anomaly_delta_pct: float | None = Field(default=None, ge=-100, le=100)
+    anomaly_multiplier: float | None = Field(default=None, ge=0)
+    markov_persistence: float | None = Field(default=None, ge=0, le=1)
+    horizon_explanation: str | None = None
+    observation: RiskObservationStatus | None = None
+    intensity: RiskIntensityRegime | None = None
+    phenology: RiskPhenology | None = None
+    outlook_series: list[RiskOutlookPoint] | None = None
 
 
 class RiskPredictionResponse(ContractModel):
@@ -574,6 +622,11 @@ class ExplainSpikeResponse(ContractModel):
     answer_markdown: str = ""
     provider_used: str = ""
     episode_summary: dict | None = None
+    guardrail_triggered: bool = False
+    verified_calculations: dict | None = None
+    suggested_prompts: list[str] = Field(default_factory=list, max_length=4)
+    evidence_sources: list[Literal["local_cube", "verified_calculation", "web", "knowledge", "guardrail"]] = Field(
+        default_factory=list)
 
     @model_validator(mode="after")
     def compatible_answer(self) -> "ExplainSpikeResponse":
@@ -998,3 +1051,67 @@ methodology's four-second search suggestion after repeated live timeouts; the ag
 
 Public Pydantic and TypeScript API contracts are unchanged. Offline mode and provider
 failure retain local archive responses and explicit real/synthetic provenance.
+
+### 5.11 Copilot domain gate, calculation engine and provenance (2026-11-15)
+
+This section supersedes the statement above that no pre-execution gate exists, and the
+5.7 statement that the chat never computes emission or burned-area totals when an area
+is attached.
+
+**Domain gate.** `copilot_guardrail.assess` runs before scope resolution, retrieval,
+any model request, any DuckDB query and any web search, in both the online agent and the
+offline engine. In scope: wildfire, agricultural and prescribed burning, fuel, biomass and
+smoke; land and forestry management, biomes, drought, weather anomalies and fire-season
+shifts; MODIS, VIIRS, FIRMS, MCD64A1, H3, outages, cloud occlusion and the selected area's
+metrics. Out of scope: instruction-override attempts, general coding or writing tasks,
+finance, sport, celebrities, recipes, medicine, unrelated politics and general trivia. A
+refusal returns `physical_classification = "OFF_TOPIC_REFUSAL"`,
+`guardrail_triggered = true`, no citations, no search, and two or three starter questions
+for the attached region. The gate is a deterministic lexical screen with known false
+negatives; it is not a security boundary on its own.
+
+**Additive response fields.** `guardrail_triggered`, `verified_calculations`,
+`suggested_prompts` and `evidence_sources` (section 5.2). All default to empty values.
+
+**Local tools.** Besides knowledge search, observations, energy, episode profile and
+incident reports, the agent can call: `compare_periods`, `estimate_emissions`,
+`query_fire_season`, `query_risk_outlook`, `query_data_quality`, `query_burned_area`,
+`find_quiet_burn_windows` and `rank_thermal_events`. Tool arguments are dates only;
+geometry and SQL stay server-owned. The same calculations answer offline through
+deterministic routing, with `model_used = "deterministic-offline-science"`.
+
+**Formulas (computed by the server, never by the model).**
+- Total radiative energy: `E_GJ = Σ_days FRE(MJ/km²) × represented cell area (km²) / 1000`.
+- Consumed dry biomass: `M_t = E_GJ × 0.368`.
+- Percentage change between periods: `(second − first) / first × 100`; undefined when the
+  first period is zero.
+- Smoke scenario: `PM2.5_kg = M_t × 9.5`, `CO2_kg = M_t × 1580`. Assumed generic factors,
+  always labelled as a scenario; not the fuel-specific PM2.5 of section 1.
+- Energy per burned hectare: `E_GJ / A_ha`, only with published MCD64A1 complete years.
+- Season drift over the record: `Theil-Sen slope (days/decade) × span (years) / 10`.
+- Quiet windows: circular 30-day mean of the per-calendar-day climatology of energy
+  density and of previous-day adjacent-cell energy; the three lowest disjoint windows.
+- Thermal events: the highest-energy days at least 15 days apart, each extended while
+  daily energy stays above 5% of its peak (at most 15 days either side), ranked by total.
+
+**Numerical gate.** Every figure in model prose must equal a tool result within 0.01%.
+One repair turn is allowed; then sentences with unsupported figures are removed and the
+server-rendered calculation is shown verbatim. With no supported sentence left, the
+answer falls back to the local engine.
+
+**Terminology in answers.** FRE is presented as total energy (GJ) and dry biomass consumed
+(tonnes); circular phenology as peak burning date, season duration (days) and drift
+(days per decade); persistence entropy as stationary industrial flaring versus vegetation
+fire; smoothing as reconstructed activity during cloud cover or sensor outages; burned
+area as MCD64A1 hectares. Answers never address the reader by role.
+
+**Web search.** Runs only for real-world event context, official reports or regulations.
+Hosts and redirects stay limited to the approved official and news lists. Search provider
+calls are capped at four seconds, except the documented 12-second Google discovery budget.
+Offline mode, a provider failure or a timeout returns the local answer with real/synthetic
+provenance preserved.
+
+**Drawer.** Each assistant message shows provenance badges (local cube, verified
+calculation, web investigation with source count, method notes, topic guardrail), an
+expandable card listing each formula, and tappable prompts after a refusal. Starter
+questions adapt to the attached area and period.
