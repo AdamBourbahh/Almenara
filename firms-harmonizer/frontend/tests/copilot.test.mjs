@@ -9,6 +9,7 @@ const dir = await mkdtemp(new URL('../node_modules/.copilot-', import.meta.url))
 after(() => rm(dir, { recursive: true, force: true }));
 for (const [name, path] of [['client', 'api/client'], ['store', 'store/useAnalysisStore']]) {
   let source = await readFile(new URL(`../src/${path}.ts`, import.meta.url), 'utf8');
+  source = source.replace(/import regionRegistry from [^;]+;/, 'const regionRegistry = '+await readFile(new URL('../../data/regions.json', import.meta.url),'utf8')+';');
   source = source.replaceAll('import.meta.env', '{}').replace('"../api/client"', '"./client.mjs"');
   await writeFile(join(dir, `${name}.mjs`), ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 }

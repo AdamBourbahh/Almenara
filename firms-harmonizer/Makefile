@@ -1,9 +1,9 @@
-PYTHON ?= python3
+PYTHON ?= python
 PYTEST ?= $(PYTHON) -m pytest
 
-.PHONY: install check-deps bootstrap test api frontend sync-rules check-all
+.PHONY: install check-deps bootstrap etl test api frontend sync-rules check-all
 install:
-	$(PYTHON) -m pip install -r backend/requirements.txt -r scripts/requirements-acquisition.txt
+	$(PYTHON) -m pip install -r requirements.lock
 	cd frontend && npm ci
 
 check-deps:
@@ -13,11 +13,11 @@ check-deps:
 bootstrap:
 	$(PYTHON) scripts/00_bootstrap_synthetic_cube.py
 
-test: bootstrap
-	$(PYTEST) backend/tests/test_cube_schema.py
-	$(PYTEST) backend/tests/test_math_core.py -v
-	$(PYTEST) backend/tests/test_db_layer.py -v
-	$(PYTEST) backend/tests/test_api_contract.py -v
+etl:
+	$(PYTHON) scripts/run_pipeline.py etl
+
+test:
+	$(PYTHON) scripts/run_pipeline.py test
 
 api:
 	$(PYTHON) -m uvicorn backend.api.main:app --host 127.0.0.1 --port 8000 --reload
@@ -26,9 +26,7 @@ frontend:
 	cd frontend && npm run dev
 
 sync-rules:
-	@for target in .cursorrules .windsurfrules .clinerules .github/copilot-instructions.md; do \
-		if [ ! ../AGENTS.md -ef "$$target" ]; then cp ../AGENTS.md "$$target" || exit 1; fi; \
-	done
+	$(PYTHON) -c "from pathlib import Path; source=Path('../AGENTS.md').read_bytes(); [Path(target).write_bytes(source) for target in ('.cursorrules','.windsurfrules','.clinerules','.github/copilot-instructions.md')]"
 
 check-all: sync-rules test
 	cd frontend && npx tsc --noEmit

@@ -16,20 +16,21 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
+from pyproj import Geod
+from shapely.geometry import Polygon
 
 from backend.api.schemas import H3MapSummaryHex
 from backend.db import duckdb_engine
 
 MAX_R7_CELLS = 250_000
-# Topology validation is O(n²) in the vertex count; 1,000 positions keep it well under half a second.
-MAX_POLYGON_VERTICES = 1_000
+MAX_POLYGON_VERTICES = 512
 INDUSTRIAL_THRESHOLD = 0.75
 EPOCH = np.datetime64("1970-01-01", "D")  # epoch_day = days since 1970-01-01 (SPECS.md §5.1)
 OBS_COLUMNS = ("obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre")
 MASK_COLUMNS = ("gap_status_mask", "sensor_obs_mask")
 DAILY_KEYS = ("epoch_day", "year", "doy", "raw_modis_cnt", "raw_viirs_cnt", "raw_frp_mw", "obs_terra_fre",
               "obs_aqua_fre", "obs_viirs_fre", "neighbor_fre_lag1", "cloud_cover_pct", "gap_status_mask",
-              "sensor_obs_mask", "burned_area_ha_mcd64")
+              "sensor_obs_mask", "burned_area_ha_mcd64", "observed_energy_mj", "observation_known", "observed_zero", "pm25_emitted_kg", "coverage_complete", "pm25_factor_sd_kg")
 
 # (expression when the column exists, expression when it is missing) — constant SQL fragments only.
 _DAILY_EXPRESSIONS = {
@@ -73,48 +74,31 @@ class AoiAggregate(NamedTuple):
     n_cells_used: int
     used_cells: list[str] = []
     # km² of the kept cube cells present on each day of ``daily`` (aligned with daily["epoch_day"]).
-    # Daily AOI energy in MJ is the cell-mean density times this area, never times the area of every
-    # cell that burned at some point of the record.
+    # Footprint metadata only. Canonical daily energy is daily['observed_energy_mj'];
+    # polygon-normalized density must not be multiplied by this different area.
     daily_area_km2: np.ndarray | None = None
 
 
 # ---------------------------------------------------------------- geometry
 
-def _orientation(a, b, c) -> float:
-    return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
-
-
-def _on_segment(a, b, c) -> bool:
-    return min(a[0], b[0]) <= c[0] <= max(a[0], b[0]) and min(a[1], b[1]) <= c[1] <= max(a[1], b[1])
-
-
-def _segments_intersect(p1, p2, q1, q2) -> bool:
-    d1, d2 = _orientation(q1, q2, p1), _orientation(q1, q2, p2)
-    d3, d4 = _orientation(p1, p2, q1), _orientation(p1, p2, q2)
-    if ((d1 > 0) != (d2 > 0)) and d1 != 0 and d2 != 0 and ((d3 > 0) != (d4 > 0)) and d3 != 0 and d4 != 0:
-        return True
-    return ((d1 == 0 and _on_segment(q1, q2, p1)) or (d2 == 0 and _on_segment(q1, q2, p2))
-            or (d3 == 0 and _on_segment(p1, p2, q1)) or (d4 == 0 and _on_segment(p1, p2, q2)))
+def polygon_area_km2(coords: list) -> float:
+    """WGS84 geodesic exterior area minus hole areas, independent of winding."""
+    geod = Geod(ellps="WGS84")
+    areas = [abs(geod.polygon_area_perimeter(*zip(*ring))[0]) / 1e6 for ring in coords]
+    return max(0.0, areas[0] - sum(areas[1:]))
 
 
 def validate_polygon_topology(coords: list) -> None:
-    """Raise ValueError for oversized vertex lists, rings with zero area or self-intersecting edges."""
-    positions = sum(len(ring) for ring in coords)
-    if positions > MAX_POLYGON_VERTICES:
-        raise ValueError(f"Polygon has {positions} positions; the limit is {MAX_POLYGON_VERTICES}.")
-    for ring in coords:
-        points = [(float(p[0]), float(p[1])) for p in ring]
-        area2 = sum(points[i][0] * points[i + 1][1] - points[i + 1][0] * points[i][1]
-                    for i in range(len(points) - 1))
-        if abs(area2) < 1e-12:
-            raise ValueError("Polygon ring has zero area.")
-        n_seg = len(points) - 1
-        for i in range(n_seg):
-            for j in range(i + 1, n_seg):
-                adjacent = j == i + 1 or (i == 0 and j == n_seg - 1)
-                if not adjacent and _segments_intersect(points[i], points[i + 1], points[j], points[j + 1]):
-                    raise ValueError("Polygon ring is self-intersecting.")
-
+    """Raise ValueError for rings with zero area or self-intersecting edges."""
+    if len(coords) > 16 or sum(map(len, coords)) > 512:
+        raise ValueError("A polygon supports at most 16 rings and 512 positions.")
+    polygon = Polygon(coords[0], coords[1:])
+    if not polygon.is_valid or polygon.is_empty or polygon.area <= 0:
+        raise ValueError("Polygon rings must form a valid non-empty polygon.")
+    if any(abs(a[0] - b[0]) > 180 for ring in coords for a, b in zip(ring, ring[1:])):
+        raise ValueError("Split antimeridian-crossing polygons before analysis.")
+    if polygon_area_km2(coords) > 1_250_000:
+        raise ValueError("AOI too large: exceeds the 1,250,000 km² preflight area limit.")
 
 def _to_latlng_ring(ring: list) -> list[tuple[float, float]]:
     """GeoJSON positions are [lon, lat]; H3 expects (lat, lng). Drop the closing duplicate."""
@@ -135,6 +119,7 @@ def _parents_r4(cells_r7: np.ndarray) -> np.ndarray:
 
 def get_hierarchical_h3_filter(geojson_coords: list) -> tuple[list[int], list[int], float]:
     """Return (sorted unique R4 parents, sorted R7 cells inside the polygon, R7 area in km²)."""
+    validate_polygon_topology(geojson_coords)
     outer, *holes = (_to_latlng_ring(r) for r in geojson_coords)
     poly = h3i.LatLngPoly(outer, *holes)
     r7_int = h3i.polygon_to_cells(poly, 7)
@@ -200,16 +185,27 @@ def _scan_sql(missing: set[str]) -> str:
 
 
 def query_aoi_rows(cur, cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int,
-                   epoch_range: tuple[int, int] | None = None) -> pa.Table:
+                   epoch_range: tuple[int, int] | None = None, confidence_level: str = 'nominal') -> pa.Table:
     """Single scan: every cube row of the AOI and year range (no grouping), as Arrow."""
     missing = set(duckdb_engine.missing_columns())
     _register_cells(cur, cells_r4, cells_r7)
     try:
         sql = _scan_sql(missing)
         params = [int(start_year), int(end_year)]
+        if confidence_level != 'nominal' and duckdb_engine.data_source() == 'real':
+            if confidence_level not in ('low', 'high'):
+                raise ValueError('Unsupported confidence threshold.')
+            path = duckdb_engine.cube_path().with_name('fire_cube_' + confidence_level + '.parquet')
+            if not path.is_file():
+                raise ValueError('Confidence cube unavailable. Run scripts/run_pipeline.py etl.')
+            sql = sql.replace(' FROM fire_cube', ' FROM read_parquet(?)')
+            params.insert(0, str(path))
         if epoch_range is not None:
             sql += " AND epoch_day BETWEEN ? AND ?"
             params.extend(epoch_range)
+        from datetime import datetime, timezone
+        sql += ' AND epoch_day <= ?'
+        params.append(int((np.datetime64(datetime.now(timezone.utc).date()) - EPOCH).astype(int)))
         return cur.sql(sql, params=params).to_arrow_table()
     finally:
         _unregister_cells(cur)
@@ -263,13 +259,20 @@ def _bit_or(idx: np.ndarray, values: np.ndarray, n: int) -> np.ndarray:
 
 
 def _aggregate_daily(cols: dict[str, np.ndarray], keep: np.ndarray, start_year: int, end_year: int,
-                     missing: set[str]) -> dict[str, np.ndarray]:
+                     missing: set[str], area_km2: float | None = None) -> dict[str, np.ndarray]:
     """Dense daily AOI series from the kept rows (same semantics as the GROUP BY in query_daily_rows)."""
     lo = int((np.datetime64(f"{start_year}-01-01") - EPOCH).astype(int))
     hi = int((np.datetime64(f"{end_year}-12-31") - EPOCH).astype(int))
-    epoch_day = np.arange(lo, hi + 1, dtype=np.int64)
+    # Clip to the archive's actual publication window; never manufacture future history.
+    from datetime import datetime, timezone
+    today = int((np.datetime64(datetime.now(timezone.utc).date()) - EPOCH).astype(int))
+    with duckdb_engine.get_db_cursor() as cur:
+        first, last = cur.execute('SELECT min(epoch_day), max(epoch_day) FROM fire_cube').fetchone()
+    lo, hi = max(lo, first), min(hi, last, today)
+    epoch_day = np.arange(lo, max(lo, hi + 1), dtype=np.int64)
     dates = EPOCH + epoch_day.astype("timedelta64[D]")
     n = len(epoch_day)
+    keep = keep & (cols['epoch_day'] >= lo) & (cols['epoch_day'] <= hi)
     idx = cols["epoch_day"][keep] - lo
     out: dict[str, np.ndarray] = {
         "epoch_day": epoch_day,
@@ -280,7 +283,31 @@ def _aggregate_daily(cols: dict[str, np.ndarray], keep: np.ndarray, start_year: 
         out[name] = np.rint(np.bincount(idx, weights=cols[name][keep], minlength=n)).astype(np.int64)
     out["raw_frp_mw"] = np.bincount(idx, weights=np.where(np.isfinite(cols["raw_frp_mw"][keep]),
                                                           cols["raw_frp_mw"][keep], 0.0), minlength=n)
-    for name in OBS_COLUMNS + ("neighbor_fre_lag1", "cloud_cover_pct"):
+    cells = cols['h3_r7'][keep]
+    unique, inverse = np.unique(cells, return_inverse=True)
+    areas = np.array([h3i.cell_area(int(c), unit='km^2') for c in unique])[inverse]
+    denominator = area_km2 or sum(h3i.cell_area(int(c), unit='km^2') for c in unique)
+    denominator = max(denominator, 1e-12)
+    observations = np.column_stack([cols[c][keep] for c in OBS_COLUMNS])
+    valid = np.isfinite(observations)
+    fused = np.nansum(observations, axis=1) / np.maximum(valid.sum(axis=1), 1)
+    out['observed_energy_mj'] = np.bincount(idx, weights=fused * areas, minlength=n)
+    out['observation_known'] = np.bincount(idx, weights=valid.any(axis=1), minlength=n) > 0
+    out['observed_zero'] = np.zeros(n, dtype=bool)
+    out['coverage_complete'] = (out['observation_known'].copy() if duckdb_engine.data_source() == 'synthetic'
+                                else np.zeros(n, dtype=bool))
+    from backend.db.emission_inputs import estimate
+    if duckdb_engine.data_source() == 'real':
+        out['pm25_emitted_kg'], out['pm25_factor_sd_kg'] = estimate(duckdb_engine.ROOT, cells, cols['year'][keep], fused * areas, idx, n)
+    else:
+        out['pm25_emitted_kg'], out['pm25_factor_sd_kg'] = np.full(n, np.nan), np.full(n, np.nan)
+    for name in OBS_COLUMNS + ('neighbor_fre_lag1',):
+        values = cols[name][keep]
+        present = np.isfinite(values)
+        total = np.bincount(idx, weights=np.where(present, values * areas, 0), minlength=n)
+        counts = np.bincount(idx, weights=present, minlength=n)
+        out[name] = np.where(counts > 0, total / denominator, np.nan)
+    for name in ("cloud_cover_pct",):
         out[name] = np.full(n, np.nan) if name in missing else _finite_mean(idx, cols[name][keep], n)
     burned = "burned_area_ha_mcd64"
     out[burned] = np.full(n, np.nan) if burned in missing else _finite_sum(idx, cols[burned][keep], n)
@@ -303,10 +330,15 @@ def _row_cell_areas(cells: np.ndarray) -> np.ndarray:
 
 
 def _daily_area(cols: dict[str, np.ndarray], keep: np.ndarray, row_area: np.ndarray,
-                start_year: int, end_year: int) -> np.ndarray:
+                start_year: int, end_year: int, epoch_days: np.ndarray | None = None) -> np.ndarray:
     """Per-day km² of the kept cube cells, on the same dense calendar as _aggregate_daily."""
     lo = int((np.datetime64(f"{start_year}-01-01") - EPOCH).astype(int))
     hi = int((np.datetime64(f"{end_year}-12-31") - EPOCH).astype(int))
+    if epoch_days is not None:
+        if not len(epoch_days):
+            return np.empty(0)
+        lo, hi = int(epoch_days[0]), int(epoch_days[-1])
+        keep = keep & (cols['epoch_day']>=lo) & (cols['epoch_day']<=hi)
     return np.bincount(cols["epoch_day"][keep] - lo, weights=row_area[keep], minlength=hi - lo + 1)
 
 
@@ -377,16 +409,32 @@ def _summarize_hexagons(cur, cols: dict[str, np.ndarray], cells_r7: np.ndarray, 
 
 
 def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_year: int, end_year: int,
-                              exclude_industrial: bool) -> AoiAggregate:
+                              exclude_industrial: bool, area_km2: float | None = None,
+                              confidence_level: str = 'nominal') -> AoiAggregate:
     """Dense daily arrays, map hexagons and industrial removal count for an AOI (one cube scan)."""
     if not cells_r4 or not cells_r7:
         return AoiAggregate(_empty_daily(), [], 0, 0, [], np.empty(0))
     missing = set(duckdb_engine.missing_columns())
     r7_sorted = np.asarray(sorted(cells_r7), dtype=np.uint64)
     with duckdb_engine.get_db_cursor() as cur:
-        table = query_aoi_rows(cur, cells_r4, cells_r7, start_year, end_year)
+        table = query_aoi_rows(cur, cells_r4, cells_r7, start_year, end_year, confidence_level=confidence_level)
         if table.num_rows == 0:
-            return AoiAggregate(_empty_daily(), [], 0, 0, [], np.empty(0))
+            if duckdb_engine.data_source() == 'real':
+                empty = {name: np.empty(0, dtype=np.float64) for name in _SCAN_COLUMNS}
+                for name in ('h3_r7', 'epoch_day', 'year', 'raw_modis_cnt', 'raw_viirs_cnt') + MASK_COLUMNS:
+                    empty[name] = np.empty(0, dtype=np.int64)
+                daily = _aggregate_daily(empty, np.empty(0, dtype=bool), start_year, end_year, missing, area_km2)
+                from backend.db.observation_coverage import apply_coverage
+                zero, sensor_codes, complete = apply_coverage(cur, duckdb_engine.ROOT, cells_r7, daily, area_km2 or 0, True)
+                if zero.any():
+                    daily['observed_zero'], daily['observation_known'], daily['coverage_complete'] = zero, zero.copy(), complete
+                    daily['sensor_obs_mask'][zero] = sensor_codes[zero]
+                    daily['pm25_emitted_kg'][zero] = 0
+                    daily['pm25_factor_sd_kg'][zero] = 0
+                    for name, bits in zip(OBS_COLUMNS, (1, 2, 28)):
+                        daily[name][zero & ((sensor_codes & bits) > 0)] = 0.0
+                    return AoiAggregate(daily, [], 0, 0)
+            return AoiAggregate(_empty_daily(), [], 0, 0)
         cols = {"h3_r7": table.column("h3_r7").to_numpy()}
         for name in ("epoch_day", "year", "raw_modis_cnt", "raw_viirs_cnt") + MASK_COLUMNS:
             cols[name] = np.zeros(table.num_rows, dtype=np.int64) if name in missing else _int_col(table, name)
@@ -395,11 +443,22 @@ def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_ye
             cols[name] = _float_col(table, name)
         hexagons, industrial_total, min_probs = _summarize_hexagons(cur, cols, r7_sorted, start_year, end_year)
     keep = cols["industrial_prob"] < INDUSTRIAL_THRESHOLD if exclude_industrial else np.ones(table.num_rows, bool)
-    if keep.any():
-        daily = _aggregate_daily(cols, keep, start_year, end_year, missing)
-        area = _daily_area(cols, keep, _row_cell_areas(cols["h3_r7"]), start_year, end_year)
-    else:
-        daily, area = _empty_daily(), np.empty(0)
+    daily = _aggregate_daily(cols, keep, start_year, end_year, missing, area_km2) if keep.any() else _empty_daily()
+    area = _daily_area(cols, keep, _row_cell_areas(cols["h3_r7"]), start_year, end_year, daily['epoch_day']) if keep.any() else np.empty(0)
+    if len(daily['epoch_day']) and duckdb_engine.data_source() == 'real':
+        from backend.db.observation_coverage import apply_coverage
+        with duckdb_engine.get_db_cursor() as cur:
+            zero, sensor_codes, complete = apply_coverage(cur, duckdb_engine.ROOT, cells_r7, daily, area_km2 or 0, True)
+        zero &= (daily['raw_modis_cnt'] + daily['raw_viirs_cnt']) == 0
+        zero &= daily['observed_energy_mj'] == 0
+        daily['observed_zero'] = zero
+        daily['pm25_emitted_kg'][zero] = 0.0
+        daily['pm25_factor_sd_kg'][zero] = 0.0
+        daily['observation_known'] |= zero
+        daily['coverage_complete'] = complete
+        daily['sensor_obs_mask'][zero] |= sensor_codes[zero]
+        for name, bits in zip(OBS_COLUMNS, (1, 2, 28)):
+            daily[name][zero & ((sensor_codes & bits) > 0)] = 0.0
     if exclude_industrial:
         removed = industrial_total
         used = [h.h3_index for h, p in zip(hexagons, min_probs.tolist()) if p < INDUSTRIAL_THRESHOLD]
@@ -410,7 +469,7 @@ def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_ye
 
 
 def fetch_map_period(cells_r4: list[int], cells_r7: list[int], year: int,
-                     epoch_range: tuple[int, int], exclude_industrial: bool) -> list[H3MapSummaryHex]:
+                     epoch_range: tuple[int, int], exclude_industrial: bool, confidence_level: str = "nominal") -> list[H3MapSummaryHex]:
     """Observed per-cell energy and counts for an inclusive period within one year.
 
     The legacy ``mean_annual_fre`` field contains the selected period's integrated
@@ -419,7 +478,7 @@ def fetch_map_period(cells_r4: list[int], cells_r7: list[int], year: int,
     if not cells_r4 or not cells_r7:
         return []
     with duckdb_engine.get_db_cursor() as cur:
-        table = query_aoi_rows(cur, cells_r4, cells_r7, year, year, epoch_range)
+        table = query_aoi_rows(cur, cells_r4, cells_r7, year, year, epoch_range, confidence_level)
         if exclude_industrial:
             table = table.filter(pc.less(table["industrial_prob"], INDUSTRIAL_THRESHOLD))
         if table.num_rows == 0:

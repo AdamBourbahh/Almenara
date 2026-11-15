@@ -74,18 +74,15 @@ def _make_daily_fixture(n: int = 1800, seed: int = 42) -> dict[str, np.ndarray]:
 # 1. Feature Builder (build_causal_features) Edge Cases & Invariance
 # =====================================================================
 
-def test_feature_builder_output_shape_and_finiteness():
-    daily = _make_daily_fixture(1000)
-    features = build_causal_features(daily)
-    assert features.shape == (1000, len(FEATURES))
-    assert np.isfinite(features).all()
-    assert len(FEATURES) == 14
 
 
 def test_feature_builder_strict_causal_prefix_invariance():
     """Row t of features must depend strictly on observations at or before day t."""
     daily = _make_daily_fixture(1200)
     full_features = build_causal_features(daily)
+    assert full_features.shape == (1200, len(FEATURES))
+    assert np.isfinite(full_features).all()
+    assert len(FEATURES) == 14
 
     # Check multiple prefixes
     for prefix_len in (365, 500, 800, 1100):
@@ -253,11 +250,17 @@ def test_industrial_accident_classifier_shrinkage():
 # 3. Multi-Horizon Risk Predictor & Monotonic Behavior
 # =====================================================================
 
-def test_predict_risk_horizons_structure_and_monotonicity():
-    """Test 24h, 7d, and 14d horizon structure and cumulative monotonic probability ordering."""
-    daily = _make_daily_fixture(2000, seed=101)
-    result = predict_risk(daily)
+@pytest.fixture(scope="module")
+def fitted_risk():
+    """One read-only fit for output invariants; perturbation tests keep fresh data."""
+    result = predict_risk(_make_daily_fixture(2000, seed=101))
     assert result is not None
+    return result
+
+
+def test_predict_risk_horizons_structure_and_monotonicity(fitted_risk):
+    """Test 24h, 7d, and 14d horizon structure and cumulative monotonic probability ordering."""
+    result = fitted_risk
 
     horizons = result["horizons"]
     assert len(horizons) == 3
@@ -267,8 +270,8 @@ def test_predict_risk_horizons_structure_and_monotonicity():
         assert isinstance(h["days"], int) and h["days"] in (1, 7, 14)
         for key in ("wildfire_prob_pct", "accident_prob_pct", "combined_risk_pct"):
             val = h[key]
-            if val is not None:
-                assert 0.0 <= val <= 100.0
+            assert val is not None
+            assert 0.0 <= val <= 100.0
 
     # Cumulative hazard monotonicity: P(event in 14d) >= P(event in 7d) >= P(event in 24h)
     wildfire_probs = [h["wildfire_prob_pct"] for h in horizons if h["wildfire_prob_pct"] is not None]
@@ -284,11 +287,9 @@ def test_predict_risk_horizons_structure_and_monotonicity():
         assert combined_probs[0] <= combined_probs[1] <= combined_probs[2] + 1e-6
 
 
-def test_predict_risk_frechet_bounds_on_combined_hazard():
+def test_predict_risk_frechet_bounds_on_combined_hazard(fitted_risk):
     """Combined risk must obey Fréchet probability bounds: max(P1, P2) <= P(1 or 2) <= P1 + P2."""
-    daily = _make_daily_fixture(2200, seed=202)
-    result = predict_risk(daily)
-    assert result is not None
+    result = fitted_risk
 
     for h in result["horizons"]:
         wf = h["wildfire_prob_pct"]
@@ -299,11 +300,9 @@ def test_predict_risk_frechet_bounds_on_combined_hazard():
             assert comb <= min(100.0, wf + acc) + 1e-6
 
 
-def test_predict_risk_model_ensemble_weights_dictionary():
+def test_predict_risk_model_ensemble_weights_dictionary(fitted_risk):
     """Model ensemble weights must include logistic, boosted_stumps, and gaussian_naive_bayes."""
-    daily = _make_daily_fixture(1800, seed=303)
-    result = predict_risk(daily)
-    assert result is not None
+    result = fitted_risk
 
     weights = result["model_metrics"]["model_weights"]
     assert isinstance(weights, dict)
@@ -313,11 +312,9 @@ def test_predict_risk_model_ensemble_weights_dictionary():
         assert np.isfinite(weight)
 
 
-def test_predict_risk_calibration_and_reliability_bins():
+def test_predict_risk_calibration_and_reliability_bins(fitted_risk):
     """Validation metrics must compute Brier score, ROC-AUC, and properly partitioned reliability bins."""
-    daily = _make_daily_fixture(2000, seed=404)
-    result = predict_risk(daily)
-    assert result is not None
+    result = fitted_risk
 
     metrics = result["model_metrics"]
     assert metrics["samples"] > 0
@@ -333,11 +330,9 @@ def test_predict_risk_calibration_and_reliability_bins():
         assert 0.0 <= bin_info["observed_pct"] <= 100.0
 
 
-def test_predict_risk_overall_hazard_level_thresholds():
+def test_predict_risk_overall_hazard_level_thresholds(fitted_risk):
     """Overall hazard level corresponds strictly to LOW / MODERATE / HIGH / CRITICAL intervals."""
-    daily = _make_daily_fixture(1800, seed=505)
-    result = predict_risk(daily)
-    assert result is not None
+    result = fitted_risk
 
     level = result["overall_hazard_level"]
     risk = result["combined_risk_pct"]
@@ -352,11 +347,9 @@ def test_predict_risk_overall_hazard_level_thresholds():
         assert level == "CRITICAL"
 
 
-def test_predict_risk_top_drivers_structure_and_directionality():
+def test_predict_risk_top_drivers_structure_and_directionality(fitted_risk):
     """Top risk factors must provide up to 4 drivers with normalized positive impact and valid directions."""
-    daily = _make_daily_fixture(1800, seed=606)
-    result = predict_risk(daily)
-    assert result is not None
+    result = fitted_risk
 
     drivers = result["top_risk_factors"]
     assert len(drivers) <= 4

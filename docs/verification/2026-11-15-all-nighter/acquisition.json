@@ -1,0 +1,235 @@
+{
+  "public_modis": {
+    "failures": [],
+    "start": "2000-11-01",
+    "end": "2026-11-14",
+    "scope": "MODIS Terra/Aqua 1km FireMask only; missing products/VIIRS remain unknown"
+  },
+  "viirs_stage": {
+    "failures": [],
+    "catalog_only": false,
+    "start": "2024-01-01",
+    "end": "2024-01-07"
+  },
+  "viirs_full_history": "Intentionally deferred; resume with script 09 and the selected sensor/date window.",
+  "packed_mask_shards": {
+    "amazonas_manaus:Aqua": 2189,
+    "amazonas_manaus:NOAA-20": 14,
+    "amazonas_manaus:NOAA-21": 14,
+    "amazonas_manaus:SNPP": 14,
+    "amazonas_manaus:Terra": 2338,
+    "chilecito_la_rioja:Aqua": 4374,
+    "chilecito_la_rioja:NOAA-20": 28,
+    "chilecito_la_rioja:NOAA-21": 28,
+    "chilecito_la_rioja:SNPP": 28,
+    "chilecito_la_rioja:Terra": 4677,
+    "iberia_med:Aqua": 4378,
+    "iberia_med:NOAA-20": 28,
+    "iberia_med:NOAA-21": 28,
+    "iberia_med:SNPP": 28,
+    "iberia_med:Terra": 4685,
+    "orlando_florida:Aqua": 1095,
+    "orlando_florida:NOAA-20": 7,
+    "orlando_florida:NOAA-21": 7,
+    "orlando_florida:SNPP": 7,
+    "orlando_florida:Terra": 1170
+  },
+  "actual_mask_date_extrema": {
+    "amazonas_manaus:Aqua": {
+      "first": "2002-07-04",
+      "last": "2026-10-31"
+    },
+    "amazonas_manaus:NOAA-20": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "amazonas_manaus:NOAA-21": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "amazonas_manaus:SNPP": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "amazonas_manaus:Terra": {
+      "first": "2000-11-01",
+      "last": "2026-10-31"
+    },
+    "chilecito_la_rioja:Aqua": {
+      "first": "2002-07-04",
+      "last": "2026-10-31"
+    },
+    "chilecito_la_rioja:NOAA-20": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "chilecito_la_rioja:NOAA-21": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "chilecito_la_rioja:SNPP": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "chilecito_la_rioja:Terra": {
+      "first": "2000-11-01",
+      "last": "2026-11-08"
+    },
+    "iberia_med:Aqua": {
+      "first": "2002-07-04",
+      "last": "2026-10-31"
+    },
+    "iberia_med:NOAA-20": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "iberia_med:NOAA-21": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "iberia_med:SNPP": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "iberia_med:Terra": {
+      "first": "2000-11-01",
+      "last": "2026-11-08"
+    },
+    "orlando_florida:Aqua": {
+      "first": "2002-07-04",
+      "last": "2026-10-31"
+    },
+    "orlando_florida:NOAA-20": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "orlando_florida:NOAA-21": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "orlando_florida:SNPP": {
+      "first": "2024-01-01",
+      "last": "2024-01-07"
+    },
+    "orlando_florida:Terra": {
+      "first": "2000-11-01",
+      "last": "2026-11-08"
+    }
+  },
+  "preset_mask_days": {
+    "chilecito_la_rioja": {
+      "selected_cells": 32349,
+      "zero_supported_before_detection_veto": 0,
+      "complete_clear_support": 0
+    },
+    "iberia_med": {
+      "selected_cells": 193839,
+      "zero_supported_before_detection_veto": 0,
+      "complete_clear_support": 0
+    },
+    "orlando_florida": {
+      "selected_cells": 3891,
+      "zero_supported_before_detection_veto": 1057,
+      "complete_clear_support": 1549
+    },
+    "amazonas_manaus": {
+      "selected_cells": 36927,
+      "zero_supported_before_detection_veto": 0,
+      "complete_clear_support": 0
+    }
+  },
+  "artifacts": {
+    "data/processed/fire_cube.parquet": {
+      "bytes": 10527768,
+      "sha256": "1850cd1e49dd0c21a762252afdaf2f1b3e9aad9e4cd1a0857545c66e2c3eae89",
+      "rows": 729742,
+      "source_metadata": {
+        "source": "REAL FIRMS detections",
+        "real_rows": "729742",
+        "synthetic_rows": "0",
+        "epoch": "1970-01-01",
+        "coverage": "{\"chilecito_la_rioja\": {\"bounds\": [-69.5, -31, -65.5, -27.5], \"nominal_biome\": 16, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Chilecito, La Rioja (Argentina)\", \"fixture_center\": [-29.25, -67.5]}, \"iberia_med\": {\"bounds\": [-9.5, 36, 4, 44], \"nominal_biome\": 8, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Iberian Peninsula / Mediterranean (Spain)\", \"fixture_center\": [38.5, -4.85]}, \"orlando_florida\": {\"bounds\": [-82.0, 28.0, -80.7, 29.3], \"nominal_biome\": 8, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Orlando, Florida (USA)\", \"fixture_center\": [28.65, -81.35]}, \"amazonas_manaus\": {\"bounds\": [-62.0, -5.0, -58.0, -1.0], \"nominal_biome\": 2, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Amazonas / Manaus (Brazil)\", \"fixture_center\": [-3.0, -60.0]}}",
+        "confidence_level": "nominal",
+        "industrial_method": "Published EOG upstream site-year match <=1km plus persistence score; not a calibrated classifier",
+        "real_cloud_and_burned_area": "optional ancillary; null for missing values",
+        "ancillary_coverage": "{\"burned_area_ha_mcd64\": {\"missing_rows\": 690651, \"observed_rows\": 39091, \"observed_zero_rows\": 0}, \"cloud_cover_pct\": {\"missing_rows\": 729742, \"observed_rows\": 0, \"observed_zero_rows\": 0}, \"input_present\": true}",
+        "real_igbp": "local IGBP lookup or nominal regional fallback",
+        "fre_method": "one-hour FRP integration proxy",
+        "orbital_weighting": "w_orb = clip(cos(centroid_lat_h3_r7), cos(80 deg), 1.0); applied once to obs_terra_fre, obs_aqua_fre, obs_viirs_fre",
+        "radiometric_harmonization": "core RadiometricHarmonizer on daily MW sums before FRE scaling: VIIRS = EQM + delta_e_sub; Terra/Aqua = MW + delta_e_sub; stratum biome:angle > biome:all > all:all; untrained strata stay raw"
+      }
+    },
+    "data/processed/fire_cube_low.parquet": {
+      "bytes": 11043492,
+      "sha256": "32863fa47225dfdb9267a338a1a6d9f7ab04f8c9553a0503f5f95c3b282a6253",
+      "rows": 763627,
+      "source_metadata": {
+        "source": "REAL FIRMS detections",
+        "real_rows": "763627",
+        "synthetic_rows": "0",
+        "epoch": "1970-01-01",
+        "coverage": "{\"chilecito_la_rioja\": {\"bounds\": [-69.5, -31, -65.5, -27.5], \"nominal_biome\": 16, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Chilecito, La Rioja (Argentina)\", \"fixture_center\": [-29.25, -67.5]}, \"iberia_med\": {\"bounds\": [-9.5, 36, 4, 44], \"nominal_biome\": 8, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Iberian Peninsula / Mediterranean (Spain)\", \"fixture_center\": [38.5, -4.85]}, \"orlando_florida\": {\"bounds\": [-82.0, 28.0, -80.7, 29.3], \"nominal_biome\": 8, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Orlando, Florida (USA)\", \"fixture_center\": [28.65, -81.35]}, \"amazonas_manaus\": {\"bounds\": [-62.0, -5.0, -58.0, -1.0], \"nominal_biome\": 2, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Amazonas / Manaus (Brazil)\", \"fixture_center\": [-3.0, -60.0]}}",
+        "confidence_level": "low",
+        "industrial_method": "Published EOG upstream site-year match <=1km plus persistence score; not a calibrated classifier",
+        "real_cloud_and_burned_area": "optional ancillary; null for missing values",
+        "ancillary_coverage": "{\"burned_area_ha_mcd64\": {\"missing_rows\": 723818, \"observed_rows\": 39809, \"observed_zero_rows\": 0}, \"cloud_cover_pct\": {\"missing_rows\": 763627, \"observed_rows\": 0, \"observed_zero_rows\": 0}, \"input_present\": true}",
+        "real_igbp": "local IGBP lookup or nominal regional fallback",
+        "fre_method": "one-hour FRP integration proxy",
+        "orbital_weighting": "w_orb = clip(cos(centroid_lat_h3_r7), cos(80 deg), 1.0); applied once to obs_terra_fre, obs_aqua_fre, obs_viirs_fre",
+        "radiometric_harmonization": "core RadiometricHarmonizer on daily MW sums before FRE scaling: VIIRS = EQM + delta_e_sub; Terra/Aqua = MW + delta_e_sub; stratum biome:angle > biome:all > all:all; untrained strata stay raw"
+      }
+    },
+    "data/processed/fire_cube_high.parquet": {
+      "bytes": 2023032,
+      "sha256": "ef8b53257db0d4e2184b88f46b9b8149a78f695fdf7f283cce13d99e8aa3c451",
+      "rows": 126695,
+      "source_metadata": {
+        "source": "REAL FIRMS detections",
+        "real_rows": "126695",
+        "synthetic_rows": "0",
+        "epoch": "1970-01-01",
+        "coverage": "{\"chilecito_la_rioja\": {\"bounds\": [-69.5, -31, -65.5, -27.5], \"nominal_biome\": 16, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Chilecito, La Rioja (Argentina)\", \"fixture_center\": [-29.25, -67.5]}, \"iberia_med\": {\"bounds\": [-9.5, 36, 4, 44], \"nominal_biome\": 8, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Iberian Peninsula / Mediterranean (Spain)\", \"fixture_center\": [38.5, -4.85]}, \"orlando_florida\": {\"bounds\": [-82.0, 28.0, -80.7, 29.3], \"nominal_biome\": 8, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Orlando, Florida (USA)\", \"fixture_center\": [28.65, -81.35]}, \"amazonas_manaus\": {\"bounds\": [-62.0, -5.0, -58.0, -1.0], \"nominal_biome\": 2, \"coverage\": [[\"2000-11-01\", \"2026-11-14\"]], \"label\": \"Amazonas / Manaus (Brazil)\", \"fixture_center\": [-3.0, -60.0]}}",
+        "confidence_level": "high",
+        "industrial_method": "Published EOG upstream site-year match <=1km plus persistence score; not a calibrated classifier",
+        "real_cloud_and_burned_area": "optional ancillary; null for missing values",
+        "ancillary_coverage": "{\"burned_area_ha_mcd64\": {\"missing_rows\": 101399, \"observed_rows\": 25296, \"observed_zero_rows\": 0}, \"cloud_cover_pct\": {\"missing_rows\": 126695, \"observed_rows\": 0, \"observed_zero_rows\": 0}, \"input_present\": true}",
+        "real_igbp": "local IGBP lookup or nominal regional fallback",
+        "fre_method": "one-hour FRP integration proxy",
+        "orbital_weighting": "w_orb = clip(cos(centroid_lat_h3_r7), cos(80 deg), 1.0); applied once to obs_terra_fre, obs_aqua_fre, obs_viirs_fre",
+        "radiometric_harmonization": "core RadiometricHarmonizer on daily MW sums before FRE scaling: VIIRS = EQM + delta_e_sub; Terra/Aqua = MW + delta_e_sub; stratum biome:angle > biome:all > all:all; untrained strata stay raw"
+      }
+    },
+    "data/lookup/igbp_cells.parquet": {
+      "bytes": 4468716,
+      "sha256": "12857a20373c20d2b03572940c22eb1eeacc682b267dca48e26cead40eb497c9",
+      "rows": 6717325,
+      "source_metadata": {
+        "source": "NASA MCD12Q1.061 LC_Type1, measured annual modal pixel class; no temporal extrapolation"
+      }
+    },
+    "data/lookup/cell_day_ancillary.parquet": {
+      "bytes": 448771,
+      "sha256": "12ac2bc85b92dbbec27cef8da0e00f37ad8127d8ff755f055ddf9110449adf95",
+      "rows": 129667,
+      "source_metadata": {
+        "source": "MODIS MCD64A1 v6.1 Burn_Date via https://planetarycomputer.microsoft.com/api/stac/v1 collection modis-64A1-061",
+        "pixel_area_ha": "21.465867329647768",
+        "regions": "{\"amazonas_manaus\": 606, \"chilecito_la_rioja\": 1213, \"iberia_med\": 1219, \"orlando_florida\": 303}",
+        "requested_range": "2000-11-01/2026-11-14",
+        "complete_years": "{\"amazonas_manaus\": [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022], \"chilecito_la_rioja\": [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022], \"iberia_med\": [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022], \"orlando_florida\": [2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]}",
+        "quality": "Burn_Date pixels require QA land and valid-data bits; complete years require all monthly tile composites, not independent truth or full cloud-free coverage",
+        "cloud_cover_pct": "not supplied: null for every row (missing, not observed zero)",
+        "retrieved_utc": "2026-11-15T01:37:00Z"
+      }
+    },
+    "data/lookup/eqm_gpd_lut.json": {
+      "bytes": 315969,
+      "sha256": "9a2b66bfc8c07a3f23d33afdc9b95bada34befb0e34234381a7c3c48f000a554"
+    }
+  },
+  "land_cover": {
+    "first_year": 2001,
+    "last_year": 2025,
+    "unique_cell_years": 6717325
+  }
+}

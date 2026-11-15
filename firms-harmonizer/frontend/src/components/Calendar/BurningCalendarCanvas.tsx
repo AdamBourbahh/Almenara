@@ -90,7 +90,7 @@ function prepareGrid(data: AnalyzeResponse | null, startYear: number, endYear: n
     if (idx < 0) continue;
     grid.raw[idx] = cell.raw_hotspot_count;
     grid.harm[idx] = cell.harmonized_fre_mj_km2;
-    grid.flags[idx] = FLAG_DATA | (cell.is_gap_filled ? FLAG_GAP : 0);
+    grid.flags[idx] = cell.observation_status === "unknown" ? 0 : FLAG_DATA | (cell.is_gap_filled ? FLAG_GAP : 0);
     if (cell.is_gap_filled) grid.gapCells.push(idx);
     if (cell.raw_hotspot_count > 0) {
       allRaw.push(cell.raw_hotspot_count);

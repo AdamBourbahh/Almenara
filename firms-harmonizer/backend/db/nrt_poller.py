@@ -21,7 +21,6 @@ import logging
 import math
 import os
 import re
-import tempfile
 import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -32,7 +31,6 @@ import duckdb
 import h3
 import httpx
 import pyarrow as pa
-import pyarrow.parquet as pq
 
 from backend.db import duckdb_engine
 
@@ -340,61 +338,12 @@ async def poll_firms_nrt_once(
         return 0
 
 
-MIN_ORBITAL_WEIGHT = float(math.cos(math.radians(80.0)))
-
-PRESET_REGIONS: dict[str, tuple[float, float, float, float]] = {
-    "chilecito_la_rioja": (-69.5, -31.0, -65.5, -27.5),
-    "orlando_florida": (-82.0, 28.0, -80.7, 29.3),
-    "amazonas_manaus": (-62.0, -5.0, -58.0, -1.0),
-    "iberia_med": (-9.5, 36.0, 4.0, 44.0),
-}
-NOMINAL_BIOMES: dict[str, int] = {
-    "chilecito_la_rioja": 16,
-    "orlando_florida": 8,
-    "amazonas_manaus": 2,
-    "iberia_med": 8,
-}
 SYNC_SOURCES: tuple[str, ...] = (
     "VIIRS_NOAA20_NRT",
     "VIIRS_NOAA21_NRT",
     "VIIRS_SNPP_NRT",
     "MODIS_NRT",
 )
-SENSOR_BITS: dict[str, int] = {
-    "TERRA": 1,
-    "AQUA": 2,
-    "SNPP": 4,
-    "N20": 8,
-    "NOAA20": 8,
-    "NOAA-20": 8,
-    "J1": 8,
-    "N21": 16,
-    "NOAA21": 16,
-    "NOAA-21": 16,
-    "J2": 16,
-}
-
-CUBE_SCHEMA = pa.schema([
-    pa.field("h3_r4", pa.uint64()),
-    pa.field("h3_r7", pa.uint64()),
-    pa.field("epoch_day", pa.uint16()),
-    pa.field("year", pa.uint16()),
-    pa.field("doy", pa.uint16()),
-    pa.field("igbp_biome", pa.uint8()),
-    pa.field("sensor_obs_mask", pa.uint8()),
-    pa.field("gap_status_mask", pa.uint8()),
-    pa.field("cloud_cover_pct", pa.float32()),
-    pa.field("raw_modis_cnt", pa.uint16()),
-    pa.field("raw_viirs_cnt", pa.uint16()),
-    pa.field("raw_frp_mw", pa.float32()),
-    pa.field("obs_terra_fre", pa.float32()),
-    pa.field("obs_aqua_fre", pa.float32()),
-    pa.field("obs_viirs_fre", pa.float32()),
-    pa.field("neighbor_fre_lag1", pa.float32()),
-    pa.field("industrial_prob", pa.float32()),
-    pa.field("burned_area_ha_mcd64", pa.float32()),
-])
-
 _SYNC_LOCK = threading.Lock()
 _CUBE_SYNC_STATUS: dict[str, Any] = {
     "status": "idle",
@@ -409,30 +358,12 @@ _CUBE_SYNC_STATUS: dict[str, Any] = {
 }
 
 
-def _orbital_weight(c7: int) -> float:
-    latitude, _ = h3.cell_to_latlng(format(c7, "x"))
-    return float(max(math.cos(math.radians(latitude)), MIN_ORBITAL_WEIGHT))
-
-
-def _cell_scale(c7: int) -> float:
-    area = h3.cell_area(format(c7, "x"), unit="km^2")
-    return (3600.0 / area) * _orbital_weight(c7)
-
-
 def get_configured_regions() -> dict[str, tuple[float, float, float, float]]:
-    regions_file = ROOT / "data/regions.json"
-    if regions_file.is_file():
-        try:
-            data = json.loads(regions_file.read_text(encoding="utf-8"))
-            out = {}
-            for name, reg in data.items():
-                if "bounds" in reg and len(reg["bounds"]) == 4:
-                    out[name] = tuple(float(x) for x in reg["bounds"])
-            if out:
-                return out
-        except Exception:
-            pass
-    return dict(PRESET_REGIONS)
+    path = ROOT / "data/regions.json"
+    if not path.is_file():
+        path = Path(__file__).resolve().parents[2] / "data/regions.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return {name: tuple(float(value) for value in region["bounds"]) for name, region in data.items()}
 
 
 def get_sync_status() -> dict[str, Any]:
@@ -452,6 +383,50 @@ def get_sync_status() -> dict[str, Any]:
     return st
 
 
+def _rebuild_cube():
+    """Use the same archive/NRT deduplication, footprints and calibration as offline ETL."""
+    import subprocess
+    import sys
+    try:
+        result = subprocess.run([sys.executable, str(ROOT / 'scripts/run_pipeline.py'), 'etl'],
+                                cwd=ROOT, capture_output=True, text=True, timeout=1800)
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError('Scientific ETL exceeded its publication deadline.') from error
+    if result.returncode:
+        raise RuntimeError('Scientific ETL rejected the downloaded inputs.')
+    try:
+        duckdb_engine.reload_engine()
+    except (duckdb.Error, duckdb_engine.CubeNotAvailableError) as error:
+        raise RuntimeError('The newly published cube could not be opened.') from error
+    from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE
+    from backend.api.routes import RISK_CACHE
+    for cache in (ANALYZE_CACHE, GEOMETRY_CACHE, RISK_CACHE):
+        cache.clear()
+
+
+_SCHEDULE_LOCK = threading.Lock()
+
+
+def schedule_sync(days=None, sync_full_month=False, regions=None):
+    """Return immediately; the UI polls publication status while ETL runs."""
+    if os.environ.get('USE_SYNTHETIC_CUBE') == '1' or any(
+            os.environ.get(key) == '1' for key in ('OFFLINE_MODE', 'AIRPLANE_MODE')):
+        return sync_cube(days, sync_full_month, regions)
+    try:
+        _map_key()
+    except NrtPollerError:
+        _CUBE_SYNC_STATUS.update(status='error', error='Configure a current FIRMS_MAP_KEY locally before syncing.')
+        return get_sync_status()
+    with _SCHEDULE_LOCK:
+        if _CUBE_SYNC_STATUS.get('status') == 'in_progress':
+            return get_sync_status()
+        _CUBE_SYNC_STATUS.update(status='in_progress', error=None,
+                                 message='Acquiring and publishing calibrated observations.')
+        threading.Thread(target=sync_cube, kwargs=dict(days=days, sync_full_month=sync_full_month,
+                         regions=regions), name='firms-cube-publication', daemon=True).start()
+    return get_sync_status()
+
+
 def sync_cube(
     days: int | None = None,
     sync_full_month: bool = False,
@@ -463,9 +438,9 @@ def sync_cube(
         _CUBE_SYNC_STATUS["status"] = "in_progress"
         _CUBE_SYNC_STATUS["error"] = None
         now_utc = datetime.now(timezone.utc)
-        target_regions = [r for r in (regions or list(PRESET_REGIONS.keys())) if r in PRESET_REGIONS]
+        target_regions = [r for r in (regions or list(get_configured_regions())) if r in get_configured_regions()]
         if not target_regions:
-            target_regions = list(PRESET_REGIONS.keys())
+            target_regions = list(get_configured_regions())
 
         if os.environ.get("USE_SYNTHETIC_CUBE") == "1":
             _CUBE_SYNC_STATUS.update({
@@ -524,16 +499,28 @@ def sync_cube(
                 if not {"latitude", "longitude", "acq_date"}.issubset(fields):
                     raise NrtPollerError("FIRMS returned an invalid CSV header.")
                 parsed = parse_nrt_csv(raw_bytes)
+                expected = {'MODIS_NRT': {'TERRA', 'AQUA', 'T', 'A'},
+                    'VIIRS_SNPP_NRT': {'N', 'NPP', 'SNPP', 'SUOMI-NPP'},
+                    'VIIRS_NOAA20_NRT': {'N20', 'NOAA-20', 'NOAA20'},
+                    'VIIRS_NOAA21_NRT': {'N21', 'NOAA-21', 'NOAA21'}}[src]
+                first = date.fromisoformat(sdate)
+                last = first + timedelta(days=span - 1)
+                for record in parsed:
+                    lat, lon = float(record['latitude']), float(record['longitude'])
+                    day = date.fromisoformat(str(record['acq_date']))
+                    if not (bbox[0] <= lon <= bbox[2] and bbox[1] <= lat <= bbox[3]
+                            and first <= day <= last and str(record['satellite']).upper() in expected):
+                        raise NrtPollerError('FIRMS response does not match requested region, date or platform.')
                 csv_path = ROOT / f"data/raw/sync_{reg}_{src}_{sdate}_{span}d.csv"
                 write_nrt_csv(raw_bytes, csv_path)
                 return reg, src, parsed
-            except (NrtPollerError, OSError, UnicodeError, csv.Error) as exc:
+            except (NrtPollerError, OSError, UnicodeError, csv.Error, ValueError, TypeError, KeyError) as exc:
                 logger.warning("FIRMS sync failed for %s %s: %s", reg, src, exc)
                 return reg, src, None
 
         work_items = []
         for reg in target_regions:
-            bbox = PRESET_REGIONS[reg]
+            bbox = get_configured_regions()[reg]
             for src in SYNC_SOURCES:
                 for sdate, span in chunks:
                     work_items.append((reg, bbox, src, sdate, span))
@@ -568,111 +555,12 @@ def sync_cube(
             except (KeyError, ValueError, TypeError):
                 continue
 
-        # Aggregate into daily H3 cube rows
-        daily_cells: dict[tuple[int, int], dict[str, Any]] = {}
-        for reg, src, row in deduped:
-            try:
-                lat = float(row["latitude"])
-                lon = float(row["longitude"])
-                frp = float(row.get("frp") or 0.0)
-                if not (abs(lat) <= 90 and abs(lon) <= 180 and math.isfinite(frp) and frp >= 0):
-                    continue
-                acq_d = datetime.strptime(str(row["acq_date"]).strip(), "%Y-%m-%d").date()
-                epoch_d = (acq_d - EPOCH).days
-                c7 = int(h3.latlng_to_cell(lat, lon, 7), 16)
-                c4 = int(h3.cell_to_parent(format(c7, "x"), 4), 16)
-                key_cell = (c7, epoch_d)
-
-                if key_cell not in daily_cells:
-                    daily_cells[key_cell] = {
-                        "h3_r4": c4,
-                        "h3_r7": c7,
-                        "epoch_day": epoch_d,
-                        "year": acq_d.year,
-                        "doy": int(acq_d.strftime("%j")),
-                        "igbp_biome": NOMINAL_BIOMES.get(reg, 8),
-                        "sensor_obs_mask": 0,
-                        "gap_status_mask": 0,
-                        "cloud_cover_pct": 0.0,
-                        "raw_modis_cnt": 0,
-                        "raw_viirs_cnt": 0,
-                        "raw_frp_mw": 0.0,
-                        "obs_terra_fre": None,
-                        "obs_aqua_fre": None,
-                        "obs_viirs_fre": None,
-                        "neighbor_fre_lag1": 0.0,
-                        "industrial_prob": 0.0,
-                        "burned_area_ha_mcd64": 0.0,
-                        "_terra": [],
-                        "_aqua": [],
-                        "_viirs": [],
-                    }
-
-                cell_entry = daily_cells[key_cell]
-                sat = str(row.get("satellite", "")).strip().upper()
-                bit = SENSOR_BITS.get(sat, 4)
-                cell_entry["sensor_obs_mask"] |= bit
-                cell_entry["raw_frp_mw"] += frp
-
-                is_modis = ("MODIS" in src) or (sat in ("TERRA", "AQUA", "T", "A"))
-                if is_modis:
-                    cell_entry["raw_modis_cnt"] += 1
-                    if sat in ("TERRA", "T"):
-                        cell_entry["_terra"].append(frp)
-                    else:
-                        cell_entry["_aqua"].append(frp)
-                else:
-                    cell_entry["raw_viirs_cnt"] += 1
-                    cell_entry["_viirs"].append(frp)
-            except Exception:
-                continue
-
-        # Finalize FRE energy proxies
-        for entry in daily_cells.values():
-            scale = _cell_scale(entry["h3_r7"])
-            if entry["_terra"]:
-                entry["obs_terra_fre"] = float(sum(entry["_terra"]) * scale)
-            if entry["_aqua"]:
-                entry["obs_aqua_fre"] = float(sum(entry["_aqua"]) * scale)
-            if entry["_viirs"]:
-                entry["obs_viirs_fre"] = float((sum(entry["_viirs"]) / len(entry["_viirs"])) * scale)
-            del entry["_terra"], entry["_aqua"], entry["_viirs"]
-
-        # Merge with existing master parquet cube
-        cube_path = duckdb_engine.cube_path()
-        if daily_cells and cube_path.is_file() and duckdb_engine.data_source() == "real":
-            incoming_table = pa.Table.from_pylist(list(daily_cells.values()), schema=CUBE_SCHEMA)
-            existing_table = pq.read_table(cube_path)
-            with duckdb.connect() as con:
-                con.register("existing_cube", existing_table)
-                con.register("incoming_rows", incoming_table)
-                con.execute("""
-                    CREATE TABLE merged_cube AS
-                    SELECT * FROM existing_cube
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM incoming_rows i
-                        WHERE i.h3_r7 = existing_cube.h3_r7 AND i.epoch_day = existing_cube.epoch_day
-                    )
-                    UNION ALL BY NAME
-                    SELECT * FROM incoming_rows
-                    ORDER BY h3_r4, epoch_day, h3_r7
-                """)
-                merged_table = con.sql("SELECT * FROM merged_cube").to_arrow_table()
-
-            meta = pq.read_schema(cube_path).metadata or {}
-            meta[b"real_rows"] = str(len(merged_table)).encode()
-            merged_table = merged_table.replace_schema_metadata(meta)
-            with tempfile.NamedTemporaryFile(dir=cube_path.parent, suffix=".parquet", delete=False) as tmp:
-                output = Path(tmp.name)
-            try:
-                pq.write_table(merged_table, output, compression="zstd", row_group_size=32768, write_statistics=True)
-                output.replace(cube_path)
-            except (pa.ArrowException, OSError) as exc:
-                logger.warning("Could not publish the updated FIRMS cube: %s", exc)
-                _CUBE_SYNC_STATUS.update(status="error", error="Could not save the updated FIRMS cube. Try again.")
-                return get_sync_status()
-            finally:
-                output.unlink(missing_ok=True)
+        try:
+            _rebuild_cube()
+        except (OSError, RuntimeError) as exc:
+            logger.warning("FIRMS publication failed: %s", type(exc).__name__)
+            _CUBE_SYNC_STATUS.update(status="error", error="Downloaded records could not be published through the scientific ETL; the previous cube remains available.")
+            return get_sync_status()
 
         _CUBE_SYNC_STATUS.update({
             "status": "success",

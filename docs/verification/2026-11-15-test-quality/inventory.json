@@ -1,0 +1,66 @@
+{
+  "before": {
+    "counts": {
+      "backend\\tests\\test_api_accounting.py": 12,
+      "backend\\tests\\test_api_contract.py": 20,
+      "backend\\tests\\test_audit_regressions.py": 16,
+      "backend\\tests\\test_copilot_acceptance.py": 46,
+      "backend\\tests\\test_copilot_agent.py": 16,
+      "backend\\tests\\test_copilot_investigator.py": 21,
+      "backend\\tests\\test_copilot_metrics.py": 17,
+      "backend\\tests\\test_copilot_research.py": 38,
+      "backend\\tests\\test_core_validation.py": 18,
+      "backend\\tests\\test_coverage_policy.py": 2,
+      "backend\\tests\\test_cube_schema.py": 105,
+      "backend\\tests\\test_db_layer.py": 21,
+      "backend\\tests\\test_explain_spike.py": 36,
+      "backend\\tests\\test_map_period.py": 5,
+      "backend\\tests\\test_math_core.py": 55,
+      "backend\\tests\\test_nrt_poller.py": 23,
+      "backend\\tests\\test_observations.py": 3,
+      "backend\\tests\\test_real_cutover.py": 7,
+      "backend\\tests\\test_risk_api.py": 4,
+      "backend\\tests\\test_risk_predictor.py": 25,
+      "backend\\tests\\test_science_integration.py": 4
+    },
+    "frozen_bytes": {
+      "backend/tests/FROZEN_TESTS.sha256": "6ad662c87468dbb2422e229f2d084d8c2ec085c8c47bc1d92c2e9602bc6ef3a4",
+      "backend/tests/conftest.py": "6515957ae370dd24bece66168484b1dd4818c9e583fa658828a1f608171a326e",
+      "backend/tests/test_db_layer.py": "f7fd5458ff4046bc25948296edff3be9efaddb3ca71836eec59b2fd4b273dcb7",
+      "backend/tests/test_api_contract.py": "69a8362da55dd93af5f0c415f59b051b5042308f8a03cdc128c9b0af521a3abf",
+      "backend/tests/test_core_validation.py": "2b1fc60ec9401df13cc25ca7c1b4c0003c3ba4cf966d0136a4393fd43e5fb541"
+    }
+  },
+  "after": {
+    "counts": {
+      "backend\\tests\\test_api_accounting.py": 12,
+      "backend\\tests\\test_api_contract.py": 20,
+      "backend\\tests\\test_audit_regressions.py": 16,
+      "backend\\tests\\test_copilot_acceptance.py": 34,
+      "backend\\tests\\test_copilot_agent.py": 16,
+      "backend\\tests\\test_copilot_investigator.py": 21,
+      "backend\\tests\\test_copilot_metrics.py": 17,
+      "backend\\tests\\test_copilot_research.py": 38,
+      "backend\\tests\\test_core_validation.py": 18,
+      "backend\\tests\\test_coverage_policy.py": 2,
+      "backend\\tests\\test_cube_schema.py": 97,
+      "backend\\tests\\test_db_layer.py": 21,
+      "backend\\tests\\test_explain_spike.py": 36,
+      "backend\\tests\\test_map_period.py": 5,
+      "backend\\tests\\test_math_core.py": 55,
+      "backend\\tests\\test_nrt_poller.py": 23,
+      "backend\\tests\\test_observations.py": 3,
+      "backend\\tests\\test_real_cutover.py": 7,
+      "backend\\tests\\test_risk_api.py": 4,
+      "backend\\tests\\test_risk_predictor.py": 24,
+      "backend\\tests\\test_science_integration.py": 4
+    },
+    "frozen_bytes": {
+      "backend/tests/FROZEN_TESTS.sha256": "6ad662c87468dbb2422e229f2d084d8c2ec085c8c47bc1d92c2e9602bc6ef3a4",
+      "backend/tests/conftest.py": "6515957ae370dd24bece66168484b1dd4818c9e583fa658828a1f608171a326e",
+      "backend/tests/test_db_layer.py": "f7fd5458ff4046bc25948296edff3be9efaddb3ca71836eec59b2fd4b273dcb7",
+      "backend/tests/test_api_contract.py": "69a8362da55dd93af5f0c415f59b051b5042308f8a03cdc128c9b0af521a3abf",
+      "backend/tests/test_core_validation.py": "2b1fc60ec9401df13cc25ca7c1b4c0003c3ba4cf966d0136a4393fd43e5fb541"
+    }
+  }
+}

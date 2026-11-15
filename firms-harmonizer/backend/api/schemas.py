@@ -1,6 +1,6 @@
 """Frozen, JSON-safe public API contracts; mirrored in frontend/src/api/types.ts."""
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -19,6 +19,8 @@ class GeoJSONPolygon(ContractModel):
     def validate_rings(cls, rings: list[list[list[float]]]) -> list[list[list[float]]]:
         if not rings:
             raise ValueError("A polygon requires an exterior ring.")
+        if len(rings) > 16 or sum(map(len, rings)) > 512:
+            raise ValueError("A polygon supports at most 16 rings and 512 positions.")
         for ring in rings:
             if len(ring) < 4 or ring[0] != ring[-1]:
                 raise ValueError("Polygon rings must be closed with at least four positions.")
@@ -30,8 +32,8 @@ class GeoJSONPolygon(ContractModel):
 
 class AnalyzeRequest(ContractModel):
     aoi: GeoJSONPolygon
-    start_year: int = Field(default=2001, ge=2001, le=2026)
-    end_year: int = Field(default=2026, ge=2001, le=2026)
+    start_year: int = Field(default=2001, ge=2000, le=2026)
+    end_year: int = Field(default=2026, ge=2000, le=2026)
     exclude_industrial_flaring: bool = True
     enable_kalman_gap_filling: bool = True
     forecast_days: int = Field(default=14, ge=0, le=14)
@@ -46,8 +48,8 @@ class AnalyzeRequest(ContractModel):
 
 class RiskPredictionRequest(ContractModel):
     aoi: GeoJSONPolygon
-    start_year: int = Field(default=2001, ge=2001, le=2026)
-    end_year: int = Field(default=2026, ge=2001, le=2026)
+    start_year: int = Field(default=2001, ge=2000, le=2026)
+    end_year: int = Field(default=2026, ge=2000, le=2026)
     as_of_date: date | None = None
 
     @model_validator(mode="after")
@@ -56,6 +58,8 @@ class RiskPredictionRequest(ContractModel):
             raise ValueError("start_year must not exceed end_year.")
         if self.as_of_date and not self.start_year <= self.as_of_date.year <= self.end_year:
             raise ValueError("as_of_date must fall inside the requested years.")
+        if self.as_of_date and self.as_of_date > datetime.now(timezone.utc).date():
+            raise ValueError('Forecast origin cannot be in the future.')
         return self
 
 
@@ -194,6 +198,8 @@ class DailyCalendarCell(ContractModel):
     gap_reason: str | None
     active_sensors: list[str]
     tooltip_narrative: str | None
+    observation_status: Literal['detected', 'observed_zero', 'reconstructed', 'unknown', 'forecast'] = 'unknown'
+    pm25_factor_sd_kg: float | None = None
 
 
 class VonMisesPhenologyYear(ContractModel):
@@ -231,6 +237,15 @@ class H3MapSummaryHex(ContractModel):
     shannon_entropy: float
 
 
+class EnergyForecastValidation(ContractModel):
+    horizon_days: int
+    samples: int
+    mae: float
+    persistence_mae: float
+    climatology_mae: float
+    interval_coverage_pct: float
+
+
 class AnalyzeResponse(ContractModel):
     data_source: Literal["real", "synthetic"]
     query_hash: str
@@ -242,11 +257,14 @@ class AnalyzeResponse(ContractModel):
     phenology_by_year: list[VonMisesPhenologyYear]
     audit_metrics: ScientificAuditMetrics | None
     map_hexagons: list[H3MapSummaryHex]
+    coverage_note: str = 'Sparse detections do not establish complete observation coverage.'
+    forecast_validation: list[EnergyForecastValidation] = Field(default_factory=list)
+    forecast_unavailable_reason: str | None = None
 
 
 class ChaosMonkeyRequest(ContractModel):
     aoi: GeoJSONPolygon
-    target_year: int = Field(default=2022, ge=2001, le=2026)
+    target_year: int = Field(default=2022, ge=2000, le=2026)
     drop_fraction: float = Field(default=0.25, ge=0, le=1)
     simulate_dual_blackout: bool = True
     random_seed: int = Field(default=42, ge=0)
@@ -293,13 +311,13 @@ class CopilotMapContext(ContractModel):
 
 
 class ExplainSpikeRequest(ContractModel):
-    region_name: str = "Unknown Region"
+    region_name: str = Field(default="Unknown Region", max_length=200)
     selected_day: DailyCalendarCell | None = None
     selected_hex: H3MapSummaryHex | None = None
-    user_question: str = ""
+    user_question: str = Field(default="", max_length=6000)
     aoi: GeoJSONPolygon | None = None
     confidence_level: Literal["low", "nominal", "high"] = "nominal"
-    conversation: list[CopilotTurn] = Field(default_factory=list, max_length=12)
+    conversation: list[CopilotTurn] = Field(default_factory=list, max_length=10)
     period_start: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     period_end: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     prefer_map_context: bool = False
@@ -352,5 +370,17 @@ class CubeSyncStatusResponse(ContractModel):
     message: str | None = None
     data_source: Literal["real", "synthetic"] = "real"
     error: str | None = None
+
+
+
+
+class MapPeriodResponse(ContractModel):
+    """Spatial observations only; legacy hex energy field is summed over these dates."""
+
+    data_source: Literal["real", "synthetic"]
+    start_date: date
+    end_date: date
+    map_hexagons: list[H3MapSummaryHex]
+    execution_time_ms: float
 
 

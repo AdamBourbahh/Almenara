@@ -11,7 +11,7 @@ def is_forced_offline():
 
 
 def is_offline():
-    return _FORCED.get() or os.getenv('COPILOT_OFFLINE')=='1'
+    return _FORCED.get() or os.getenv('COPILOT_OFFLINE','1')=='1'
 
 
 @contextmanager

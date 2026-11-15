@@ -12,37 +12,12 @@
         "2000-11-01",
         "2026-11-14"
       ]
+    ],
+    "label": "Chilecito, La Rioja (Argentina)",
+    "fixture_center": [
+      -29.25,
+      -67.5
     ]
-  },
-  "orlando_florida": {
-    "bounds": [-82.0, 28.0, -80.7, 29.3],
-    "nominal_biome": 8,
-    "coverage": [["2000-11-01", "2026-11-14"]]
-  },
-  "amazonas_manaus": {
-    "bounds": [-62.0, -5.0, -58.0, -1.0],
-    "nominal_biome": 2,
-    "coverage": [["2000-11-01", "2026-11-14"]]
-  },
-  "cerrado_brazil": {
-    "bounds": [
-      -57.2,
-      -17.8,
-      -55.2,
-      -16
-    ],
-    "nominal_biome": 9,
-    "coverage": [["2000-11-01", "2026-11-01"]]
-  },
-  "california_usa": {
-    "bounds": [
-      -121.2,
-      38,
-      -119.5,
-      40.2
-    ],
-    "nominal_biome": 8,
-    "coverage": [["2000-11-01", "2026-11-01"]]
   },
   "iberia_med": {
     "bounds": [
@@ -57,15 +32,51 @@
         "2000-11-01",
         "2026-11-14"
       ]
+    ],
+    "label": "Iberian Peninsula / Mediterranean (Spain)",
+    "fixture_center": [
+      38.5,
+      -4.85
     ]
   },
-  "niger_delta_flaring": {
+  "orlando_florida": {
     "bounds": [
-      5.6,
-      4.6,
-      7.2,
-      5.8
+      -82.0,
+      28.0,
+      -80.7,
+      29.3
     ],
-    "nominal_biome": 12
+    "nominal_biome": 8,
+    "coverage": [
+      [
+        "2000-11-01",
+        "2026-11-14"
+      ]
+    ],
+    "label": "Orlando, Florida (USA)",
+    "fixture_center": [
+      28.65,
+      -81.35
+    ]
+  },
+  "amazonas_manaus": {
+    "bounds": [
+      -62.0,
+      -5.0,
+      -58.0,
+      -1.0
+    ],
+    "nominal_biome": 2,
+    "coverage": [
+      [
+        "2000-11-01",
+        "2026-11-14"
+      ]
+    ],
+    "label": "Amazonas / Manaus (Brazil)",
+    "fixture_center": [
+      -3.0,
+      -60.0
+    ]
   }
 }

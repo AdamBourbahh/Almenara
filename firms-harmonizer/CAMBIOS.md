@@ -1,5 +1,69 @@
 # Change log — integration changes
 
+## 2026-11-15 — Integration with updated origin/main
+
+Preserved upstream inclusive chronology ranges, map search/scale, settings, local
+document RAG, bounded investigation tools and request-local provider fallback.
+Resolved overlapping accounting changes in favour of canonical within-cell fusion,
+exact cell-area integrals and WGS84 polygon-normalized density. Migrated incoming
+regression expectations to these physical units and actual archive bounds while
+retaining their independent energy/concurrency/limit checks. Cache constructor
+spellings are compatible and byte budgets remain bounded. The episode dossier now
+uses the API's conditional annual-fuel PM2.5 instead of a generic 9.5 g/kg factor.
+Region-name length is bounded at 200 characters in the shared schema. Forecast
+coverage selection and its untouched final-year gate are retained.
+
+## 2026-11-15 — Evidence-based coverage policy
+
+Coverage policy update (2026-11-15): the fixed requirement of 95% complete whole-region days is replaced by temporal selection among 70/80/90/95% terrestrial support thresholds. Coverage is an exact-H3-area-weighted union of qualified cells across sensors, weighted by preceding-year measured land/water pixel fractions. Unknown land/water area remains potential unobserved land in the denominator; entirely missing land classifications remain unavailable. Legacy packed masks retain their >=95% valid-sample cell qualification and >=50% sampled-area screen. Consequently this is a sampled qualified-cell support proxy, not a pixel-exact measurement of observed terrestrial area. Historical observed-zero semantics remain conservative and unchanged.
+
+Selection uses the penultimate year of monthly rolling origins after at least three training years. The final year is reserved for validation of the single chosen threshold; failure does not trigger selection of a different candidate. All candidates use high-support (>=95%) origins and labels, never cloudy zeros. Reports include 1/7/14-day MAE, persistence/climatology baselines, signed bias, nominal-95% interval coverage and seasonal representation. Publication still requires >=12 cases per horizon, all four seasonal groups, MAE no worse than either baseline, and >=90% interval coverage in both selection and holdout. No qualifying candidate means null plus an explicit reason. These tests validate the sampled thermal proxy, not independently measured physical energy. No missing energy is upscaled by dividing by coverage.
+
+Run `python scripts/13_validate_coverage.py` to atomically publish matching `land_*.npz` preset indexes and `coverage-policy.json`. Arbitrary AOIs without a matching published index retain an unavailable forecast. Incomplete support or a weak reserved-year result must keep publication blocked.
+
+## 2026-11-15 — all-nighter audit remediation
+
+The user authorized coordinated changes across every ownership track. Energy now
+integrates per-cell sensor fusion against each exact H3 area, then normalizes by
+the WGS84 polygon area. Missing detections are unknown unless independent masks
+support an observed zero or explicit gap evidence permits reconstruction. History
+ends at actual archive/current-date limits and includes November/December 2000.
+All five sensor bits are retained. Confidence thresholds select separately built
+cubes; requests no longer silently ignore their selected threshold.
+
+Coordinated additive contracts: DailyCalendarCell.observation_status and nullable
+pm25_factor_sd_kg; AnalyzeResponse.coverage_note, forecast_validation and
+forecast_unavailable_reason; EnergyForecastValidation; shared MapPeriodResponse
+and sync request/status contracts. Python, TypeScript and SPECS.md are updated
+together. PM2.5 uses measured annual classes and cited fuel factors; incomplete
+support stays null. Causal FRE forecasts require rolling-origin baseline and
+interval gates. No forecast is published merely because it was requested.
+
+Chaos Monkey excludes the target year from prior/gain fitting, removes affected
+spatial forcing and scores affected days against an intact-input model reference.
+Annual diagnostics exclude partial years. UI verdicts preserve actual failures,
+unknown emissions stay unavailable, and CSVs use a real UTF-8 BOM with blank
+unknown physical estimates. Map periods use spatial-only queries. Observations
+are virtualized and browser fixtures are isolated behind explicit opt-in.
+
+Published EOG site-year evidence now constrains industrial scoring at a realistic
+position scale. Acquisition scripts provide resumable MODIS/VIIRS masks, QA-filtered
+MCD64A1 and measured annual MCD12Q1. Four official regions share one registry;
+exclusive retired-region raw files and unused mocks are removed, while corrupt
+historical sync files are quarantined. Raw files for the four regions are retained
+as requested. Live synchronization uses canonical ETL and safe engine refresh.
+
+Geometry/body/question/rate/concurrency bounds, explicit local CORS and a byte-bounded
+cache protect analytical operations. Offline Copilot is the default. Dependency
+locks, portable bootstrap/ETL/full verification, Windows/Linux CI and regular-file
+agent rules support a fresh clone. Coordinated frozen tests were revised to remove
+obsolete None/CORS-star assertions, with LF-normalized SHA-256 hashes regenerated.
+
+Final evidence and remaining scientific availability limits are recorded in
+`../docs/verification/2026-11-15-all-nighter/README.md` and `report.json`. The user
+selected complete public MODIS acquisition plus staged, resumable VIIRS; the full
+VIIRS historical archive is not claimed complete.
+
 ## 2026-11-14 — Incident explanation and acceptance tests
 
 Reproduced the user's Madrid 24 July 2026 failure with live providers. Search found
@@ -468,3 +532,29 @@ versus a 1 px zero-count baseline; the timeline explicitly does not show inciden
 duration. Real map-period checks around the screenshot AOI returned observations
 through 1 August, including 72 detections on 28 July, despite much smaller bars.
 No public contracts changed. Free-provider quotas remain an external limitation.
+
+
+## 2026-11-15 — Google Gemini provider and concise domain prompt
+
+Configured the local deployment for Gemini 3.8 Flash after Google rejected 2.5 Flash
+for this project and the user approved 3.8. Credentials remain in ignored `.env`.
+`COPILOT_PROVIDER=gemini` selects Google for the tool agent and auxiliary prose;
+provider failures use local evidence without silently switching to Groq.
+
+The compact prompt uses practical terminology, separates active-burning evidence,
+incident identity, ignition and spread, and prioritizes relevant official/scientific
+sources. It does not add unavailable risk, emissions or burned-area calculations.
+Grouped/doubled provider citations become individual verified source markers.
+Uncertainty about ignition no longer erases valid event context.
+
+Google Search source discovery is a separate native request. Only grounding metadata
+URLs can enter the approved publisher reader; generated search prose is never an
+article quotation. Discovery uses a 12-second shared budget because live four-second
+attempts consistently timed out. Publisher/redirect reads retain a four-second cap.
+Failures explicitly do not establish absence of an incident or report.
+
+Gemini tool batches are executed sequentially, with at most three calls per response;
+complete assistant/tool exchanges and opaque metadata survive context trimming.
+The agent keeps its 35-second overall budget and server-owned numerical validation.
+No frozen public API fields or types changed. Existing legacy-provider tests declare
+their provider rather than inheriting the developer's local Google credentials.

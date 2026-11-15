@@ -12,7 +12,7 @@ from backend.api.schemas import RiskPredictionResponse
 from backend.db import duckdb_engine, queries
 
 AOI = {"type": "Polygon", "coordinates": [[
-    [-57.2, -17.8], [-55.2, -17.8], [-55.2, -16.0], [-57.2, -16.0], [-57.2, -17.8]
+    [-69.5, -31], [-65.5, -31], [-65.5, -27.5], [-69.5, -27.5], [-69.5, -31]
 ]]}
 EPOCH = date(1970, 1, 1)
 

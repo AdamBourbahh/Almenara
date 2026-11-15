@@ -1,3 +1,9 @@
+# Active inventory — 2026-11-15
+
+Only Chilecito, Iberia, Orlando and Amazonas/Manaus are active. Their supplied raw CSVs are retained. Exclusive Cerrado/California files were removed at the user’s request; the corresponding notes below are historical provenance. Invalid 2026-11-14 sync exports are retained under `quarantine/` and excluded from ingestion. See `../ETL_SPEC.md` and the root all-nighter verification report for the current pipeline.
+
+---
+
 # NASA FIRMS raw data inventory
 
 ## Local regions

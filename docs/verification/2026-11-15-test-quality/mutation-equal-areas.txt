@@ -1,0 +1,47 @@
+F.                                                                       [100%]
+================================== FAILURES ===================================
+____ test_union_of_sensors_excludes_measured_water_and_uses_previous_year _____
+
+tmp_path = WindowsPath('C:/Users/eddy1/AppData/Local/Temp/pytest-of-eddy1/pytest-35/test_union_of_sensors_excludes0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000027A597675F0>
+
+    def test_union_of_sensors_excludes_measured_water_and_uses_previous_year(tmp_path,monkeypatch):
+        from backend.db.duckdb_engine import ROOT
+        monkeypatch.syspath_prepend(str(ROOT/'scripts'))
+        writer = import_module('09_fetch_observation_coverage').write_summary
+        masks = tmp_path/'data/processed/observation_coverage'
+        masks.mkdir(parents=True)
+        land = tmp_path/'data/cache/land_cover'
+        land.mkdir(parents=True)
+        (tmp_path/'data/regions.json').write_text(json.dumps({'unit':{'bounds':[-82,28,-80,30]}}))
+        cells = sorted([h3.latlng_to_cell(28.5+i*.1,-81,7) for i in range(3)])
+        rows = []
+        for i,c in enumerate(cells):
+            counts = [0]*18
+            counts[17 if i==2 else 10] = 10
+            rows.append(dict(h3_r7=c,year=2023,class_counts=counts,sampled_pixels=10))
+        pq.write_table(pa.Table.from_pylist(rows),land/'unit.parquet')
+        epoch = (date(2024,1,1)-date(1970,1,1)).days
+        for sensor,chosen in [('Terra',0),('Aqua',1)]:
+            writer(dict(cells=np.array(cells,dtype=np.uint64),days=np.array([epoch,epoch+1]),
+                clear=np.array([[i==chosen for i in range(3)],[i==0 for i in range(3)]]),
+                fire=np.zeros((2,3),bool)),masks/f'unit_{sensor}_sample.parquet',
+                {b'granule':b'MOD14A1.A2024001.h10v06.061.test'})
+        result = fractions(tmp_path,cells,epoch,epoch+1)
+        assert result[0] == 1  # Different sensors jointly observe all land, no double count.
+        # Independently recorded H3 areas for the first two fixture cells (km�).
+        # A uniform-cell weighting would incorrectly return exactly 0.5.
+>       np.testing.assert_allclose(result[1],4.675232673770666/(4.675232673770666+4.676643095626661),rtol=1e-12)
+E       AssertionError: 
+E       Not equal to tolerance rtol=1e-12, atol=0
+E       
+E       Mismatched elements: 1 / 1 (100%)
+E       Max absolute difference among violations: 7.54085004e-05
+E       Max relative difference among violations: 0.00015084
+E        ACTUAL: array(0.5)
+E        DESIRED: array(0.499925)
+
+backend\tests\test_coverage_policy.py:39: AssertionError
+=========================== short test summary info ===========================
+FAILED backend\tests\test_coverage_policy.py::test_union_of_sensors_excludes_measured_water_and_uses_previous_year
+1 failed, 1 passed in 0.35s

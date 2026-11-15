@@ -67,11 +67,11 @@ def test_auto_discovery_excludes_industrial_and_integrates_units(cube):
     assert p['episode_start_date']=='2026-07-22'
     assert p['episode_end_date']=='2026-07-26'
     assert p['duration_days']==5
-    assert p['peak_daily_fre_mj_km2']==100
+    assert p['peak_daily_fre_mj_km2']*c.queries.polygon_area_km2(aoi.coordinates)==pytest.approx(100*h3.cell_area(cell,unit='km^2'))
     expected=sum([40,70,100,80,50])*h3.cell_area(cell,unit='km^2')/1000
     assert p['total_episode_fre_gj']==pytest.approx(expected)
     assert p['estimated_biomass_burned_tonnes']==pytest.approx(expected*.368)
-    assert p['estimated_pm25_tonnes']==pytest.approx(expected*.368*.0095)
+    assert p['estimated_pm25_tonnes'] is None  # Fixture has no measured annual fuel classes.
     assert p['estimated_co2_tonnes']==pytest.approx(expected*.368*1.58)
     assert p['industrial_candidate_cells']==1 and p['industrial_candidate_detections']==7
     assert p['dominant_sensors']==['Terra'] and p['gap_filling_occurred'] is False
@@ -124,6 +124,8 @@ def test_full_dossier_endpoint_and_compatible_contract(cube):
 
 @pytest.mark.parametrize('status',[401,403,429,500])
 def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypatch,status):
+    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     for variable in ('GROQ_API_KEY','GITHUB_TOKEN','GEMINI_API_KEY'):
         monkeypatch.setenv(variable,'test-secret')
@@ -141,7 +143,7 @@ def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypat
     factory=httpx.Client
     monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:factory(transport=httpx.MockTransport(transport),**kwargs))
     result,provider=providers.complete([{'role':'system','content':'x'*6000},{'role':'user','content':'a'*10000}],structured=True)
-    assert result=='{"claims":[]}' and provider=='gemini/gemini-2.5-flash'
+    assert result=='{"claims":[]}' and provider=='gemini/gemini-3.8-flash'
     assert len(calls)==3
     assert calls[0].url.host=='api.groq.com'
     assert calls[1].url.host=='models-gateway.example.org'
@@ -149,6 +151,8 @@ def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypat
 
 
 def test_all_provider_network_failures_and_malformed_json(monkeypatch):
+    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     monkeypatch.setenv('GROQ_API_KEY','test')
     monkeypatch.delenv('GITHUB_TOKEN',raising=False)
@@ -173,6 +177,8 @@ def test_offline_skips_every_provider(monkeypatch):
 
 def test_three_queries_and_wikipedia_are_clean_and_deduplicated(cube,monkeypatch):
     aoi,cell,rows=cube
+    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     monkeypatch.delenv('TAVILY_API_KEY',raising=False)
     c.RESEARCH_CACHE.clear()
@@ -204,6 +210,8 @@ def test_three_queries_and_wikipedia_are_clean_and_deduplicated(cube,monkeypatch
 
 
 def test_missing_groq_model_uses_bounded_compatible_model(monkeypatch):
+    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     monkeypatch.setenv('GROQ_API_KEY','test')
     monkeypatch.delenv('GROQ_MODEL',raising=False)
@@ -259,7 +267,7 @@ def test_summary_cannot_introduce_numbers_or_erase_investigation_status():
 def test_dossier_model_input_is_complete_json_under_budget(cube,monkeypatch):
     from backend.api.schemas import CitationReference
     aoi,cell,rows=cube
-    req=ExplainSpikeRequest(aoi=aoi,user_question='Investigate the main fire, its progression and consequences.'+' untrusted'*800)
+    req=ExplainSpikeRequest(aoi=aoi,user_question='Investigate the main fire, its progression and consequences.'+' untrusted'*500)
     scope=c.legacy.resolve_scope(req)
     scope.start=scope.end='2026-07-24'
     p=c.profile_fire_episode_from_duckdb(aoi,'Test',enable_kalman_gap_filling=False)
@@ -294,6 +302,8 @@ def test_search_cache_retries_article_fetch_after_network_recovers(cube,monkeypa
     from backend.api.schemas import CitationReference
     from time import monotonic
     aoi,cell,rows=cube
+    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     scope=c.legacy.resolve_scope(ExplainSpikeRequest(aoi=aoi,user_question='Madrid on 2026-07-24'))
     source=CitationReference(id='[W1]',source_type='WEB_NEWS_REPORT',title='Madrid fire',

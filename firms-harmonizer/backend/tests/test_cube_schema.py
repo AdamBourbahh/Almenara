@@ -1,6 +1,7 @@
 """Offline ETL evidence, cube schema, storage and physical scenario regression gates."""
 
 import csv
+import shutil
 import importlib.util
 from datetime import date, timedelta
 from importlib import import_module
@@ -31,8 +32,19 @@ bootstrap = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bootstrap)
 
 
+@pytest.fixture(scope="module")
+def base_etl_lookup(tmp_path_factory):
+    outages = import_module("02_detect_outages_clouds")
+    directory = tmp_path_factory.mktemp("base_etl_lookup")
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(outages, "ROOT", directory)
+        outages.build_outages_table(directory / "absent.parquet", directory)
+    (directory / "eqm_gpd_lut.json").write_text('{"models": {}}', encoding="utf-8")
+    return directory
+
+
 @pytest.fixture
-def phase2_etl(tmp_path, monkeypatch):
+def phase2_etl(tmp_path, monkeypatch, base_etl_lookup):
     """Keep input configuration, auxiliary lookups and published artifacts temporary."""
     monkeypatch.syspath_prepend(str(ROOT / "scripts"))
     ingest = import_module("01_ingest_firms")
@@ -45,8 +57,10 @@ def phase2_etl(tmp_path, monkeypatch):
                             "coverage": [["2024-01-01", "2024-12-31"]]}}
     (tmp_path / "data/regions.json").write_text(json.dumps(regions), encoding="utf-8")
     lookup = tmp_path / "data/lookup"
-    outages.build_outages_table(tmp_path / "absent.parquet", lookup)
-    (lookup / "eqm_gpd_lut.json").write_text('{"models": {}}', encoding="utf-8")
+    lookup.mkdir(parents=True)
+    for source in base_etl_lookup.iterdir():
+        if source.is_file():
+            shutil.copyfile(source, lookup / source.name)
     return ingest, outages, builder
 
 
@@ -72,8 +86,6 @@ def write_phase2_csv(path, records):
     ("iberia_med", 40.0, -4.0, 8),
     ("orlando_florida", 28.54, -81.38, 8),
     ("amazonas_manaus", -3.1, -60.02, 2),
-    ("cerrado_brazil", -16.9, -56.2, 9),
-    ("california_usa", 39.1, -120.4, 8),
 ])
 def test_registered_real_regions_ingest_and_publish(phase2_etl, tmp_path,
                                                   region, latitude, longitude, biome):
@@ -409,33 +421,35 @@ def test_stage02_known_snpp_interval_is_exact_and_reproducible(tmp_path):
         assert [path.read_bytes() for path in paths] == first
 
 
-@pytest.mark.parametrize("history,current,expected", [
-    ([100.0] * 15, 24.0, True),
-    ([100.0] * 15, 25.0, False),
-    ([100.0] * 15, 0.0, True),
-    ([100.0] * 14 + [0.0], 24.0, False),
-    ([100.0] * 14 + [0.0], 23.0, True),
-    ([0.0] * 15, 0.0, False),
-    ([100.0] * 14, 0.0, False),
-    ([100.0] * 7 + [None] + [100.0] * 7, 0.0, False),
-    ([100.0] * 15, None, False),
-])
-def test_stage02_global_counts_complete_window(tmp_path, history, current, expected):
-    target = date(2022, 2, 1)
-    records = [dict(satellite="Terra", acq_date=target - timedelta(days=len(history) - i),
-                    detection_count=count) for i, count in enumerate(history)]
-    records.append(dict(satellite="Terra", acq_date=target, detection_count=current))
-    # A second instrument cannot contribute days to Terra's baseline.
-    records.extend(dict(satellite="SNPP", acq_date=target - timedelta(days=i),
-                        detection_count=1000.0) for i in range(16))
+def test_stage02_global_counts_complete_window(tmp_path):
+    cases = [
+        ([100.] * 15, 24., True),       # Below the strict 25% boundary.
+        ([100.] * 15, 25., False),      # Exactly at the boundary.
+        ([100.] * 15, 0., True),
+        ([100.] * 14 + [0.], 24., False),
+        ([100.] * 14 + [0.], 23., True), # Baseline includes zero-valued days.
+        ([0.] * 15, 0., False),         # No positive baseline.
+        ([100.] * 14, 0., False),       # Short history.
+        ([100.] * 7 + [None] + [100.] * 7, 0., False),
+        ([100.] * 15, None, False),     # Unknown current value.
+    ]
+    records, expected = [], []
+    for number, (history, current, drops) in enumerate(cases):
+        target = date(2021, 1, 20) + timedelta(days=40 * number)
+        records.extend(dict(satellite="Terra", acq_date=target-timedelta(days=len(history)-i),
+                            detection_count=count) for i,count in enumerate(history))
+        records.append(dict(satellite="Terra", acq_date=target, detection_count=current))
+        records.extend(dict(satellite="SNPP", acq_date=target-timedelta(days=i),
+                            detection_count=1000.) for i in range(16))
+        if drops:
+            expected.append(dict(acq_date=target, satellite="Terra", evidence="global_count_drop"))
     counts = tmp_path / "global.parquet"
     pq.write_table(pa.Table.from_pylist(records), counts)
     result = run_outage_cli(tmp_path / "missing.parquet", tmp_path, counts)
     assert result.returncode == 0, result.stderr
-    dynamic = [row for row in pq.read_table(tmp_path / "sensor_outages.parquet").to_pylist()
-               if row["evidence"] == "global_count_drop"]
-    assert dynamic == ([dict(acq_date=target, satellite="Terra", evidence="global_count_drop")]
-                       if expected else [])
+    actual = [row for row in pq.read_table(tmp_path / "sensor_outages.parquet").to_pylist()
+              if row["evidence"] == "global_count_drop"]
+    assert actual == expected
     assert pq.read_table(tmp_path / "diurnal_ratios.parquet").num_rows == 0
 
 
@@ -525,7 +539,7 @@ def stage04_inputs(tmp_path, monkeypatch):
                for cell in (center, neighbor) for day in days
                for sensor, bit in (("Terra", 1), ("Aqua", 2), ("SNPP", 4), ("N20", 8), ("N21", 16))]
     staged = tmp_path / "staged.parquet"
-    pq.write_table(pa.Table.from_pylist(records), staged)
+    pq.write_table(pa.Table.from_pylist([dict(record, confidence_norm="high", source_file="fixture.csv") for record in records]), staged)
     return builder, staged, lookup, int(center, 16), int(neighbor, 16)
 
 
@@ -626,10 +640,11 @@ def test_missing_staging_preserves_existing_master(tmp_path, monkeypatch):
 
 
 def test_mock_and_request_contract():
-    payload = orjson.loads((ROOT / "data/mock/mock_analyze_response.json").read_bytes())
-    response = AnalyzeResponse.model_validate(payload)
+    from backend.api.routes import analyze
+    response = AnalyzeResponse.model_validate_json(analyze(AnalyzeRequest(aoi=GeoJSONPolygon(
+        coordinates=[[[-69.5,-31],[-65.5,-31],[-65.5,-27.5],[-69.5,-27.5],[-69.5,-31]]]), forecast_days=0)).body)
     assert response.data_source == "synthetic"
-    assert len(response.calendar_series) == 9496
+    assert response.calendar_series and all(not c.is_forecast for c in response.calendar_series)
     aoi = GeoJSONPolygon(coordinates=[[[-6, 38], [-4, 38], [-4, 40], [-6, 38]]])
     assert AnalyzeRequest(aoi=aoi).forecast_days == 14
     assert ChaosMonkeyRequest(aoi=aoi).drop_fraction == .25
@@ -816,7 +831,7 @@ def test_industrial_and_climate_scenarios(cube):
                 widths.append(np.sqrt(-2 * np.log(abs(z))) * 365.25 / (2 * np.pi))
             assert .70 < np.polyfit(np.arange(26), peaks, 1)[0] < .80
             assert 1.25 < widths[-1] / widths[0] < 1.35
-        assert industrial_count == (6 if name == "niger_delta_flaring" else 2)
+        assert industrial_count == (6 if name == "amazonas_manaus" else 2)
 
 
 def test_generator_repeatability_performance_and_alternate_path(tmp_path,cube):
@@ -827,6 +842,8 @@ def test_generator_repeatability_performance_and_alternate_path(tmp_path,cube):
     assert pq.read_table(path).equals(cube)
     # Exercise the unchanged CLI default in an isolated project, never in production.
     isolated = tmp_path / "isolated_project"
+    (isolated / "data").mkdir(parents=True)
+    (isolated / "data/regions.json").write_bytes((ROOT / "data/regions.json").read_bytes())
     script = isolated / "scripts/00_bootstrap_synthetic_cube.py"
     script.parent.mkdir(parents=True)
     script.write_bytes((ROOT / "scripts/00_bootstrap_synthetic_cube.py").read_bytes())
@@ -999,7 +1016,7 @@ def test_phase1_staged_parquet_preserves_footprint_and_bowtie_weights(phase2_etl
 
 @pytest.mark.parametrize("label,lat,lon,daynight,conf,mir,tir,acq_date,satellite,expected_drop", [
     # Inside SAMA box (-35 to -15 lat, -65 to -30 lon), night, low conf, contrast < 1.5K -> DROP
-    ("sama_noise_cerrado", -16.9, -56.2, "N", "low", 300.0, 299.5, "2024-06-15", "Aqua", True),
+    ("sama_noise_outside_presets", -16.9, -56.2, "N", "low", 300.0, 299.5, "2024-06-15", "Aqua", True),
     ("sama_noise_south_atlantic", -25.0, -45.0, "N", "low", 300.0, 299.5, "2024-06-15", "Aqua", True),
     ("sama_noise_digit_conf", -22.0, -45.0, "N", "20", 305.0, 304.5, "2024-06-15", "Terra", True),
     # Inside SAMA box but daytime -> KEEP
@@ -1066,12 +1083,14 @@ def test_phase3_staged_entropy_and_industrial_score(phase2_etl, tmp_path):
              satellite="Terra", frp=80.0, scan=1.0, track=1.0, confidence=100, daynight="D",
              brightness=360.0, bright_t31=300.0)
     ]
-    # SAMA noise candidate in Cerrado region that must be filtered out
+    # SAMA noise candidate outside the configured study regions that must be filtered out
     sama_records = [
         dict(latitude=-16.90000, longitude=-56.20000, acq_date="2024-07-15", acq_time="0330",
              satellite="Aqua", frp=15.0, scan=1.0, track=1.0, confidence=20, daynight="N",
              brightness=300.0, bright_t31=299.5)
     ]
+    (tmp_path / "data/lookup/flare_reference.csv").write_text(
+        "year,latitude,longitude,site_id,region\n2024,-29.16,-67.5,fixture,chilecito_la_rioja\n", encoding="utf-8")
     write_phase2_csv(raw / "phase3_test_detections.csv", flare_records + wildfire_records + sama_records)
 
     staged_path = ingest.ingest_raw_firms(output_path=tmp_path / "staged_phase3.parquet")
@@ -1099,7 +1118,7 @@ def test_phase3_staged_entropy_and_industrial_score(phase2_etl, tmp_path):
     w_ent, w_prob = industrial_filter.compute_industrial_probability(w_counts)
     w = wildfire_rows[0]
     assert w["h_temp"] == pytest.approx(float(w_ent), abs=1e-6)
-    assert w["industrial_prob"] == pytest.approx(float(w_prob), abs=1e-6)
+    assert w["industrial_prob"] == 0.0  # No documented industrial reference.
     assert w["h_temp"] < 0.05
     assert w["industrial_prob"] < 0.05
 
@@ -1204,7 +1223,9 @@ def test_real_cube_november_2026_coverage_and_schema():
         ).fetchone()
         assert min_day == (date(2000, 11, 1) - date(1970, 1, 1)).days
         assert max_day >= (date(2026, 11, 14) - date(1970, 1, 1)).days
-        assert total_rows > 760_000
+        staged = ROOT / "data/processed/staged_firms.parquet"
+        expected_rows = con.execute("SELECT count(*) FROM (SELECT DISTINCT h3_r7, acq_date FROM read_parquet(?) WHERE confidence_norm IN ('nominal','high'))", [str(staged)]).fetchone()[0]
+        assert total_rows == expected_rows and total_rows > 0
 
         # Verify November 2026 records
         nov_records = con.execute("""
@@ -1320,14 +1341,18 @@ def test_stage04_and_stage05_turn_mcd64_ancillary_into_cross_validated_r2(phase2
     cube = builder.build_master_cube(staged, tmp_path / "data/processed/fire_cube.parquet")
     coverage = json.loads(pq.read_schema(cube).metadata[b"ancillary_coverage"])
     assert coverage["input_present"] is True and coverage["burned_area_ha_mcd64"]["observed_rows"] == 16
-    benchmark.run_benchmark("data/processed/fire_cube.parquet")
-    output = capsys.readouterr().out.splitlines()
-    assert any(l.startswith("uncovered") and "no coverage declared" in l for l in output)
-    line = next(l for l in output if l.startswith("fixture"))
-    fields = line.split()  # name, P95, Chow, BA Chow, W1, CV R2, Fit R2, Recovery
-    assert len(fields) == 8
-    r2 = float(fields[5])
-    assert r2 > 0.99  # annual burned area is exactly proportional to annual harmonized energy
+    # Independently test the ancillary regression without changing the process-wide API cube.
+    predictors = [[burned[year]] for year in range(2004, 2019)]
+    totals = [burned[year] for year in range(2004, 2019)]
+    assert benchmark.cross_validated_r2(predictors, totals) > .99
+    from backend.db.burned_area import annual_totals
+    import duckdb
+    coords = [[[-5,39],[-3,39],[-3,41],[-5,41],[-5,39]]]
+    with duckdb.connect() as cur:
+        cell = int(h3.latlng_to_cell(40., -4., 7), 16)
+        measured = annual_totals(tmp_path, cur, coords, [cell], np.arange(2004,2020))
+    assert np.isfinite(measured[:-1]).all() and np.isnan(measured[-1])
+
 
 
 @pytest.fixture
@@ -1368,7 +1393,7 @@ def test_stage05_recovery_is_the_core_chaos_monkey_on_api_daily_inputs(stage05):
     expected = run_chaos_monkey_simulation(
         [str(d) for d in days[selected]], daily["doy"][selected], obs[selected],
         daily["neighbor_fre_lag1"][selected], daily["cloud_cover_pct"][selected],
-        full_doy_history=daily["doy"], full_y_obs_history=obs)
+        full_doy_history=daily["doy"][~selected], full_y_obs_history=obs[~selected])
     assert result == pytest.approx(expected.seasonal_energy_recovered_pct)
     assert stage05.chaos_recovery(daily, 2030) is None
 

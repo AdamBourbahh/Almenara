@@ -1,0 +1,11 @@
+function                       status          ms  detail
+compute_cross_prior            PASS          1.08  n=9450
+kalman_rts_smooth              PASS         71.14  n=9450
+fit_von_mises_year             PASS          0.20  n=365
+phenology_trend                PASS          1.57  n=26
+chow_test                      PASS          0.54  n=9450
+wasserstein_w1_normalized      PASS          0.98  n=9450
+descriptive_r2                 PASS          0.07  n=9450
+run_chaos_monkey_simulation    PASS          7.69  n=9450
+
+All core functions conform to the API contract -> exit 0

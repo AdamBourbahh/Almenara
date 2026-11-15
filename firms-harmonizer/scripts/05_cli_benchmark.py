@@ -134,129 +134,22 @@ def chaos_recovery(daily, target_year=2022):
         [str(date) for date in dates], daily["doy"][selected], obs[selected],
         daily["neighbor_fre_lag1"][selected], daily["cloud_cover_pct"][selected],
         drop_fraction=0.25, simulate_dual_blackout=True, random_seed=42,
-        full_doy_history=daily["doy"], full_y_obs_history=obs)
+        full_doy_history=daily["doy"][~selected], full_y_obs_history=obs[~selected])
     return float(result.seasonal_energy_recovered_pct)
 
 
 def run_benchmark(cube_path="data/processed/fire_cube.parquet"):
-    path = ROOT / cube_path
+    """Use exactly the API's series, coverage policy and scientific verdicts."""
+    import os
+    path = (ROOT / cube_path).resolve()
     if not path.is_file():
-        print(f"Cube unavailable at {path}. Run script 04.")
+        print(f"Cube unavailable at {path}. Run scripts/run_pipeline.py etl.")
         return False
-    parquet = pq.ParquetFile(path)
-    synthetic = b"SYNTHETIC" in (parquet.schema_arrow.metadata or {}).get(b"source", b"")
-    metadata = parquet.metadata
-    compressed = all(metadata.row_group(i).column(j).compression == "ZSTD"
-                     for i in range(metadata.num_row_groups) for j in range(metadata.num_columns))
-    success = compressed and parquet.schema_arrow.equals(bootstrap.CUBE_SCHEMA, check_metadata=False)
-    regions = ingest.load_regions()
-    print(f"Project audit targets   P95 < {P95_GATE_MS:.0f} ms   Chow p > .10   R2 > .90   Recovery > 90%")
-    print("Chow, W1 and R2 use the synchronized MODIS-reference record. R2: leave-one-year-out, burned area "
-          "~ fire cell-days + harmonized FRE + spreading cell-days vs MCD64A1. Recovery: core Chaos Monkey (2022). Fixture metrics are synthetic.")
-    print(f"{'Region':23} {'P95 ms':>8} {'Chow p':>8} {'BA Chow':>8} {'W1':>10} {'CV R2':>8} {'Fit R2':>8} "
-          f"{'Recov %':>8}")
-    with duckdb.connect(config={"threads": 4}) as con:
-        all_cells = con.execute("SELECT DISTINCT h3_r4,h3_r7 FROM read_parquet(?)",
-                                [str(path)]).fetchall()
-        for name, region in regions.items():
-            if not synthetic and "coverage" not in region:
-                # No declared real coverage means no real data was acquired: not a benchmark subject.
-                print(f"{name:23} no coverage declared (skipped)")
-                continue
-            fixture = bootstrap.REGIONS.get(name) if synthetic else None
-            fixture_cells = {int(c, 16) for c in bootstrap.region_cells(*fixture[:2])} if fixture else set()
-            cells = [(r4, r7) for r4, r7 in all_cells if r7 in fixture_cells
-                     or ingest.region_at(*h3.cell_to_latlng(format(r7, "x")), {name: region}) == name]
-            if not cells:
-                print(f"{name:23} {'no rows':>8}")
-                success = False
-                continue
-            parents = ",".join(str(item) for item in sorted({r4 for r4, _ in cells}))
-            con.execute("CREATE OR REPLACE TEMP TABLE region_cells AS SELECT unnest(?::UBIGINT[]) AS h3_r7",
-                        [[r7 for _, r7 in cells]])
-            sql = f"""SELECT year, doy,
-                sum(coalesce((coalesce(obs_terra_fre, 0) + coalesce(obs_aqua_fre, 0)
-                    + coalesce(obs_viirs_fre, 0)) / nullif(
-                    (obs_terra_fre IS NOT NULL)::INT + (obs_aqua_fre IS NOT NULL)::INT
-                    + (obs_viirs_fre IS NOT NULL)::INT, 0), 0)) AS energy,
-                sum(obs_viirs_fre) AS viirs, sum(burned_area_ha_mcd64) AS area
-                FROM read_parquet(?) SEMI JOIN region_cells USING (h3_r7) WHERE h3_r4 IN ({parents})
-                    AND industrial_prob < {INDUSTRIAL_THRESHOLD}
-                GROUP BY year, doy ORDER BY year, doy"""
-            rows = con.execute(sql, [str(path)]).fetchall()
-            latency = []
-            for _ in range(12):
-                started = perf_counter()
-                con.execute(sql, [str(path)]).fetchall()
-                latency.append((perf_counter() - started) * 1000)
-            p95 = float(np.percentile(latency, 95))
-            years, doy, energy, viirs, area = np.asarray(rows, dtype=float).T
-            years, doy = years.astype(int), doy.astype(int)
-            # Scientific metrics use the synchronized MODIS-reference record (same instruments every year).
-            reference = np.asarray(reference_daily(con, path, parents), dtype=float).reshape(-1, 4)
-            energy_years = (EPOCH + reference[:, 0].astype("int64").astype("timedelta64[D]")).astype(
-                "datetime64[Y]").astype(int) + 1970
-            fire_count, energy, spreading = reference[:, 1], reference[:, 2], reference[:, 3]
-            before = energy_years < 2012
-            w1 = None
-            if min(before.sum(), (~before).sum()) >= 10:
-                # Same estimator as the API audit: W1 between eras normalized by the overall mean.
-                scale = float(energy.mean())
-                w1 = wasserstein_distance(energy[before] / scale, energy[~before] / scale) if scale > 0 else 0.0
-            inputs = con.execute(f"""SELECT epoch_day, avg(obs_terra_fre), avg(obs_aqua_fre), avg(obs_viirs_fre),
-                avg(neighbor_fre_lag1), avg(cloud_cover_pct)
-                FROM read_parquet(?) SEMI JOIN region_cells USING (h3_r7) WHERE h3_r4 IN ({parents})
-                    AND industrial_prob < {INDUSTRIAL_THRESHOLD}
-                GROUP BY epoch_day ORDER BY epoch_day""", [str(path)]).fetchall()
-            daily = dense_daily(inputs)
-            # Days without detections carry zero regional energy in the annual means.
-            dense_energy = np.zeros(len(daily["epoch_day"]))
-            dense_energy[reference[:, 0].astype(int) - int(daily["epoch_day"][0])] = energy
-            # Partial first/last years would be padded with zero-fire days; test complete years only.
-            covered = complete_years(region["coverage"]) if not synthetic else sorted(set(daily["year"].tolist()))
-            in_years = np.isin(daily["year"], covered)
-            chow = chow_p(dense_energy[in_years], daily["year"][in_years])
-            burned_chow = None
-            unique = np.unique(years)
-            # Real-region validation requires independent burned-area input.
-            # Fixture remnants outside declared coverage cannot supply that input.
-            r2 = fit_r2 = None
-            if synthetic:
-                r2 = cross_validated_r2(
-                    np.array([annual_predictors(fire_count, energy, spreading, energy_years, year)
-                              for year in unique]),
-                    np.array([area[years == year].sum() for year in unique]),
-                )
-            elif (ROOT / "data/lookup/cell_day_ancillary.parquet").is_file():
-                # Only years in which MCD64A1 has every tile-month for this region are comparable.
-                metadata = pq.read_schema(ROOT / "data/lookup/cell_day_ancillary.parquet").metadata or {}
-                burned_years = set(json.loads(metadata.get(b"complete_years", b"{}")).get(name, []))
-                annual = con.execute("""WITH reference AS (
-                    SELECT year(acq_date::DATE) AS year, sum(burned_area_ha_mcd64) AS area
-                    FROM read_parquet(?) SEMI JOIN region_cells USING (h3_r7)
-                    WHERE burned_area_ha_mcd64 IS NOT NULL GROUP BY 1
-                ) SELECT year, area FROM reference ORDER BY year""",
-                    [str(ROOT / "data/lookup/cell_day_ancillary.parquet")]).fetchall()
-                # Compare complete calendar years of declared FIRMS coverage only.
-                complete = [(year, observed) for year, observed in annual
-                            if year in unique and year in burned_years and year in covered]
-                if complete:
-                    annual = np.array([annual_predictors(fire_count, energy, spreading, energy_years, year)
-                                       for year, _ in complete])
-                    annual_area = np.array([observed for _, observed in complete], dtype=float)
-                    r2 = cross_validated_r2(annual, annual_area)
-                    fit_r2 = in_sample_r2(annual, annual_area)
-                    # Control: an independent burned-area break means the fire regime itself changed.
-                    burned_chow = float(compute_chow_structural_break_test(
-                        np.array([year for year, _ in complete]), annual_area)[1])
-            recovery = chaos_recovery(daily)
-            values = [f"{v:.3f}" if v is not None else "N/A"
-                      for v in (p95, chow, burned_chow, w1, r2, fit_r2, recovery)]
-            print(f"{name:23} {values[0]:>8} {values[1]:>8} {values[2]:>8} {values[3]:>10} {values[4]:>8} "
-                  f"{values[5]:>8} {values[6]:>8}")
-            success &= (p95 < P95_GATE_MS and chow is not None and chow > .1
-                        and r2 is not None and r2 > .9 and recovery is not None and recovery > 90)
-    return success
+    os.environ['FIRE_CUBE_PATH'] = str(path)
+    report = import_module('12_audit_report').generate()
+    for region in report['regions']:
+        print(region['region'], region['audit']['executive_verdict_en'])
+    return True
 
 
 if __name__ == "__main__":

@@ -44,8 +44,8 @@ def retrieve_energy(scope, req: ExplainSpikeRequest) -> dict:
     """
     if not scope.coordinates or not scope.start or not scope.end:
         return {"status": "missing_scope", "message": "Select an area and a date range to calculate energy in GJ."}
-    if scope.start < "2001-01-01" or scope.end > "2026-12-31":
-        return {"status": "unsupported_period", "message": "The scientific energy cube supports 2001–2026. Choose dates within that period."}
+    if scope.start < "2000-01-01" or scope.end > "2026-12-31":
+        return {"status": "unsupported_period", "message": "The scientific energy cube supports November 2000–2026. Choose dates within that period."}
     missing = set(duckdb_engine.missing_columns())
     if missing.intersection({"obs_terra_fre", "obs_aqua_fre", "obs_viirs_fre"}):
         return {"status": "unavailable", "message": "Calibrated sensor energy columns are unavailable; instantaneous MW cannot be converted into GJ without time integration."}
@@ -53,7 +53,7 @@ def retrieve_energy(scope, req: ExplainSpikeRequest) -> dict:
 
     try:
         response = analyze(AnalyzeRequest(aoi=GeoJSONPolygon(coordinates=scope.coordinates),
-            start_year=2001, end_year=2026, forecast_days=14,
+            start_year=2000, end_year=2026, forecast_days=14,
             exclude_industrial_flaring=req.exclude_industrial_flaring,
             enable_kalman_gap_filling=req.enable_kalman_gap_filling,
             confidence_level=req.confidence_level))
@@ -82,12 +82,12 @@ def retrieve_energy(scope, req: ExplainSpikeRequest) -> dict:
 def energy_answer(scope, evidence: dict, req: ExplainSpikeRequest) -> str:
     if evidence["status"] != "ok":
         return evidence["message"]
-    method = "RTS Kalman reconstruction" if req.enable_kalman_gap_filling else "available calibrated observations without gap filling"
+    method = "per-cell observed energy with reconstruction limited to evidenced gaps" if req.enable_kalman_gap_filling else "available calibrated observations without gap filling"
     industrial = "excluded" if req.exclude_industrial_flaring else "included"
     lines = [f"### Regional model energy\n\nFor **{scope.label}**, **{scope.start} to {scope.end}**, the scientific cube gives "
              f"**{evidence['energy_gj']:,.3f} GJ** of integrated fire radiative energy. [6]",
              f"### Scope and method\n\nThis uses {method}, with industrial heat sources {industrial}. "
-             f"The calculation covers **{evidence['area_km2']:,.3f} km²** of selected H3 cells and "
+             f"The calculation covers **{evidence['area_km2']:,.3f} km²** of requested polygon area and "
              f"**{evidence['days']:,} days**, including **{evidence['gap_filled_days']:,} reconstructed days**. "
              "It uses the dashboard's 2001–2026 analysis history, then selects the requested inclusive dates.",
              f"### Derived estimates\n\n- Estimated dry biomass consumed: **{evidence['biomass_tonnes']:,.3f} tonnes** "
@@ -98,7 +98,7 @@ def energy_answer(scope, evidence: dict, req: ExplainSpikeRequest) -> str:
              "The full polygon area is not used for every day. Model density averages sensors with different spatial coverage; totals are derived estimates. This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. "
              "Raw detection counts below use accepted centers before the scientific industrial-source filter."]
     if 'mapped_energy_gj' in evidence:
-        lines.insert(0, f"### Visible map energy\n\nFor the same area and requested dates, the mapped observation-based proxy is **{evidence['mapped_energy_gj']:,.3f} GJ**, with **{evidence['mapped_biomass_tonnes']:,.3f} tonnes** of derived biomass. This matches the Explore panel's map calculation. [6]\n\nThe regional model estimate below uses a different calculation: it aggregates sensor densities before reconstruction, whereas the map integrates calibrated observations per cell. These are not two measurements of the same estimator. No regional reconstruction is included in the map total.")
+        lines.insert(0, f"### Visible map energy\n\nFor the same area and requested dates, the mapped observation-based proxy is **{evidence['mapped_energy_gj']:,.3f} GJ**, with **{evidence['mapped_biomass_tonnes']:,.3f} tonnes** of derived biomass. This matches the Explore panel's map calculation. [6]\n\nBoth calculations fuse available sensor observations within each cell and integrate against exact cell areas. The temporal estimate can additionally include reconstruction across explicitly evidenced gaps; the map contains observed energy only. Neither is a continuous physical energy measurement.")
         lines.append(f"### Available dates\n\nThe requested period is {scope.start}–{scope.end}; the model series available for this query ends on **{evidence['available_through']}**. Dates after archive coverage are not forecasts. Selected polygon area and observed cell footprint also differ: the mapped footprint is **{evidence['mapped_footprint_km2']:,.3f} km²**, not burned area.")
     if len(evidence["annual_gj"]) > 1:
         lines.append("### Yearly energy\n\nRequested dates only:\n\n| Year | FRE (GJ) |\n| --- | ---: |\n" +
