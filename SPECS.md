@@ -825,6 +825,18 @@ and the first-order autocorrelated Markov accumulation is
 Brier score on the calibration slice, per target, and defaults to 0.68 (the RTS Kalman `phi`)
 for prior-path targets. `markov_persistence` reports the combined target's `rho`.
 
+**Horizon recalibration.** The Markov product ranks days well but under-states the chance of at
+least one event for persistent sources (14-day holdout reliability bins of 37% predicted vs 93%
+observed). Each 7- and 14-day target therefore receives a ridge-penalized Platt map
+`sigma(a + b (logit P_H - c))`, shrunk toward the identity with `b` in [0.25, 4] (a bounded slope
+refits only `a`), fitted on calibration-slice windows whose outcome ends before the holdout
+(`t + H < test_start`). It is applied only when both classes have at least 20 windows and a map
+fitted on the first half of those windows lowers the Brier score of the second half; otherwise
+`P_H` is kept. Scored logits are clipped to the calibration range. Afterwards `P_7 >= P_1` and
+`P_14 >= P_7` are enforced elementwise and the combined target is Fréchet-bounded. On the real
+cube (2026-11-15) this lowered holdout calibration error from 12.3 to 1.6 points (Iberia,
+combined, 14 days) and from 14.8 to 2.3 points (Orlando, 7 days), with no holdout Brier increase.
+
 **Decomposition.** `baseline_climatology_pct` is the long-term combined base rate of tomorrow,
 `multi_year_trend_delta_pct` is the recent-five-year minus long-term base rate, and
 `short_term_anomaly_delta_pct` is the combined 24-hour risk minus both, so

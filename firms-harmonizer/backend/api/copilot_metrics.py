@@ -351,6 +351,101 @@ def phenology_answer(scope, evidence: dict) -> str:
         "A weakly seasonal year gives a long duration and an unstable peak. Only complete calendar years are used."])
 
 
+# ---- year ranking and long-term trend
+
+def retrieve_annual_activity(scope, req: ExplainSpikeRequest, recent_years: int | None = None) -> dict:
+    """Harmonized annual energy per complete year, its ranking and a rank-based trend."""
+    from scipy.stats import kendalltau, theilslopes
+
+    data, error = _analysis(scope, req)
+    if error:
+        return error
+    totals: dict[int, float] = {}
+    days: dict[int, int] = {}
+    reconstructed: dict[int, int] = {}
+    for cell in data["series"]:
+        year = cell["year"]
+        totals[year] = totals.get(year, 0.0) + _gj(cell)
+        days[year] = days.get(year, 0) + 1
+        reconstructed[year] = reconstructed.get(year, 0) + int(cell["is_gap_filled"])
+    complete = sorted(y for y in totals if days[y] == (date(y, 12, 31) - date(y, 1, 1)).days + 1)
+    if recent_years and complete:
+        complete = [y for y in complete if y > complete[-1] - max(3, recent_years)]
+    if len(complete) < 3:
+        return {"status": "insufficient", "message": "Fewer than three complete years are available here, so years cannot be ranked or trended."}
+    rows = [{"year": y, "energy_gj": totals[y], "reconstructed_days": reconstructed[y]} for y in complete]
+    values = [r["energy_gj"] for r in rows]
+    mean = math.fsum(values) / len(values)
+    if max(values) - min(values) <= 1e-9:
+        slope, p_value = 0.0, 1.0
+    else:
+        slope = float(theilslopes(values, complete).slope)
+        p_value = float(kendalltau(complete, values).pvalue)
+    ranked = sorted(rows, key=lambda r: r["energy_gj"], reverse=True)
+    partial = sorted(y for y in totals if y not in complete and (not recent_years or y >= complete[0]))
+    return {"status": "ok", "data_source": data["data_source"], "years": rows, "ranked": ranked,
+            "first_year": complete[0], "last_year": complete[-1], "mean_energy_gj": mean,
+            "slope_gj_per_year": slope, "slope_pct_of_mean_per_decade": (slope * 10 / mean * 100) if mean > 0 else None,
+            "trend_p_value": p_value, "partial_years": partial,
+            "pre_viirs_mean_gj": (math.fsum(r["energy_gj"] for r in rows if r["year"] < 2012) / n
+                                  if (n := sum(r["year"] < 2012 for r in rows)) else None),
+            "viirs_era_mean_gj": (math.fsum(r["energy_gj"] for r in rows if r["year"] >= 2012) / m
+                                  if (m := sum(r["year"] >= 2012 for r in rows)) else None)}
+
+
+def annual_calculations(evidence: dict) -> dict | None:
+    if evidence.get("status") != "ok":
+        return None
+    top = evidence["ranked"][0]
+    items = [_item(f"Highest-energy year ({top['year']})",
+                   f"Σ daily calibrated FRE × cell area ÷ 1,000 over {top['year']} = {top['energy_gj']:,.3f} GJ", top["energy_gj"], "GJ")]
+    if evidence["slope_pct_of_mean_per_decade"] is not None:
+        items.append(_item("Long-term trend",
+            f"Theil-Sen slope {evidence['slope_gj_per_year']:+,.3f} GJ/year × 10 ÷ mean {evidence['mean_energy_gj']:,.3f} GJ "
+            f"= {evidence['slope_pct_of_mean_per_decade']:+,.2f}% per decade",
+            evidence["slope_pct_of_mean_per_decade"], "% per decade"))
+    return verified(items, "Annual totals use the harmonized MODIS/VIIRS energy shown in the dashboard; only complete calendar years "
+                    "are ranked. The p-value is a Mann-Kendall (Kendall tau) rank test without correction for year-to-year correlation.")
+
+
+def annual_answer(scope, evidence: dict, ascending: bool = False, trend_first: bool = False) -> str:
+    if evidence["status"] != "ok":
+        return evidence["message"]
+    ranked = list(reversed(evidence["ranked"])) if ascending else evidence["ranked"]
+    lead = ranked[0]
+    word = "quietest" if ascending else "most active"
+    pct = evidence["slope_pct_of_mean_per_decade"]
+    p = evidence["trend_p_value"]
+    p_text = "p < 0.001" if p < 0.001 else f"p = {p:.3f}"
+    if pct is None or abs(pct) < 0.5:
+        trend = "Annual fire energy shows **no measurable long-term trend**"
+    else:
+        trend = (f"Annual fire energy is **{'increasing' if pct > 0 else 'decreasing'}** by about "
+                 f"**{abs(pct):,.1f}% of the average year per decade**")
+    verdict = ("statistically distinguishable from year-to-year variability" if p < 0.05
+               else "not statistically distinguishable from year-to-year variability")
+    ranking = [
+        f"### Fire activity by year\n\nIn **{scope.label}**, the {word} complete year was **{lead['year']}**, with "
+        f"**{lead['energy_gj']:,.3f} GJ** of harmonized fire energy ({lead['energy_gj'] / evidence['mean_energy_gj']:,.2f}× "
+        f"the {evidence['first_year']}–{evidence['last_year']} average). [6]",
+        "| Rank | Year | Energy (GJ) | vs. average | Reconstructed days |\n| ---: | --- | ---: | ---: | ---: |\n"
+        + "\n".join(f"| {i} | {r['year']} | {r['energy_gj']:,.3f} | {r['energy_gj'] / evidence['mean_energy_gj']:,.2f}× | {r['reconstructed_days']} |"
+                    for i, r in enumerate(ranked[:5], 1)),
+    ]
+    trend_block = [f"### Long-term trend\n\n{trend} in **{scope.label}** across {evidence['first_year']}–{evidence['last_year']}; "
+                   f"this is {verdict} ({p_text}). [6]"]
+    lines = trend_block + ranking if trend_first else ranking + trend_block
+    if evidence["pre_viirs_mean_gj"] and evidence["viirs_era_mean_gj"]:
+        lines.append(f"Average year before VIIRS (to 2011): **{evidence['pre_viirs_mean_gj']:,.3f} GJ**; "
+                     f"VIIRS era (2012 on): **{evidence['viirs_era_mean_gj']:,.3f} GJ**. These are harmonized energies, "
+                     "so the 2012 sensor change is corrected rather than counted as more fire; raw detection counts would exaggerate the rise.")
+    note = "Ranking uses complete calendar years only"
+    if evidence["partial_years"]:
+        note += f" ({', '.join(map(str, evidence['partial_years']))} excluded as partial)"
+    lines.append(note + ". Energy measures heat released, not burned area or the number of fires.")
+    return "\n\n".join(lines)
+
+
 # ---- reconstruction and persistent industrial heat
 
 def retrieve_data_quality(scope, req: ExplainSpikeRequest) -> dict:

@@ -416,6 +416,10 @@ LOCAL_INTENTS=(
     ('quality',r'reconstruct|gap[- ]?fill|sensor (?:gap|outage)|outage|cloud cover|cobertura nubosa|dias reconstruid|missing days'),
     ('burned_area',r'hectare|hectarea|burned area|burnt area|area quemada|mcd64'),
     ('emissions',r'\bco2\b|pm2[.,]?5|smoke|emission|emision|humo|carbon'),
+    ('annual',r'(?:worst|best|biggest|largest|highest|most active|busiest|quietest|calmest|lowest|least active|record|peor|mejor|mas activo|mas tranquilo)\s+(?:fire\s+|wildfire\s+)?(?:years?|anos?)\b'
+              r'|\b(?:which|what) years?\b|\bque anos?\b|\bcual (?:fue|es) el ano\b|\bano (?:con mas|mas activo|mas tranquilo)'
+              r'|\b(?:increas\w*|decreas\w*|getting (?:worse|better)|trend\w*|long[- ]term|over (?:time|the years)|year[- ]over[- ]year'
+              r'|aument\w*|disminu\w*|tendencia\w*|a lo largo de los anos)\b'),
     ('events',r'(?:largest|biggest|strongest|major|main|most intense|worst|top|mayores|principales|peores)\b.{0,30}(?:events|episodes|fires|wildfires|incendios|eventos|episodios)'),
 )
 
@@ -479,6 +483,11 @@ def local_calculation(req:ExplainSpikeRequest,scope) -> ExplainSpikeResponse | N
         elif intent=='burned_area':
             evidence=metrics.retrieve_burned_area(scope,req)
             text,calc=metrics.burned_area_answer(scope,evidence),metrics.burned_area_calculations(evidence)
+        elif intent=='annual':
+            evidence=metrics.retrieve_annual_activity(scope,req,int(recent[1]) if recent else None)
+            ascending=bool(re.search(r'quietest|calmest|lowest|least active|best\s+(?:fire\s+)?years?|mejor|mas tranquilo|menos activo',q))
+            trend_first=bool(re.search(r'increas|decreas|getting (?:worse|better)|trend|long[- ]term|over (?:time|the years)|aument|disminu|tendencia|a lo largo',q))
+            text,calc=metrics.annual_answer(scope,evidence,ascending,trend_first),metrics.annual_calculations(evidence)
         elif intent=='emissions':
             if not scope.start or not scope.end:
                 return None

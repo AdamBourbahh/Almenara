@@ -867,3 +867,63 @@ def test_thermal_state_readout_names_the_event_run():
     assert "event level on 4 consecutive days." in factor_readouts(daily)[1]["description"]
     daily["vegetation_frp"][-2] = 0.0
     assert "event level today." in factor_readouts(daily)[1]["description"]
+
+
+# ---- multi-day recalibration (Platt scaling on the calibration slice)
+
+def _miscalibrated_windows(n=3000, seed=7):
+    """Probabilities with good ranking but a scale that is too low, as the Markov product gives."""
+    rng = np.random.default_rng(seed)
+    true_logit = rng.normal(0.5, 1.2, n)
+    labels = rng.random(n) < 1 / (1 + np.exp(-true_logit))
+    shown = 1 / (1 + np.exp(-(true_logit - 1.5)))
+    return shown, labels
+
+
+def test_platt_slope_at_bound_never_produces_a_runaway_intercept():
+    from backend.core.risk_predictor import PLATT_SLOPE_BOUNDS, _platt
+    x = np.r_[np.full(500, -0.2), np.full(500, 0.2)]
+    y = np.r_[np.zeros(495, bool), np.ones(5, bool), np.zeros(495, bool), np.ones(5, bool)]
+    a, b = _platt(x, y)
+    assert PLATT_SLOPE_BOUNDS[0] <= b <= PLATT_SLOPE_BOUNDS[1]
+    assert 1 / (1 + np.exp(-a)) == pytest.approx(y.mean(), abs=0.01)
+
+
+def test_recalibration_fixes_scale_without_touching_the_holdout():
+    from backend.core.risk_predictor import _recalibrate_horizon
+    shown, labels = _miscalibrated_windows()
+    n, horizon = len(shown), 7
+    rows, test_start = np.arange(n), int(0.6 * n)
+    known = np.ones(n, bool)
+    fixed = _recalibrate_horizon(shown, labels, known, rows, test_start, horizon)
+    holdout = rows >= test_start
+    before = np.mean((shown[holdout] - labels[holdout]) ** 2)
+    after = np.mean((fixed[holdout] - labels[holdout]) ** 2)
+    assert after < before
+    assert abs(fixed[holdout].mean() - labels[holdout].mean()) < abs(shown[holdout].mean() - labels[holdout].mean())
+    # Holdout labels never influence the map.
+    flipped = labels.copy()
+    flipped[test_start - horizon:] = ~flipped[test_start - horizon:]
+    np.testing.assert_allclose(_recalibrate_horizon(shown, flipped, known, rows, test_start, horizon), fixed)
+
+
+def test_rare_targets_keep_the_uncalibrated_probability():
+    from backend.core.risk_predictor import PLATT_MIN_CLASS, _recalibrate_horizon
+    n = 2000
+    shown = np.full(n, 1e-5)
+    labels = np.zeros(n, bool)
+    labels[np.linspace(0, 1000, PLATT_MIN_CLASS - 1, dtype=int)] = True
+    out = _recalibrate_horizon(shown, labels, np.ones(n, bool), np.arange(n), 1500, 14)
+    np.testing.assert_array_equal(out, shown)
+
+
+def test_recalibration_is_rejected_when_it_fails_the_internal_chronological_check():
+    from backend.core.risk_predictor import _recalibrate_horizon
+    shown, labels = _miscalibrated_windows()
+    n = len(shown)
+    test_start = int(0.6 * n)
+    # The regime flips halfway through the calibration slice: a map fitted early would mislead.
+    drifted = labels.copy()
+    drifted[(test_start - 7) // 2:] = shown[(test_start - 7) // 2:] > 0.9
+    out = _recalibrate_horizon(shown, drifted, np.ones(n, bool), np.arange(n), test_start, 7)
+    np.testing.assert_array_equal(out, shown)

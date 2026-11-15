@@ -504,6 +504,79 @@ def _select_persistence(p1, future_base, labels, known, rows, calibration_start,
     return float(PERSISTENCE_GRID[int(np.argmin(scores))])
 
 
+PLATT_PENALTY = 2.0
+PLATT_SLOPE_BOUNDS = (0.25, 4.0)
+PLATT_MIN_CLASS = 20
+
+
+def _platt(x, y, penalty=PLATT_PENALTY, iterations=50):
+    """Ridge-penalized Platt scaling sigma(a + b x) on centered logits x, shrunk toward (a=0, b=1).
+
+    Newton steps on (a, b); when b reaches a bound it is held there and only a is refit,
+    so a clipped slope can never be compensated by a runaway intercept.
+    """
+    y = y.astype(float)
+    a, b = 0.0, 1.0
+    for _ in range(iterations):
+        q = expit(a + b * x)
+        w = q * (1 - q)
+        gradient = np.array([np.sum(q - y) + penalty * a, np.sum((q - y) * x) + penalty * (b - 1.0)])
+        hessian = np.array([[w.sum() + penalty, (w * x).sum()], [(w * x).sum(), (w * x * x).sum() + penalty]])
+        step = np.linalg.solve(hessian, gradient)
+        a, b = a - step[0], b - step[1]
+        if np.abs(step).max() < 1e-9:
+            break
+    if not PLATT_SLOPE_BOUNDS[0] <= b <= PLATT_SLOPE_BOUNDS[1]:
+        b = float(np.clip(b, *PLATT_SLOPE_BOUNDS))
+        for _ in range(iterations):
+            q = expit(a + b * x)
+            step = (np.sum(q - y) + penalty * a) / (np.sum(q * (1 - q)) + penalty)
+            a -= step
+            if abs(step) < 1e-9:
+                break
+    return float(a), float(b)
+
+
+def _recalibrate_horizon(probability, labels, known, rows, test_start, horizon):
+    """Recalibrate H-day probabilities on the calibration slice only.
+
+    The Markov aggregation ranks days well but its scale drifts for persistent sources.
+    Only windows whose whole H-day outcome ends before the holdout (t + H < test_start)
+    are used, so holdout validation stays out of sample. Rare targets (fewer than 20
+    events or non-events) keep the uncalibrated value, and scored logits are clipped to
+    the calibration range so the map never extrapolates.
+
+    The map is accepted only if it passes a chronological check inside the calibration
+    slice: fitted on its first half, it must lower the Brier score of its second half.
+    Otherwise the regime is not stable enough and the uncalibrated value is kept.
+    """
+    mask = rows < test_start - horizon
+    mask[mask] &= known[rows[mask]]
+    y = labels[rows[mask]]
+    positives = int(np.count_nonzero(y))
+    if min(positives, len(y) - positives) < PLATT_MIN_CLASS:
+        return probability
+    x = logit(np.clip(probability, 1e-6, 1 - 1e-6))
+    seen = x[mask]
+
+    def fitted(train_x, train_y):
+        center = float(train_x.mean())
+        a, b = _platt(train_x - center, train_y)
+        low, high = float(train_x.min()), float(train_x.max())
+        return lambda values: expit(a + b * (np.clip(values, low, high) - center))
+
+    half = len(y) // 2
+    early, late = slice(0, half), slice(half, None)
+    early_positives = int(np.count_nonzero(y[early]))
+    if min(early_positives, half - early_positives) < PLATT_MIN_CLASS // 2:
+        return probability
+    check = fitted(seen[early], y[early])
+    plain = probability[mask][late]
+    if np.mean((check(seen[late]) - y[late]) ** 2) >= np.mean((plain - y[late]) ** 2):
+        return probability
+    return fitted(seen, y)(x)
+
+
 def _validation(probability, labels, valid):
     if probability is None:
         return dict(samples=0, positives=0, brier_score=None, roc_auc=None, reliability=[])
@@ -905,7 +978,8 @@ def _horizon_explanation(daily_path, base_path, rho, cumulative_14d):
         trend = f"stays near {_fmt_pct(first)} from tomorrow to day 14"
     return (f"Daily event probability {trend} as current conditions relax toward a {season} seasonal base rate "
             f"({_fmt_pct(base_first)} to {_fmt_pct(base_last)} per day) with day-to-day persistence "
-            f"ρ = {rho:.2f}, so the chance of at least one event within 14 days is {_fmt_pct(100 * cumulative_14d)}.")
+            f"ρ = {rho:.2f}; calibrated against past 14-day windows, the chance of at least one event within "
+            f"14 days is {_fmt_pct(100 * cumulative_14d)}.")
 
 
 def _frechet(union, wildfire, accident):
@@ -987,10 +1061,18 @@ def predict_risk(daily: dict[str, np.ndarray]) -> dict | None:
     holdout = rows >= test_start
     horizons = []
     cumulative = {}
+    previous = None
     for horizon in HORIZONS:
         probabilities = [markov_horizon_probability(p1[target], future_base[target], rho[target], horizon)
                          for target in range(3)]
+        if horizon > 1:
+            probabilities = [_recalibrate_horizon(p, *windows[target, horizon], rows, test_start, horizon)
+                             for target, p in enumerate(probabilities)]
+        if previous is not None:
+            # A longer window can never hold a lower chance of at least one event.
+            probabilities = [np.maximum(p, before) for p, before in zip(probabilities, previous)]
         probabilities[2] = _frechet(probabilities[2], probabilities[0], probabilities[1])
+        previous = probabilities
         cumulative[horizon] = probabilities
         last = [_round(100 * p[-1], 4) for p in probabilities]
         last[2] = _round(np.clip(last[2], max(last[0], last[1]), min(100.0, last[0] + last[1])), 6)

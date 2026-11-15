@@ -114,7 +114,33 @@ MONTHS.update({name: number for number, name in enumerate(
 MONTHS.update({"ene": 1, "abr": 4, "ago": 8, "set": 9, "sept": 9, "out": 10, "dez": 12})
 
 
-def question_period(text: str, default_year: int | None = None) -> tuple[str, str] | None:
+SEASONS = {"spring": "spring", "primavera": "spring", "summer": "summer", "verano": "summer", "verao": "summer",
+           "autumn": "autumn", "fall": "autumn", "otono": "autumn", "outono": "autumn",
+           "winter": "winter", "invierno": "winter", "inverno": "winter"}
+# Meteorological seasons as (first month, last month); December belongs to the next year's season.
+NORTHERN_SEASONS = {"spring": (3, 5), "summer": (6, 8), "autumn": (9, 11), "winter": (12, 2)}
+SOUTHERN_SEASONS = {"autumn": (3, 5), "winter": (6, 8), "spring": (9, 11), "summer": (12, 2)}
+
+
+def season_period(text: str, southern: bool = False) -> tuple[str, str] | None:
+    """Resolve "summer 2022" / "verano de 2022" to meteorological months for the hemisphere.
+
+    Only a season word adjacent to a year counts, so "fall" as a verb never becomes a date.
+    A December-to-February season named by year Y runs from December Y-1 to February Y.
+    """
+    names = "|".join(SEASONS)
+    match = (re.search(rf"\b({names})\s+(?:of\s+|de\s+|del\s+|do\s+)?(20\d{{2}})\b", text)
+             or re.search(rf"\b(20\d{{2}})\s+({names})\b", text))
+    if not match:
+        return None
+    word, year = (match[2], int(match[1])) if match[1].isdigit() else (match[1], int(match[2]))
+    first, last = (SOUTHERN_SEASONS if southern else NORTHERN_SEASONS)[SEASONS[word]]
+    start = date(year - 1 if first > last else year, first, 1)
+    end = date(year, last, calendar.monthrange(year, last)[1])
+    return start.isoformat(), end.isoformat()
+
+
+def question_period(text: str, default_year: int | None = None, *, southern: bool = False) -> tuple[str, str] | None:
     """Resolve explicit dates before consulting selected UI dates or earlier turns."""
     text = normalized(text)
     dates = []
@@ -155,6 +181,9 @@ def question_period(text: str, default_year: int | None = None) -> tuple[str, st
         if ordered[0] > ordered[-1]:
             raise ValueError('The start date must precede the end date.')
         return ordered[0].isoformat(), ordered[-1].isoformat()
+    season = season_period(text, southern)
+    if season:
+        return season
     years = re.findall(r"\b20\d{2}\b", text)
     if years:
         first, last = (min(map(int,years)), max(map(int,years))) if re.search(r'\b(than|versus|compare|vs|compara|que)\b',text) else (int(years[0]),int(years[-1]))
@@ -224,7 +253,11 @@ def resolve_scope(req: ExplainSpikeRequest) -> Scope:
                      "esa", "ese", "mi", "nuestra", "nuestro", "la", "el", "a", "o", "data", "database", "local", "gj", "mj", "mw",
                      "tonnes", "tons", "toneladas", "kg", "kilograms", "gigajoules", "megajoules",
                      "area", "zona", "region", "cell", "hexagon", "hexagono", "map", "mapa", "year", "month", "day",
-                     "period", "periodo", "english", "ingles", "spanish", "espanol", "portuguese", "portugues"} | set(MONTHS)
+                     "period", "periodo", "english", "ingles", "spanish", "espanol", "portuguese", "portugues",
+                     # Time phrases ("in the last 10 years", "in summer 2022") are not places.
+                     "last", "past", "next", "previous", "recent", "first", "same", "general", "particular", "terms",
+                     "years", "months", "weeks", "days", "time", "average", "ultimo", "ultimos", "ultimas", "pasado",
+                     "proximo", "proximos", "anos", "meses", "semanas", "dias", "season", "temporada"} | set(MONTHS) | set(SEASONS)
     unknown_location = bool(location and location[1] not in context_words and not current_place)
     previous_questions = [m.content for m in req.conversation if m.role == "user"]
     use_map = req.prefer_map_context or bool(re.search(r"this (area|region|cell|period)|selected (area|region|h3|cell|map|period)|est[ae] (zona|area|region|periodo|hexagono)", normalized(req.user_question)))
@@ -265,14 +298,16 @@ def resolve_scope(req: ExplainSpikeRequest) -> Scope:
         # A reported chart cutoff is a date to investigate, not an instruction to
         # replace the attached measurement day. Explicit years remain resolvable.
         comparison_date = references_observation_cutoff(req.user_question)
-        period = question_period(req.user_question, int(reference_start[:4]) if reference_start and not comparison_date else None)
+        southern = bool(coords) and sum(polygon_bounds(coords)[1::2]) / 2 < 0
+        period = question_period(req.user_question, int(reference_start[:4]) if reference_start and not comparison_date else None,
+                                 southern=southern)
         if not period and previous:
             period = relative_period((date.fromisoformat(previous.period_start).isoformat(),
                                       date.fromisoformat(previous.period_end).isoformat()), req.user_question)
         # A new place keeps the explicitly selected period; anaphoric follow-ups use history.
         if not period:
             for previous in previous_questions:
-                period = question_period(previous) or relative_period(period, previous)
+                period = question_period(previous, southern=southern) or relative_period(period, previous)
             period = relative_period(period, req.user_question)
         if not period and req.selected_day:
             selected_date = date.fromisoformat(req.selected_day.date).isoformat()
@@ -298,7 +333,8 @@ def quantitative_intent(question: str) -> tuple[bool, bool]:
     q = normalized(question)
     definition = bool(re.search(r"\b(what (?:is|are)|que (?:es|son|significa)|define|meaning|why|por que|explain|explica|difference|diferencia|can .*tell)\b", q))
     units = bool(re.search(r"\b(gj|gigajoules?|mj|fre|energy|energia|biomass|biomasa|frp|mw)\b", q))
-    numeric = bool(re.search(r"how (?:many|much)|which days|most detections|highest|busiest|strongest|peak|count|number|cuant[oa]s?|mayor|mas detecciones|quant[oa]s?|numero|total|sum|suma|compare|compara|by year|por ano|give me|show me|dame|muestra", q))
+    # Word boundaries: "sum" must not match "summer", "count" not "country", "total" not "totally".
+    numeric = bool(re.search(r"how (?:many|much)|which days|most detections|highest|busiest|strongest|\bpeak|\bcounts?\b|\bnumbers?\b|cuant[oa]s?|\bmayor\b|mas detecciones|quant[oa]s?|\bnumero\b|\btotals?\b|\bsum(?:med)?\b|\bsuma\b|compare|compara|by year|por ano|give me|show me|dame|muestra", q))
     if definition and not re.search(r"how (?:many|much)|cuant[oa]s?|quant[oa]s?|total|highest|numero|compare|compara", q):
         numeric = False
     energy = units and (numeric or not definition)

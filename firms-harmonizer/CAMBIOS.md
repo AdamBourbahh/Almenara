@@ -791,3 +791,21 @@ checked against their input table rather than assumed absent; empty energy perio
 are checked as empty or exactly zero according to archive support; Windows event-loop
 initialization precedes blocking network sockets; screenshots use native file paths.
 Evidence and reproduction commands: `../docs/verification/2026-11-15-firms-copilot/`.
+
+## 2026-11-15 — Copilot time phrases, yearly questions and Risk AI horizon calibration
+
+FIRMS Copilot (offline engine):
+- "in summer 2022", "verano de 2022", "winter of 2021" resolve to meteorological seasons for
+  the selected area's hemisphere (southern summer = December–February). Only a season word
+  adjacent to a year counts, so "fall" as a verb is not a date.
+- Time phrases after "in" ("in the last 10 years", "in summer") no longer discard the selected
+  area as an unknown place.
+- Numeric routing uses word boundaries: "summer" no longer matches "sum", nor "country" "count".
+- New local calculation for "worst / quietest year" and "is activity increasing": complete
+  calendar years ranked by harmonized energy, plus a Theil-Sen trend with a Mann-Kendall
+  (Kendall tau) p-value and the pre-VIIRS vs VIIRS-era means.
+
+Risk AI: 7- and 14-day probabilities receive a guarded Platt recalibration fitted before the
+holdout (see SPECS.md, "Horizon recalibration"). No schema field changed; holdout metrics stay
+out of sample. Regression tests: `backend/tests/test_copilot_time_phrases.py` and the
+recalibration tests at the end of `backend/tests/test_risk_predictor.py`.
