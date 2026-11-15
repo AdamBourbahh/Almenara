@@ -9,3 +9,7 @@
 
 .cache/
 .audit_edits.py
+
+# Python bytecode outside firms-harmonizer/ (deploy tooling)
+__pycache__/
+*.py[cod]
