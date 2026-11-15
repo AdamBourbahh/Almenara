@@ -3,7 +3,8 @@ import { FireCopilotDrawer } from "./components/Audit/FireCopilotDrawer";
 import { CubeSyncWidget } from "./components/Sync/CubeSyncWidget";
 import { ObservationsPage } from "./views/ObservationsPage";
 import { useEffect, useRef, useState } from "react";
-import { Flame, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
+import { Logo } from "./components/Logo";
 import { useAnalysisStore } from "./store/useAnalysisStore";
 import { HeatHistoryCard } from "./components/Map/HeatHistoryCard";
 import { MapPage } from "./views/MapPage";
@@ -44,11 +45,9 @@ export default function App() {
     <div className="flex h-screen flex-col overflow-hidden bg-paper text-ink">
       <header className="relative z-40 shrink-0 border-b border-rule">
         <div className="flex flex-wrap items-center gap-x-3 px-3 2xl:h-16 2xl:flex-nowrap lg:px-6">
-          <div className="flex h-16 shrink-0 items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-sm bg-ink text-paper">
-              <Flame className="h-4 w-4" />
-            </span>
-            <span className="font-serif text-sm font-semibold text-ink sm:text-base">FIRMS Harmonizer</span>
+          <div className="flex h-16 shrink-0 items-center gap-2.5">
+            <Logo className="h-7 w-7 text-ink" />
+            <span className="font-serif text-sm font-semibold text-ink tracking-[-0.01em] sm:text-base">FIRMS Harmonizer</span>
           </div>
 
           <nav aria-label="Main sections" className="order-last flex w-full items-stretch justify-between overflow-x-auto border-t border-rule 2xl:order-none 2xl:h-full 2xl:w-auto 2xl:flex-1 2xl:justify-center 2xl:border-t-0">
