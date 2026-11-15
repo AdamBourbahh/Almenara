@@ -1,0 +1,527 @@
+[
+  {
+    "question": "what has happened here?",
+    "status": 200,
+    "seconds": 10.183,
+    "trace": [
+      {
+        "operation": "model_turn",
+        "start": 0.038,
+        "calls": [
+          "query_observations",
+          "search_incident_reports"
+        ],
+        "has_text": false,
+        "text": null,
+        "seconds": 2.663
+      },
+      {
+        "operation": "observations",
+        "start": 2.701,
+        "seconds": 0.039
+      },
+      {
+        "operation": "model_turn",
+        "start": 2.74,
+        "calls": [
+          "profile_episode",
+          "query_energy"
+        ],
+        "has_text": false,
+        "text": null,
+        "seconds": 2.297
+      },
+      {
+        "operation": "episode",
+        "start": 5.038,
+        "seconds": 0.212
+      },
+      {
+        "operation": "energy",
+        "start": 5.25,
+        "seconds": 0.176
+      },
+      {
+        "operation": "model_turn",
+        "start": 5.426,
+        "calls": [],
+        "has_text": true,
+        "text": "On 2026-07-24, the selected area (centered near 40.355\u00b0, -4.514\u00b0 in central Spain) experienced intense wildfire activity [5, 6]. Satellites recorded 1,232 active fire detections across an observational footprint of approximately 531.10 km\u00b2 [5, 6]. The total radiative energy mapped for this single day reached 47,180.05 GJ, corresponding to an estimated 17,362.26 tonnes of dry biomass consumed [1, 6]. Summed fire radiative power across all sensor overpasses totaled 56,169.64 MW, with individual peak detection powers reaching up to 1,509.7 MW observed by Aqua [5].\n\nContextual profiling indicates this date was part of a larger, 5-day burning episode spanning from 2026-07-23 through 2026-07-27, which peaked on 2026-07-25 and generated an integrated total of 222,055.62 GJ of fire radiative energy [1, 6]. While satellite observations confirm substantial, rapid thermal activity consistent with a major wildland fire, orbital sensors do not document ignition sources or local emergency response; official dispatch logs or ground incident reports would be required to establish the specific ignition cause and operational fire perimeter [5].",
+        "seconds": 4.748
+      }
+    ],
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "**47,180.055 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected area at 40.355\u00b0, -4.514\u00b0**. [6]\n\nRegional temporal estimate: **47,180.055 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **17,362.260 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **531.101 km\u00b2**; selected polygon: **1,509.271 km\u00b2**. Available through **2026-07-24**. Industrial sources excluded.\n\nOn 2026-07-24, the selected area (centered near 40.355\u00b0, -4.514\u00b0 in central Spain) experienced intense wildfire activity [5] [6]. Satellites recorded 1,232 active fire detections across an observational footprint of approximately 531.10 km\u00b2 [5] [6]. The total radiative energy mapped for this single day reached 47,180.05 GJ, corresponding to an estimated 17,362.26 tonnes of dry biomass consumed [1] [6]. Summed fire radiative power across all sensor overpasses totaled 56,169.64 MW, with individual peak detection powers reaching up to 1,509.7 MW observed by Aqua [5].\n\nContextual profiling indicates this date was part of a larger, 5-day burning episode spanning from 2026-07-23 through 2026-07-27, which peaked on 2026-07-25 and generated an integrated total of 222,055.62 GJ of fire radiative energy [1] [6]. While satellite observations confirm substantial, rapid thermal activity consistent with a major wildland fire, orbital sensors do not document ignition sources or local emergency response; official dispatch logs or ground incident reports would be required to establish the specific ignition cause and operational fire perimeter [5].\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,232 satellite detections** in the **Selected area at 40.355\u00b0, -4.514\u00b0** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]",
+      "citations": [
+        {
+          "id": "[5]",
+          "source_type": "NASA_DATASET",
+          "title": "NASA FIRMS active fire observations",
+          "authors_or_agency": "NASA EOSDIS LANCE",
+          "year": 2026,
+          "dataset_or_doi": "NASA Earthdata / FIRMS",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        },
+        {
+          "id": "[1]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+          "authors_or_agency": "Wooster et al.",
+          "year": 2005,
+          "dataset_or_doi": "10.1029/2005JD006318",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Selected area at 40.355\u00b0, -4.514\u00b0",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.714,
+                40.155
+              ],
+              [
+                -4.314,
+                40.155
+              ],
+              [
+                -4.314,
+                40.555
+              ],
+              [
+                -4.714,
+                40.555
+              ],
+              [
+                -4.714,
+                40.155
+              ]
+            ]
+          ]
+        },
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "h3_index": null
+      },
+      "answer_markdown": "**47,180.055 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected area at 40.355\u00b0, -4.514\u00b0**. [6]\n\nRegional temporal estimate: **47,180.055 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **17,362.260 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **531.101 km\u00b2**; selected polygon: **1,509.271 km\u00b2**. Available through **2026-07-24**. Industrial sources excluded.\n\nOn 2026-07-24, the selected area (centered near 40.355\u00b0, -4.514\u00b0 in central Spain) experienced intense wildfire activity [5] [6]. Satellites recorded 1,232 active fire detections across an observational footprint of approximately 531.10 km\u00b2 [5] [6]. The total radiative energy mapped for this single day reached 47,180.05 GJ, corresponding to an estimated 17,362.26 tonnes of dry biomass consumed [1] [6]. Summed fire radiative power across all sensor overpasses totaled 56,169.64 MW, with individual peak detection powers reaching up to 1,509.7 MW observed by Aqua [5].\n\nContextual profiling indicates this date was part of a larger, 5-day burning episode spanning from 2026-07-23 through 2026-07-27, which peaked on 2026-07-25 and generated an integrated total of 222,055.62 GJ of fire radiative energy [1] [6]. While satellite observations confirm substantial, rapid thermal activity consistent with a major wildland fire, orbital sensors do not document ignition sources or local emergency response; official dispatch logs or ground incident reports would be required to establish the specific ignition cause and operational fire perimeter [5].\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,232 satellite detections** in the **Selected area at 40.355\u00b0, -4.514\u00b0** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": {
+        "status": "ok",
+        "data_source": "real",
+        "region_name": "Selected area at 40.355\u00b0, -4.514\u00b0",
+        "auto_discovered": false,
+        "requested_target_date": "2026-07-24",
+        "episode_start_date": "2026-07-23",
+        "peak_date": "2026-07-25",
+        "episode_end_date": "2026-07-27",
+        "duration_days": 5,
+        "above_background": true,
+        "baseline_sample_days": 37,
+        "background_fre_mj_km2": 40.86035438207268,
+        "activity_threshold_mj_km2": 3024.788828733617,
+        "peak_daily_fre_mj_km2": 60495.77657467233,
+        "peak_daily_fre_gj": 91304.51363720532,
+        "total_episode_fre_gj": 222055.61683270842,
+        "estimated_biomass_burned_tonnes": 81716.46699443669,
+        "estimated_pm25_tonnes": null,
+        "estimated_co2_tonnes": 129112.01785120997,
+        "emission_assumptions": {
+          "biomass_kg_per_mj": 0.368,
+          "pm25_g_per_kg": null,
+          "co2_g_per_kg": 1580,
+          "status": "PM2.5 requires measured annual fuel classes and supported factors. CO2 uses an assumed constant factor; neither is measured emissions."
+        },
+        "dominant_sensors": [
+          "Aqua",
+          "NOAA-20",
+          "NOAA-21",
+          "SNPP",
+          "Terra"
+        ],
+        "sensor_active_days": {
+          "Terra": 5,
+          "Aqua": 5,
+          "SNPP": 5,
+          "NOAA-20": 5,
+          "NOAA-21": 5
+        },
+        "gap_filling_occurred": false,
+        "gap_filled_days": 0,
+        "reconstruction_enabled": true,
+        "confidence_level": "nominal",
+        "industrial_excluded": true,
+        "represented_area_km2": 1509.27087487677,
+        "peak_represented_cell_area_km2": 1509.27087487677,
+        "coverage_start": "2001-08-14",
+        "coverage_end": "2026-11-02",
+        "window_start": "2026-07-10",
+        "window_end": "2026-08-09",
+        "left_censored": false,
+        "right_censored": false,
+        "average_peak_month": 7.896262012005305,
+        "peak_month_concentration": 0.7367788026555728,
+        "climatology_years": 25,
+        "industrial_candidate_cells": 0,
+        "industrial_candidate_detections": 0,
+        "pre_2012_raw_count_per_recorded_day": 1.6451612903225807,
+        "post_2012_raw_count_per_recorded_day": 51.270114942528735,
+        "raw_count_inflation_factor": 31.16418751408609,
+        "sample_h3_indices": [
+          "873901a49ffffff",
+          "873901a4bffffff",
+          "87390c910ffffff"
+        ],
+        "daily_series": [
+          {
+            "date": "2026-07-10",
+            "harmonized_fre_mj_km2": 113.86688448947028,
+            "fre_gj": 171.85597237291492,
+            "raw_hotspot_count": 4,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-11",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-12",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-13",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-14",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-15",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-16",
+            "harmonized_fre_mj_km2": 23.676855714861187,
+            "fre_gj": 35.7347887390996,
+            "raw_hotspot_count": 2,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-17",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-18",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-19",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-20",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-21",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-22",
+            "harmonized_fre_mj_km2": 1747.8349433357066,
+            "fre_gj": 2637.956374068472,
+            "raw_hotspot_count": 24,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "SNPP"
+            ]
+          },
+          {
+            "date": "2026-07-23",
+            "harmonized_fre_mj_km2": 36934.906058954555,
+            "fre_gj": 55744.77798108965,
+            "raw_hotspot_count": 581,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-24",
+            "harmonized_fre_mj_km2": 31260.16380996525,
+            "fre_gj": 47180.0547822574,
+            "raw_hotspot_count": 1232,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-25",
+            "harmonized_fre_mj_km2": 60495.77657467233,
+            "fre_gj": 91304.51363720532,
+            "raw_hotspot_count": 2295,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-26",
+            "harmonized_fre_mj_km2": 13940.057467985498,
+            "fre_gj": 21039.322730538923,
+            "raw_hotspot_count": 2113,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-27",
+            "harmonized_fre_mj_km2": 4496.838715032694,
+            "fre_gj": 6786.947701617124,
+            "raw_hotspot_count": 893,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-28",
+            "harmonized_fre_mj_km2": 163.92882559920324,
+            "fre_gj": 247.41300202963092,
+            "raw_hotspot_count": 32,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-29",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-30",
+            "harmonized_fre_mj_km2": 1.4141335095019234,
+            "fre_gj": 2.134310519078525,
+            "raw_hotspot_count": 1,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "NOAA-20"
+            ]
+          },
+          {
+            "date": "2026-07-31",
+            "harmonized_fre_mj_km2": 190.05991371053062,
+            "fre_gj": 286.85189224489596,
+            "raw_hotspot_count": 5,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Aqua",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-08-01",
+            "harmonized_fre_mj_km2": 166.67647387083946,
+            "fre_gj": 251.55994754041694,
+            "raw_hotspot_count": 9,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Aqua",
+              "SNPP",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-08-02",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-03",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-04",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-05",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-06",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-07",
+            "harmonized_fre_mj_km2": 2.0403988478045005,
+            "fre_gj": 3.0795145541234517,
+            "raw_hotspot_count": 1,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "NOAA-20"
+            ]
+          },
+          {
+            "date": "2026-08-08",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-09",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          }
+        ],
+        "method": "Dashboard full-history calibrated daily FRE integrated over the cells represented each day, with industrial exclusion (<0.75); robust same-month median + 3 scaled MAD, at least 5% of peak. Candidate counts use <=0.75. Duration is consecutive thermal activity within \u00b115 days, not official incident duration."
+      },
+      "guardrail_triggered": false,
+      "verified_calculations": {
+        "items": [
+          {
+            "label": "Total radiative energy",
+            "formula": "\u03a3 daily FRE (MJ/km\u00b2) \u00d7 represented cell area (km\u00b2) \u00f7 1,000 over 1 days = 47,180.055 GJ",
+            "value": 47180.0547822574,
+            "unit": "GJ"
+          },
+          {
+            "label": "Consumed dry biomass",
+            "formula": "47,180.055 GJ \u00d7 0.368 t/GJ = 17,362.260 t",
+            "value": 17362.260159870722,
+            "unit": "t"
+          }
+        ],
+        "note": "Energy is a model-derived estimate from sampled satellite observations, not a continuous physical measurement. Biomass uses the Wooster combustion factor of 0.368 t per GJ."
+      },
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube",
+        "verified_calculation",
+        "knowledge"
+      ]
+    }
+  }
+]

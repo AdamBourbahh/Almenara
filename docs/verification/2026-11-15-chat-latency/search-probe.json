@@ -1,0 +1,8 @@
+[
+  {
+    "host": "generativelanguage.googleapis.com",
+    "method": "POST",
+    "error": "ReadTimeout",
+    "seconds": 12.075
+  }
+]

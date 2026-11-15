@@ -1,0 +1,157 @@
+[
+  {
+    "question": "What is FRP and how does it differ from energy?",
+    "seconds": 7.589,
+    "status": 200,
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "**Fire Radiative Power (FRP)** measures the instantaneous rate of radiant heat output observed during a satellite overpass, expressed in megawatts (MW) or megajoules per second [K1]. It represents a momentary snapshot of combustion rate rather than an accumulated total [K1]. FRP observations indicate thermal activity consistent with active burning, though satellite detections alone reflect thermal signals rather than confirmation of an officially designated wildfire incident.\n\nIn contrast, **energy** (Fire Radiative Energy, or FRE) represents the total radiative heat released over time, typically quantified in megajoules (MJ) or gigajoules (GJ) [K1]. Because satellite overpasses are sparse snapshots rather than continuous monitoring, summing instantaneous FRP values does not equal total energy [K1]. Instead, energy is derived by integrating calibrated daily power over time across the observed footprint, accounting for orbital coverage and gaps to estimate fuel consumption [K1] [K10].",
+      "citations": [
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
+        },
+        {
+          "id": "[K1]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Fire radiative power and energy",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "FRP is instantaneous fire radiative power in MW, equivalent to MJ per second. FRE is energy integrated over time in MJ. One GJ is 1000 MJ. Summing instantaneous satellite FRP samples does not give energy. The local scientific energy tool integrates calibrated daily FRE over the cube cells represented each day. Estimates depend on temporal reconstruction and sensor coverage."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Navalacruz selected area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.7,
+                40.2
+              ],
+              [
+                -4.3,
+                40.2
+              ],
+              [
+                -4.3,
+                40.6
+              ],
+              [
+                -4.7,
+                40.6
+              ],
+              [
+                -4.7,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2021-08-14",
+        "period_end": "2021-08-22",
+        "h3_index": null
+      },
+      "answer_markdown": "**Fire Radiative Power (FRP)** measures the instantaneous rate of radiant heat output observed during a satellite overpass, expressed in megawatts (MW) or megajoules per second [K1]. It represents a momentary snapshot of combustion rate rather than an accumulated total [K1]. FRP observations indicate thermal activity consistent with active burning, though satellite detections alone reflect thermal signals rather than confirmation of an officially designated wildfire incident.\n\nIn contrast, **energy** (Fire Radiative Energy, or FRE) represents the total radiative heat released over time, typically quantified in megajoules (MJ) or gigajoules (GJ) [K1]. Because satellite overpasses are sparse snapshots rather than continuous monitoring, summing instantaneous FRP values does not equal total energy [K1]. Instead, energy is derived by integrating calibrated daily power over time across the observed footprint, accounting for orbital coverage and gaps to estimate fuel consumption [K1] [K10].",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "knowledge"
+      ]
+    }
+  },
+  {
+    "question": "What wildfire occurred in this area during this period, and what caused it? Cite the evidence.",
+    "seconds": 37.814,
+    "status": 200,
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "Satellite thermal sensors recorded 119 detections across the study area between August 14 and August 22, 2021, with a summed fire radiative power of 3,328.57 MW and observations falling between August 15 and August 18 [5]. These thermal observations are not a confirmed fire perimeter, but regional reporting identifies a major candidate incident in the area: the wildfire near the municipality of Navalacruz in \u00c1vila province [W1].\n\nAccording to retrieved reporting, that blaze began on Saturday (August 14, 2021) after a car caught fire following an accident on the N-502 highway [W1]. Regional authorities reported that spread was driven by temperatures near 40 \u00b0C, humidity down to 4%, and sustained winds of 40 to 45 km/h with gusts up to 60 km/h, affecting more than 20,000 hectares of scrubland, oak, pasture, and pine, and leading to evacuations in Solosancho, Riofr\u00edo, and Sotalbo [W1]. While the report documents this vehicle accident as the cause of the Navalacruz fire, individual mapped detections are not directly verified as belonging to that specific fire perimeter [5], [W1].\n\n### Satellite observations\n\nThe local FIRMS archive contains **119 satellite detections** in the **Navalacruz selected area** for **2021-08-14 to 2021-08-22** (Aqua, N20, SNPP, Terra). [5]",
+      "citations": [
+        {
+          "id": "[5]",
+          "source_type": "NASA_DATASET",
+          "title": "NASA FIRMS active fire observations",
+          "authors_or_agency": "NASA EOSDIS LANCE",
+          "year": 2026,
+          "dataset_or_doi": "NASA Earthdata / FIRMS",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+        },
+        {
+          "id": "[W1]",
+          "source_type": "WEB_NEWS_REPORT",
+          "title": "elpais.com",
+          "authors_or_agency": "english.elpais.com",
+          "year": 2026,
+          "dataset_or_doi": "News report; article text retrieved; incident match unconfirmed",
+          "url": "https://english.elpais.com/spain/2021-08-18/wildfire-in-spains-avila-province-continues-to-burn-after-razing-20000-hectares-of-land.html",
+          "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+        }
+      ],
+      "web_search_used": true,
+      "search_query_executed": "Sierra Oeste near latitude 40.4000, longitude -4.5000 wildfire official reports 2021-08-14 to 2021-08-22. Sierra Oeste August 2021 wildfire cause | Sierra Oeste near latitude 40.4000, longitude -4.5000 wildfire official reports 2021-08-14 to 2021-08-22. Navalacruz Avila wildfire August 2021 car fire cause",
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Navalacruz selected area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.7,
+                40.2
+              ],
+              [
+                -4.3,
+                40.2
+              ],
+              [
+                -4.3,
+                40.6
+              ],
+              [
+                -4.7,
+                40.6
+              ],
+              [
+                -4.7,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2021-08-14",
+        "period_end": "2021-08-22",
+        "h3_index": null
+      },
+      "answer_markdown": "Satellite thermal sensors recorded 119 detections across the study area between August 14 and August 22, 2021, with a summed fire radiative power of 3,328.57 MW and observations falling between August 15 and August 18 [5]. These thermal observations are not a confirmed fire perimeter, but regional reporting identifies a major candidate incident in the area: the wildfire near the municipality of Navalacruz in \u00c1vila province [W1].\n\nAccording to retrieved reporting, that blaze began on Saturday (August 14, 2021) after a car caught fire following an accident on the N-502 highway [W1]. Regional authorities reported that spread was driven by temperatures near 40 \u00b0C, humidity down to 4%, and sustained winds of 40 to 45 km/h with gusts up to 60 km/h, affecting more than 20,000 hectares of scrubland, oak, pasture, and pine, and leading to evacuations in Solosancho, Riofr\u00edo, and Sotalbo [W1]. While the report documents this vehicle accident as the cause of the Navalacruz fire, individual mapped detections are not directly verified as belonging to that specific fire perimeter [5], [W1].\n\n### Satellite observations\n\nThe local FIRMS archive contains **119 satellite detections** in the **Navalacruz selected area** for **2021-08-14 to 2021-08-22** (Aqua, N20, SNPP, Terra). [5]",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube",
+        "web"
+      ]
+    }
+  }
+]

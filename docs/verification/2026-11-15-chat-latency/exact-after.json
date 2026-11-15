@@ -1,0 +1,130 @@
+{
+  "seconds": 27.397,
+  "status": 200,
+  "request": {
+    "region_name": "Selected area at 40.355\u00b0, -4.514\u00b0",
+    "aoi": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -4.714,
+            40.155
+          ],
+          [
+            -4.314,
+            40.155
+          ],
+          [
+            -4.314,
+            40.555
+          ],
+          [
+            -4.714,
+            40.555
+          ],
+          [
+            -4.714,
+            40.155
+          ]
+        ]
+      ]
+    },
+    "period_start": "2026-07-24",
+    "period_end": "2026-07-24",
+    "user_question": "what has happened here?"
+  },
+  "response": {
+    "physical_classification": "RETRIEVED_EVIDENCE",
+    "explanation_markdown": "On 24 July 2026, satellite observations recorded thermal activity consistent with active burning across the selected area [5]. Timeline data shows local satellite detections appearing between late July and early August 2026 [5].\n\nRegional emergency reports identify a plausible candidate incident in this sector: the Sierra Oeste wildfire, managed from an advanced command post in Cenicientos [W1] [W2]. Official reports attribute the severity of the emergency to high temperatures, strong winds, and the confluence of three distinct fires that merged and behaved as one, leading to evacuations across the Valle del Ti\u00e9tar and near San Mart\u00edn de Valdeiglesias and Pelayos de la Presa [W1] [W2] [W3]. A specific ignition cause is absent from the retrieved articles, and available records do not verify that the selected hexagons correspond directly to the perimeter of that named incident [W1].\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,232 satellite detections** in the **Selected area at 40.355\u00b0, -4.514\u00b0** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]",
+    "citations": [
+      {
+        "id": "[5]",
+        "source_type": "NASA_DATASET",
+        "title": "NASA FIRMS active fire observations",
+        "authors_or_agency": "NASA EOSDIS LANCE",
+        "year": 2026,
+        "dataset_or_doi": "NASA Earthdata / FIRMS",
+        "url": "https://firms.modaps.eosdis.nasa.gov/",
+        "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+      },
+      {
+        "id": "[W1]",
+        "source_type": "WEB_NEWS_REPORT",
+        "title": "Madrid regional government's report on the Sierra Oeste fire, 24 July 2026",
+        "authors_or_agency": "Comunidad de Madrid",
+        "year": 2026,
+        "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed",
+        "url": "https://www.comunidad.madrid/noticias/2026/07/24/diaz-ayuso-es-peor-incendio-historia-comunidad-madrid-prioridad-es-salvar-vidas",
+        "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+      },
+      {
+        "id": "[W2]",
+        "source_type": "WEB_NEWS_REPORT",
+        "title": "Madrid emergency coordination report on merged Sierra Oeste fire fronts",
+        "authors_or_agency": "Comunidad de Madrid",
+        "year": 2026,
+        "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed",
+        "url": "https://www.comunidad.madrid/noticias/2026/07/25/diaz-ayuso-todos-medios-region-estan-trabajando-descanso",
+        "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+      },
+      {
+        "id": "[W3]",
+        "source_type": "WEB_NEWS_REPORT",
+        "title": "Madrid report on operational de-escalation and continuing evacuations",
+        "authors_or_agency": "Comunidad de Madrid",
+        "year": 2026,
+        "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed",
+        "url": "https://www.comunidad.madrid/noticias/2026/07/30/diaz-ayuso-comprueba-situacion-terreno-afectado-incendios-sierra-oeste",
+        "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+      }
+    ],
+    "web_search_used": true,
+    "search_query_executed": "Sierra Oeste near latitude 40.3550, longitude -4.5140 wildfire official reports 2026-07-24 to 2026-07-24. ",
+    "model_used": "gemini-agent/gemini-3.8-flash",
+    "data_source": "real",
+    "map_context": {
+      "label": "Selected area at 40.355\u00b0, -4.514\u00b0",
+      "aoi": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -4.714,
+              40.155
+            ],
+            [
+              -4.314,
+              40.155
+            ],
+            [
+              -4.314,
+              40.555
+            ],
+            [
+              -4.714,
+              40.555
+            ],
+            [
+              -4.714,
+              40.155
+            ]
+          ]
+        ]
+      },
+      "period_start": "2026-07-24",
+      "period_end": "2026-07-24",
+      "h3_index": null
+    },
+    "answer_markdown": "On 24 July 2026, satellite observations recorded thermal activity consistent with active burning across the selected area [5]. Timeline data shows local satellite detections appearing between late July and early August 2026 [5].\n\nRegional emergency reports identify a plausible candidate incident in this sector: the Sierra Oeste wildfire, managed from an advanced command post in Cenicientos [W1] [W2]. Official reports attribute the severity of the emergency to high temperatures, strong winds, and the confluence of three distinct fires that merged and behaved as one, leading to evacuations across the Valle del Ti\u00e9tar and near San Mart\u00edn de Valdeiglesias and Pelayos de la Presa [W1] [W2] [W3]. A specific ignition cause is absent from the retrieved articles, and available records do not verify that the selected hexagons correspond directly to the perimeter of that named incident [W1].\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,232 satellite detections** in the **Selected area at 40.355\u00b0, -4.514\u00b0** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]",
+    "provider_used": "gemini-agent/gemini-3.8-flash",
+    "episode_summary": null,
+    "guardrail_triggered": false,
+    "verified_calculations": null,
+    "suggested_prompts": [],
+    "evidence_sources": [
+      "local_cube",
+      "web"
+    ]
+  }
+}

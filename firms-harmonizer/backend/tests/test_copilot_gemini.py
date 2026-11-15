@@ -278,6 +278,52 @@ def test_gemini_can_refine_weak_incident_search_without_losing_initial_evidence(
     assert len(queries) == 2
 
 
+@pytest.mark.parametrize('batched', [False, True])
+def test_provider_cannot_execute_a_third_incident_search(gemini, monkeypatch, batched):
+    from backend.api import copilot_research as research
+    searches = []
+    monkeypatch.setattr(agent.duckdb_engine, 'data_source', lambda: 'real')
+    monkeypatch.setattr(research, 'google_search_reports', lambda query: searches.append(query) or [])
+    monkeypatch.setattr(research, 'indexed_sources', lambda scope: [])
+    monkeypatch.setattr(research, 'enrich_official_reports', lambda reports: reports)
+    monkeypatch.setattr(agent.copilot_rag, 'search', lambda question: [
+        {'id': 'K2', 'title': 'Incident identity', 'url': None,
+         'text': 'Thermal observations alone do not identify a named incident.'}])
+    calls = []
+
+    def turn(messages, **kwargs):
+        calls.append(kwargs)
+        def search(index):
+            return {'id': f'search-{index}', 'function': {'name': 'search_incident_reports',
+                'arguments': json.dumps({'query': f'official incident search {index}'})}}
+        if batched and len(calls) == 1:
+            return {'tool_calls': [search(index) for index in range(3)]}
+        if not batched and len(calls) <= 3:
+            if len(calls) == 3:
+                assert 'search_incident_reports' in kwargs['used']
+            return {'tool_calls': [search(len(calls))]}
+        results = [json.loads(message['content']) for message in messages if message['role'] == 'tool']
+        assert len(results) == 3
+        assert results[-1]['status'] == 'search_limit_reached'
+        return {'content': 'No independent incident reports were retrieved. The incident identity and cause remain unverified. [K2]'}
+
+    monkeypatch.setattr(agent, 'turn', turn)
+    response = agent.answer(ExplainSpikeRequest(user_question='what has happened here?',
+        period_start='2026-07-24', period_end='2026-07-24'))
+    assert len(searches) == 2
+    assert response.model_used.startswith('gemini-agent/')
+    assert 'unverified' in response.explanation_markdown
+    assert response.map_context is None
+
+
+@pytest.mark.parametrize('question', [
+    'what has happened here?', 'What is happening here?', "What's happened here?",
+    '¿Qué ha pasado aquí?', '¿Qué está pasando aquí?',
+])
+def test_event_question_variants_allow_report_research(question):
+    assert agent.wants_reports(question)
+
+
 def test_article_evidence_is_bounded_without_replacing_reports_with_size_error():
     from backend.api import copilot_research as research
     from backend.api.schemas import CitationReference

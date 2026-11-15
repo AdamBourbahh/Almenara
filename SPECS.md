@@ -1,5 +1,14 @@
 # FIRMS-HARMONIZER: Technical, Physico-Mathematical & Interface Specification (36h War Plan)
 
+Copilot research latency follow-up (2026-11-15): enforce the two-search execution
+budget even if the provider repeats a tool removed from its advertised tools.
+Further calls return a search-limit result without contacting external services;
+previous evidence and scientific checks remain intact. Event questions such as
+"what has happened here?", "what is happening here?" and Spanish equivalents are
+eligible for incident research. Success/failure logs include elapsed time without
+credentials. Online errors retain the selected provider and are not replaced with
+a local answer; offline mode remains explicit. Research latency is not a fixed SLA.
+
 Hexagon painting and Fill (2026-11-15): holding the primary pointer paints cells
 continuously, with intermediate screen-segment samples for fast movements.
 Starting on a selected cell erases for the entire stroke; revisiting a cell does

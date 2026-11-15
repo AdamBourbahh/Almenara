@@ -722,6 +722,14 @@ clean; production build succeeds.
 
 ## Branch consolidation (2026-11-15)
 
+Copilot latency diagnosis: the development API was running code predating recent
+merges; restart it with backend autoreload. Correct event-intent recognition for
+"what has happened here?" and related English/Spanish questions. Enforce at most
+two incident searches at execution time, including repeated/batched calls from
+the model; retain the evidence already retrieved. Include elapsed milliseconds in
+success/failure logs and add sequential/batch budget regressions. No model swap,
+credential change, public contract change or relaxed evidence guard is involved.
+
 Hexagon painting/Fill follow-up: select continuously with a held primary pointer,
 interpolating intermediate cells. Starting on a selected cell erases consistently;
 revisits are idempotent. Capture/release and cancellation prevent stuck painting

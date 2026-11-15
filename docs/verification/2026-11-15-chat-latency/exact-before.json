@@ -1,0 +1,99 @@
+{
+  "seconds": 13.839,
+  "status": 200,
+  "request": {
+    "region_name": "Selected area at 40.355\u00b0, -4.514\u00b0",
+    "aoi": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -4.714,
+            40.155
+          ],
+          [
+            -4.314,
+            40.155
+          ],
+          [
+            -4.314,
+            40.555
+          ],
+          [
+            -4.714,
+            40.555
+          ],
+          [
+            -4.714,
+            40.155
+          ]
+        ]
+      ]
+    },
+    "period_start": "2026-07-24",
+    "period_end": "2026-07-24",
+    "user_question": "what has happened here?"
+  },
+  "response": {
+    "physical_classification": "OBSERVED_THERMAL_ACTIVITY",
+    "explanation_markdown": "### Answer\n\nThe selected area has satellite thermal detections **consistent with active burning**. They support a possible fire, but satellite hotspots alone do not confirm a wildfire: industrial heat and other burning can also produce detections. [5] Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,232 satellite detections** in the **Selected area at 40.355\u00b0, -4.514\u00b0** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **56,169.64 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+    "citations": [
+      {
+        "id": "[5]",
+        "source_type": "NASA_DATASET",
+        "title": "NASA FIRMS active fire observations",
+        "authors_or_agency": "NASA EOSDIS LANCE",
+        "year": 2026,
+        "dataset_or_doi": "NASA Earthdata / FIRMS",
+        "url": "https://firms.modaps.eosdis.nasa.gov/",
+        "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+      }
+    ],
+    "web_search_used": false,
+    "search_query_executed": null,
+    "model_used": "deterministic-offline-science",
+    "data_source": "real",
+    "map_context": {
+      "label": "Selected area at 40.355\u00b0, -4.514\u00b0",
+      "aoi": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -4.714,
+              40.155
+            ],
+            [
+              -4.314,
+              40.155
+            ],
+            [
+              -4.314,
+              40.555
+            ],
+            [
+              -4.714,
+              40.555
+            ],
+            [
+              -4.714,
+              40.155
+            ]
+          ]
+        ]
+      },
+      "period_start": "2026-07-24",
+      "period_end": "2026-07-24",
+      "h3_index": null
+    },
+    "answer_markdown": "### Answer\n\nThe selected area has satellite thermal detections **consistent with active burning**. They support a possible fire, but satellite hotspots alone do not confirm a wildfire: industrial heat and other burning can also produce detections. [5] Identifying a named incident or its ignition cause requires matching independent reports or a fire perimeter.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,232 satellite detections** in the **Selected area at 40.355\u00b0, -4.514\u00b0** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **56,169.64 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+    "provider_used": "deterministic-offline-science",
+    "episode_summary": null,
+    "guardrail_triggered": false,
+    "verified_calculations": null,
+    "suggested_prompts": [],
+    "evidence_sources": [
+      "local_cube"
+    ]
+  }
+}

@@ -1,0 +1,259 @@
+[
+  {
+    "question": "What is FRP and how does it differ from energy?",
+    "status": 200,
+    "seconds": 8.007,
+    "trace": [
+      {
+        "operation": "model_turn",
+        "start": 0.081,
+        "calls": [],
+        "has_text": true,
+        "seconds": 3.537
+      },
+      {
+        "operation": "model_turn",
+        "start": 3.625,
+        "calls": [],
+        "has_text": true,
+        "seconds": 4.377
+      }
+    ],
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "Fire Radiative Power (FRP) is the instantaneous rate of radiant heat output emitted at the exact moment of satellite observation, expressed in megawatts (MW, or megajoules per second) [K1]. Because FRP reflects instantaneous power captured during brief satellite overpasses, single detections indicate thermal activity consistent with active burning rather than definitive ground confirmation of a wildfire, its perimeter, or its ignition source [K10]. Furthermore, summing raw FRP samples does not represent simultaneous fire power or continuous thermal output [K1].\n\nIn contrast, fire radiative energy (FRE) represents the cumulative thermal energy released over time, quantified in megajoules (MJ) or gigajoules (GJ) [K1]. Energy cannot be obtained by merely adding up discrete FRP readings; it requires integrating calibrated observations over time across spatial grid cells while accounting for satellite coverage and observation gaps [K1] [K10]. While FRP measures the momentary intensity of radiant heat, integrated energy quantifies total thermal output over a defined period, which models use to estimate consumed dry biomass [K1] [K10].",
+      "citations": [
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
+        },
+        {
+          "id": "[K1]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Fire radiative power and energy",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "FRP is instantaneous fire radiative power in MW, equivalent to MJ per second. FRE is energy integrated over time in MJ. One GJ is 1000 MJ. Summing instantaneous satellite FRP samples does not give energy. The local scientific energy tool integrates calibrated daily FRE over the cube cells represented each day. Estimates depend on temporal reconstruction and sensor coverage."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Navalacruz selected area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.7,
+                40.2
+              ],
+              [
+                -4.3,
+                40.2
+              ],
+              [
+                -4.3,
+                40.6
+              ],
+              [
+                -4.7,
+                40.6
+              ],
+              [
+                -4.7,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2021-08-14",
+        "period_end": "2021-08-22",
+        "h3_index": null
+      },
+      "answer_markdown": "Fire Radiative Power (FRP) is the instantaneous rate of radiant heat output emitted at the exact moment of satellite observation, expressed in megawatts (MW, or megajoules per second) [K1]. Because FRP reflects instantaneous power captured during brief satellite overpasses, single detections indicate thermal activity consistent with active burning rather than definitive ground confirmation of a wildfire, its perimeter, or its ignition source [K10]. Furthermore, summing raw FRP samples does not represent simultaneous fire power or continuous thermal output [K1].\n\nIn contrast, fire radiative energy (FRE) represents the cumulative thermal energy released over time, quantified in megajoules (MJ) or gigajoules (GJ) [K1]. Energy cannot be obtained by merely adding up discrete FRP readings; it requires integrating calibrated observations over time across spatial grid cells while accounting for satellite coverage and observation gaps [K1] [K10]. While FRP measures the momentary intensity of radiant heat, integrated energy quantifies total thermal output over a defined period, which models use to estimate consumed dry biomass [K1] [K10].",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "knowledge"
+      ]
+    }
+  },
+  {
+    "question": "What wildfire occurred in this area during this period, and what caused it? Cite the evidence.",
+    "status": 200,
+    "seconds": 48.686,
+    "trace": [
+      {
+        "operation": "model_turn",
+        "start": 0.009,
+        "calls": [
+          "search_incident_reports"
+        ],
+        "has_text": false,
+        "seconds": 2.207
+      },
+      {
+        "operation": "source_discovery",
+        "start": 2.222,
+        "reports": 0,
+        "seconds": 11.371
+      },
+      {
+        "operation": "read_articles",
+        "start": 13.593,
+        "reports": 0,
+        "seconds": 0.0
+      },
+      {
+        "operation": "model_turn",
+        "start": 13.594,
+        "calls": [
+          "search_incident_reports"
+        ],
+        "has_text": false,
+        "seconds": 2.053
+      },
+      {
+        "operation": "source_discovery",
+        "start": 15.647,
+        "reports": 2,
+        "seconds": 10.25
+      },
+      {
+        "operation": "read_articles",
+        "start": 25.897,
+        "reports": 2,
+        "seconds": 0.77
+      },
+      {
+        "operation": "model_turn",
+        "start": 26.669,
+        "calls": [
+          "search_incident_reports"
+        ],
+        "has_text": false,
+        "seconds": 1.892
+      },
+      {
+        "operation": "source_discovery",
+        "start": 28.562,
+        "reports": 0,
+        "seconds": 8.927
+      },
+      {
+        "operation": "read_articles",
+        "start": 37.489,
+        "reports": 0,
+        "seconds": 0.0
+      },
+      {
+        "operation": "model_turn",
+        "start": 37.489,
+        "calls": [],
+        "has_text": true,
+        "seconds": 3.962
+      },
+      {
+        "operation": "model_turn",
+        "start": 41.451,
+        "calls": [],
+        "has_text": true,
+        "seconds": 3.547
+      },
+      {
+        "operation": "model_turn",
+        "start": 45.0,
+        "calls": [],
+        "has_text": true,
+        "seconds": 3.681
+      }
+    ],
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "Official reports identify a candidate regional incident: a large wildfire declared on August 14, 2021, in the province of \u00c1vila that affected the Sierra de la Paramera and several municipalities across the Duero and Tajo river basins [W1]. Satellite thermal anomaly detections in the selected area are consistent with active burning, but detections alone do not confirm that the queried map cells belong to the perimeter of that specific named wildfire [K2] [W1].\n\nThe retrieved article text does not document an ignition cause for this fire [W1]. While satellite observations record thermal energy from combustion, sensor power and heat detections cannot determine how the fire started [K2]. Because the cause is omitted from the retrieved report text, it remains unverified here; inspecting official investigation reports from regional authorities would be the appropriate next step to establish the ignition source.",
+      "citations": [
+        {
+          "id": "[K2]",
+          "source_type": "NASA_DATASET",
+          "title": "Satellite detections and incident identity",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "NASA FIRMS detections are satellite thermal anomalies, not a count of distinct fires. A single fire may generate many detections over different sensors and days. Thermal anomalies can also be agricultural burning or industrial sources. A selected polygon or H3 hexagon is a query area, not a confirmed wildfire perimeter. Zero detections do not prove absence of fire: clouds, overpasses, thresholds and archive coverage affect observation. Thermal sensors can detect flaming and sufficiently hot smoldering. A decline in detection counts alone cannot distinguish less combustion from obscuration, sampling or detection thresholds; none of these is a measured explanation without matching evidence."
+        },
+        {
+          "id": "[W1]",
+          "source_type": "WEB_NEWS_REPORT",
+          "title": "miteco.gob.es",
+          "authors_or_agency": "www.miteco.gob.es",
+          "year": 2026,
+          "dataset_or_doi": "Official report; article text retrieved; incident match unconfirmed",
+          "url": "https://www.miteco.gob.es/es/agua/temas/delimitacion-y-restauracion-del-dominio-publico-hidraulico/estrategia-nacional-restauracion-rios/pima-2021-dph-paramera.html",
+          "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+        }
+      ],
+      "web_search_used": true,
+      "search_query_executed": "Sierra Oeste near latitude 40.4000, longitude -4.5000 wildfire official reports 2021-08-14 to 2021-08-22. Navalacruz wildfire August 2021 cause | Sierra Oeste near latitude 40.4000, longitude -4.5000 wildfire official reports 2021-08-14 to 2021-08-22. Navalacruz Avila Spain August 2021 fire | Sierra Oeste near latitude 40.4000, longitude -4.5000 wildfire official reports 2021-08-14 to 2021-08-22. incendio Navalacruz 14 de agosto 2021 coche averia cuneta",
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Navalacruz selected area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.7,
+                40.2
+              ],
+              [
+                -4.3,
+                40.2
+              ],
+              [
+                -4.3,
+                40.6
+              ],
+              [
+                -4.7,
+                40.6
+              ],
+              [
+                -4.7,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2021-08-14",
+        "period_end": "2021-08-22",
+        "h3_index": null
+      },
+      "answer_markdown": "Official reports identify a candidate regional incident: a large wildfire declared on August 14, 2021, in the province of \u00c1vila that affected the Sierra de la Paramera and several municipalities across the Duero and Tajo river basins [W1]. Satellite thermal anomaly detections in the selected area are consistent with active burning, but detections alone do not confirm that the queried map cells belong to the perimeter of that specific named wildfire [K2] [W1].\n\nThe retrieved article text does not document an ignition cause for this fire [W1]. While satellite observations record thermal energy from combustion, sensor power and heat detections cannot determine how the fire started [K2]. Because the cause is omitted from the retrieved report text, it remains unverified here; inspecting official investigation reports from regional authorities would be the appropriate next step to establish the ignition source.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "web",
+        "knowledge"
+      ]
+    }
+  }
+]
