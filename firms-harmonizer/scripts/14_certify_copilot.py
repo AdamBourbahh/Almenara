@@ -13,12 +13,15 @@ import os
 import re
 import sys
 import time
+from datetime import date
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 os.environ.update(USE_SYNTHETIC_CUBE='0',COPILOT_OFFLINE='0',NRT_POLLING='0',AUTO_SYNC='0',REQUEST_RATE_MULTIPLIER='10000')
 import duckdb
 import h3
+import numpy as np
+from scipy.stats import f as f_distribution
 from fastapi.testclient import TestClient
 from backend.api.main import app
 from backend.api import copilot_agent as agent
@@ -33,6 +36,84 @@ HOLDOUT=('Northern Africa holdout','873828d5affffff','2023-01-01','2023-12-31',T
 QUESTION=('Audit the selected area: report mapped FRE in GJ, raw and harmonized Chow F and p, '
  'raw and harmonized Wasserstein W1, latest von Mises peak DOY, kappa and width, and reconstructed and unknown days. '
  'Use local measurements only. State unavailable diagnostics explicitly. Do not infer ignition, cloudiness or vegetation from missing observations.')
+
+
+def independent_statistics(con,data,cell,exclude,start,end):
+    """Independent SQL input and statistical arithmetic; no production helpers."""
+    rows=con.execute('''select epoch_day,raw_modis_cnt+raw_viirs_cnt,
+        obs_terra_fre,obs_aqua_fre,obs_viirs_fre,gap_status_mask
+        from read_parquet(?) where h3_r7=? and (not ? or industrial_prob<0.75)''',
+        [str(ROOT/'data/processed/fire_cube.parquet'),int(cell,16),exclude]).fetchall()
+    observed={int(r[0]):r for r in rows}
+    series=[c for c in data['calendar_series'] if not c['is_forecast']]
+    years=np.array([c['year'] for c in series])
+    raw=[]
+    density=[]
+    unknown=0
+    evidenced_gaps=0
+    for c in series:
+        row=observed.get((date.fromisoformat(c['date'])-date(1970,1,1)).days)
+        vals=[v for v in row[2:5] if v is not None] if row else []
+        raw.append(row[1] if row else 0)
+        density.append(math.fsum(vals)/len(vals)*h3.cell_area(cell,unit='km^2')/data['aoi_area_km2'] if vals else 0.)
+        if start<=c['date']<=end:
+            unknown+=not vals
+            evidenced_gaps+=bool(row and row[5] and not vals)
+    # These selected cases have observed gap flags but no missing-energy days
+    # eligible for reconstruction. Refuse to claim an independent RTS oracle.
+    if evidenced_gaps:
+        raise ValueError('This oracle does not independently reproduce RTS gap reconstruction.')
+    raw=np.array(raw,dtype=float)
+    density=np.array(density)
+    assert np.allclose(raw,[c['raw_hotspot_count'] for c in series],rtol=0,atol=0)
+    assert np.allclose(density,[c['harmonized_fre_mj_km2'] for c in series],rtol=1e-12,atol=1e-10)
+    unique,counts=np.unique(years,return_counts=True)
+    complete=[int(y) for y,n in zip(unique,counts) if n==(date(int(y)+1,1,1)-date(int(y),1,1)).days]
+    keep=np.isin(years,complete)
+    def chow(values):
+        annual=np.array([values[years==y].mean() for y in complete])
+        yy=np.array(complete,dtype=float)
+        design=np.column_stack((np.ones(len(yy)),yy-yy.mean()))
+        annual/=max(float(np.max(np.abs(annual))),1.)
+        pre=yy<2012
+        def rss(mask):
+            a,b=design[mask],annual[mask]
+            residual=b-a@np.linalg.lstsq(a,b,rcond=None)[0]
+            return float(residual@residual)
+        pooled=rss(np.ones(len(yy),dtype=bool))
+        split=rss(pre)+rss(~pre)
+        tolerance=64*len(yy)*np.finfo(float).eps**2
+        if pooled<=tolerance:
+            return 0.,1.
+        statistic=max(0.,(pooled-split)/2)/max(split/(len(yy)-4),tolerance)
+        return statistic,float(f_distribution.sf(statistic,2,len(yy)-4))
+    def w1(values):
+        values=values[keep]
+        if values.mean()<=0:
+            return 0.
+        a=np.sort(values[years[keep]<2012]/values.mean())
+        b=np.sort(values[years[keep]>=2012]/values.mean())
+        support=np.sort(np.concatenate((a,b)))
+        return float(np.sum(np.abs(np.searchsorted(a,support[:-1],side='right')/len(a)
+            -np.searchsorted(b,support[:-1],side='right')/len(b))*np.diff(support)))
+    cr,ch=chow(raw),chow(density)
+    last=years==years.max()
+    weights=density[last]
+    days=np.array([c['doy'] for c in series])[last]
+    mu,kappa=1.,0.
+    if weights.sum()>0:
+        angles=days*2*math.pi/365.25
+        sine=math.fsum(w*math.sin(a) for w,a in zip(weights,angles))/weights.sum()
+        cosine=math.fsum(w*math.cos(a) for w,a in zip(weights,angles))/weights.sum()
+        r=min(1.,math.hypot(sine,cosine))
+        if r>1e-12:
+            mu=max(1.,min(365.25,(math.atan2(sine,cosine)%(2*math.pi))*365.25/(2*math.pi)))
+            kappa=2*r+r**3+5*r**5/6 if r<.53 else -.4+1.39*r+.43/(1-r) if r<.85 else 1/max(1e-4,r**3-4*r*r+3*r)
+    return dict(audit_metrics=dict(chow_test_f_stat_raw=cr[0],chow_test_p_val_raw=cr[1],
+        chow_test_f_stat_harm=ch[0],chow_test_p_val_harm=ch[1],wasserstein_w1_raw=w1(raw),wasserstein_w1_harm=w1(density)),
+        phenology=dict(year=int(years.max()),peak_doy_mu=mu,concentration_kappa=kappa,
+            season_width_days=min(365.,365.25/math.sqrt(max(.15,kappa)))),
+        reconstructed_days=0,unknown_days=unknown,input_rows=len(rows))
 
 
 def main():
@@ -59,10 +140,10 @@ def main():
             ring=[[lon,lat] for lat,lon in h3.cell_to_boundary(cell)]
             aoi={'coordinates':[ring+[ring[0]]]}
             payload=dict(aoi=aoi,region_name=label,prefer_map_context=True,period_start=start,period_end=end,
-                confidence_level='nominal',exclude_industrial_flaring=exclude,enable_kalman_gap_filling=False,
+                confidence_level='nominal',exclude_industrial_flaring=exclude,enable_kalman_gap_filling=True,
                 user_question=QUESTION)
             analysis=client.post('/api/analyze',json=dict(aoi=aoi,start_year=2000,end_year=2026,forecast_days=0,
-                confidence_level='nominal',exclude_industrial_flaring=exclude,enable_kalman_gap_filling=False))
+                confidence_level='nominal',exclude_industrial_flaring=exclude,enable_kalman_gap_filling=True))
             data=analysis.json()
             rows=con.execute('''select obs_terra_fre,obs_aqua_fre,obs_viirs_fre from read_parquet(?)
                 where h3_r7=? and epoch_day between date_diff('day',date '1970-01-01',cast(? as date))
@@ -79,6 +160,13 @@ def main():
                 phenology=({k:data['phenology_by_year'][-1][k] for k in phenology_keys} if data.get('phenology_by_year') else None),
                 reconstructed_days=sum(c['is_gap_filled'] for c in selected),
                 unknown_days=sum(c['observation_status']=='unknown' for c in selected))
+            oracle=independent_statistics(con,data,cell,exclude,start,end)
+            for key,value in oracle['audit_metrics'].items():
+                assert math.isclose(value,reference['audit_metrics'][key],rel_tol=1e-10,abs_tol=1e-10),(label,key,value,reference['audit_metrics'][key])
+            for key,value in oracle['phenology'].items():
+                assert math.isclose(value,reference['phenology'][key],rel_tol=1e-10,abs_tol=1e-10),(label,key)
+            assert oracle['reconstructed_days']==reference['reconstructed_days']
+            assert oracle['unknown_days']==reference['unknown_days']
             trace=[]
             def recorded(*a,**kw):
                 before=time.perf_counter()
@@ -112,7 +200,7 @@ def main():
             # verdict. Preserve prose for a separate semantic review.
             record=dict(zone=label,h3=cell,polygon_sha256=hashlib.sha256(json.dumps(aoi,sort_keys=True).encode()).hexdigest(),
                 request=payload,status=response.status_code,elapsed_ms=round((time.perf_counter()-before)*1000),
-                analysis_status=analysis.status_code,reference=reference,response=body,model_calls=trace,
+                analysis_status=analysis.status_code,reference=reference,independent_oracle=oracle,response=body,model_calls=trace,
                 fallback=fallback,match_data=match,model_ok=model_ok,semantic_review='pending',
                 passed=response.status_code==200 and analysis.status_code==200 and data.get('data_source')=='real' and match and model_ok and not fallback)
             records.append(record)
