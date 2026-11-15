@@ -363,13 +363,39 @@ function VerifiedCalculationCard({ response }: { response: ExplainSpikeResponse 
 
 const SPEECH_RATES = [1, 1.5, 2] as const;
 
+const SPOKEN_MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
+// Spell ISO dates out in English words ("2024-08-15" -> "August 15, 2024") so
+// no voice can read the digits in the operating system's language.
+function spokenIsoDate(year: string, month: string, day?: string): string {
+  const name = SPOKEN_MONTHS[Number(month) - 1];
+  if (!name) return day ? `${year}-${month}-${day}` : `${year}-${month}`;
+  return day ? `${name} ${Number(day)}, ${year}` : `${name} ${year}`;
+}
+
+function englishSpeechText(text: string): string {
+  const isoDate = /\b(\d{4})-(\d{2})(?:-(\d{2}))?\b/g;
+  return text
+    .replace(/(\d{4}-\d{2}(?:-\d{2})?)\s*(?:–|—|-|\bto\b)\s*(\d{4}-\d{2}(?:-\d{2})?)/g, "$1 to $2")
+    .replace(isoDate, (_match, year: string, month: string, day?: string) => spokenIsoDate(year, month, day))
+    .replace(/MJ\/km²/g, "megajoules per square kilometre")
+    .replace(/km²/g, " square kilometres")
+    .replace(/\bMW\b/g, "megawatts")
+    .replace(/\bH3\b/g, "H 3")
+    .replace(/\s*·\s*/g, ", ")
+    .replace(/\s{2,}/g, " ");
+}
+
 function speechChunks(markdown: string): string[] {
   return markdown
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("|"))
     .map((line) =>
-      line
+      englishSpeechText(line)
         .replace(/^[-*]\s+/, "")
         .replace(/^#{1,6}\s+/, "")
         .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
@@ -387,7 +413,10 @@ function speechChunks(markdown: string): string[] {
 function englishVoiceScore(voice: SpeechSynthesisVoice): number {
   const lang = voice.lang.toLowerCase().replace("_", "-");
   if (!lang.startsWith("en")) return -1;
-  let score = 0;
+  // "Multilingual" voices auto-detect the language and switch to the OS
+  // language (e.g. Spanish) for numbers and dates: use them only as last resort.
+  if (/multilingual/i.test(voice.name)) return 0;
+  let score = 1;
   if (voice.name === "Google US English") score += 16;
   else if (/google/i.test(voice.name)) score += 10;
   if (/natural|neural|online/i.test(voice.name)) score += 8;
