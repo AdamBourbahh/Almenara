@@ -57,6 +57,63 @@ def source_tier(url: str) -> int:
     return 0
 
 
+def google_search_reports(query: str) -> list[CitationReference]:
+    """Discover source URLs with Google; model prose is never an article excerpt.
+
+    Google search redirect URLs may be resolved once, without following the target.
+    Only independently approved HTTPS publishers enter the existing article reader.
+    Google inference and redirect discovery share one twelve-second deadline.
+    Publisher/redirect reads retain a maximum four-second timeout.
+    """
+    key = os.getenv('GEMINI_API_KEY')
+    if is_offline() or not key:
+        return []
+    deadline = monotonic() + 12.0
+    reports = []
+    seen = set()
+    try:
+        with httpx.Client(timeout=12.0, follow_redirects=False) as client:
+            response = client.post(
+                'https://generativelanguage.googleapis.com/v1beta/models/'
+                + os.getenv('GEMINI_MODEL', 'gemini-3.8-flash') + ':generateContent',
+                headers={'x-goog-api-key': key},
+                json={'contents': [{'parts': [{'text':
+                    'Find primary official incident reports and reputable reporting for this place and period. '
+                    'Return relevant source links, prioritizing official agencies. Query: '+query[:800]}]}],
+                    'tools': [{'google_search': {}}], 'generationConfig': {'maxOutputTokens': 600, 'thinkingConfig': {'thinkingLevel': 'low'}}})
+            response.raise_for_status()
+            candidate = response.json().get('candidates', [{}])[0]
+            chunks = candidate.get('groundingMetadata', {}).get('groundingChunks', [])
+            for chunk in chunks[:8]:
+                web = chunk.get('web', {})
+                url = web.get('uri', '')
+                parsed = urlparse(url)
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    break
+                if (parsed.scheme == 'https' and parsed.hostname == 'vertexaisearch.cloud.google.com'
+                        and parsed.path.startswith('/grounding-api-redirect/')
+                        and not parsed.username and not parsed.password and parsed.port in (None, 443)):
+                    redirect = client.get(url, timeout=min(4.0, remaining))
+                    url = urljoin(url, redirect.headers.get('location', '')) if redirect.is_redirect else ''
+                tier = source_tier(url)
+                if not tier or url in seen:
+                    continue
+                seen.add(url)
+                reports.append(CitationReference(id=f'[W{len(reports)+1}]',
+                    source_type='WEB_NEWS_REPORT',
+                    title=str(web.get('title') or urlparse(url).hostname)[:240],
+                    authors_or_agency=urlparse(url).hostname, year=date.today().year,
+                    dataset_or_doi='Google Search source lead; article and incident match not yet verified',
+                    url=url, relevance_note='Discovered through Google grounding metadata. '
+                    'Search-generated prose is not a quotation or independently verified incident evidence.'))
+                if len(reports) == 5:
+                    break
+    except (httpx.HTTPError, ValueError, TypeError, AttributeError, KeyError, IndexError):
+        log.info('Google source discovery unavailable; retained %s approved leads', len(reports))
+    return reports
+
+
 class ArticleText(HTMLParser):
     def __init__(self):
         super().__init__()

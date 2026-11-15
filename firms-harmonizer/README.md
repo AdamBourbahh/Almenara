@@ -191,23 +191,33 @@ regions and custom drawn AOIs are also supported. Other named places can use web
 but local counts require a supported envelope or a drawn AOI. Amazonas/Manaus coverage
 is a limited study area, not the whole Amazon basin.
 
-For natural-language interpretation and prose, configure `GROQ_API_KEY` in a local `.env`.
-Legacy concise answers default to `openai/gpt-oss-120b`; dossier extraction first tries
-`llama-3.3-70b-versatile`. Set `GROQ_MODEL` to override either. If the account returns
-404 for a model, `GROQ_FALLBACK_MODEL` (default `openai/gpt-oss-120b`) is tried within
-the same deadline. The current local account cannot access the requested Llama model.
-Optional `GEMINI_API_KEY` enables the subsequent Gemini provider.
-[GitHub Models retired on 30 July 2026](https://github.blog/changelog/2026-07-01-github-models-is-being-fully-retired-on-July-30-2026/),
-so a `GITHUB_TOKEN` alone does not trigger a request to a dead endpoint. The GitHub
-compatibility adapter requires an explicitly configured `GITHUB_MODELS_ENDPOINT`
-pointing to an operator-provided compatible gateway; it is optional and not a claim
-that GitHub's former hosted service is available.
-Requests are bounded to 4,500 content characters, 900 output tokens and a 10-second
-provider deadline. These reduce request size; they cannot guarantee free-tier quota
-availability or sub-second network latency. Optional `TAVILY_API_KEY` enables Tavily search; otherwise the assistant
-uses public search through `ddgs`. Search results are contextual leads, not automatic
-confirmation of a matching fire. Inline source markers open the actual cited pages.
-Provider availability and model permissions depend on the configured account.
+For natural-language interpretation, configure these variables in a local `.env`:
+
+```dotenv
+COPILOT_PROVIDER=gemini
+GEMINI_API_KEY=your-local-key
+GEMINI_MODEL=gemini-3.8-flash
+COPILOT_OFFLINE=0
+```
+
+The configured Google model selects read-only tools for the local archive and
+scientific document index. Incident research uses a separate native Google Search
+request, then resolves approved publisher links and reads available article text.
+Only URLs returned in grounding metadata are used; generated search prose is not
+an article quotation. Google inference and source discovery share a twelve-second
+deadline; individual publisher and redirect reads remain bounded to four seconds. Unapproved hosts and redirect targets are discarded. Scientific notes
+explain methods; incident reports establish reported event context.
+
+The Google selection applies to both the tool agent and auxiliary prose/claim
+extraction. Google failures return local evidence without silently switching to
+Groq. To deliberately use the former provider, set `COPILOT_PROVIDER=groq` and
+configure `GROQ_API_KEY` and `GROQ_MODEL`.
+
+Agent turns use a 35-second overall deadline, up to three tool rounds and a final
+answer, with one bounded numerical correction. Auxiliary completions retain their
+4,500-character, 900-token and 10-second limits. External availability and quotas
+remain account-dependent. The live project rejected `gemini-2.5-flash` as
+unavailable to new users; the user approved `gemini-3.8-flash` after that check.
 
 Set `COPILOT_OFFLINE=1` for deterministic answers from the local archive with no model or
 search requests. These answers still report observations, distinguish missing evidence,
@@ -273,11 +283,11 @@ path. Questions about whether ignition is known start with the available ignitio
 evidence, rather than substituting spread conditions. Relevant complete source
 sentences are packed before applying the provider context limit, so the serialized
 evidence is not truncated mid-JSON. This is a routing/context repair; the configured
-model remains GPT-OSS 120B on Groq, without a claim that it is the best free model.
+model is now configured separately through `COPILOT_PROVIDER` and `GEMINI_MODEL`.
 
-### Groq RAG and read-only tools
+### Gemini RAG and read-only tools
 
-The online Copilot now uses Groq native tool calling with a short instruction
+The online Copilot uses Gemini tool calling through Google’s documented compatibility API with a short instruction
 message. It chooses between local document retrieval, observations, energy,
 episode profiling and incident research, rather than a question-keyword router.
 SQLite FTS5/BM25 indexes the versioned science notes in `data/copilot_knowledge/`
@@ -285,13 +295,13 @@ and current ETL documentation. This is lexical RAG, not embeddings or fine-tunin
 the model can reformulate searches. Add reviewed documents to the corpus to expand
 coverage. Scientific quantities remain database calculations, displayed by Python.
 
-With `GROQ_API_KEY` configured the default agent model is `openai/gpt-oss-120b`.
+The local project uses `COPILOT_PROVIDER=gemini` and `GEMINI_MODEL=gemini-3.8-flash`.
 `COPILOT_OFFLINE=1`, missing credentials, provider errors and invalid answers use
 the existing local scientific fallback. A request-local offline override prevents
 repeating failed network calls without changing other users' requests. Rate limits
 can still cause fallback; no free-tier availability guarantee is made.
 
-`python scripts/09_validate_copilot_agent.py` exercises actual Groq calls and records
+`python scripts/09_validate_copilot_agent.py` exercises the configured provider and records
 which tools the model chose. Use `--question` and `--output` for individual cases.
 `pytest backend/tests/test_copilot_agent.py -q` covers orchestration and failures
 without using a provider account. Retrieved notes are not automatically certified
@@ -299,7 +309,7 @@ incident evidence; answers retain source and uncertainty labels.
 
 ### Display settings and energy comparisons
 
-The header appearance button switches light/dark mode. Settings contains the
+The Dark mode switch inside Settings controls light/dark appearance. Settings also contains the
 Detection count / Calibrated energy display choice (formerly Raw/Harmonized),
 industrial candidate exclusion and purple highlighting, and expandable keyboard
 shortcuts. The industrial candidate count explains why filtering may have no

@@ -265,6 +265,8 @@ def test_search_filters_bad_urls_wrong_years_and_nonfire_results(monkeypatch):
 
 def test_provider_uses_working_default_and_failure_is_bounded(monkeypatch):
     monkeypatch.delenv('COPILOT_OFFLINE')
+    monkeypatch.setenv('COPILOT_PROVIDER','groq')
+    monkeypatch.delenv('GEMINI_API_KEY',raising=False)
     monkeypatch.setenv('GROQ_API_KEY', 'test-key')
     monkeypatch.delenv('GROQ_MODEL', raising=False)
     calls = []

@@ -567,6 +567,10 @@ ANSWER_SCHEMA = {"type": "object", "properties": {"answer": {"type": "string"},
 
 def normalize_links(candidate: str, citations: list[CitationReference]) -> str:
     """Keep useful prose containing supplied links; reject invented destinations."""
+    candidate = re.sub(r"\[([A-Z]*\d+(?:_\d+)?(?:\s*,\s*[A-Z]*\d+(?:_\d+)?)+)\]",
+                       lambda match: " ".join(f"[{part.strip()}]" for part in match[1].split(",")), candidate)
+    candidate = re.sub(r"\[((?:\[[A-Z]*\d+(?:_\d+)?\])(?:[\s,]*\[[A-Z]*\d+(?:_\d+)?\])*)\]",
+                       lambda match: re.sub(r"[ ,]+", " ", match[1]), candidate)
     known = {c.url: c.id for c in citations if c.url}
     def replace_link(match):
         if match[2] not in known:

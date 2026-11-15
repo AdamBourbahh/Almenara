@@ -468,3 +468,29 @@ versus a 1 px zero-count baseline; the timeline explicitly does not show inciden
 duration. Real map-period checks around the screenshot AOI returned observations
 through 1 August, including 72 detections on 28 July, despite much smaller bars.
 No public contracts changed. Free-provider quotas remain an external limitation.
+
+
+## 2026-11-15 — Google Gemini provider and concise domain prompt
+
+Configured the local deployment for Gemini 3.8 Flash after Google rejected 2.5 Flash
+for this project and the user approved 3.8. Credentials remain in ignored `.env`.
+`COPILOT_PROVIDER=gemini` selects Google for the tool agent and auxiliary prose;
+provider failures use local evidence without silently switching to Groq.
+
+The compact prompt uses practical terminology, separates active-burning evidence,
+incident identity, ignition and spread, and prioritizes relevant official/scientific
+sources. It does not add unavailable risk, emissions or burned-area calculations.
+Grouped/doubled provider citations become individual verified source markers.
+Uncertainty about ignition no longer erases valid event context.
+
+Google Search source discovery is a separate native request. Only grounding metadata
+URLs can enter the approved publisher reader; generated search prose is never an
+article quotation. Discovery uses a 12-second shared budget because live four-second
+attempts consistently timed out. Publisher/redirect reads retain a four-second cap.
+Failures explicitly do not establish absence of an incident or report.
+
+Gemini tool batches are executed sequentially, with at most three calls per response;
+complete assistant/tool exchanges and opaque metadata survive context trimming.
+The agent keeps its 35-second overall budget and server-owned numerical validation.
+No frozen public API fields or types changed. Existing legacy-provider tests declare
+their provider rather than inheriting the developer's local Google credentials.

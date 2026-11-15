@@ -124,6 +124,8 @@ def test_full_dossier_endpoint_and_compatible_contract(cube):
 
 @pytest.mark.parametrize('status',[401,403,429,500])
 def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypatch,status):
+    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     for variable in ('GROQ_API_KEY','GITHUB_TOKEN','GEMINI_API_KEY'):
         monkeypatch.setenv(variable,'test-secret')
@@ -141,7 +143,7 @@ def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypat
     factory=httpx.Client
     monkeypatch.setattr(providers.httpx,'Client',lambda **kwargs:factory(transport=httpx.MockTransport(transport),**kwargs))
     result,provider=providers.complete([{'role':'system','content':'x'*6000},{'role':'user','content':'a'*10000}],structured=True)
-    assert result=='{"claims":[]}' and provider=='gemini/gemini-2.5-flash'
+    assert result=='{"claims":[]}' and provider=='gemini/gemini-3.8-flash'
     assert len(calls)==3
     assert calls[0].url.host=='api.groq.com'
     assert calls[1].url.host=='models-gateway.example.org'
@@ -149,6 +151,8 @@ def test_cascade_uses_supported_endpoints_and_bounds_prompt_and_output(monkeypat
 
 
 def test_all_provider_network_failures_and_malformed_json(monkeypatch):
+    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     monkeypatch.setenv('GROQ_API_KEY','test')
     monkeypatch.delenv('GITHUB_TOKEN',raising=False)
@@ -173,6 +177,8 @@ def test_offline_skips_every_provider(monkeypatch):
 
 def test_three_queries_and_wikipedia_are_clean_and_deduplicated(cube,monkeypatch):
     aoi,cell,rows=cube
+    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     monkeypatch.delenv('TAVILY_API_KEY',raising=False)
     c.RESEARCH_CACHE.clear()
@@ -204,6 +210,8 @@ def test_three_queries_and_wikipedia_are_clean_and_deduplicated(cube,monkeypatch
 
 
 def test_missing_groq_model_uses_bounded_compatible_model(monkeypatch):
+    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     monkeypatch.setenv('GROQ_API_KEY','test')
     monkeypatch.delenv('GROQ_MODEL',raising=False)
@@ -294,6 +302,8 @@ def test_search_cache_retries_article_fetch_after_network_recovers(cube,monkeypa
     from backend.api.schemas import CitationReference
     from time import monotonic
     aoi,cell,rows=cube
+    monkeypatch.delenv('COPILOT_PROVIDER',raising=False)
+    monkeypatch.setenv('GEMINI_MODEL','gemini-3.8-flash')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     scope=c.legacy.resolve_scope(ExplainSpikeRequest(aoi=aoi,user_question='Madrid on 2026-07-24'))
     source=CitationReference(id='[W1]',source_type='WEB_NEWS_REPORT',title='Madrid fire',

@@ -7,6 +7,7 @@ from backend.api.schemas import ExplainSpikeRequest
 
 @pytest.fixture
 def online(monkeypatch):
+    monkeypatch.setenv('COPILOT_PROVIDER','groq')
     monkeypatch.setenv('GROQ_API_KEY','test')
     monkeypatch.setenv('COPILOT_OFFLINE','0')
     monkeypatch.setattr(a.duckdb_engine,'data_source',lambda:'real')
@@ -179,3 +180,21 @@ def test_citation_digits_are_not_checked_as_physical_measurements(online, monkey
     monkeypatch.setattr(a, 'energy_answer', lambda *args: '**12.5 GJ** [6]')
     result = a.answer(ExplainSpikeRequest(user_question='Energy?'))
     assert result.model_used.startswith('groq-agent/')
+
+
+def test_unknown_ignition_does_not_erase_sourced_incident_explanation(online, monkeypatch):
+    from backend.api.schemas import CitationReference
+    source = CitationReference(id='[W1]', source_type='WEB_NEWS_REPORT', title='Madrid wildfire report',
+        authors_or_agency='Madrid', year=2026, dataset_or_doi='Official report; article text retrieved',
+        url='https://comunidad.madrid/noticias/2026/07/24/fire',
+        relevance_note='Retrieved article text:\nMadrid. Strong wind intensified the fire.')
+    monkeypatch.setattr(a.researcher, 'investigate_fire_literature_and_web', lambda *args: ([source], 'query'))
+    monkeypatch.setattr(a.local.research, 'incident_passages', lambda *args: ['Strong wind intensified the fire.'])
+    monkeypatch.setattr(a.local.research, 'supported_report_excerpt', lambda *args: True)
+    monkeypatch.setattr(a.local.research, 'supported_ignition_excerpt', lambda *args: False)
+    turns = iter([call('search_incident_reports', {}), {'content':
+        'The report describes a wildfire in this region. Its ignition cause is unknown. Strong wind intensified the fire. [W1]'}])
+    monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: next(turns))
+    result = a.answer(ExplainSpikeRequest(user_question='Why did this happen?'))
+    assert 'report describes a wildfire' in result.explanation_markdown
+    assert 'ignition cause is unknown' in result.explanation_markdown
