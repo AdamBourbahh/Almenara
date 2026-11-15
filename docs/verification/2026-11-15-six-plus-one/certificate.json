@@ -1,0 +1,72 @@
+{
+  "generated_utc": "2026-11-15T11:54:55.873879+00:00",
+  "production_revision": "136da46",
+  "source_sha256": {
+    "firms-harmonizer/backend/api/copilot_agent.py": "3f93c19a6765ae433ce94b0b4f6d16da3ac82f02bb980db51a35256c03509cf6",
+    "firms-harmonizer/backend/api/copilot_metrics.py": "c90c2fefd76227f7adfe8d93a71f2ea7bd3ffb5bbac1a1137fb06468d5f51aee",
+    "firms-harmonizer/backend/api/copilot_providers.py": "a35249c72b6c51ce85ba4aef9cf586aae70d71b4dcf624db56ecc0e8e79b2af0",
+    "firms-harmonizer/scripts/14_certify_copilot.py": "4838050aa20d4977fcccc54a418c69b5ce82f14c10fb29a44894deeb6678cb36"
+  },
+  "final_six": "round-06.json",
+  "fresh_holdout": "holdout-02.json",
+  "passed_cases": 7,
+  "final_records_sha256": {
+    "round-06.json": "685bedce7a8a8ca0168e10850f4cf46576798d350c38118ea42fa795393262de",
+    "holdout-02.json": "e0fccc6b9379dcd99f6ea1c36f5ea6b05bb94b45fa1d3149dc43ceda7b57831e"
+  },
+  "model": "gemini-agent/gemini-3.8-flash",
+  "live_model_responses_mocked": false,
+  "numerical_tolerance": {
+    "response_relative": 1e-12,
+    "independent_statistics_relative": 1e-10,
+    "absolute": 1e-10,
+    "integer_counts": "exact"
+  },
+  "tests": {
+    "backend_passed": 684,
+    "frontend_passed": 55,
+    "frontend_build": "passed",
+    "frozen_tests": "all four hashes match"
+  },
+  "limits": [
+    "Measured cloud cover is absent; no cloudy-weather certificate.",
+    "No positive eligible RTS missing-energy case occurs in these cells.",
+    "Persistent-source candidate is not independently confirmed gas flaring.",
+    "No global absence-of-hallucinations guarantee; semantic review covers these exact responses."
+  ],
+  "attempts": [
+    {
+      "file": "round-01.json",
+      "status": "exploratory; ungrounded null explanation and annual peak sentinel found"
+    },
+    {
+      "file": "round-02.json",
+      "status": "six numerical passes; not final certificate"
+    },
+    {
+      "file": "round-03",
+      "status": "independent oracle setup failed before model call: absent detections must account for qualified clear mask zeros"
+    },
+    {
+      "file": "round-04.json",
+      "status": "retained live read timeout; FAIL"
+    },
+    {
+      "file": "round-05.json",
+      "status": "six reviewed passes before geographic correction"
+    },
+    {
+      "file": "holdout-01.json",
+      "status": "numeric pass, geographic hallucination; FAIL"
+    },
+    {
+      "file": "round-06.json",
+      "status": "six reviewed passes after geographic correction"
+    },
+    {
+      "file": "holdout-02.json",
+      "status": "fresh cell passed first attempt after corrected six; stopped live testing"
+    }
+  ],
+  "hash_encoding": "UTF-8 source/artifact bytes with LF normalization"
+}

@@ -253,7 +253,7 @@ def test_generic_first_question_and_remembered_context_are_supported(cube):
 
 
 @pytest.mark.parametrize('context_source',['map','previous_context','conversation'])
-def test_gemini_fallback_keeps_resolved_follow_up_period(cube,monkeypatch,context_source):
+def test_provider_failure_and_explicit_offline_keep_follow_up_period(cube,monkeypatch,context_source):
     from backend.api import copilot_agent
 
     aoi,cell,rows=cube
@@ -280,7 +280,13 @@ def test_gemini_fallback_keeps_resolved_follow_up_period(cube,monkeypatch,contex
         response=client.post('/api/explain-spike',json=ExplainSpikeRequest(**request).model_dump())
     assert response.status_code==200,response.text
     result=ExplainSpikeResponse.model_validate(response.json())
-    assert result.model_used=='deterministic-offline-science'
+    assert result.model_used.startswith('gemini-error/')
+    assert result.episode_summary is None
+    assert result.map_context.period_start==context['period_start']
+    assert result.map_context.period_end==context['period_end']
+    # Explicit offline use still runs the original date-propagation regression.
+    monkeypatch.setenv('COPILOT_OFFLINE','1')
+    result=copilot_agent.answer(ExplainSpikeRequest(**request))
     # The much stronger 2026 episode is deliberately outside this selection.
     assert result.episode_summary['peak_date']=='2011-07-01'
     assert result.map_context.period_start==context['period_start']
@@ -340,6 +346,28 @@ def test_summary_cannot_introduce_numbers_or_erase_investigation_status():
     assert not summary_matches_excerpt('The fire killed 999 people.','A regional fire was reported.')
     assert not summary_matches_excerpt('The fire was caused by lightning.','The ignition cause remains unknown and under investigation.')
     assert summary_matches_excerpt('The ignition cause is under investigation.','The ignition cause remains unknown and under investigation.')
+
+
+def test_scientific_audit_integrates_selected_real_rows(cube):
+    from backend.api import copilot_metrics
+    aoi,cell,rows=cube
+    req=ExplainSpikeRequest(aoi=aoi,period_start='2011-07-01',period_end='2011-07-10',
+        enable_kalman_gap_filling=False,confidence_level='nominal')
+    result=copilot_metrics.retrieve_scientific_audit(c.legacy.resolve_scope(req),req)
+    assert result['mapped_energy_gj']==pytest.approx(h3.cell_area(cell,unit='km^2')/1000)
+    assert result['reconstructed_days']==0
+    assert 'audit_metrics' in result and 'phenology' in result
+
+
+def test_scientific_audit_does_not_present_zero_energy_year_as_peak(cube):
+    from backend.api import copilot_metrics
+    aoi,cell,rows=cube
+    # Retain real older observations but give the latest year zero energy.
+    updated=[{**r,'obs_terra_fre':0.,'raw_modis_cnt':0,'raw_frp_mw':0.} if r['year']==2026 else r for r in rows]
+    pq.write_table(pa.Table.from_pylist(updated),c.duckdb_engine.cube_path())
+    req=ExplainSpikeRequest(aoi=aoi,period_start='2011-07-01',period_end='2011-07-10')
+    result=copilot_metrics.retrieve_scientific_audit(c.legacy.resolve_scope(req),req)
+    assert result['phenology']['year']==2013
 
 
 def test_dossier_model_input_is_complete_json_under_budget(cube,monkeypatch):

@@ -1,0 +1,241 @@
+[
+  {
+    "zone": "Northern Africa holdout",
+    "h3": "87395a48effffff",
+    "polygon_sha256": "bd60704f7623d876bafa66b8734c9a37a7d5f130de596542ed0f46b5e640e15a",
+    "request": {
+      "aoi": {
+        "coordinates": [
+          [
+            [
+              3.064900659740321,
+              36.74874824509696
+            ],
+            [
+              3.0669749016662053,
+              36.73585101764042
+            ],
+            [
+              3.0814720084042735,
+              36.731317340823786
+            ],
+            [
+              3.0938990468181586,
+              36.739681214668444
+            ],
+            [
+              3.0918279960001915,
+              36.75258020362159
+            ],
+            [
+              3.0773267148378527,
+              36.75711355740225
+            ],
+            [
+              3.064900659740321,
+              36.74874824509696
+            ]
+          ]
+        ]
+      },
+      "region_name": "Northern Africa holdout",
+      "prefer_map_context": true,
+      "period_start": "2023-01-01",
+      "period_end": "2023-12-31",
+      "confidence_level": "nominal",
+      "exclude_industrial_flaring": true,
+      "enable_kalman_gap_filling": true,
+      "user_question": "Audit the selected area: report mapped FRE in GJ, raw and harmonized Chow F and p, raw and harmonized Wasserstein W1, latest von Mises peak DOY, kappa and width, and reconstructed and unknown days. Use local measurements only. State unavailable diagnostics explicitly. Do not infer ignition, cloudiness or vegetation from missing observations."
+    },
+    "status": 200,
+    "elapsed_ms": 11392,
+    "analysis_status": 200,
+    "reference": {
+      "mapped_energy_gj": 3682.814320139956,
+      "start": "2023-01-01",
+      "end": "2023-12-31",
+      "audit_metrics": {
+        "chow_test_f_stat_raw": 44.26677266588878,
+        "chow_test_p_val_raw": 2.9380391111122068e-08,
+        "chow_test_f_stat_harm": 55.029318810148915,
+        "chow_test_p_val_harm": 4.465944066620853e-09,
+        "wasserstein_w1_raw": 1.7854908095424327,
+        "wasserstein_w1_harm": 1.7854908095424329
+      },
+      "phenology": {
+        "year": 2026,
+        "peak_doy_mu": 203.70666064451478,
+        "peak_date_label": "2026-07-23",
+        "concentration_kappa": 0.911563743460009,
+        "season_width_days": 365.0
+      },
+      "reconstructed_days": 0,
+      "unknown_days": 17
+    },
+    "independent_oracle": {
+      "audit_metrics": {
+        "chow_test_f_stat_raw": 44.266772665888766,
+        "chow_test_p_val_raw": 2.9380391111122158e-08,
+        "chow_test_f_stat_harm": 55.02931881014921,
+        "chow_test_p_val_harm": 4.465944066620634e-09,
+        "wasserstein_w1_raw": 1.7854908095424327,
+        "wasserstein_w1_harm": 1.7854908095424327
+      },
+      "phenology": {
+        "year": 2026,
+        "peak_doy_mu": 203.70666064451478,
+        "concentration_kappa": 0.911563743460009,
+        "season_width_days": 365.0
+      },
+      "reconstructed_days": 0,
+      "unknown_days": 17,
+      "input_rows": 3213
+    },
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "For the selected Iberian area across 2023-01-01 to 2023-12-31, the mapped fire radiative energy (FRE) is 3682.814320139956 GJ, with 0 reconstructed days and 17 unknown observation days [K10]. Missing satellite observations do not establish cloudiness, vegetation status, or fire extinction, nor do thermal detections confirm the specific identity or ignition cause of a named wildfire [K4] [K10]. The raw Wasserstein W1 distance is 1.7854908095424327, and the harmonized Wasserstein W1 distance is 1.7854908095424329. The latest von Mises phenology fit records a peak day of year (DOY) of 203.70666064451478, a concentration kappa of 0.911563743460009, and a season width of 365.0 days. All requested diagnostics are available.\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 3682.814320139956,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 44.26677266588878,\n    \"chow_test_p_val_raw\": 2.9380391111122068e-08,\n    \"chow_test_f_stat_harm\": 55.029318810148915,\n    \"chow_test_p_val_harm\": 4.465944066620853e-09,\n    \"wasserstein_w1_raw\": 1.7854908095424327,\n    \"wasserstein_w1_harm\": 1.7854908095424329\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 203.70666064451478,\n    \"peak_date_label\": \"2026-07-23\",\n    \"concentration_kappa\": 0.911563743460009,\n    \"season_width_days\": 365.0\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 17\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "citations": [
+        {
+          "id": "[K4]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Reconstruction and uncertainty",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.2514/3.3166",
+          "relevance_note": "RTS Kalman smoothing estimates missing daily thermal measurements using a state model, other available sensors and a historical cross-sensor prior. A reconstructed value is an estimate, not a direct observation or proof of a continuing fire. A 95 percent model interval describes uncertainty of the modeled state; it is not the probability that a named fire occurred. Partially reconstructed days can also contain real observations."
+        },
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Both map and regional totals fuse available sensors within each H3 cell and integrate against its exact area. The visible map contains observed energy only. The temporal regional estimate may also reconstruct explicitly evidenced observation gaps; unknown days are not silently filled. With reconstruction disabled the same period and filters give the same energy. The data are a one-hour integration proxy from sparse satellite samples, not continuous measured heat release. Biomass is 0.368 tonnes per GJ. Observed cell footprint and selected polygon area differ; neither is measured burned area. A last detection is not an official containment or extinction date."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Northern Africa holdout",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                3.064900659740321,
+                36.74874824509696
+              ],
+              [
+                3.0669749016662053,
+                36.73585101764042
+              ],
+              [
+                3.0814720084042735,
+                36.731317340823786
+              ],
+              [
+                3.0938990468181586,
+                36.739681214668444
+              ],
+              [
+                3.0918279960001915,
+                36.75258020362159
+              ],
+              [
+                3.0773267148378527,
+                36.75711355740225
+              ],
+              [
+                3.064900659740321,
+                36.74874824509696
+              ]
+            ]
+          ]
+        },
+        "period_start": "2023-01-01",
+        "period_end": "2023-12-31",
+        "h3_index": null
+      },
+      "answer_markdown": "For the selected Iberian area across 2023-01-01 to 2023-12-31, the mapped fire radiative energy (FRE) is 3682.814320139956 GJ, with 0 reconstructed days and 17 unknown observation days [K10]. Missing satellite observations do not establish cloudiness, vegetation status, or fire extinction, nor do thermal detections confirm the specific identity or ignition cause of a named wildfire [K4] [K10]. The raw Wasserstein W1 distance is 1.7854908095424327, and the harmonized Wasserstein W1 distance is 1.7854908095424329. The latest von Mises phenology fit records a peak day of year (DOY) of 203.70666064451478, a concentration kappa of 0.911563743460009, and a season width of 365.0 days. All requested diagnostics are available.\n\nVerified scientific results [6]:\n\n```json\n{\n  \"mapped_energy_gj\": 3682.814320139956,\n  \"start\": \"2023-01-01\",\n  \"end\": \"2023-12-31\",\n  \"audit_metrics\": {\n    \"chow_test_f_stat_raw\": 44.26677266588878,\n    \"chow_test_p_val_raw\": 2.9380391111122068e-08,\n    \"chow_test_f_stat_harm\": 55.029318810148915,\n    \"chow_test_p_val_harm\": 4.465944066620853e-09,\n    \"wasserstein_w1_raw\": 1.7854908095424327,\n    \"wasserstein_w1_harm\": 1.7854908095424329\n  },\n  \"phenology\": {\n    \"year\": 2026,\n    \"peak_doy_mu\": 203.70666064451478,\n    \"peak_date_label\": \"2026-07-23\",\n    \"concentration_kappa\": 0.911563743460009,\n    \"season_width_days\": 365.0\n  },\n  \"reconstructed_days\": 0,\n  \"unknown_days\": 17\n}\n```\n\nEnergy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null,
+      "guardrail_triggered": false,
+      "verified_calculations": null,
+      "suggested_prompts": [],
+      "evidence_sources": [
+        "local_cube",
+        "knowledge"
+      ]
+    },
+    "model_calls": [
+      {
+        "ms": 2469,
+        "response": {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "extra_content": {
+                "google": {
+                  "thought_signature": "EmkKZwFpFH0TRqWRJ/XES4D1WKZTdVHGTx5xMfdluUy+mAr+5OY4Cp4nZ3fx4H4S3dqqD8uPLlT4FDIqvny1ksPZGk3cPmMNH8IvfPR+ASceQYWqtIeVjUh3VevgAPAdISgW66acGF/RsCw="
+                }
+              },
+              "function": {
+                "arguments": "{}",
+                "name": "query_scientific_audit"
+              },
+              "id": "call_12104261431539090856",
+              "type": "function"
+            }
+          ]
+        }
+      },
+      {
+        "ms": 4244,
+        "response": {
+          "content": "For the selected Iberian area across 2023-01-01 to 2023-12-31, the mapped fire radiative energy (FRE) is 3682.814320139956 GJ, based on local observations with 0 reconstructed days and 17 unknown observation days [K10]. Missing observations do not demonstrate cloudiness, fuel conditions, or fire extinction [K4, K10]. \n\nAcross the full archive baseline, the structural stability tests yield a raw Chow F-statistic of 44.26677266588878 (p = 2.9380391111122068e-08) and a harmonized Chow F-statistic of 55.029318810148915 (p = 4.465944066620853e-09). The raw Wasserstein W1 distance is 1.7854908095424327, and the harmonized Wasserstein W1 distance is 1.7854908095424329. The latest annual von Mises phenology model fit (fitted for 2026) indicates a peak burning day of year (DOY) of 203.70666064451478 (corresponding to 2026-07-23), a concentration parameter kappa of 0.911563743460009, and a season width of 365.0 days. No audit metrics are unavailable.",
+          "extra_content": {
+            "google": {
+              "thought_signature": "EmkKZwFpFH0TBkh8hcsX/+6K+mSSTz9jjN9SkO5t3yQt0xS6XwKJaEWl2s+mHloNMG+MeiZY4rMoCYwCx6LTnsRjssGp/LC2kHhWeYhNu1F0iMqYQLtSneEup0pBg97Z88ypeO9Ejlwr0l0="
+            }
+          },
+          "role": "assistant"
+        }
+      },
+      {
+        "ms": 4483,
+        "response": {
+          "content": "For the selected Iberian area across 2023-01-01 to 2023-12-31, the mapped fire radiative energy (FRE) is 3682.814320139956 GJ, with 0 reconstructed days and 17 unknown observation days [K10]. Missing satellite observations do not establish cloudiness, vegetation status, or fire extinction, nor do thermal detections confirm the specific identity or ignition cause of a named wildfire [K4] [K10].\n\nFor the baseline stability diagnostics across the full archive, the raw Chow test yields an F-statistic of 44.26677266588878 with p = 2.9380391111122068e-08, while the harmonized Chow test yields an F-statistic of 55.029318810148915 with p = 4.465944066620853e-09. The raw Wasserstein W1 distance is 1.7854908095424327, and the harmonized Wasserstein W1 distance is 1.7854908095424329. The latest von Mises phenology fit records a peak day of year (DOY) of 203.70666064451478, a concentration kappa of 0.911563743460009, and a season width of 365.0 days. All requested diagnostics are available.",
+          "extra_content": {
+            "google": {
+              "thought_signature": "EmkKZwFpFH0TKgt91Zgmxv4SNsoFQS12TOrgV44g7P/Z6Pw+z2gYvImg9xDAs3oyIcVvar/j0IcxyAW97AndsjoIvOVsPkJZmtWfKBNcR/jCB0CAp/Yk8eTqPqWsxJFfw4SFb7tShKmzvUo="
+            }
+          },
+          "role": "assistant"
+        }
+      }
+    ],
+    "fallback": false,
+    "match_data": true,
+    "model_ok": true,
+    "semantic_review": "fail",
+    "passed": false,
+    "hallucination": true,
+    "semantic_review_note": "The prose calls the selected northern-African cell an Iberian area. The broad pilot envelope label overrode the selected location label in model context. Numeric values match; geographic attribution does not.",
+    "reviewed_response_sha256": "495dd00fc955365a60ed1a5227e4e3ac21830e824b1cf5a6c8d5ea51bb7e7a4b"
+  }
+]

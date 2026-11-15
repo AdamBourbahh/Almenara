@@ -1,0 +1,170 @@
+[
+  {
+    "zone": "Arid Argentina",
+    "h3": "87b254925ffffff",
+    "centroid_lat_lon": [
+      -29.289132777614615,
+      -66.72857899772988
+    ],
+    "previous_tracked_qa_matches": [],
+    "archive_rows": 228,
+    "maximum_industrial_probability": 0.0,
+    "measured_cloud_rows": 0,
+    "rows_with_gap_flag": 0,
+    "measured_annual_igbp": [
+      [
+        2022,
+        7,
+        1.0
+      ]
+    ],
+    "novelty_scope": "Tracked QA/docs/scripts at baseline 39c8a9c; no claim about unavailable private chat history."
+  },
+  {
+    "zone": "Amazon basin",
+    "h3": "878af68f2ffffff",
+    "centroid_lat_lon": [
+      -3.1236335239209456,
+      -59.925568329827065
+    ],
+    "previous_tracked_qa_matches": [],
+    "archive_rows": 300,
+    "maximum_industrial_probability": 0.0,
+    "measured_cloud_rows": 0,
+    "rows_with_gap_flag": 3,
+    "measured_annual_igbp": [
+      [
+        2023,
+        17,
+        0.4583333333333333
+      ]
+    ],
+    "novelty_scope": "Tracked QA/docs/scripts at baseline 39c8a9c; no claim about unavailable private chat history."
+  },
+  {
+    "zone": "Florida",
+    "h3": "8744f690cffffff",
+    "centroid_lat_lon": [
+      29.049218898681072,
+      -81.36026042566625
+    ],
+    "previous_tracked_qa_matches": [],
+    "archive_rows": 90,
+    "maximum_industrial_probability": 0.0,
+    "measured_cloud_rows": 0,
+    "rows_with_gap_flag": 0,
+    "measured_annual_igbp": [
+      [
+        2023,
+        8,
+        0.7727272727272727
+      ]
+    ],
+    "novelty_scope": "Tracked QA/docs/scripts at baseline 39c8a9c; no claim about unavailable private chat history."
+  },
+  {
+    "zone": "Atlantic Iberia",
+    "h3": "87185ba0cffffff",
+    "centroid_lat_lon": [
+      43.54795906963669,
+      -5.824995767256372
+    ],
+    "previous_tracked_qa_matches": [],
+    "archive_rows": 3150,
+    "maximum_industrial_probability": 0.0,
+    "measured_cloud_rows": 0,
+    "rows_with_gap_flag": 8,
+    "measured_annual_igbp": [
+      [
+        2023,
+        8,
+        0.4
+      ]
+    ],
+    "novelty_scope": "Tracked QA/docs/scripts at baseline 39c8a9c; no claim about unavailable private chat history."
+  },
+  {
+    "zone": "Mediterranean Iberia",
+    "h3": "873915d61ffffff",
+    "centroid_lat_lon": [
+      38.5064894397662,
+      -8.937570443717897
+    ],
+    "previous_tracked_qa_matches": [],
+    "archive_rows": 3170,
+    "maximum_industrial_probability": 0.0,
+    "measured_cloud_rows": 0,
+    "rows_with_gap_flag": 10,
+    "measured_annual_igbp": [
+      [
+        2023,
+        11,
+        0.3333333333333333
+      ]
+    ],
+    "novelty_scope": "Tracked QA/docs/scripts at baseline 39c8a9c; no claim about unavailable private chat history."
+  },
+  {
+    "zone": "Published persistent-source candidate",
+    "h3": "873954066ffffff",
+    "centroid_lat_lon": [
+      39.62927699482839,
+      -0.22605847784229643
+    ],
+    "previous_tracked_qa_matches": [],
+    "archive_rows": 113,
+    "maximum_industrial_probability": 0.9618082046508789,
+    "measured_cloud_rows": 0,
+    "rows_with_gap_flag": 0,
+    "measured_annual_igbp": [
+      [
+        2013,
+        17,
+        0.9565217391304348
+      ]
+    ],
+    "novelty_scope": "Tracked QA/docs/scripts at baseline 39c8a9c; no claim about unavailable private chat history."
+  },
+  {
+    "zone": "Fresh holdout",
+    "h3": "87395a48effffff",
+    "centroid_lat_lon": [
+      36.744215946026124,
+      3.079399632998553
+    ],
+    "previous_tracked_qa_matches": [],
+    "archive_rows": 3213,
+    "maximum_industrial_probability": 0.0,
+    "measured_cloud_rows": 0,
+    "rows_with_gap_flag": 9,
+    "measured_annual_igbp": [
+      [
+        2023,
+        13,
+        0.8846153846153846
+      ]
+    ],
+    "novelty_scope": "Tracked QA/docs/scripts at baseline 39c8a9c; no claim about unavailable private chat history."
+  },
+  {
+    "zone": "Fresh holdout after geographic correction",
+    "h3": "873829872ffffff",
+    "centroid_lat_lon": [
+      36.59740544748615,
+      2.8831328666199734
+    ],
+    "previous_tracked_qa_matches": [],
+    "archive_rows": 2133,
+    "maximum_industrial_probability": 0.0,
+    "measured_cloud_rows": 0,
+    "rows_with_gap_flag": 13,
+    "measured_annual_igbp": [
+      [
+        2023,
+        12,
+        1.0
+      ]
+    ],
+    "novelty_scope": "Not asked in any prior live round; no selected-cell identifier in tracked QA/docs/scripts at baseline 39c8a9c."
+  }
+]
