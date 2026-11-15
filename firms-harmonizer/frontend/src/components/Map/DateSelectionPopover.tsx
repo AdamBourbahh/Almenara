@@ -40,7 +40,6 @@ function monthCells(month: string): Array<string | null> {
   const cells: Array<string | null> = Array.from({ length: offset }, () => null);
   for (let day = 1; day <= total; day += 1) cells.push(`${month}-${String(day).padStart(2, "0")}`);
   while (cells.length % 7 !== 0) cells.push(null);
-  while (cells.length < 42) cells.push(null);
   return cells;
 }
 
@@ -66,7 +65,7 @@ function MonthGrid({ month, selected, minDay, maxDay, counts, onPick }: MonthGri
       <div className="grid grid-cols-7 text-center text-[10px] font-medium uppercase tracking-wide text-faint">
         {WEEKDAYS.map((day) => <span key={day} className="py-1">{day}</span>)}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5">
         {cells.map((date, index) => {
           if (!date) return <span key={`empty-${index}`} aria-hidden="true" />;
           const count = counts.get(date) ?? 0;
@@ -82,7 +81,7 @@ function MonthGrid({ month, selected, minDay, maxDay, counts, onPick }: MonthGri
               aria-label={`${formatDay(date)}${count > 0 ? `, ${count.toLocaleString("en-US")} detections` : ""}`}
               aria-pressed={isSelected}
               title={`${formatDay(date)} · ${count.toLocaleString("en-US")} detections`}
-              className={`relative flex h-9 items-center justify-center rounded-lg text-xs transition-colors ${
+              className={`relative flex h-8 items-center justify-center rounded-md text-xs transition-colors ${
                 disabled ? "cursor-not-allowed text-faint opacity-35"
                   : isSelected ? "bg-reference font-semibold text-white shadow-sm"
                   : "text-ink hover:bg-paper"
@@ -174,7 +173,6 @@ export function DateSelectionPopover({
   const canPrevMonth = previousMonth >= minMonth;
   const canNextMonth = nextMonth <= maxMonth;
 
-  const appliedYear = anchorYear === draftYear;
   const summary = step === 1
     ? `Year ${draftYear}`
     : step === 2
@@ -210,31 +208,28 @@ export function DateSelectionPopover({
       id="chronology-picker"
       role="dialog"
       aria-label="Choose time period"
-      className="fixed inset-x-2 bottom-2 z-50 max-h-[85vh] overflow-y-auto rounded-2xl border border-rule bg-panel p-4 text-ink shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-full sm:right-0 sm:mb-3 sm:max-h-[min(78vh,780px)] sm:w-[min(460px,calc(100vw-2rem))]"
+      className="fixed bottom-2 right-2 z-50 max-h-[75dvh] w-[min(340px,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-rule bg-panel p-3 text-ink shadow-xl sm:absolute sm:bottom-full sm:right-0 sm:mb-2"
     >
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-serif text-lg">Choose a time period</h2>
-          <p className="mt-0.5 text-[11px] text-muted">The year is required. Month and day are optional.</p>
-        </div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 className="font-serif text-base">Choose a time period</h2>
         <button type="button" aria-label="Close date picker" onClick={onClose} className="rounded-full p-1.5 text-muted hover:bg-paper hover:text-ink">
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <nav aria-label="Selection steps" className="mb-4 flex flex-wrap items-center gap-1">
+      <nav aria-label="Selection steps" className="mb-2 flex flex-wrap items-center gap-1">
         <button type="button" onClick={() => setStep(1)} aria-current={step === 1 ? "step" : undefined} className={stepClass(step === 1)}>
-          1 · Year
+          Year
         </button>
         <ChevronRight className="h-3 w-3 text-faint" />
         <button type="button" disabled={!draftYear} onClick={() => setStep(2)} aria-current={step === 2 ? "step" : undefined}
           className={stepClass(step === 2, !draftYear)}>
-          2 · Month <span className="text-[9px] uppercase tracking-wide opacity-70">optional</span>
+          Month
         </button>
         <ChevronRight className="h-3 w-3 text-faint" />
         <button type="button" disabled={!draftYear || !draftMonth} onClick={() => setStep(3)} aria-current={step === 3 ? "step" : undefined}
           className={stepClass(step === 3, !draftYear || !draftMonth)}>
-          3 · Day <span className="text-[9px] uppercase tracking-wide opacity-70">optional</span>
+          Day
         </button>
       </nav>
 
@@ -245,33 +240,31 @@ export function DateSelectionPopover({
               <p className="text-sm font-medium">Select a year</p>
               <p className="text-[11px] text-faint">{minYear} – {maxYear}</p>
             </div>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-4 gap-1">
               {years.map((year) => {
                 const selected = draftYear === year;
                 const count = totals.years.get(String(year)) ?? 0;
                 return (
-                  <button key={year} type="button" aria-pressed={selected} onClick={() => chooseYear(year)}
-                    className={`flex min-h-16 flex-col items-center justify-center rounded-lg border px-2 py-2 text-xs transition-colors ${
+                  <button key={year} type="button" aria-pressed={selected} onClick={() => chooseYear(year)} title={count.toLocaleString("en-US") + " detections"}
+                    className={`flex min-h-9 flex-col items-center justify-center rounded-md border px-1 py-0.5 text-xs transition-colors ${
                       selected ? "border-reference bg-reference text-white shadow-sm"
                         : "border-rule bg-paper text-ink hover:border-reference"
                     }`}>
-                    <span className="text-sm font-semibold">{year}</span>
-                    <span className={`text-[10px] ${selected ? "text-white/75" : "text-faint"}`}>{COMPACT.format(count)} detections</span>
+                    <span className="text-xs font-semibold">{year}</span>
+                    <span className={`text-[10px] ${selected ? "text-white/75" : "text-faint"}`}>{COMPACT.format(count)}</span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-3 text-[11px] text-muted">Pick the year first. You will then be able to narrow it to a month or a day.</p>
           </div>
         )}
 
         {step === 2 && (
           <div>
             <button type="button" onClick={applyYear}
-              className="mb-3 flex w-full items-center justify-between gap-3 rounded-xl border border-dashed border-rule bg-paper px-3 py-2.5 text-left transition-colors hover:border-reference">
+              className="mb-2 flex w-full items-center justify-between gap-2 rounded-md border border-rule bg-paper px-2 py-1.5 text-left transition-colors hover:border-reference">
               <span>
                 <span className="block text-xs font-semibold text-ink">Use the whole year</span>
-                <span className="block text-[11px] text-muted">Skip the month and show all detections in {draftYear}.</span>
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-reference" />
             </button>
@@ -279,36 +272,34 @@ export function DateSelectionPopover({
               <p className="text-sm font-medium">Which month in {draftYear}?</p>
               <button type="button" onClick={() => setStep(1)} className="text-[11px] text-muted underline-offset-2 hover:text-ink hover:underline">Change year</button>
             </div>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-4 gap-1">
               {MONTHS.map((label, index) => {
                 const key = `${draftYear}-${String(index + 1).padStart(2, "0")}`;
                 const disabled = key < minMonth || key > maxMonth;
                 const selected = draftMonth === key;
                 const count = totals.months.get(key) ?? 0;
                 return (
-                  <button key={key} type="button" disabled={disabled} aria-pressed={selected} onClick={() => chooseMonth(key)}
-                    className={`flex min-h-14 flex-col items-center justify-center rounded-lg border px-2 py-2 text-xs transition-colors ${
+                  <button key={key} type="button" disabled={disabled} aria-pressed={selected} onClick={() => chooseMonth(key)} title={count.toLocaleString("en-US") + " detections"}
+                    className={`flex min-h-9 flex-col items-center justify-center rounded-md border px-1 py-0.5 text-xs transition-colors ${
                       selected ? "border-reference bg-reference text-white shadow-sm"
                         : disabled ? "cursor-not-allowed border-rule bg-paper text-faint opacity-35"
                         : "border-rule bg-paper text-ink hover:border-reference"
                     }`}>
                     <span className="font-medium">{label}</span>
-                    <span className={`text-[10px] ${selected ? "text-white/75" : "text-faint"}`}>{COMPACT.format(count)} detections</span>
+                    <span className={`text-[10px] ${selected ? "text-white/75" : "text-faint"}`}>{COMPACT.format(count)}</span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-3 text-[11px] text-muted">Choose a month to continue to the day, or use the whole year above. {appliedYear ? "This is the year currently on the map." : ""}</p>
           </div>
         )}
 
         {step === 3 && draftMonth && (
           <div>
             <button type="button" onClick={applyMonth}
-              className="mb-3 flex w-full items-center justify-between gap-3 rounded-xl border border-dashed border-rule bg-paper px-3 py-2.5 text-left transition-colors hover:border-reference">
+              className="mb-2 flex w-full items-center justify-between gap-2 rounded-md border border-rule bg-paper px-2 py-1.5 text-left transition-colors hover:border-reference">
               <span>
                 <span className="block text-xs font-semibold text-ink">Use the whole month</span>
-                <span className="block text-[11px] text-muted">Skip the day and show all detections in {monthLabel(draftMonth)}.</span>
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-reference" />
             </button>
@@ -323,38 +314,36 @@ export function DateSelectionPopover({
                 className="rounded-md border border-rule p-2 text-muted hover:bg-paper hover:text-ink disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
             </div>
             <MonthGrid month={visibleMonth} selected={draftDate} minDay={minDay} maxDay={maxDay} counts={countsByDate} onPick={setDraftDate} />
-            <p className="mt-3 text-[11px] text-muted">Pick a day to finish, or use the whole month above. Small bars mark satellite detections.</p>
           </div>
         )}
       </div>
 
-      <div className="mt-5 flex flex-col gap-3 border-t border-rule pt-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-2 flex flex-col gap-1.5 border-t border-rule pt-2">
         <p className="text-[11px] text-muted">
-          <span className="block text-[10px] uppercase tracking-wider text-faint">Selection</span>
           <span className="font-medium text-ink">{summary}</span>
           {" · "}{summaryCount.toLocaleString("en-US")} detections
         </p>
         <div className="flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-lg border border-rule px-3 py-2 text-xs text-ink hover:bg-paper">Cancel</button>
+          <button type="button" onClick={onClose} className="rounded-lg border border-rule px-2 py-1.5 text-xs text-ink hover:bg-paper">Cancel</button>
           {step > 1 && (
             <button type="button" onClick={() => setStep(step === 3 ? 2 : 1)}
-              className="rounded-lg border border-rule px-3 py-2 text-xs text-ink hover:bg-paper">Back</button>
+              className="rounded-lg border border-rule px-2 py-1.5 text-xs text-ink hover:bg-paper">Back</button>
           )}
           {step === 2 && draftMonth && (
             <button type="button" onClick={applyMonth}
-              className="rounded-lg border border-rule px-3 py-2 text-xs text-ink hover:bg-paper">
+              className="rounded-lg border border-rule px-2 py-1.5 text-xs text-ink hover:bg-paper">
               Use this month
             </button>
           )}
           {step === 2 && (
             <button type="button" disabled={!draftMonth} onClick={() => setStep(3)}
-              className="inline-flex items-center gap-1 rounded-lg bg-reference px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-40">
+              className="inline-flex items-center gap-1 rounded-lg bg-reference px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-40">
               Continue to day <ChevronRight className="h-3.5 w-3.5" />
             </button>
           )}
           {step === 3 && (
             <button type="button" disabled={!draftDate} onClick={applyDay}
-              className="rounded-lg bg-reference px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-40">
+              className="rounded-lg bg-reference px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-40">
               Use this day
             </button>
           )}
