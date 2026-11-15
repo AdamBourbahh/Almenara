@@ -388,6 +388,29 @@ def retrieve_data_quality(scope, req: ExplainSpikeRequest) -> dict:
                                             for h in sorted(industrial, key=lambda h: -h["raw_pixel_count"])[:3]]}
 
 
+def retrieve_scientific_audit(scope, req: ExplainSpikeRequest) -> dict:
+    data,error=_analysis(scope,req)
+    if error:
+        return error
+    cells=[c for c in data['series'] if (not scope.start or c['date']>=scope.start)
+           and (not scope.end or c['date']<=scope.end)]
+    phenology=data['phenology_by_year']
+    return {'status':'ok','data_source':data['data_source'],
+        **retrieve_mapped_energy(scope,req),'start':scope.start,'end':scope.end,
+        'audit_metrics':data['audit_metrics'],
+        'phenology':phenology[-1] if phenology else None,
+        'reconstructed_days':sum(c['is_gap_filled'] for c in cells),
+        'unknown_days':sum(c['observation_status']=='unknown' for c in cells),
+        'scope_note':'Energy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.'}
+
+
+def scientific_audit_answer(evidence: dict) -> str:
+    if evidence['status']!='ok':
+        return evidence.get('message','Scientific audit unavailable.')
+    values={k:evidence[k] for k in ('mapped_energy_gj','start','end','audit_metrics','phenology','reconstructed_days','unknown_days')}
+    return 'Verified scientific results [6]:\n\n```json\n'+json.dumps(values,ensure_ascii=False,allow_nan=False,indent=2)+'\n```\n\n'+evidence['scope_note']
+
+
 def quality_answer(scope, evidence: dict, sources_first: bool = False) -> str:
     if evidence["status"] != "ok":
         return evidence["message"]

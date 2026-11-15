@@ -69,6 +69,16 @@ def test_offline_bypasses_provider(online,monkeypatch):
     assert a.answer(ExplainSpikeRequest())=='local fallback'
 
 
+def test_online_failure_does_not_run_local_fallback(online,monkeypatch):
+    import httpx
+    monkeypatch.setattr(a,'turn',lambda *args,**kwargs: (_ for _ in ()).throw(httpx.ReadTimeout('slow provider')))
+    monkeypatch.setattr(a.researcher,'answer',lambda req:pytest.fail('Online failure invoked local fallback'))
+    result=a.answer(ExplainSpikeRequest(user_question='Explain the selected satellite observations.'))
+    assert result.model_used.startswith('groq-error/')
+    assert result.physical_classification=='INSUFFICIENT_CONTEXT'
+    assert result.verified_calculations is None
+
+
 def test_live_protocol_uses_auto_and_never_repeats_completed_tool(online,monkeypatch):
     import httpx
     seen=[]
@@ -233,10 +243,10 @@ def test_unsupported_figures_are_stripped_and_the_verified_table_is_kept(compari
     assert '**+25.00%**' in result.explanation_markdown and result.verified_calculations == FORMULA
 
 
-def test_comparison_without_two_complete_periods_falls_back_to_local_engine(comparison, monkeypatch):
+def test_comparison_without_two_complete_periods_reports_model_error(comparison, monkeypatch):
     monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: call('compare_periods', {'start': '2021-01-01', 'end': '2021-12-31'}))
     result = a.answer(ExplainSpikeRequest(user_question='Explain FRP and FRE'))
-    assert comparison == [] and result.model_used == 'deterministic-offline-science'
+    assert comparison == [] and result.model_used.startswith('groq-error/')
 
 
 @pytest.mark.parametrize('tool', ['estimate_emissions', 'query_fire_season', 'query_risk_outlook', 'query_data_quality',
@@ -279,11 +289,12 @@ def test_web_search_runs_only_for_event_reports_and_regulations(online, monkeypa
     assert result.web_search_used is False and result.search_query_executed is None
 
 
-def test_provider_outage_is_reported_as_the_local_engine(online, monkeypatch):
+def test_provider_outage_is_reported_without_local_substitution(online, monkeypatch):
     import httpx
     def outage(*args, **kwargs):
         raise httpx.ReadTimeout('search provider exceeded its deadline')
     monkeypatch.setattr(a, 'turn', outage)
     result = a.answer(ExplainSpikeRequest(user_question='Explain FRP and FRE'))
-    assert result.model_used == result.provider_used == 'deterministic-offline-science'
+    assert result.model_used == result.provider_used
+    assert result.model_used.startswith('groq-error/')
     assert result.data_source == 'real' and result.web_search_used is False

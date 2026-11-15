@@ -43,7 +43,7 @@ def bounded_messages(messages: list[dict]) -> list[dict]:
 
 
 def complete(messages: list[dict], *, structured: bool = False,
-             schema: dict | None = None, timeout: float = 10,
+             schema: dict | None = None, timeout: float = 15,
              default_model: str = 'llama-3.3-70b-versatile') -> tuple[str | None, str]:
     if is_offline():
         return None, 'deterministic-offline-science'
@@ -62,7 +62,7 @@ def complete(messages: list[dict], *, structured: bool = False,
         providers = []
     messages = bounded_messages(messages)
     # A single deadline bounds the entire cascade, including exhausted quotas.
-    deadline = monotonic() + min(10.0, timeout)
+    deadline = monotonic() + min(15.0, timeout)
     model_unavailable = False
     for provider, variable, url, model in providers:
         if provider == 'groq-compatible' and not model_unavailable:

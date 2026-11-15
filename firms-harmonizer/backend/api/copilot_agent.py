@@ -80,7 +80,8 @@ TOOLS=[
  definition('estimate_emissions','Scenario estimate of PM2.5 smoke and CO2 from consumed dry biomass, with its assumptions.',DATES),
  definition('query_fire_season','Typical peak burning date, season duration in days and its drift in days per decade over the record.',{}),
  definition('query_risk_outlook','Thermal risk for the next 24 hours, 7 and 14 days, intensity regime and main physical drivers.',{'target_date':{'type':'string'}}),
- definition('query_data_quality','Days reconstructed during cloud cover or sensor outages, and stationary industrial heat sources versus vegetation fire.',DATES),
+ definition('query_data_quality','Days reconstructed during evidenced gaps, unknown coverage, and flagged persistent heat sources. Missing cloud measurements do not establish cloudy conditions.',DATES),
+ definition('query_scientific_audit','Exact selected-period mapped FRE in GJ, Chow raw/harmonized F and p, Wasserstein W1 raw/harmonized, latest von Mises mu/kappa/width, and reconstructed/unknown days. Statistical diagnostics use the full archive and can be unavailable.',{}),
  definition('query_burned_area','MCD64A1 validated burned area in hectares by year and fire energy per burned hectare.',DATES),
  definition('find_quiet_burn_windows','Historical 30-day windows with the least fire energy and neighbour spread, for planning prescribed or agricultural burns.',{}),
  definition('rank_thermal_events','Rank the largest thermal events recorded in the area by energy, with dates, duration and biomass.',DATES),
@@ -88,7 +89,7 @@ TOOLS=[
  definition('search_incident_reports','Investigate real-world incidents for the selected place and period. Retrieve official/reputable articles for your assessment of event identity, chronology, cause or spread. Optional query refines discovery with a candidate name or nearby locality; it never changes the selected area or period.',{'query':{'type':'string','maxLength':400}})]
 
 
-def turn(messages,*,finish=False,timeout=10,used=()):
+def turn(messages,*,finish=False,timeout=15,used=()):
     provider, key, url, model = copilot_providers.agent_config()
     if not key:
         raise ValueError('Selected model credentials are unavailable')
@@ -111,7 +112,7 @@ def turn(messages,*,finish=False,timeout=10,used=()):
 
 
 CALCULATION_TOOLS=('compare_periods','estimate_emissions','query_fire_season','query_risk_outlook','query_data_quality',
-    'query_burned_area','find_quiet_burn_windows','rank_thermal_events','query_sensor_breakdown')
+    'query_burned_area','find_quiet_burn_windows','rank_thermal_events','query_sensor_breakdown','query_scientific_audit')
 CUBE_TOOLS=('query_energy','query_observations','profile_episode')+CALCULATION_TOOLS
 REPORT_INTENT=re.compile(r'which fire|what fire|report|news|noticia|official|oficial|agency|authorit|regulat|normativa|ordinance|permit|\blaw\b|\bley\b|incident|what happened|led to|evacuat|damage|casualt|contain|extinguish|\bwho\b|named|identity')
 MARKER=r'\[(?:[A-Z]*\d+(?:_\d+)?)\]'
@@ -155,9 +156,13 @@ def answer(req):
 def _answer(req):
     """No intent-keyword routing in the online path. Offline behavior stays local."""
     provider, key, _, model = copilot_providers.agent_config()
-    if local.is_offline() or not key:
+    if local.is_offline():
         return researcher.answer(req)
     scope=local.resolve_scope(req)
+    if not key:
+        return ExplainSpikeResponse(physical_classification='INSUFFICIENT_CONTEXT',
+            explanation_markdown='The selected model credential is unavailable. Configure it and retry.',
+            model_used=provider+'-error/'+model,data_source=duckdb_engine.data_source(),map_context=local.map_context(scope))
     if scope.error:
         return researcher.answer(req)
     source=duckdb_engine.data_source()
@@ -384,6 +389,9 @@ def _answer(req):
                     elif name=='query_risk_outlook':
                         result=metrics.retrieve_risk(replace(selected,end=args.target_date.isoformat()) if args.target_date else selected,req)
                         text=metrics.risk_answer(selected,result)
+                    elif name=='query_scientific_audit':
+                        result=metrics.retrieve_scientific_audit(selected,req)
+                        text=metrics.scientific_audit_answer(result)
                     elif name=='query_data_quality':
                         result=metrics.retrieve_data_quality(selected,req)
                         text=metrics.quality_answer(selected,result)
@@ -465,11 +473,7 @@ def _answer(req):
         raise ValueError('No final answer')
     except (httpx.HTTPError,HTTPException,duckdb.Error,duckdb_engine.CubeNotAvailableError,ValueError,KeyError,TypeError,IndexError,AttributeError,TimeoutError) as exc:
         reason = str(exc) if type(exc) is ValueError else type(exc).__name__
-        log.warning('%s agent fallback (%s); tools=%s',provider,reason[:160],trace)
-        from backend.api.copilot_network import offline_context
-        with offline_context():
-            fallback=researcher.answer(req)
-        # A provider outage or timeout is reported as the local engine, never as the model.
-        if isinstance(fallback,ExplainSpikeResponse) and not fallback.guardrail_triggered:
-            fallback.model_used=fallback.provider_used='deterministic-offline-science'
-        return fallback
+        log.warning('%s agent failed (%s); tools=%s',provider,reason[:160],trace)
+        return ExplainSpikeResponse(physical_classification='INSUFFICIENT_CONTEXT',
+            explanation_markdown='The selected model could not produce a verified answer. Please retry. No local substitute answer was generated.',
+            model_used=provider+'-error/'+model,data_source=source,map_context=local.map_context(scope))
