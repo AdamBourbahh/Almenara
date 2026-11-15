@@ -236,3 +236,30 @@ def test_drawn_sierra_oeste_selection_uses_madrid_report_without_discarding_spre
     assert 'do not establish the ignition cause' in response.explanation_markdown
     scope.start=scope.end='2025-07-24'
     assert not research.supported_report_excerpt(article,sentence,scope)
+
+
+@pytest.mark.parametrize('question',[
+    'the reason of the fire is known?', 'Is the reason known?', 'What is the reason for this?',
+    'Do we know what caused it?', 'Is the ignition cause known?',
+    '¿Se sabe el motivo?', '¿Se conoce la causa?', 'Qual o motivo do incendio?'])
+def test_ignition_status_paraphrases_use_checked_reports_and_answer_directly(real_archive,monkeypatch,question):
+    from backend.api import copilot_researcher
+    coordinates=[[[-4.8,40.2],[-4.15,40.2],[-4.15,40.58],[-4.8,40.58],[-4.8,40.2]]]
+    req=ExplainSpikeRequest(aoi={'coordinates':coordinates},region_name='Selected area at 40.393°, -4.478°',
+        period_start='2026-07-24',period_end='2026-07-24',user_question=question)
+    article=official('Retrieved article text:\nMadrid. 24 de julio de 2026.\nEl incendio avanzó con fuerte viento y altas temperaturas.').model_copy(update={
+        'url':'https://www.comunidad.madrid/noticias/2026/07/24/incendio'})
+    monkeypatch.setattr(copilot,'search_reports',lambda scope:([article],'official report'))
+    def complete(messages,**kwargs):
+        assert sum(len(m['content']) for m in messages)<=4500
+        payload=json.loads(messages[-1]['content'])
+        assert payload['location']=='Sierra Oeste'
+        assert payload['articles']
+        return None,'offline'
+    monkeypatch.setattr(copilot,'complete',complete)
+    result=copilot_researcher.answer(req)
+    assert result.physical_classification=='REPORTED_INCIDENT_CONTEXT'
+    assert 'outside' not in result.explanation_markdown.lower()
+    assert 'do not establish the ignition cause' in result.explanation_markdown
+    if 'reason' in question or 'known' in question or 'motivo' in question:
+        assert 'do not establish the ignition cause' in result.explanation_markdown.split('### What the local')[0]

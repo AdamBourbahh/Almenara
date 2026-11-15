@@ -267,3 +267,10 @@ the available basemaps. The Copilot drawer ends at the top of the chronology bar
 A drawn Sierra Oeste selection now recognizes a matching Madrid regional report
 when its body uses Madrid as the regional name. The source date still has to match,
 and reported spread conditions remain distinct from an established ignition cause.
+
+Causal paraphrases such as “the reason of the fire is known?” use the checked-report
+path. Questions about whether ignition is known start with the available ignition
+evidence, rather than substituting spread conditions. Relevant complete source
+sentences are packed before applying the provider context limit, so the serialized
+evidence is not truncated mid-JSON. This is a routing/context repair; the configured
+model remains GPT-OSS 120B on Groq, without a claim that it is the best free model.
