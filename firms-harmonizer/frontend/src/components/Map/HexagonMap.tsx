@@ -106,6 +106,17 @@ const RAW_DARK: ReadonlyArray<readonly [number, number, number]> = [
   [107, 114, 128],
   [203, 213, 225]
 ];
+// Classic weather-radar ramp: green -> yellow -> orange -> red -> magenta -> white.
+// Used only for the continuous heat layer, so the familiar meteorological reading holds.
+const HEAT_RADAR: ReadonlyArray<readonly [number, number, number]> = [
+  [22, 138, 54],
+  [86, 186, 77],
+  [240, 221, 74],
+  [246, 150, 58],
+  [222, 62, 45],
+  [176, 36, 135],
+  [245, 245, 245]
+];
 
 function viewStateForAoi(aoi: GeoJSONPolygon, width: number, height: number, pitch: number): MapViewState {
   const ring = aoi.coordinates[0] ?? [];
@@ -258,6 +269,11 @@ export function HexagonMap() {
     return () => window.removeEventListener("keydown", onKey);
   }, [isDrawingAoi, isTracingCells, setDrawingAoi, setTracingCells]);
 
+  // Tracing needs clickable cells, so switch back to the cell layer.
+  useEffect(() => {
+    if (isTracingCells) setHeatStyle("cells");
+  }, [isTracingCells]);
+
   // Keyboard shortcut: H toggles the heat layer.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -291,13 +307,11 @@ export function HexagonMap() {
       }),
     [hexagons, viewMode]
   );
-  const heatColorRange = useMemo(() => {
-    const stops = viewMode === "RAW" ? (theme === "dark" ? RAW_DARK : RAW_LIGHT) : THERMAL_LIGHT;
-    // The thermal ramp starts near-white; on a satellite basemap that reads as a pale
-    // halo, so the heat layer starts at the first warm stop and keeps the red core.
-    const visible = viewMode === "RAW" ? stops : stops.slice(1);
-    return visible.map((color) => [color[0], color[1], color[2]] as [number, number, number]);
-  }, [viewMode, theme]);
+  const heatColorRange = useMemo(
+    () => HEAT_RADAR.map((color) => [color[0], color[1], color[2]] as [number, number, number]),
+    []
+  );
+  const legendStops = heatStyle === "heatmap" ? HEAT_RADAR : viewMode === "RAW" ? (theme === "dark" ? RAW_DARK : RAW_LIGHT) : THERMAL_LIGHT;
 
   const toggle3D = () => {
     const next = !is3D;
@@ -363,7 +377,7 @@ export function HexagonMap() {
         data: heatPoints,
         visible: showHeat && heatStyle === "heatmap",
         getPosition: (d) => d.position,
-        getWeight: (d) => Math.max(0, d.weight),
+        getWeight: (d) => Math.log1p(Math.max(0, d.weight)),
         aggregation: "SUM",
         radiusPixels: 28,
         intensity: 1,
@@ -375,7 +389,7 @@ export function HexagonMap() {
       new H3HexagonLayer<H3MapSummaryHex>({
         id: "h3-hexagon-layer",
         data: hexagons,
-        visible: showHeat && (heatStyle === "cells" || trimming),
+        visible: showHeat && heatStyle === "cells",
         pickable: true,
         onClick: ({ object }, event) => {
           const state = useAnalysisStore.getState();
@@ -590,7 +604,7 @@ export function HexagonMap() {
         {showHeat && (
           <div className="mb-2 space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="inline-block h-2.5 w-24" style={{ background: `linear-gradient(90deg, ${(viewMode === "RAW" ? (theme === "dark" ? RAW_DARK : RAW_LIGHT) : THERMAL_LIGHT).map((color) => `rgb(${color.join(",")})`).join(",")})` }} />
+              <span className="inline-block h-2.5 w-24" style={{ background: `linear-gradient(90deg, ${legendStops.map((color) => `rgb(${color.join(",")})`).join(",")})` }} />
               <span className="text-[10px] text-muted">{viewMode === "RAW" ? `Detections: 0–${Math.round(maxRaw).toLocaleString("en-US")}+` : `Period energy: 0–${Math.round(maxFre).toLocaleString("en-US")}+ MJ/km²`}</span>
             </div>
             <div className="flex items-center gap-2">
@@ -604,7 +618,7 @@ export function HexagonMap() {
           {isSynthetic && <span className="text-terracotta"> · synthetic data</span>}
         </p>
         {!mapLoading && !mapError && hexagons.length === 0 && <p className="mt-1 text-[10px] text-muted">No mapped observations in this period. Missing observations do not rule out fire.</p>}
-        {trimming && !mapLoading && !mapError && hexagons.length > 0 && (
+        {heatStyle === "cells" && trimming && !mapLoading && !mapError && hexagons.length > 0 && (
           <p className="mt-1 text-[10px] text-muted">Click cells to add or remove them from the area.</p>
         )}
       </div>
