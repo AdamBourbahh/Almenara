@@ -3,6 +3,8 @@ import DeckGL from "@deck.gl/react";
 import { FlyToInterpolator, MapView, type MapViewState, type PickingInfo } from "@deck.gl/core";
 import { PathLayer, PolygonLayer } from "@deck.gl/layers";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
+import { HeatmapLayer } from "@deck.gl/aggregation-layers";
+import { cellToLatLng } from "h3-js";
 import MapLibreMap from "react-map-gl/maplibre";
 import { setWorkerUrl } from "maplibre-gl";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
@@ -143,6 +145,9 @@ export function HexagonMap() {
     currentAoi,
     isDrawingAoi,
     setDrawingAoi,
+    isTracingCells,
+    setTracingCells,
+    aoiCells,
     setCustomBbox,
     isSynthetic
   } = useAnalysisStore(
@@ -155,6 +160,9 @@ export function HexagonMap() {
       currentAoi: s.currentAoi,
       isDrawingAoi: s.isDrawingAoi,
       setDrawingAoi: s.setDrawingAoi,
+      isTracingCells: s.isTracingCells,
+      setTracingCells: s.setTracingCells,
+      aoiCells: s.aoiCells,
       setCustomBbox: s.setCustomBbox,
       isSynthetic: s.isSynthetic
     }))
@@ -164,6 +172,7 @@ export function HexagonMap() {
   const [basemap, setBasemap] = useState<BasemapKey>("satellite");
   const [is3D, setIs3D] = useState(false);
   const [showHeat, setShowHeat] = useState(true);
+  const [heatStyle, setHeatStyle] = useState<"cells" | "heatmap">("cells");
   const [basemapAvailable, setBasemapAvailable] = useState(() => typeof navigator === "undefined" || navigator.onLine);
   const [viewState, setViewState] = useState<ViewState>(() => viewStateForAoi(currentAoi, 900, 600, 0));
   const [dragBox, setDragBox] = useState<{ start: LngLat; end: LngLat } | null>(null);
@@ -237,14 +246,17 @@ export function HexagonMap() {
     if (!isDrawingAoi) {
       dragBoxRef.current = null;
       setDragBox(null);
-      return;
     }
+    if (!isDrawingAoi && !isTracingCells) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDrawingAoi(false);
+      if (e.key === "Escape") {
+        setDrawingAoi(false);
+        setTracingCells(false);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isDrawingAoi, setDrawingAoi]);
+  }, [isDrawingAoi, isTracingCells, setDrawingAoi, setTracingCells]);
 
   // Keyboard shortcut: H toggles the heat layer.
   useEffect(() => {
@@ -267,6 +279,25 @@ export function HexagonMap() {
   // flattened against the largest fire of the whole record. Any positive value stays visible.
   const maxRaw = useMemo(() => robustReference(hexagons.map((h) => h.raw_pixel_count)), [hexagons]);
   const maxFre = useMemo(() => robustReference(hexagons.map((h) => h.mean_annual_fre)), [hexagons]);
+  const trimming = isTracingCells || aoiCells !== null;
+  const heatPoints = useMemo(
+    () =>
+      hexagons.map((h) => {
+        const [lat, lng] = cellToLatLng(h.h3_index);
+        return {
+          position: [lng, lat] as [number, number],
+          weight: viewMode === "RAW" ? h.raw_pixel_count : h.mean_annual_fre
+        };
+      }),
+    [hexagons, viewMode]
+  );
+  const heatColorRange = useMemo(() => {
+    const stops = viewMode === "RAW" ? (theme === "dark" ? RAW_DARK : RAW_LIGHT) : THERMAL_LIGHT;
+    // The thermal ramp starts near-white; on a satellite basemap that reads as a pale
+    // halo, so the heat layer starts at the first warm stop and keeps the red core.
+    const visible = viewMode === "RAW" ? stops : stops.slice(1);
+    return visible.map((color) => [color[0], color[1], color[2]] as [number, number, number]);
+  }, [viewMode, theme]);
 
   const toggle3D = () => {
     const next = !is3D;
@@ -327,15 +358,34 @@ export function HexagonMap() {
         widthUnits: "pixels",
         getWidth: 1
       }),
+      new HeatmapLayer<{ position: [number, number]; weight: number }>({
+        id: "h3-heatmap-layer",
+        data: heatPoints,
+        visible: showHeat && heatStyle === "heatmap",
+        getPosition: (d) => d.position,
+        getWeight: (d) => Math.max(0, d.weight),
+        aggregation: "SUM",
+        radiusPixels: 28,
+        intensity: 1,
+        threshold: 0.01,
+        colorRange: heatColorRange,
+        opacity: 0.9,
+        pickable: false
+      }),
       new H3HexagonLayer<H3MapSummaryHex>({
         id: "h3-hexagon-layer",
         data: hexagons,
-        visible: showHeat,
+        visible: showHeat && (heatStyle === "cells" || trimming),
         pickable: true,
         onClick: ({ object }, event) => {
           const state = useAnalysisStore.getState();
           if (event.srcEvent instanceof MouseEvent && event.srcEvent.button !== 0) return;
-          if (object && !state.isDrawingAoi) state.openCopilot({ hex: object });
+          if (!object) return;
+          if (state.isTracingCells || state.aoiCells !== null) {
+            void state.toggleAoiCell(object.h3_index);
+            return;
+          }
+          if (!state.isDrawingAoi) state.openCopilot({ hex: object });
         },
         wireframe: false,
         filled: true,
@@ -384,7 +434,7 @@ export function HexagonMap() {
         getLineWidth: 2
       })
     ];
-  }, [hexagons, maxFre, maxRaw, mapPeriod, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable, isDrawingAoi]);
+  }, [hexagons, heatPoints, heatColorRange, heatStyle, trimming, maxFre, maxRaw, mapPeriod, viewMode, highlightIndustrialOnMap, is3D, showHeat, theme, currentAoi, dragBox, basemapAvailable, isDrawingAoi]);
 
   const getTooltip = useCallback(
     ({ object }: PickingInfo<H3MapSummaryHex>) => {
@@ -467,6 +517,12 @@ export function HexagonMap() {
         </div>
       )}
 
+      {isTracingCells && !isDrawingAoi && (
+        <div role="status" className="absolute left-1/2 bottom-20 z-10 -translate-x-1/2 border border-reference bg-panel px-3 py-1.5 text-xs text-reference pointer-events-none">
+          Click cells to add or remove them. Esc to stop tracing.
+        </div>
+      )}
+
       {/* Basemap and layer controls remain clear of the explorer. */}
       <div data-map-ui className="absolute left-3 z-20 flex flex-wrap items-center gap-2 transition-[bottom] duration-200" style={{ bottom: 24 }}>
         <select
@@ -492,6 +548,27 @@ export function HexagonMap() {
           {is3D ? <Box className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
           {is3D ? "3D" : "2D"}
         </button>
+
+        <div className="inline-flex border border-rule bg-panel/95 text-xs" role="group" aria-label="Heat rendering">
+          <button
+            type="button"
+            onClick={() => setHeatStyle("cells")}
+            aria-pressed={heatStyle === "cells"}
+            className={`px-2.5 py-1.5 ${heatStyle === "cells" ? "bg-ink text-paper" : "text-muted hover:bg-paper"}`}
+            title="Show one hexagon per H3 cell"
+          >
+            Cells
+          </button>
+          <button
+            type="button"
+            onClick={() => setHeatStyle("heatmap")}
+            aria-pressed={heatStyle === "heatmap"}
+            className={`border-l border-rule px-2.5 py-1.5 ${heatStyle === "heatmap" ? "bg-ink text-paper" : "text-muted hover:bg-paper"}`}
+            title="Show a continuous heat map"
+          >
+            Heatmap
+          </button>
+        </div>
 
         <button
           type="button"
@@ -527,6 +604,9 @@ export function HexagonMap() {
           {isSynthetic && <span className="text-terracotta"> · synthetic data</span>}
         </p>
         {!mapLoading && !mapError && hexagons.length === 0 && <p className="mt-1 text-[10px] text-muted">No mapped observations in this period. Missing observations do not rule out fire.</p>}
+        {trimming && !mapLoading && !mapError && hexagons.length > 0 && (
+          <p className="mt-1 text-[10px] text-muted">Click cells to add or remove them from the area.</p>
+        )}
       </div>
     </div>
   );

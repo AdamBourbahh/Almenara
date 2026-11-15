@@ -3,7 +3,7 @@ import { locationBounds, searchLocations } from "./locationSearch";
 import type { ApprovedRegion, LocationResult } from "./locationSearch";
 import type { FormEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Edit3, XCircle, Search, MapPin, ChevronDown } from "lucide-react";
+import { Edit3, XCircle, Search, MapPin, ChevronDown, Hexagon } from "lucide-react";
 import { PRESET_ORDER, PRESET_REGIONS, useAnalysisStore } from "../../store/useAnalysisStore";
 
 const APPROVED_REGIONS: ApprovedRegion[] = PRESET_ORDER.map(key => {
@@ -21,6 +21,8 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
     loadPresetRegion,
     isDrawingAoi,
     setDrawingAoi,
+    isTracingCells,
+    setTracingCells,
     setCustomBbox,
   } = useAnalysisStore(
     useShallow((s) => ({
@@ -28,6 +30,8 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
       loadPresetRegion: s.loadPresetRegion,
       isDrawingAoi: s.isDrawingAoi,
       setDrawingAoi: s.setDrawingAoi,
+      isTracingCells: s.isTracingCells,
+      setTracingCells: s.setTracingCells,
       setCustomBbox: s.setCustomBbox,
     }))
   );
@@ -140,7 +144,8 @@ export function AoiDrawControl({ placement = "explore" }: { placement?: "search"
       </>}
       {showCoords && <div className="mt-2 rounded-2xl border border-rule bg-panel p-3 shadow-xl">
         <div className="mb-2 flex items-center justify-between"><span className="text-xs font-medium text-ink">Area of interest</span><button type="button" onClick={() => setShowCoords(false)} aria-label="Close area controls" className="p-1 text-muted"><XCircle className="h-4 w-4" /></button></div>
-        <button type="button" aria-pressed={isDrawingAoi} onClick={() => { setDrawingAoi(!isDrawingAoi); setShowCoords(false); }} className="flex w-full items-center justify-center gap-2 rounded-lg border border-rule px-3 py-2 text-xs text-ink hover:bg-paper"><Edit3 className="h-4 w-4" />{isDrawingAoi ? "Cancel drawing" : "Draw an area on the map"}</button>
+        <button type="button" aria-pressed={isDrawingAoi} onClick={() => { setDrawingAoi(!isDrawingAoi); setTracingCells(false); setShowCoords(false); }} className="flex w-full items-center justify-center gap-2 rounded-lg border border-rule px-3 py-2 text-xs text-ink hover:bg-paper"><Edit3 className="h-4 w-4" />{isDrawingAoi ? "Cancel drawing" : "Draw an area on the map"}</button>
+        <button type="button" aria-pressed={isTracingCells} onClick={() => { setTracingCells(!isTracingCells); setDrawingAoi(false); setShowCoords(false); }} className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-rule px-3 py-2 text-xs text-ink hover:bg-paper"><Hexagon className="h-4 w-4" />{isTracingCells ? "Stop tracing" : "Trace the area by cells"}</button>
         {searchError && <p role="status" className="mt-2 text-xs text-terracotta">{searchError}</p>}
         <form onSubmit={applyCoords} className="mt-2 border border-rule p-2">
           <div className="grid grid-cols-3 gap-2">

@@ -12,12 +12,13 @@ async function compile(name, relative, enabled=false) {
  let source=await readFile(new URL(relative,root),'utf8');
  source=source.replace(/import regionRegistry from [^;]+;/, 'const regionRegistry = '+await readFile(new URL('../../data/regions.json', import.meta.url),'utf8')+';');
  source=source.replaceAll('import.meta.env', JSON.stringify({VITE_ALLOW_SYNTHETIC_FALLBACK:enabled?'1':'0'}));
- source=source.replace('"../api/client"','"./client.mjs"').replaceAll('"./synthetic"','"./synthetic.mjs"');
+ source=source.replace('"../api/client"','"./client.mjs"').replace('"../lib/aoiCells"','"./aoiCells.mjs"').replaceAll('"./synthetic"','"./synthetic.mjs"');
  const file=join(dir,name+'.mjs');
  await writeFile(file,ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
  return import(pathToFileURL(file).href);
 }
 await compile('synthetic','src/api/synthetic.ts');
+await compile('aoiCells','src/lib/aoiCells.ts');
 const client=await compile('client','src/api/client.ts');
 const opted=await compile('opted','src/api/client.ts',true);
 const store=await compile('store','src/store/useAnalysisStore.ts');

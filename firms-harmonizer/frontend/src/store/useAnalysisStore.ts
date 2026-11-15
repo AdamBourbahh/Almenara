@@ -1,6 +1,7 @@
 import regionRegistry from "../../../data/regions.json";
 import { create } from "zustand";
 import { cellToLatLng } from "h3-js";
+import { cellsFromPolygon, polygonFromCells } from "../lib/aoiCells";
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
@@ -152,6 +153,10 @@ interface AnalysisState {
   enableKalman: boolean;
   highlightIndustrialOnMap: boolean;
   isDrawingAoi: boolean;
+  /** R7 cells of a cell-traced AOI; null when the AOI is a preset or an untrimmed box. */
+  aoiCells: string[] | null;
+  /** Explicit "Trace cells" mode, so presets can be trimmed too. */
+  isTracingCells: boolean;
 
   // Interactive UI controls
   splitCurtainPct: number; // 0..100, "2012 Time-Machine" curtain
@@ -223,7 +228,9 @@ interface AnalysisState {
   setHighlightIndustrialOnMap: (highlight: boolean) => void;
   setDrawingAoi: (drawing: boolean) => void;
   loadPresetRegion: (presetKey: PresetKey) => Promise<void>;
-  setCustomAoi: (coordinates: number[][][]) => Promise<void>;
+  setCustomAoi: (coordinates: number[][][], cells?: string[] | null) => Promise<void>;
+  setTracingCells: (tracing: boolean) => void;
+  toggleAoiCell: (cell: string) => Promise<void>;
   setCustomBbox: (west: number, south: number, east: number, north: number) => Promise<void>;
   executeAnalysis: (preserveSelection?: boolean) => Promise<void>;
   triggerChaosMonkey: () => Promise<void>;
@@ -281,6 +288,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   enableKalman: true,
   highlightIndustrialOnMap: false,
   isDrawingAoi: false,
+  aoiCells: null,
+  isTracingCells: false,
 
   splitCurtainPct: 50,
   selectedYear: 2022, // Critical year by default (VIIRS SNPP outage, Jul-Aug 2022)
@@ -427,18 +436,34 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   loadPresetRegion: async (presetKey) => {
     if (!(presetKey in PRESET_REGIONS)) return;
-    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, chaosData: null });
+    set({ selectedPreset: presetKey, currentAoi: polygonFromPreset(presetKey), isDrawingAoi: false, aoiCells: null, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
     await get().executeAnalysis(true);
   },
 
-  setCustomAoi: async (coordinates) => {
+  setTracingCells: (tracing) => set({ isTracingCells: tracing, isDrawingAoi: false }),
+
+  setCustomAoi: async (coordinates, cells = null) => {
     const ring = coordinates[0];
     if (!ring || ring.length < 4) {
       set({ error: "Custom AOI must be a closed polygon with at least 3 vertices." });
       return;
     }
-    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, chaosData: null });
+    set({ selectedPreset: "CUSTOM", currentAoi: { type: "Polygon", coordinates }, isDrawingAoi: false, aoiCells: cells, chaosData: null });
+    get().attachCopilotContext({ day: null, hex: null });
+    await get().executeAnalysis(true);
+  },
+
+  toggleAoiCell: async (cell) => {
+    const state = get();
+    const base = state.aoiCells ?? cellsFromPolygon(state.currentAoi);
+    const next = base.includes(cell) ? base.filter((item) => item !== cell) : [...base, cell];
+    const polygon = polygonFromCells(next);
+    if (!polygon) {
+      set({ error: "Keep at least one cell in the area." });
+      return;
+    }
+    set({ selectedPreset: "CUSTOM", currentAoi: polygon, aoiCells: next, isDrawingAoi: false, error: null, chaosData: null });
     get().attachCopilotContext({ day: null, hex: null });
     await get().executeAnalysis(true);
   },
@@ -453,7 +478,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       return;
     }
     // Counter-clockwise exterior ring (RFC 7946), closed.
-    await get().setCustomAoi([[[w, s], [e, s], [e, n], [w, n], [w, s]]]);
+    const box: number[][][] = [[[w, s], [e, s], [e, n], [w, n], [w, s]]];
+    const cells = cellsFromPolygon({ coordinates: box });
+    await get().setCustomAoi(box, cells);
   },
 
   loadMapYear: async () => {

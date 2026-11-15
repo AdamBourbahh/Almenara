@@ -7,10 +7,10 @@ import ts from 'typescript';
 
 const dir=await mkdtemp(new URL('../node_modules/.period-',import.meta.url));
 after(()=>rm(dir,{recursive:true,force:true}));
-for(const [name,path] of [['client','api/client'],['store','store/useAnalysisStore']]) {
+for(const [name,path] of [['client','api/client'],['store','store/useAnalysisStore'],['aoiCells','lib/aoiCells']]) {
  let source=await readFile(new URL(`../src/${path}.ts`,import.meta.url),'utf8');
  source=source.replace(/import regionRegistry from [^;]+;/, 'const regionRegistry = '+await readFile(new URL('../../data/regions.json', import.meta.url),'utf8')+';');
- source=source.replaceAll('import.meta.env','{}').replace('"../api/client"','"./client.mjs"');
+ source=source.replaceAll('import.meta.env','{}').replace('"../api/client"','"./client.mjs"').replace('"../lib/aoiCells"','"./aoiCells.mjs"');
  await writeFile(join(dir,`${name}.mjs`),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
 }
 const {useAnalysisStore:state,riskForecastDate}=await import(pathToFileURL(join(dir,'store.mjs')).href);
