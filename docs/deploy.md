@@ -79,7 +79,7 @@ creates the image repository with its cleanup policy, and adds the 1 EUR budget 
 
 ## Enabling automatic redeploys
 
-`.github/workflows/deploy-cloudrun.yml` stays inactive until a deploy identity exists. It uses
+`.github/workflows/deploy-cloudrun.yml` deploys successful `Verify` push runs on `main`. It uses
 Workload Identity Federation, so no key is stored in GitHub. A project owner runs once:
 
 ```powershell
@@ -88,11 +88,11 @@ $N = gcloud projects describe $P --format="value(projectNumber)"
 $SA = "github-deployer@$P.iam.gserviceaccount.com"
 gcloud services enable iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com --project=$P
 gcloud iam service-accounts create github-deployer --project=$P
-gcloud projects add-iam-policy-binding $P --member="serviceAccount:$SA" --role=roles/run.admin
-gcloud projects add-iam-policy-binding $P --member="serviceAccount:$SA" --role=roles/artifactregistry.writer
+gcloud run services add-iam-policy-binding firms-harmonizer --region=europe-west1 --project=$P --member="serviceAccount:$SA" --role=roles/run.admin
+gcloud artifacts repositories add-iam-policy-binding firms-harmonizer --location=europe-west1 --project=$P --member="serviceAccount:$SA" --role=roles/artifactregistry.writer
 gcloud iam service-accounts add-iam-policy-binding "$N-compute@developer.gserviceaccount.com" --project=$P --member="serviceAccount:$SA" --role=roles/iam.serviceAccountUser
 gcloud iam workload-identity-pools create github --location=global --project=$P
-gcloud iam workload-identity-pools providers create-oidc almenara --workload-identity-pool=github --location=global --project=$P --issuer-uri=https://token.actions.githubusercontent.com --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" --attribute-condition="assertion.repository=='AdamBourbahh/Almenara'"
+gcloud iam workload-identity-pools providers create-oidc almenara --workload-identity-pool=github --location=global --project=$P --issuer-uri=https://token.actions.githubusercontent.com --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" --attribute-condition="assertion.repository=='AdamBourbahh/Almenara' && assertion.ref=='refs/heads/main' && assertion.workflow_ref=='AdamBourbahh/Almenara/.github/workflows/deploy-cloudrun.yml@refs/heads/main'"
 gcloud iam service-accounts add-iam-policy-binding $SA --project=$P --role=roles/iam.workloadIdentityUser --member="principalSet://iam.googleapis.com/projects/$N/locations/global/workloadIdentityPools/github/attribute.repository/AdamBourbahh/Almenara"
 ```
 
@@ -100,7 +100,11 @@ Then, in GitHub under **Settings → Secrets and variables → Actions → Varia
 `GCP_PROJECT` (`firms-harmonizer-2026`), `GCP_WIF_PROVIDER`
 (`projects/<number>/locations/global/workloadIdentityPools/github/providers/almenara`) and
 `GCP_SERVICE_ACCOUNT` (`github-deployer@firms-harmonizer-2026.iam.gserviceaccount.com`).
-Only workflows from `AdamBourbahh/Almenara` can use this identity.
+The deployed identity is restricted to this deployment workflow on `main` in
+`AdamBourbahh/Almenara`. Pull-request verification runs cannot trigger deployment.
+The runner downloads the published real dataset before building, so instances do not
+depend on Hugging Face availability at cold start. Older commits are skipped when
+main has advanced. Existing Gemini settings and Secret Manager references are preserved.
 
 ## Running the container locally
 
