@@ -74,8 +74,8 @@ class AoiAggregate(NamedTuple):
     n_cells_used: int
     used_cells: list[str] = []
     # km² of the kept cube cells present on each day of ``daily`` (aligned with daily["epoch_day"]).
-    # Daily AOI energy in MJ is the cell-mean density times this area, never times the area of every
-    # cell that burned at some point of the record.
+    # Footprint metadata only. Canonical daily energy is daily['observed_energy_mj'];
+    # polygon-normalized density must not be multiplied by this different area.
     daily_area_km2: np.ndarray | None = None
 
 
@@ -330,10 +330,15 @@ def _row_cell_areas(cells: np.ndarray) -> np.ndarray:
 
 
 def _daily_area(cols: dict[str, np.ndarray], keep: np.ndarray, row_area: np.ndarray,
-                start_year: int, end_year: int) -> np.ndarray:
+                start_year: int, end_year: int, epoch_days: np.ndarray | None = None) -> np.ndarray:
     """Per-day km² of the kept cube cells, on the same dense calendar as _aggregate_daily."""
     lo = int((np.datetime64(f"{start_year}-01-01") - EPOCH).astype(int))
     hi = int((np.datetime64(f"{end_year}-12-31") - EPOCH).astype(int))
+    if epoch_days is not None:
+        if not len(epoch_days):
+            return np.empty(0)
+        lo, hi = int(epoch_days[0]), int(epoch_days[-1])
+        keep = keep & (cols['epoch_day']>=lo) & (cols['epoch_day']<=hi)
     return np.bincount(cols["epoch_day"][keep] - lo, weights=row_area[keep], minlength=hi - lo + 1)
 
 
@@ -439,7 +444,7 @@ def fetch_aoi_aggregated_data(cells_r4: list[int], cells_r7: list[int], start_ye
         hexagons, industrial_total, min_probs = _summarize_hexagons(cur, cols, r7_sorted, start_year, end_year)
     keep = cols["industrial_prob"] < INDUSTRIAL_THRESHOLD if exclude_industrial else np.ones(table.num_rows, bool)
     daily = _aggregate_daily(cols, keep, start_year, end_year, missing, area_km2) if keep.any() else _empty_daily()
-    area = _daily_area(cols, keep, _row_cell_areas(cols["h3_r7"]), start_year, end_year) if keep.any() else np.empty(0)
+    area = _daily_area(cols, keep, _row_cell_areas(cols["h3_r7"]), start_year, end_year, daily['epoch_day']) if keep.any() else np.empty(0)
     if len(daily['epoch_day']) and duckdb_engine.data_source() == 'real':
         from backend.db.observation_coverage import apply_coverage
         with duckdb_engine.get_db_cursor() as cur:

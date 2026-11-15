@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-15",
+  "upstream_main": "93b6fcb",
+  "all_nighter": "03f2fae",
+  "first_merge": "168bf99",
+  "backend": {"command": "python -m pytest backend/tests -q", "passed": 494, "failed": 0},
+  "frontend": {"command": "npm test --prefix frontend", "passed": 30, "failed": 0},
+  "production_build": {"command": "npm run build --prefix frontend", "passed": true},
+  "contract_hashes": {"command": "python scripts/verify_frozen_tests.py", "passed": true},
+  "real_energy_integrals": {"command": "python scripts/12_audit_report.py", "regions_passed": 4},
+  "coverage_comparison": {"command": "python scripts/13_validate_coverage.py", "regions_evaluated": 4, "accepted_thresholds": 0},
+  "warning": "Non-failing Starlette/httpx TestClient deprecation; Arrow conversion warning during real ancillary queries.",
+  "remote_ci": "Not executed from this session"
+}

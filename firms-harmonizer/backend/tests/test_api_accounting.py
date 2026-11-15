@@ -132,6 +132,15 @@ def test_noaa20_and_noaa21_bits_are_labelled(sparse_cube):
     assert '2020-01-01' not in sensors  # Before the actual fixture archive starts.
 
 
+def test_daily_footprint_metadata_aligns_with_clipped_calendar(sparse_cube):
+    client, expected = sparse_cube
+    aoi, _ = analyze_sparse(client)
+    r4, r7, _ = queries.get_hierarchical_h3_filter(aoi['coordinates'])
+    result = queries.fetch_aoi_aggregated_data(r4,r7,2020,2020,True)
+    assert len(result.daily['epoch_day']) == len(result.daily_area_km2) == 3
+    assert result.daily_area_km2 == pytest.approx([h3.cell_area(cell,unit='km^2') for _,cell in expected.values()])
+
+
 def test_polygon_vertex_limit():
     angles = np.linspace(0, 2 * np.pi, queries.MAX_POLYGON_VERTICES, endpoint=False)
     ring = [[-67.5 + 0.3 * float(np.cos(t)), -29.0 + 0.3 * float(np.sin(t))] for t in angles]

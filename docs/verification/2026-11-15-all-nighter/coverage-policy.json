@@ -51,20 +51,20 @@
             {
               "horizon_days": 7,
               "samples": 4,
-              "mae": 1.8029404510141709,
+              "mae": 1.8029404510141704,
               "persistence_mae": 1.7794875987192023,
-              "climatology_mae": 1.803112434989955,
+              "climatology_mae": 1.8031124349899545,
               "interval_coverage_pct": 100.0,
-              "bias": 0.847857476694525
+              "bias": 0.8478574766945246
             },
             {
               "horizon_days": 14,
               "samples": 3,
-              "mae": 2.0416249778286253,
+              "mae": 2.041624977828625,
               "persistence_mae": 0.1735666350134236,
-              "climatology_mae": 2.041624983947315,
+              "climatology_mae": 2.0416249839473144,
               "interval_coverage_pct": 100.0,
-              "bias": 1.609123156958341
+              "bias": 1.6091231569583409
             }
           ],
           "season_groups": 3
@@ -252,11 +252,11 @@
             {
               "horizon_days": 7,
               "samples": 4,
-              "mae": 0.9406864380466989,
+              "mae": 0.9406864380466988,
               "persistence_mae": 1.7794875987192023,
-              "climatology_mae": 0.9498572365271002,
+              "climatology_mae": 0.9498572365271001,
               "interval_coverage_pct": 100.0,
-              "bias": 0.01896734222774077
+              "bias": 0.018967342227740824
             },
             {
               "horizon_days": 14,
@@ -289,29 +289,29 @@
             {
               "horizon_days": 1,
               "samples": 3,
-              "mae": 0.22156516543624039,
-              "persistence_mae": 0.20699500373886406,
-              "climatology_mae": 0.5044291981496093,
+              "mae": 0.2215651654362404,
+              "persistence_mae": 0.20699500373886415,
+              "climatology_mae": 0.5044291981496092,
               "interval_coverage_pct": 100.0,
-              "bias": 0.1780211583769065
+              "bias": 0.17802115837690655
             },
             {
               "horizon_days": 7,
               "samples": 3,
-              "mae": 0.7858857121266706,
-              "persistence_mae": 0.7697729423263836,
-              "climatology_mae": 0.787152453572714,
+              "mae": 0.7858857121266705,
+              "persistence_mae": 0.7697729423263832,
+              "climatology_mae": 0.7871524535727138,
               "interval_coverage_pct": 100.0,
-              "bias": -0.22462556850260942
+              "bias": -0.22462556850260906
             },
             {
               "horizon_days": 14,
               "samples": 1,
-              "mae": 1.2940273507560438,
-              "persistence_mae": 0.1983513413697774,
-              "climatology_mae": 1.294115214757015,
+              "mae": 1.2940273507560434,
+              "persistence_mae": 0.1983513413697775,
+              "climatology_mae": 1.2941152147570145,
               "interval_coverage_pct": 100.0,
-              "bias": 1.2940273507560438
+              "bias": 1.2940273507560434
             }
           ],
           "season_groups": 3
@@ -321,29 +321,29 @@
             {
               "horizon_days": 1,
               "samples": 5,
-              "mae": 13.105360069809501,
-              "persistence_mae": 25.167917005054363,
-              "climatology_mae": 8.775618089351351,
+              "mae": 13.10536006980947,
+              "persistence_mae": 25.167917005054335,
+              "climatology_mae": 8.775618089351358,
               "interval_coverage_pct": 80.0,
-              "bias": 12.434031938284354
+              "bias": 12.43403193828432
             },
             {
               "horizon_days": 7,
               "samples": 5,
               "mae": 5.937982748369249,
-              "persistence_mae": 34.85687068356324,
-              "climatology_mae": 5.24955992554725,
+              "persistence_mae": 34.856870683563216,
+              "climatology_mae": 5.249559925547248,
               "interval_coverage_pct": 100.0,
-              "bias": 0.7298059793011549
+              "bias": 0.7298059793011532
             },
             {
               "horizon_days": 14,
               "samples": 4,
-              "mae": 4.726218882361634,
-              "persistence_mae": 40.039321719697796,
+              "mae": 4.726218882361633,
+              "persistence_mae": 40.03932171969777,
               "climatology_mae": 4.752197224979652,
               "interval_coverage_pct": 100.0,
-              "bias": -0.6319766239233688
+              "bias": -0.6319766239233695
             }
           ],
           "season_groups": 3
@@ -356,26 +356,26 @@
             {
               "horizon_days": 1,
               "samples": 3,
-              "mae": 0.22184406445183089,
-              "persistence_mae": 0.20699500373886406,
-              "climatology_mae": 0.5171128032282181,
+              "mae": 0.22184406445183102,
+              "persistence_mae": 0.20699500373886415,
+              "climatology_mae": 0.5171128032282178,
               "interval_coverage_pct": 100.0,
-              "bias": 0.1886875834653605
+              "bias": 0.18868758346536055
             },
             {
               "horizon_days": 7,
               "samples": 3,
-              "mae": 0.7757468776434319,
-              "persistence_mae": 0.7697729423263836,
-              "climatology_mae": 0.7768947214953358,
+              "mae": 0.7757468776434315,
+              "persistence_mae": 0.7697729423263832,
+              "climatology_mae": 0.7768947214953356,
               "interval_coverage_pct": 100.0,
-              "bias": -0.19208354426302945
+              "bias": -0.19208354426302918
             },
             {
               "horizon_days": 14,
               "samples": 1,
               "mae": 1.309265513369743,
-              "persistence_mae": 0.1983513413697774,
+              "persistence_mae": 0.1983513413697775,
               "climatology_mae": 1.3093575295727733,
               "interval_coverage_pct": 100.0,
               "bias": 1.309265513369743
@@ -388,29 +388,29 @@
             {
               "horizon_days": 1,
               "samples": 5,
-              "mae": 13.102619581774302,
-              "persistence_mae": 25.167917005054363,
-              "climatology_mae": 8.782181353399396,
+              "mae": 13.102619581774274,
+              "persistence_mae": 25.167917005054335,
+              "climatology_mae": 8.782181353399405,
               "interval_coverage_pct": 80.0,
-              "bias": 12.453785104340561
+              "bias": 12.453785104340527
             },
             {
               "horizon_days": 7,
               "samples": 5,
               "mae": 6.011156458486925,
-              "persistence_mae": 34.85687068356324,
-              "climatology_mae": 5.325333749427441,
+              "persistence_mae": 34.856870683563216,
+              "climatology_mae": 5.325333749427439,
               "interval_coverage_pct": 100.0,
-              "bias": 0.8029392534096951
+              "bias": 0.8029392534096941
             },
             {
               "horizon_days": 14,
               "samples": 4,
-              "mae": 4.732056921882181,
-              "persistence_mae": 40.039321719697796,
+              "mae": 4.73205692188218,
+              "persistence_mae": 40.03932171969777,
               "climatology_mae": 4.7579077133910594,
               "interval_coverage_pct": 100.0,
-              "bias": -0.6205533498603559
+              "bias": -0.6205533498603566
             }
           ],
           "season_groups": 3
@@ -424,25 +424,25 @@
               "horizon_days": 1,
               "samples": 3,
               "mae": 0.23255787407902626,
-              "persistence_mae": 0.20699500373886406,
-              "climatology_mae": 0.564098255651757,
+              "persistence_mae": 0.20699500373886415,
+              "climatology_mae": 0.5640982556517568,
               "interval_coverage_pct": 100.0,
-              "bias": 0.20954284578239749
+              "bias": 0.20954284578239757
             },
             {
               "horizon_days": 7,
               "samples": 3,
-              "mae": 0.7158943583572034,
-              "persistence_mae": 0.7697729423263836,
-              "climatology_mae": 0.7166956246653625,
+              "mae": 0.715894358357203,
+              "persistence_mae": 0.7697729423263832,
+              "climatology_mae": 0.7166956246653622,
               "interval_coverage_pct": 100.0,
-              "bias": -0.07289096755561242
+              "bias": -0.07289096755561227
             },
             {
               "horizon_days": 14,
               "samples": 1,
               "mae": 1.365550864939742,
-              "persistence_mae": 0.1983513413697774,
+              "persistence_mae": 0.1983513413697775,
               "climatology_mae": 1.3656561426411427,
               "interval_coverage_pct": 100.0,
               "bias": 1.365550864939742
@@ -455,29 +455,29 @@
             {
               "horizon_days": 1,
               "samples": 5,
-              "mae": 13.19955295085568,
-              "persistence_mae": 25.167917005054363,
-              "climatology_mae": 8.828262696805963,
+              "mae": 13.199552950855647,
+              "persistence_mae": 25.167917005054335,
+              "climatology_mae": 8.828262696805972,
               "interval_coverage_pct": 80.0,
-              "bias": 12.590714614180833
+              "bias": 12.5907146141808
             },
             {
               "horizon_days": 7,
               "samples": 5,
-              "mae": 6.123262898388196,
-              "persistence_mae": 34.85687068356324,
-              "climatology_mae": 5.414929901498754,
+              "mae": 6.123262898388195,
+              "persistence_mae": 34.856870683563216,
+              "climatology_mae": 5.414929901498753,
               "interval_coverage_pct": 100.0,
-              "bias": 0.9505097459284272
+              "bias": 0.9505097459284256
             },
             {
               "horizon_days": 14,
               "samples": 4,
-              "mae": 4.77479490283036,
-              "persistence_mae": 40.039321719697796,
-              "climatology_mae": 4.802326252675993,
+              "mae": 4.774794902830359,
+              "persistence_mae": 40.03932171969777,
+              "climatology_mae": 4.802326252675991,
               "interval_coverage_pct": 100.0,
-              "bias": -0.5504319133202467
+              "bias": -0.5504319133202475
             }
           ],
           "season_groups": 3
@@ -490,26 +490,26 @@
             {
               "horizon_days": 1,
               "samples": 3,
-              "mae": 0.21892218983898018,
-              "persistence_mae": 0.20699500373886406,
-              "climatology_mae": 0.5668753068314977,
+              "mae": 0.21892218983898026,
+              "persistence_mae": 0.20699500373886415,
+              "climatology_mae": 0.5668753068314974,
               "interval_coverage_pct": 100.0,
-              "bias": 0.210013335634357
+              "bias": 0.21001333563435717
             },
             {
               "horizon_days": 7,
               "samples": 3,
-              "mae": 0.721732985374417,
-              "persistence_mae": 0.7697729423263836,
-              "climatology_mae": 0.7211448424909248,
+              "mae": 0.7217329853744169,
+              "persistence_mae": 0.7697729423263832,
+              "climatology_mae": 0.7211448424909247,
               "interval_coverage_pct": 100.0,
-              "bias": 0.10838532757894825
+              "bias": 0.10838532757894863
             },
             {
               "horizon_days": 14,
               "samples": 1,
               "mae": 1.5851661845509273,
-              "persistence_mae": 0.1983513413697774,
+              "persistence_mae": 0.1983513413697775,
               "climatology_mae": 1.5852357938061548,
               "interval_coverage_pct": 100.0,
               "bias": 1.5851661845509273
@@ -522,29 +522,29 @@
             {
               "horizon_days": 1,
               "samples": 5,
-              "mae": 13.192206158406663,
-              "persistence_mae": 25.167917005054363,
-              "climatology_mae": 8.907072604599746,
+              "mae": 13.19220615840663,
+              "persistence_mae": 25.167917005054335,
+              "climatology_mae": 8.907072604599753,
               "interval_coverage_pct": 80.0,
-              "bias": 12.608237990899791
+              "bias": 12.608237990899758
             },
             {
               "horizon_days": 7,
               "samples": 5,
               "mae": 6.311140374255825,
-              "persistence_mae": 34.85687068356324,
-              "climatology_mae": 5.554854781409288,
+              "persistence_mae": 34.856870683563216,
+              "climatology_mae": 5.554854781409292,
               "interval_coverage_pct": 100.0,
-              "bias": 1.2169029142204033
+              "bias": 1.2169029142204042
             },
             {
               "horizon_days": 14,
               "samples": 4,
-              "mae": 4.734569392175793,
-              "persistence_mae": 40.039321719697796,
+              "mae": 4.734569392175792,
+              "persistence_mae": 40.03932171969777,
               "climatology_mae": 4.760828095492142,
               "interval_coverage_pct": 100.0,
-              "bias": -0.42016001652969437
+              "bias": -0.42016001652969415
             }
           ],
           "season_groups": 3
@@ -851,29 +851,29 @@
             {
               "horizon_days": 1,
               "samples": 2,
-              "mae": 24.904423826723527,
-              "persistence_mae": 3.357361319701186,
+              "mae": 24.904423826723555,
+              "persistence_mae": 3.3573613197012153,
               "climatology_mae": 60.87918671178675,
               "interval_coverage_pct": 100.0,
-              "bias": -17.509365871982087
+              "bias": -17.509365871982116
             },
             {
               "horizon_days": 7,
               "samples": 1,
-              "mae": 15.513416244500126,
-              "persistence_mae": 21.513119224623818,
-              "climatology_mae": 15.366175676686973,
+              "mae": 15.513416244500116,
+              "persistence_mae": 21.513119224623807,
+              "climatology_mae": 15.366175676686963,
               "interval_coverage_pct": 100.0,
-              "bias": -15.513416244500126
+              "bias": -15.513416244500116
             },
             {
               "horizon_days": 14,
               "samples": 1,
-              "mae": 6.0412056873204065,
-              "persistence_mae": 7.539573856393268,
-              "climatology_mae": 6.04814588749144,
+              "mae": 6.041205687320408,
+              "persistence_mae": 7.539573856393265,
+              "climatology_mae": 6.048145887491442,
               "interval_coverage_pct": 100.0,
-              "bias": 6.0412056873204065
+              "bias": 6.041205687320408
             }
           ],
           "season_groups": 2
@@ -890,29 +890,29 @@
             {
               "horizon_days": 1,
               "samples": 2,
-              "mae": 23.682871084644646,
-              "persistence_mae": 3.357361319701186,
-              "climatology_mae": 59.189432116174224,
+              "mae": 23.68287108464465,
+              "persistence_mae": 3.3573613197012153,
+              "climatology_mae": 59.18943211617423,
               "interval_coverage_pct": 100.0,
-              "bias": -16.186791536511763
+              "bias": -16.18679153651176
             },
             {
               "horizon_days": 7,
               "samples": 1,
-              "mae": 15.037090716696278,
-              "persistence_mae": 21.513119224623818,
-              "climatology_mae": 14.867580187122764,
+              "mae": 15.037090716696268,
+              "persistence_mae": 21.513119224623807,
+              "climatology_mae": 14.867580187122753,
               "interval_coverage_pct": 100.0,
-              "bias": -15.037090716696278
+              "bias": -15.037090716696268
             },
             {
               "horizon_days": 14,
               "samples": 1,
-              "mae": 6.884314125935944,
-              "persistence_mae": 7.539573856393268,
-              "climatology_mae": 6.892837855159744,
+              "mae": 6.884314125935946,
+              "persistence_mae": 7.539573856393265,
+              "climatology_mae": 6.892837855159746,
               "interval_coverage_pct": 100.0,
-              "bias": 6.884314125935944
+              "bias": 6.884314125935946
             }
           ],
           "season_groups": 2
@@ -929,29 +929,29 @@
             {
               "horizon_days": 1,
               "samples": 2,
-              "mae": 23.1113518684907,
-              "persistence_mae": 3.357361319701186,
-              "climatology_mae": 56.808648285254414,
+              "mae": 23.111351868490715,
+              "persistence_mae": 3.3573613197012153,
+              "climatology_mae": 56.80864828525442,
               "interval_coverage_pct": 100.0,
-              "bias": -15.243387954558116
+              "bias": -15.24338795455813
             },
             {
               "horizon_days": 7,
               "samples": 1,
-              "mae": 14.443868667173458,
-              "persistence_mae": 21.513119224623818,
-              "climatology_mae": 14.242790452119962,
+              "mae": 14.443868667173446,
+              "persistence_mae": 21.513119224623807,
+              "climatology_mae": 14.24279045211995,
               "interval_coverage_pct": 100.0,
-              "bias": -14.443868667173458
+              "bias": -14.443868667173446
             },
             {
               "horizon_days": 14,
               "samples": 1,
-              "mae": 8.0258616148122,
-              "persistence_mae": 7.539573856393268,
-              "climatology_mae": 8.035561361020505,
+              "mae": 8.025861614812198,
+              "persistence_mae": 7.539573856393265,
+              "climatology_mae": 8.035561361020507,
               "interval_coverage_pct": 100.0,
-              "bias": 8.0258616148122
+              "bias": 8.025861614812198
             }
           ],
           "season_groups": 2
@@ -969,28 +969,28 @@
               "horizon_days": 1,
               "samples": 2,
               "mae": 23.02581756846716,
-              "persistence_mae": 3.357361319701186,
+              "persistence_mae": 3.3573613197012153,
               "climatology_mae": 54.15836539949447,
               "interval_coverage_pct": 100.0,
-              "bias": -14.874200375291608
+              "bias": -14.87420037529161
             },
             {
               "horizon_days": 7,
               "samples": 1,
-              "mae": 13.472476666079537,
-              "persistence_mae": 21.513119224623818,
-              "climatology_mae": 13.271663437060518,
+              "mae": 13.472476666079526,
+              "persistence_mae": 21.513119224623807,
+              "climatology_mae": 13.271663437060507,
               "interval_coverage_pct": 100.0,
-              "bias": -13.472476666079537
+              "bias": -13.472476666079526
             },
             {
               "horizon_days": 14,
               "samples": 1,
-              "mae": 10.033032114816205,
-              "persistence_mae": 7.539573856393268,
-              "climatology_mae": 10.041686402314454,
+              "mae": 10.033032114816203,
+              "persistence_mae": 7.539573856393265,
+              "climatology_mae": 10.041686402314456,
               "interval_coverage_pct": 100.0,
-              "bias": 10.033032114816205
+              "bias": 10.033032114816203
             }
           ],
           "season_groups": 2
