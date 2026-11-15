@@ -143,6 +143,7 @@ export function HexagonMap() {
     currentAoi,
     isDrawingAoi,
     setDrawingAoi,
+    error,
     setCustomBbox,
     isSynthetic
   } = useAnalysisStore(
@@ -155,6 +156,7 @@ export function HexagonMap() {
       currentAoi: s.currentAoi,
       isDrawingAoi: s.isDrawingAoi,
       setDrawingAoi: s.setDrawingAoi,
+      error: s.error,
       setCustomBbox: s.setCustomBbox,
       isSynthetic: s.isSynthetic
     }))
@@ -527,6 +529,7 @@ export function HexagonMap() {
           {isSynthetic && <span className="text-terracotta"> · synthetic data</span>}
         </p>
         {!mapLoading && !mapError && hexagons.length === 0 && <p className="mt-1 text-[10px] text-muted">No mapped observations in this period. Missing observations do not rule out fire.</p>}
+        {error && <p className="mt-1 text-[10px] text-terracotta">{error}</p>}
       </div>
     </div>
   );

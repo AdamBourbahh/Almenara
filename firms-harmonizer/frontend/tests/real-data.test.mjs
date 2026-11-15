@@ -92,8 +92,9 @@ test('late annual responses cannot overwrite the newly selected year and errors 
  state.setState({selectedYear:2009});
  globalThis.fetch=async()=>{throw new TypeError('offline');};
  await state.getState().loadMapYear();
- assert.equal(state.getState().mapYear,null);
- assert.deepEqual(state.getState().mapHexagons,[]);
+ // A failed period keeps the last rendered map so the view does not go blank.
+ assert.equal(state.getState().mapYear,2008);
+ assert.equal(state.getState().mapHexagons[0].mean_annual_fre,800);
  assert.equal(state.getState().mapLoading,false);
  assert.equal(state.getState().mapError,'offline');
 });
