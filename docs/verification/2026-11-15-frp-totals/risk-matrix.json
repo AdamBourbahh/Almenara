@@ -1,0 +1,72 @@
+[
+  {
+    "case": "region_recent_day",
+    "as_of_date": "2026-11-14",
+    "raw_days": 9505,
+    "model_days": 9506,
+    "consecutive": true,
+    "limit": 9500,
+    "error_type": "ValueError",
+    "error": "Risk features require at most 9,500 consecutive UTC days.",
+    "seconds": 0.24
+  },
+  {
+    "case": "area_recent_day",
+    "as_of_date": "2026-11-14",
+    "raw_days": 9093,
+    "model_days": 9094,
+    "consecutive": true,
+    "limit": 9500,
+    "status": 200,
+    "assessment_available": true,
+    "unavailable_reason": null,
+    "seconds": 0.15
+  },
+  {
+    "case": "region_earlier_day",
+    "as_of_date": "2026-07-24",
+    "raw_days": 9393,
+    "model_days": 9393,
+    "consecutive": true,
+    "limit": 9500,
+    "status": 200,
+    "assessment_available": true,
+    "unavailable_reason": null,
+    "seconds": 0.23
+  },
+  {
+    "case": "area_earlier_day",
+    "as_of_date": "2026-07-24",
+    "raw_days": 8977,
+    "model_days": 8981,
+    "consecutive": true,
+    "limit": 9500,
+    "status": 200,
+    "assessment_available": true,
+    "unavailable_reason": null,
+    "seconds": 0.11
+  },
+  {
+    "case": "region_2021",
+    "as_of_date": "2021-08-22",
+    "raw_days": 7596,
+    "model_days": 7596,
+    "consecutive": true,
+    "limit": 9500,
+    "status": 200,
+    "assessment_available": true,
+    "unavailable_reason": null,
+    "seconds": 0.24
+  },
+  {
+    "case": "region_no_day",
+    "as_of_date": null,
+    "raw_days": 9505,
+    "model_days": 9505,
+    "consecutive": true,
+    "limit": 9500,
+    "error_type": "ValueError",
+    "error": "Risk features require at most 9,500 consecutive UTC days.",
+    "seconds": 0.21
+  }
+]

@@ -540,7 +540,9 @@ def answer(req:ExplainSpikeRequest) -> ExplainSpikeResponse:
             target=scope.start
         episode=profile_fire_episode_from_duckdb(GeoJSONPolygon(coordinates=scope.coordinates) if scope.coordinates else None,
             scope.label,target,scope.h3_index,period_start=scope.start,
-            period_end=scope.end,enable_kalman_gap_filling=req.enable_kalman_gap_filling)
+            period_end=scope.end,enable_kalman_gap_filling=req.enable_kalman_gap_filling,
+            exclude_industrial_flaring=req.exclude_industrial_flaring,
+            confidence_level=req.confidence_level)
     except ValueError as exc:
         return ExplainSpikeResponse(physical_classification='INSUFFICIENT_CONTEXT',explanation_markdown=str(exc),
             model_used='offline-physics-engine',data_source=duckdb_engine.data_source())
@@ -548,9 +550,9 @@ def answer(req:ExplainSpikeRequest) -> ExplainSpikeResponse:
         log.warning('Scientific episode profile unavailable: %s',type(exc).__name__)
         episode={'status':'unavailable','message':'The local scientific profile could not be calculated. No episode totals were substituted.'}
     if episode.get('status')=='ok':
-        # Only an unbounded discovery establishes a new conversation period.
-        # Resolved map/history dates also constrain undated follow-up questions.
-        if target is None and not (scope.start and scope.end):
+        # Search around the discovered peak, not the UI's default year or an entire
+        # multi-decade range. Keep the precise selected geometry unchanged.
+        if target is None and not scope.start and not scope.end:
             scope=replace(scope,start=episode['window_start'],end=episode['window_end'])
     reports,query=(investigate_fire_literature_and_web(scope,episode.get('peak_date')) if not scope.error else ([],''))
     return synthesize_scientific_dossier(req,scope,episode,reports,query)

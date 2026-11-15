@@ -69,8 +69,10 @@ def test_model_dates_cannot_silently_expand_selected_period(online, monkeypatch)
         {'start': '2026-07-01', 'end': '2026-07-31'})]})
     monkeypatch.setattr(local, 'retrieve_observations', lambda scope: queried.append(scope) or {'status': 'empty'})
     monkeypatch.setattr(agent.researcher, 'answer', lambda req: 'safe local answer')
-    assert agent.answer(ExplainSpikeRequest(user_question='How many detections here?',
-        period_start='2026-07-24', period_end='2026-07-24')) == 'safe local answer'
+    result=agent.answer(ExplainSpikeRequest(user_question='How many detections here?',
+        period_start='2026-07-24', period_end='2026-07-24'))
+    assert result.model_used.startswith('groq-error/')
+    assert result.physical_classification=='INSUFFICIENT_CONTEXT'
     assert not queried
 
 
@@ -104,7 +106,7 @@ def test_completion_never_spends_an_unselected_provider_quota(online, monkeypatc
 
 
 @pytest.mark.parametrize('failure', ['quota', 'timeout', 'truncated', 'malformed', 'unauthorized', 'overloaded'])
-def test_transport_failure_keeps_retrieved_local_answer(online, monkeypatch, failure):
+def test_transport_failure_returns_explicit_error_without_local_substitution(online, monkeypatch, failure):
     factory = httpx.Client
     def transport(request):
         if failure == 'timeout':
@@ -119,7 +121,9 @@ def test_transport_failure_keeps_retrieved_local_answer(online, monkeypatch, fai
     result = agent.answer(ExplainSpikeRequest(user_question='What is FRP?'))
     assert 'incomplete cause' not in result.explanation_markdown
     assert not result.model_used.startswith('groq-agent/')
-    assert 'power' in result.explanation_markdown.lower()
+    assert result.model_used.startswith('groq-error/')
+    assert result.physical_classification=='INSUFFICIENT_CONTEXT'
+    assert not result.citations and result.verified_calculations is None
 
 
 def test_wrong_unit_cannot_be_justified_by_a_detection_count(online, monkeypatch):
@@ -130,7 +134,9 @@ def test_wrong_unit_cannot_be_justified_by_a_detection_count(online, monkeypatch
     monkeypatch.setattr(local, 'retrieve_observations', lambda scope: {'status': 'ok', 'detections': 12})
     monkeypatch.setattr(local, 'local_answer', lambda *args: '12 detections. [5]')
     monkeypatch.setattr(agent.researcher, 'answer', lambda req: 'safe local answer')
-    assert agent.answer(ExplainSpikeRequest(user_question='How much energy?')) == 'safe local answer'
+    result=agent.answer(ExplainSpikeRequest(user_question='How much energy?'))
+    assert result.model_used.startswith('groq-error/')
+    assert '12 GJ' not in result.explanation_markdown
 
 
 def test_decimal_rounding_is_checked_at_the_displayed_precision(online, monkeypatch):
@@ -152,7 +158,9 @@ def test_snippet_only_report_cannot_be_cited_as_incident_evidence(online, monkey
     turns = iter([{'tool_calls': [tool('search_incident_reports')]}, {'content': 'A named fire is confirmed. [W1]'}])
     monkeypatch.setattr(agent, 'turn', lambda *a, **k: next(turns))
     monkeypatch.setattr(agent.researcher, 'answer', lambda req: 'safe local answer')
-    assert agent.answer(ExplainSpikeRequest(user_question='is this a fire?')) == 'safe local answer'
+    result=agent.answer(ExplainSpikeRequest(user_question='is this a fire?'))
+    assert result.model_used.startswith('groq-error/')
+    assert 'A named fire is confirmed' not in result.explanation_markdown
 
 
 @pytest.mark.parametrize('text', ['Energy is 2 GJ.', 'Power is 100 MW.', 'Mass was 4 tonnes.', 'Footprint was 6 km².'])
@@ -239,7 +247,9 @@ def test_regional_news_does_not_prove_selected_thermal_incident_identity(online,
     turns=iter([{'tool_calls':[tool('search_incident_reports')]}, {'content':claim+' [W1]'}])
     monkeypatch.setattr(agent,'turn',lambda *a,**k:next(turns,{'content':claim+' [W1]'}))
     monkeypatch.setattr(agent.researcher,'answer',lambda req:'safe local answer')
-    assert agent.answer(ExplainSpikeRequest(user_question='is this a fire?'))=='safe local answer'
+    result=agent.answer(ExplainSpikeRequest(user_question='is this a fire?'))
+    assert result.model_used.startswith('groq-error/')
+    assert claim not in result.explanation_markdown
 
 
 def test_detection_quantity_leads_a_count_answer_after_prose_repair(online, monkeypatch):

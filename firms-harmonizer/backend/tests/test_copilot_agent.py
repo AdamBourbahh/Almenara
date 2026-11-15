@@ -45,6 +45,65 @@ def test_database_tool_returns_server_numbers_and_preserves_scope(online,monkeyp
     assert result.model_used.startswith('groq-agent/') and '**12.5 GJ**' in result.explanation_markdown
 
 
+@pytest.mark.parametrize('question', [
+    'How many satellite detections and what summed FRP in MW are recorded here? Are these separate fires?',
+    'What is the total FRP in MW for the selected period?',
+    '¿Cuántas detecciones y qué FRP total en MW hubo en el periodo seleccionado?',
+    'Dame la suma de potencia radiativa en MW de estas fechas.',
+])
+@pytest.mark.parametrize('model_answer', [
+    'The daily peak was 2147.06 MW. [5]',
+    'There were 119 detections. These are not separate incidents. [5]',
+])
+def test_requested_frp_total_is_not_replaced_by_model_peak_or_omission(online, monkeypatch, question, model_answer):
+    turns = iter([call('query_observations', {}), {'content': model_answer}])
+    monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: next(turns))
+    scopes = []
+
+    def observations(scope):
+        scopes.append(scope)
+        return {'status': 'ok', 'detections': 119, 'summed_frp_mw': 3328.57,
+                'busiest_days': [{'date': '2021-08-16', 'summed_frp_mw': 2147.06}]}
+
+    monkeypatch.setattr(a.local, 'retrieve_observations', observations)
+    response = a.answer(ExplainSpikeRequest(user_question=question,
+        period_start='2021-08-14', period_end='2021-08-22'))
+    text = response.explanation_markdown
+    assert response.model_used.startswith('groq-agent/')
+    assert '**119 satellite detections**' in text
+    assert 'Total summed FRP for the selected period: 3,328.57 MW' in text
+    assert '2147.06' not in text and '2,147.06' not in text
+    assert 'not a daily peak' in text and 'time-integrated energy' in text
+    assert (scopes[0].start, scopes[0].end) == ('2021-08-14', '2021-08-22')
+    assert {citation.id for citation in response.citations} == {'[5]'}
+
+
+def test_zero_observations_render_zero_frp_without_claiming_no_fire(online, monkeypatch):
+    turns = iter([call('query_observations', {}), {'content': 'No detections were recorded. [5]'}])
+    monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: next(turns))
+    monkeypatch.setattr(a.local, 'retrieve_observations', lambda scope:
+        {'status': 'ok', 'detections': 0, 'summed_frp_mw': 0.0})
+    response = a.answer(ExplainSpikeRequest(user_question='What is the total FRP in MW?',
+        period_start='2021-08-14', period_end='2021-08-22'))
+    assert 'Total summed FRP for the selected period: 0.00 MW' in response.explanation_markdown
+    assert 'do not prove that no fire occurred' in response.explanation_markdown
+
+
+def test_energy_tool_cannot_overwrite_requested_frp_total(online, monkeypatch):
+    turns = iter([call('query_observations', {}), call('query_energy', {}),
+                  {'content': 'Thermal observations and estimated energy describe different quantities. [5] [6]'}])
+    monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: next(turns))
+    monkeypatch.setattr(a.local, 'retrieve_observations', lambda scope:
+        {'status': 'ok', 'detections': 119, 'summed_frp_mw': 3328.57})
+    monkeypatch.setattr(a, 'retrieve_energy', lambda scope, req: {'status': 'ok', 'energy_gj': 12.5})
+    monkeypatch.setattr(a, 'energy_answer', lambda *args: '**12.5 GJ** [6]')
+    response = a.answer(ExplainSpikeRequest(user_question='Give me total FRP in MW and energy in GJ.',
+        period_start='2021-08-14', period_end='2021-08-22'))
+    text = response.explanation_markdown
+    assert 'Total summed FRP for the selected period: 3,328.57 MW' in text
+    assert '**12.5 GJ**' in text
+
+
 @pytest.mark.parametrize('bad',[
  call('submit_answer',{'answer':'Fake cause [W999]','citation_ids':['[W999]']}),
  call('submit_answer',{'answer':'It burned 999999999 GJ [K1]','citation_ids':['[K1]']}),
@@ -67,6 +126,28 @@ def test_offline_bypasses_provider(online,monkeypatch):
     monkeypatch.setattr(a,'turn',lambda *args,**kwargs:pytest.fail('offline attempted provider'))
     monkeypatch.setattr(a.researcher,'answer',lambda req:'local fallback')
     assert a.answer(ExplainSpikeRequest())=='local fallback'
+
+
+def test_online_failure_does_not_run_local_fallback(online,monkeypatch):
+    import httpx
+    monkeypatch.setattr(a,'turn',lambda *args,**kwargs: (_ for _ in ()).throw(httpx.ReadTimeout('slow provider')))
+    monkeypatch.setattr(a.researcher,'answer',lambda req:pytest.fail('Online failure invoked local fallback'))
+    result=a.answer(ExplainSpikeRequest(user_question='Explain the selected satellite observations.'))
+    assert result.model_used.startswith('groq-error/')
+    assert result.physical_classification=='INSUFFICIENT_CONTEXT'
+    assert result.verified_calculations is None
+
+
+def test_pilot_envelope_cannot_replace_selected_location_label(online,monkeypatch):
+    seen=[]
+    def model(messages,**kwargs):
+        seen.append(json.loads(messages[1]['content']))
+        return {'content':'FRP is instantaneous power. [K1]'}
+    monkeypatch.setattr(a,'turn',model)
+    a.answer(ExplainSpikeRequest(region_name='Northern Africa selection',prefer_map_context=True,
+        aoi={'coordinates':[[[3.05,36.72],[3.10,36.72],[3.10,36.77],[3.05,36.77],[3.05,36.72]]]},
+        period_start='2023-01-01',period_end='2023-12-31',user_question='Explain FRP.'))
+    assert seen[0]['scope']['location']=='Northern Africa selection'
 
 
 def test_live_protocol_uses_auto_and_never_repeats_completed_tool(online,monkeypatch):
@@ -233,10 +314,10 @@ def test_unsupported_figures_are_stripped_and_the_verified_table_is_kept(compari
     assert '**+25.00%**' in result.explanation_markdown and result.verified_calculations == FORMULA
 
 
-def test_comparison_without_two_complete_periods_falls_back_to_local_engine(comparison, monkeypatch):
+def test_comparison_without_two_complete_periods_reports_model_error(comparison, monkeypatch):
     monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: call('compare_periods', {'start': '2021-01-01', 'end': '2021-12-31'}))
     result = a.answer(ExplainSpikeRequest(user_question='Explain FRP and FRE'))
-    assert comparison == [] and result.model_used == 'deterministic-offline-science'
+    assert comparison == [] and result.model_used.startswith('groq-error/')
 
 
 @pytest.mark.parametrize('tool', ['estimate_emissions', 'query_fire_season', 'query_risk_outlook', 'query_data_quality',
@@ -279,11 +360,12 @@ def test_web_search_runs_only_for_event_reports_and_regulations(online, monkeypa
     assert result.web_search_used is False and result.search_query_executed is None
 
 
-def test_provider_outage_is_reported_as_the_local_engine(online, monkeypatch):
+def test_provider_outage_is_reported_without_local_substitution(online, monkeypatch):
     import httpx
     def outage(*args, **kwargs):
         raise httpx.ReadTimeout('search provider exceeded its deadline')
     monkeypatch.setattr(a, 'turn', outage)
     result = a.answer(ExplainSpikeRequest(user_question='Explain FRP and FRE'))
-    assert result.model_used == result.provider_used == 'deterministic-offline-science'
+    assert result.model_used == result.provider_used
+    assert result.model_used.startswith('groq-error/')
     assert result.data_source == 'real' and result.web_search_used is False

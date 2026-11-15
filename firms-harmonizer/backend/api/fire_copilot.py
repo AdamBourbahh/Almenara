@@ -580,6 +580,32 @@ def classify(req: ExplainSpikeRequest, scope: Scope, observed: dict) -> str:
     return "INSUFFICIENT_CONTEXT"
 
 
+def requests_total_frp(question: str) -> bool:
+    """Recognize a requested sum of sampled power, separately from a peak or energy."""
+    q = normalized(question)
+    return bool(re.search(r"\b(frp|mw|radiative power|potencia radiativa)\b", q)
+                and re.search(r"\b(total|totals|sum|summed|suma|sumada|sumado|aggregate|combined|acumulada|acumulado)\b|how much|cuant[oa]", q))
+
+
+def observation_totals_answer(scope: Scope, observed: dict, *, include_frp: bool = False) -> str:
+    """Render requested observation totals from server evidence, never model prose."""
+    if scope.error or observed.get("status") != "ok":
+        return local_answer(scope, observed)
+    parts = [f"**{observed['detections']:,} satellite detections** for {scope.start} to {scope.end}. "
+             "These are thermal observations, not a count of distinct fire incidents. [5]"]
+    if include_frp:
+        total = observed.get("summed_frp_mw")
+        if total is None:
+            parts.append("Total summed FRP is unavailable for the selected period.")
+        else:
+            parts.append(f"**Total summed FRP for the selected period: {total:,.2f} MW**. [5]\n\n"
+                         "This sums instantaneous FRP samples across the accepted detections in the selected area and dates. "
+                         "It is not a daily peak, simultaneous fire power or time-integrated energy.")
+    if not observed['detections']:
+        parts.append("Zero detections do not prove that no fire occurred: clouds, overpass timing and detection thresholds can hide activity.")
+    return "\n\n".join(parts)
+
+
 def local_answer(scope: Scope, observed: dict, question: str = "") -> str:
     if scope.error:
         return scope.error

@@ -136,7 +136,7 @@ def _gj(cell: dict) -> float:
     return cell["biomass_burned_tonnes"] / WOOSTER_T_PER_GJ
 
 
-def _analysis(scope, req: ExplainSpikeRequest) -> tuple[dict | None, dict | None]:
+def _analysis(scope, req: ExplainSpikeRequest, *, forecast_days: int = 14) -> tuple[dict | None, dict | None]:
     """The dashboard analysis for this polygon, or an explicit unavailable status."""
     if not scope.coordinates:
         return None, {"status": "missing_scope", "message": "Select an area to run this calculation."}
@@ -146,7 +146,7 @@ def _analysis(scope, req: ExplainSpikeRequest) -> tuple[dict | None, dict | None
 
     try:
         response = analyze(AnalyzeRequest(aoi=GeoJSONPolygon(coordinates=scope.coordinates),
-            start_year=2000, end_year=2026, forecast_days=14,
+            start_year=2000, end_year=2026, forecast_days=forecast_days,
             exclude_industrial_flaring=req.exclude_industrial_flaring,
             enable_kalman_gap_filling=req.enable_kalman_gap_filling,
             confidence_level=req.confidence_level))
@@ -386,6 +386,33 @@ def retrieve_data_quality(scope, req: ExplainSpikeRequest) -> dict:
             "strongest_persistent_cells": [{"h3_index": h["h3_index"], "seasonality_entropy": h["shannon_entropy"],
                                              "detections": h["raw_pixel_count"]}
                                             for h in sorted(industrial, key=lambda h: -h["raw_pixel_count"])[:3]]}
+
+
+def retrieve_scientific_audit(scope, req: ExplainSpikeRequest) -> dict:
+    data,error=_analysis(scope,req,forecast_days=0)
+    if error:
+        return error
+    cells=[c for c in data['series'] if (not scope.start or c['date']>=scope.start)
+           and (not scope.end or c['date']<=scope.end)]
+    # Zero/directionless annual fits use display sentinels, not a measured peak.
+    phenology=[p for p in data['phenology_by_year'] if p['concentration_kappa']>1e-12 and p['total_annual_fre_gj']>0]
+    diagnostic_keys=('chow_test_f_stat_raw','chow_test_p_val_raw','chow_test_f_stat_harm',
+        'chow_test_p_val_harm','wasserstein_w1_raw','wasserstein_w1_harm')
+    phenology_keys=('year','peak_doy_mu','peak_date_label','concentration_kappa','season_width_days')
+    return {'status':'ok','data_source':data['data_source'],
+        'mapped_energy_gj':retrieve_mapped_energy(scope,req)['mapped_energy_gj'],'start':scope.start,'end':scope.end,
+        'audit_metrics':({k:data['audit_metrics'][k] for k in diagnostic_keys} if data['audit_metrics'] else None),
+        'phenology':({k:phenology[-1][k] for k in phenology_keys} if phenology else None),
+        'reconstructed_days':sum(c['is_gap_filled'] for c in cells),
+        'unknown_days':sum(c['observation_status']=='unknown' for c in cells),
+        'scope_note':'Energy and gap counts use selected dates. Chow/W1 and latest available von Mises fit use the full archive. Null diagnostics are unavailable, not a pass. Missing observations do not prove cloud cover, fire extinction or ignition.'}
+
+
+def scientific_audit_answer(evidence: dict) -> str:
+    if evidence['status']!='ok':
+        return evidence.get('message','Scientific audit unavailable.')
+    values={k:evidence[k] for k in ('mapped_energy_gj','start','end','audit_metrics','phenology','reconstructed_days','unknown_days')}
+    return 'Verified scientific results [6]:\n\n```json\n'+json.dumps(values,ensure_ascii=False,allow_nan=False,indent=2)+'\n```\n\n'+evidence['scope_note']
 
 
 def quality_answer(scope, evidence: dict, sources_first: bool = False) -> str:

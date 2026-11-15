@@ -21,9 +21,11 @@ export function CubeSyncWidget() {
 
   useEffect(() => {
     void fetchSyncStatus();
-    const timer = window.setInterval(() => void fetchSyncStatus(), 60_000);
+    // Poll faster until the first coverage date arrives, so a backend that comes
+    // back after a 502 is reflected in the header without a manual reload.
+    const timer = window.setInterval(() => void fetchSyncStatus(), coverageDateEnd ? 60_000 : 10_000);
     return () => window.clearInterval(timer);
-  }, [fetchSyncStatus]);
+  }, [fetchSyncStatus, coverageDateEnd]);
 
   const updating = syncStatus === "in_progress";
   return (
