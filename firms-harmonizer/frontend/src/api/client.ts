@@ -23,6 +23,11 @@ const ALLOW_SYNTHETIC_FALLBACK = import.meta.env.VITE_ALLOW_SYNTHETIC_FALLBACK =
 const BACKEND_DOWN_STATUSES = new Set([502, 503, 504]);
 /** Short retries so a restarting API recovers without a manual reload. */
 const BACKEND_RETRY_DELAYS_MS = [700, 1500, 3000];
+export const RATE_LIMITED_MESSAGE = "Too many requests: the server is limiting traffic. Wait a moment and try again.";
+
+export function isRateLimited(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 429;
+}
 
 export function isBackendDown(error: unknown): boolean {
   if (error instanceof ApiError) return BACKEND_DOWN_STATUSES.has(error.status);
@@ -98,6 +103,9 @@ async function requestJson<T>(path: string, init: { method: string; headers: Rec
         }
       } catch {
         /* non-JSON error body: keep statusText */
+      }
+      if (response.status === 429) {
+        throw new ApiError(RATE_LIMITED_MESSAGE, 429);
       }
       if (BACKEND_DOWN_STATUSES.has(response.status)) {
         throw new ApiError(BACKEND_UNAVAILABLE_MESSAGE, response.status);

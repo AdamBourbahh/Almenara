@@ -20,6 +20,8 @@ import {
   fetchRiskPrediction,
   explainSpike,
   isBackendDown,
+  isRateLimited,
+  RATE_LIMITED_MESSAGE,
   runChaosMonkey,
   triggerCubeSync,
   fetchCubeSyncStatus
@@ -256,6 +258,8 @@ let manualSyncPending = false;
 let mapController: AbortController | null = null;
 let mapSeq = 0;
 let mapRetryCount = 0;
+let mapRateRetryCount = 0;
+let mapInflightKey: string | null = null;
 let backendRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let backendRetryCount = 0;
 let backendRetrying = false;
@@ -271,8 +275,11 @@ let riskRequestKey: string | null = null;
 
 function scheduleMapLoad() {
   mapController?.abort();
+  mapController = null;
+  mapInflightKey = null;
   mapSeq++;
   mapRetryCount = 0;
+  mapRateRetryCount = 0;
   clearTimeout(mapTimer);
   // Keep the current cells visible while the new period loads: loadMapYear replaces
   // them on success and keeps them if the request fails.
@@ -492,10 +499,6 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       set({ mapLoading: false });
       return;
     }
-    mapController?.abort();
-    const controller = new AbortController();
-    mapController = controller;
-    const seq = ++mapSeq;
     const year = state.selectedYear;
     const period = selectedMapPeriod(state);
     const request: AnalyzeRequest = {
@@ -506,9 +509,18 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     const key = JSON.stringify({ ...request, period });
     const cached = annualMapCache.get(key);
     if (cached) {
+      mapRateRetryCount = 0;
       set({ mapHexagons: cached, mapYear: year, mapPeriod: period, mapLoading: false, mapError: null });
       return;
     }
+    // An analysis completion or sync refresh can request the same period again;
+    // let the in-flight load finish instead of sending the whole batch twice.
+    if (mapInflightKey === key) return;
+    mapController?.abort();
+    const controller = new AbortController();
+    mapController = controller;
+    mapInflightKey = key;
+    const seq = ++mapSeq;
     set({ mapLoading: true, mapError: null });
     try {
       let data: { map_hexagons: H3MapSummaryHex[]; data_source: "real" | "synthetic" };
@@ -546,12 +558,29 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       const hexagons = data.map_hexagons ?? [];
       if (annualMapCache.size >= 32) annualMapCache.delete(annualMapCache.keys().next().value!);
       annualMapCache.set(key, hexagons);
+      mapRateRetryCount = 0;
       set({ mapHexagons: hexagons, mapYear: year, mapPeriod: period, mapLoading: false,
         isSynthetic: data.data_source === "synthetic" });
     } catch (err: unknown) {
       if (seq !== mapSeq || isAbortError(err)) return;
+      if (isRateLimited(err)) {
+        controller.abort();
+        if (mapRateRetryCount < 4) {
+          mapRateRetryCount += 1;
+          const waitMs = Math.min(60_000, 5_000 * 2 ** (mapRateRetryCount - 1));
+          set({ mapLoading: false, mapError: "Too many requests: retrying this period shortly…" });
+          mapTimer = setTimeout(() => { void useAnalysisStore.getState().loadMapYear(); }, waitMs);
+        } else {
+          mapRateRetryCount = 0;
+          set({ mapLoading: false, mapError: RATE_LIMITED_MESSAGE });
+        }
+        return;
+      }
+      mapRateRetryCount = 0;
       // Keep the last rendered map instead of blanking it when a period request fails.
       set({ mapLoading: false, mapError: err instanceof Error ? err.message : "Map period unavailable" });
+    } finally {
+      if (mapInflightKey === key) mapInflightKey = null;
     }
   },
 
@@ -567,6 +596,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     backendRetrying = false;
     get().clearRiskPrediction();
     mapController?.abort();
+    mapController = null;
+    mapInflightKey = null;
+    mapRateRetryCount = 0;
     mapSeq++;
     clearTimeout(mapTimer);
     annualMapCache.clear();
@@ -618,6 +650,30 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       await get().loadMapYear();
     } catch (err: unknown) {
       if (seq !== analysisSeq || isAbortError(err)) return;
+      if (isRateLimited(err)) {
+        if (backendRetryCount < 3) {
+          backendRetryCount += 1;
+          backendRetrying = true;
+          set({
+            error: "Too many requests: retrying shortly…",
+            loading: false,
+            mapLoading: false,
+            ...keepMap
+          });
+          backendRetryTimer = setTimeout(() => {
+            void useAnalysisStore.getState().executeAnalysis(preserveSelection, override);
+          }, 10_000);
+        } else {
+          backendRetryCount = 0;
+          set({
+            error: RATE_LIMITED_MESSAGE,
+            loading: false,
+            mapLoading: false,
+            ...keepMap
+          });
+        }
+        return;
+      }
       if (isBackendDown(err)) {
         if (backendRetryCount < 10) {
           backendRetryCount += 1;
@@ -791,7 +847,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       if (seq !== syncStatusSeq) return;
       const state = get();
       const updated = res.status === "success" && res.data_source === "real"
-        && Boolean(res.last_synced_utc && res.last_synced_utc !== state.lastSyncedUtc);
+        && Boolean(state.lastSyncedUtc && res.last_synced_utc && res.last_synced_utc !== state.lastSyncedUtc);
       set({
         syncStatus: res.status,
         lastSyncedUtc: res.last_synced_utc,

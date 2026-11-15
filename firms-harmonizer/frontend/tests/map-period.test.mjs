@@ -14,6 +14,7 @@ for(const [name,path] of [['client','api/client'],['store','store/useAnalysisSto
  await writeFile(join(dir,`${name}.mjs`),ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText);
 }
 const {useAnalysisStore:state,riskForecastDate}=await import(pathToFileURL(join(dir,'store.mjs')).href);
+const {fetchMapPeriod,isRateLimited,RATE_LIMITED_MESSAGE}=await import(pathToFileURL(join(dir,'client.mjs')).href);
 const pause=()=>new Promise(resolve=>setTimeout(resolve,250));
 const history={data_source:'real',calendar_series:[],forecast_series:null,map_hexagons:[]};
 
@@ -156,6 +157,32 @@ test('an oversized AOI is rejected before any request', async () => {
  await state.getState().setCustomAoi([[[-100, -50], [50, -50], [50, 50], [-100, 50], [-100, -50]]]);
  assert.equal(calls, 0);
  assert.match(state.getState().error, /too large/i);
+});
+
+test('a 429 becomes a friendly rate-limit error', async () => {
+ globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'Request rate exceeded.' }), { status: 429 });
+ await assert.rejects(
+  () => fetchMapPeriod({ aoi: { type: 'Polygon', coordinates: [] }, start_year: 2020, end_year: 2020 }, '2020-01-01', '2020-01-02'),
+  (err) => isRateLimited(err) && err.message === RATE_LIMITED_MESSAGE
+ );
+});
+
+test('a rate-limited period keeps the map and reports a friendly retry', async () => {
+ const cells = [{ h3_index: '87754e64dffffff', mean_annual_fre: 7, raw_pixel_count: 1,
+  is_industrial_site: false, shannon_entropy: 0.1, trend_slope: 0 }];
+ state.setState({ analysisData: history, loading: false, selectedRange: null, selectedYear: 2019,
+  selectedMonth: 4, selectedDate: '2019-04-01', mapHexagons: cells, mapPeriod: '2019-04-01', mapError: null });
+ globalThis.fetch = async () => new Response(JSON.stringify({ detail: 'Request rate exceeded.' }), { status: 429 });
+ await state.getState().loadMapYear();
+ assert.match(state.getState().mapError, /too many requests/i);
+ assert.deepEqual(state.getState().mapHexagons, cells);
+ assert.equal(state.getState().mapLoading, false);
+ // A newer selection supersedes the pending automatic retry.
+ globalThis.fetch = async () => new Response(JSON.stringify({ data_source: 'real', map_hexagons: cells }));
+ state.getState().setSelectedDate('2019-04-02');
+ await pause();
+ assert.equal(state.getState().mapPeriod, '2019-04-02');
+ assert.equal(state.getState().mapError, null);
 });
 
 
