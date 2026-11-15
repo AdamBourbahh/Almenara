@@ -43,6 +43,19 @@ cd frontend
 npm run dev
 ```
 
+Or start both servers with one command from this directory:
+
+```bash
+make dev
+```
+
+`make dev` selects `.venv` automatically, checks the data cube and the frontend
+dependencies, and stops both servers with Ctrl+C. Without `make`, run
+`python scripts/run_dev.py` and pass `--python` if the environment lives
+elsewhere. `make api` uses the same `.venv` detection and reports missing
+backend dependencies with the installation command instead of a bare import
+error.
+
 With uv, the equivalent environment setup is `uv venv --python 3.12 .venv` followed by `uv pip sync --python .venv/Scripts/python.exe requirements.lock` and `npm ci --prefix frontend`.
 
 The offline ETL uses retained CSVs and builds nominal/high/all-confidence cubes. It does not require downloaded ancillary products to start: missing coverage/land-class inputs stay explicitly unavailable. A prepared installation runs without a network connection; initial dependency and ancillary acquisition require one. Basemap imagery is optional network content.
