@@ -1,0 +1,927 @@
+{
+  "generated_utc": "2026-11-15T11:20:46.111848+00:00",
+  "commit": "a2dc209af1c42f455aa7df501143c86bb2b5e5ee",
+  "uncommitted_fix": true,
+  "mode": "Real archive, forced offline; no model response is simulated.",
+  "before": {
+    "actual_model": "deterministic-offline-science",
+    "map_context": {
+      "label": "Bejís, Castellón — Iberian pilot",
+      "aoi": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.85,
+              39.8
+            ],
+            [
+              -0.5,
+              39.8
+            ],
+            [
+              -0.5,
+              40.05
+            ],
+            [
+              -0.85,
+              40.05
+            ],
+            [
+              -0.85,
+              39.8
+            ]
+          ]
+        ]
+      },
+      "period_start": "2012-06-15",
+      "period_end": "2012-07-15",
+      "h3_index": null
+    },
+    "episode_summary": {
+      "status": "ok",
+      "data_source": "real",
+      "region_name": "Bejís, Castellón — Iberian pilot",
+      "auto_discovered": true,
+      "requested_target_date": null,
+      "episode_start_date": "2012-06-30",
+      "peak_date": "2012-06-30",
+      "episode_end_date": "2012-06-30",
+      "duration_days": 1,
+      "above_background": true,
+      "baseline_sample_days": 4,
+      "background_fre_mj_km2": 1416.5854809490525,
+      "activity_threshold_mj_km2": 5901.420956119083,
+      "peak_daily_fre_mj_km2": 118028.41912238165,
+      "peak_daily_fre_gj": 98027.50264458098,
+      "total_episode_fre_gj": 98027.50264458098,
+      "estimated_biomass_burned_tonnes": 36074.1209732058,
+      "estimated_pm25_tonnes": null,
+      "estimated_co2_tonnes": 56997.11113766516,
+      "emission_assumptions": {
+        "biomass_kg_per_mj": 0.368,
+        "pm25_g_per_kg": null,
+        "co2_g_per_kg": 1580,
+        "status": "PM2.5 requires measured annual fuel classes and supported factors. CO2 uses an assumed constant factor; neither is measured emissions."
+      },
+      "dominant_sensors": [
+        "Aqua",
+        "SNPP",
+        "Terra"
+      ],
+      "sensor_active_days": {
+        "Terra": 1,
+        "Aqua": 1,
+        "SNPP": 1
+      },
+      "gap_filling_occurred": false,
+      "gap_filled_days": 0,
+      "reconstruction_enabled": true,
+      "confidence_level": "nominal",
+      "industrial_excluded": true,
+      "represented_area_km2": 830.5415201989441,
+      "peak_represented_cell_area_km2": 830.5415201989441,
+      "coverage_start": "2001-04-23",
+      "coverage_end": "2026-08-26",
+      "window_start": "2012-06-15",
+      "window_end": "2012-07-15",
+      "left_censored": false,
+      "right_censored": false,
+      "average_peak_month": 4.944367982063497,
+      "peak_month_concentration": 0.2244969285823614,
+      "climatology_years": 15,
+      "industrial_candidate_cells": 0,
+      "industrial_candidate_detections": 0,
+      "pre_2012_raw_count_per_recorded_day": 1.8,
+      "post_2012_raw_count_per_recorded_day": 64.12820512820512,
+      "raw_count_inflation_factor": 35.62678062678062,
+      "sample_h3_indices": [
+        "873954800ffffff",
+        "873954802ffffff",
+        "873954803ffffff"
+      ],
+      "daily_series": [
+        {
+          "date": "2012-06-15",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-16",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-17",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-18",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-19",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-20",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-21",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-22",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-23",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-24",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-25",
+          "harmonized_fre_mj_km2": 8.900464301184618,
+          "fre_gj": 7.3922051511823055,
+          "raw_hotspot_count": 1,
+          "is_gap_filled": false,
+          "active_sensors": [
+            "SNPP"
+          ]
+        },
+        {
+          "date": "2012-06-26",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-27",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-28",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-06-29",
+          "harmonized_fre_mj_km2": 194.95107421432718,
+          "fre_gj": 161.91496154238448,
+          "raw_hotspot_count": 1,
+          "is_gap_filled": false,
+          "active_sensors": [
+            "Terra"
+          ]
+        },
+        {
+          "date": "2012-06-30",
+          "harmonized_fre_mj_km2": 118028.41912238165,
+          "fre_gj": 98027.50264458098,
+          "raw_hotspot_count": 265,
+          "is_gap_filled": false,
+          "active_sensors": [
+            "Terra",
+            "Aqua",
+            "SNPP"
+          ]
+        },
+        {
+          "date": "2012-07-01",
+          "harmonized_fre_mj_km2": 1825.803759308664,
+          "fre_gj": 1516.4058298411649,
+          "raw_hotspot_count": 23,
+          "is_gap_filled": false,
+          "active_sensors": [
+            "Terra",
+            "Aqua",
+            "SNPP"
+          ]
+        },
+        {
+          "date": "2012-07-02",
+          "harmonized_fre_mj_km2": 2335.4245663452475,
+          "fre_gj": 1939.6670696423419,
+          "raw_hotspot_count": 65,
+          "is_gap_filled": false,
+          "active_sensors": [
+            "Terra",
+            "Aqua",
+            "SNPP"
+          ]
+        },
+        {
+          "date": "2012-07-03",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-04",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-05",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-06",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-07",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-08",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-09",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-10",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-11",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-12",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-13",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-14",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2012-07-15",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        }
+      ],
+      "method": "Dashboard full-history calibrated daily FRE integrated over the cells represented each day, with industrial exclusion (<0.75); robust same-month median + 3 scaled MAD, at least 5% of peak. Candidate counts use <=0.75. Duration is consecutive thermal activity within ±15 days, not official incident duration."
+    }
+  },
+  "request": {
+    "region_name": "Bejís, Castellón — Iberian pilot",
+    "aoi": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -0.85,
+            39.8
+          ],
+          [
+            -0.5,
+            39.8
+          ],
+          [
+            -0.5,
+            40.05
+          ],
+          [
+            -0.85,
+            40.05
+          ],
+          [
+            -0.85,
+            39.8
+          ]
+        ]
+      ]
+    },
+    "prefer_map_context": true,
+    "period_start": "2022-08-15",
+    "period_end": "2022-08-28",
+    "user_question": "¿Se conoce la causa de ignición o estás deduciéndola de las condiciones meteorológicas? Cita la evidencia específica para este incendio.",
+    "conversation": [
+      {
+        "role": "user",
+        "content": "¿Qué ocurrió en el incendio de Bejís (Castellón) iniciado el 15 de agosto de 2022? Investiga lo documentado sobre su evolución y causa."
+      },
+      {
+        "role": "assistant",
+        "content": "Retrieved reporting documents the regional incident identified as the Bejís wildfire in Castellón, noting an escalation during which preliminary incident reports characterized the event as a \"tormenta de fuego\" (firestorm) [W1]. The retrieved text also highlights consequences involving a passenger train affected along the route during the incident [W1]. \n\nThe retrieved documentation does not provide details on the ignition cause, specific fuel conditions, local weather variables, or precise containment dates, leaving the confirmed cause and environmental drivers unverified in the supplied text. Furthermore, without defined spatial coordinates or tool measurements, the regional incident remains a plausible candidate rather than a confirmed identity for any specific mapped ground location. Detailed perimeter boundaries and verified ignition determinations require accessing complete official investigative reports or localized satellite observations."
+      },
+      {
+        "role": "user",
+        "content": "¿Se conoce la causa de ignición o estás deduciéndola de las condiciones meteorológicas? Cita la evidencia específica para este incendio."
+      },
+      {
+        "role": "assistant",
+        "content": "### Root Cause & Ignition Mechanism\n\nThe available reports **do not establish the ignition cause**. This means the cause is unverified in the evidence retrieved here; it does not establish that authorities have never determined it. [5]\n\n### Temporal Progression & Episode Duration\n\nThe automatically discovered thermal episode runs from **2012-06-30** to **2012-06-30**: **1 consecutive days** above the activity threshold. Peak: **2012-06-30**, **118,028.419 MJ/km²/day** (98,027.503 GJ). Integrated episode FRE: **98,027.503 GJ**. [6]\n\nThreshold: 5,901.421 MJ/km²/day; background sample: 4 days from other years. This estimates thermal activity within ±15 days, not official ignition, containment or extinction dates. A regional envelope can contain several fires. Available AOI archive: 2001-04-23–2026-08-26.\n\n### Thermodynamic, Atmospheric & Ecological Consequences\n\n- Estimated dry biomass consumed: **36,074.121 tonnes**, using 0.368 kg/MJ. [1]\n- PM2.5 emission estimate unavailable: measured annual fuel support is incomplete.\n- Assumed-factor CO2 emissions: **56,997.111 tonnes**, using 1,580 g/kg dry biomass.\n\nThese are model and factor-based scenario estimates, not measured emissions, ambient PM2.5 concentrations or burned hectares. Emission factors vary with fuel and combustion. Local health effects, ecological losses, casualties and damage require incident-specific evidence; they cannot be inferred from energy alone. [11]\n\n### Sensor & Statistical Verification\n\nActive sensors: **Aqua, SNPP, Terra**; reconstructed days: **0**. Reconstruction enabled: **yes**. Selected polygon area: **830.542 km²**. [4] [6]\n\nCircular mean of annual peak months: **4.94** (1=January, 12=December; 15 years). Post/pre-2012 raw counts per recorded cube day: **35.627×**. This descriptive ratio includes coverage and real variability; it is not an isolated sensor effect. Industrial candidates in the full AOI history: **0 cells**, **0 cube detection counts**; these are screening counts, not distinct facilities or fires. [10]\n\nThis is a statistical thermal-activity classification, not confirmation of vegetation fuel or an identified wildfire. MODIS and VIIRS differ in resolution and sensitivity; calibrated FRE is used instead of comparing raw counts as fire totals. The episode profile sums within-cell sensor fusion times exact cell areas, with industrial sources excluded. Dashboard density is that sum divided by the selected polygon area. Unknown days remain unfilled; only explicitly evidenced gaps permit reconstruction. This is a sampled model-derived energy proxy, not a continuous physical measurement. H3 cell centers define the selection, not an administrative boundary or mapped fire perimeter. [2] [3] [5]"
+      },
+      {
+        "role": "user",
+        "content": "¿Cuántas detecciones y cuánta energía en GJ registra el archivo para el área seleccionada del 15 al 28 de agosto de 2022? Distingue detecciones de incendios y explica si son mediciones continuas."
+      },
+      {
+        "role": "assistant",
+        "content": "**59,515.938 GJ** of mapped, observation-based energy proxy for **2022-08-15 to 2022-08-28** in **Bejís, Castellón — Iberian pilot**. [6]\n\nRegional temporal estimate: **59,515.938 GJ**, over **14 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **21,901.865 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **377.314 km²**; selected polygon: **830.542 km²**. Available through **2022-08-28**. Industrial sources excluded.\n\nThe archive records 1,723 satellite detections and an integrated energy of 59,515.938 GJ between August 15 and August 28, 2022, representing thermal activity consistent with active vegetation burning rather than verified individual fires [5] [6]. Detections concentrate between August 15 and August 19, reaching a peak on August 17 with 807 detections and 25,032.485 GJ [5] [6]. \n\nBecause spatial detections have not been matched against an official incident perimeter, any named wildfire in the surrounding Iberian area serves strictly as broader regional context. Individual grid-cell observations cannot be affirmatively attributed to a specific incident's perimeter, nor do they represent continuous tracking, as polar-orbiting satellites measure instantaneous power only during discrete overpasses [5] [K1] [K10]."
+      }
+    ]
+  },
+  "response": {
+    "physical_classification": "EXTREME_VEGETATION_FIRE",
+    "explanation_markdown": "### Root Cause & Ignition Mechanism\n\nThe available reports **do not establish the ignition cause**. This means the cause is unverified in the evidence retrieved here; it does not establish that authorities have never determined it. [5]\n\n#### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Temporal Progression & Episode Duration\n\nThe automatically discovered thermal episode runs from **2022-08-15** to **2022-08-19**: **5 consecutive days** above the activity threshold. Peak: **2022-08-17**, **30,139.956 MJ/km²/day** (25,032.485 GJ). Integrated episode FRE: **59,515.938 GJ**. [6]\n\nThreshold: 1,506.998 MJ/km²/day; background sample: 3 days from other years. This estimates thermal activity within ±15 days, not official ignition, containment or extinction dates. A regional envelope can contain several fires. Available AOI archive: 2001-04-23–2026-08-26.\n\n### Thermodynamic, Atmospheric & Ecological Consequences\n\n- Estimated dry biomass consumed: **21,901.865 tonnes**, using 0.368 kg/MJ. [1]\n- PM2.5 emission estimate unavailable: measured annual fuel support is incomplete.\n- Assumed-factor CO2 emissions: **34,604.947 tonnes**, using 1,580 g/kg dry biomass.\n\nThese are model and factor-based scenario estimates, not measured emissions, ambient PM2.5 concentrations or burned hectares. Emission factors vary with fuel and combustion. Local health effects, ecological losses, casualties and damage require incident-specific evidence; they cannot be inferred from energy alone. [11]\n\n### Sensor & Statistical Verification\n\nActive sensors: **Terra, Aqua, NOAA-20, SNPP**; reconstructed days: **0**. Reconstruction enabled: **yes**. Selected polygon area: **830.542 km²**. [4] [6]\n\nCircular mean of annual peak months: **4.94** (1=January, 12=December; 15 years). Post/pre-2012 raw counts per recorded cube day: **35.627×**. This descriptive ratio includes coverage and real variability; it is not an isolated sensor effect. Industrial candidates in the full AOI history: **0 cells**, **0 cube detection counts**; these are screening counts, not distinct facilities or fires. [10]\n\nThis is a statistical thermal-activity classification, not confirmation of vegetation fuel or an identified wildfire. MODIS and VIIRS differ in resolution and sensitivity; calibrated FRE is used instead of comparing raw counts as fire totals. The episode profile sums within-cell sensor fusion times exact cell areas, with industrial sources excluded. Dashboard density is that sum divided by the selected polygon area. Unknown days remain unfilled; only explicitly evidenced gaps permit reconstruction. This is a sampled model-derived energy proxy, not a continuous physical measurement. H3 cell centers define the selection, not an administrative boundary or mapped fire perimeter. [2] [3] [5]",
+    "citations": [
+      {
+        "id": "[5]",
+        "source_type": "NASA_DATASET",
+        "title": "NASA FIRMS active fire observations",
+        "authors_or_agency": "NASA EOSDIS LANCE",
+        "year": 2026,
+        "dataset_or_doi": "NASA Earthdata / FIRMS",
+        "url": "https://firms.modaps.eosdis.nasa.gov/",
+        "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+      },
+      {
+        "id": "[2]",
+        "source_type": "PEER_REVIEWED",
+        "title": "The New VIIRS 375 m active fire detection product",
+        "authors_or_agency": "Schroeder et al.",
+        "year": 2014,
+        "dataset_or_doi": "10.1016/j.rse.2013.12.008",
+        "url": "https://doi.org/10.1016/j.rse.2013.12.008",
+        "relevance_note": "VIIRS active fire detection methodology."
+      },
+      {
+        "id": "[3]",
+        "source_type": "PEER_REVIEWED",
+        "title": "The Collection 6 MODIS active fire detection algorithm and fire products",
+        "authors_or_agency": "Giglio et al.",
+        "year": 2016,
+        "dataset_or_doi": "10.1016/j.rse.2016.02.054",
+        "url": "https://doi.org/10.1016/j.rse.2016.02.054",
+        "relevance_note": "MODIS active fire detection methodology."
+      },
+      {
+        "id": "[1]",
+        "source_type": "PEER_REVIEWED",
+        "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+        "authors_or_agency": "Wooster et al.",
+        "year": 2005,
+        "dataset_or_doi": "10.1029/2005JD006318",
+        "url": "https://doi.org/10.1029/2005JD006318",
+        "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+      },
+      {
+        "id": "[4]",
+        "source_type": "PEER_REVIEWED",
+        "title": "Maximum likelihood estimates of linear dynamic systems",
+        "authors_or_agency": "Rauch, Tung and Striebel",
+        "year": 1965,
+        "dataset_or_doi": "10.2514/3.3166",
+        "url": "https://doi.org/10.2514/3.3166",
+        "relevance_note": "Fixed-interval smoothing estimates a latent state; it does not directly observe a fire."
+      },
+      {
+        "id": "[6]",
+        "source_type": "NASA_DATASET",
+        "title": "Local FIRMS-Harmonizer scientific cube",
+        "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+        "year": 2026,
+        "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+        "url": null,
+        "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+      },
+      {
+        "id": "[10]",
+        "source_type": "PEER_REVIEWED",
+        "title": "Methods for Global Survey of Natural Gas Flaring from VIIRS Data",
+        "authors_or_agency": "Elvidge et al.",
+        "year": 2016,
+        "dataset_or_doi": "10.3390/en9010014",
+        "url": "https://doi.org/10.3390/en9010014",
+        "relevance_note": "Persistent industrial heat requires independent facility evidence; temporal entropy alone is not a facility identification."
+      },
+      {
+        "id": "[11]",
+        "source_type": "PEER_REVIEWED",
+        "title": "Emission of trace gases and aerosols from biomass burning – an updated assessment",
+        "authors_or_agency": "Andreae",
+        "year": 2019,
+        "dataset_or_doi": "10.5194/acp-19-8523-2019",
+        "url": "https://doi.org/10.5194/acp-19-8523-2019",
+        "relevance_note": "Emission factors vary with fuel and combustion. The dossier uses explicitly assumed factors, not a biome-specific measurement from this paper."
+      }
+    ],
+    "web_search_used": false,
+    "search_query_executed": null,
+    "model_used": "offline-physics-engine",
+    "data_source": "real",
+    "map_context": {
+      "label": "Bejís, Castellón — Iberian pilot",
+      "aoi": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -0.85,
+              39.8
+            ],
+            [
+              -0.5,
+              39.8
+            ],
+            [
+              -0.5,
+              40.05
+            ],
+            [
+              -0.85,
+              40.05
+            ],
+            [
+              -0.85,
+              39.8
+            ]
+          ]
+        ]
+      },
+      "period_start": "2022-08-15",
+      "period_end": "2022-08-28",
+      "h3_index": null
+    },
+    "answer_markdown": "### Root Cause & Ignition Mechanism\n\nThe available reports **do not establish the ignition cause**. This means the cause is unverified in the evidence retrieved here; it does not establish that authorities have never determined it. [5]\n\n#### Incident evidence\n\nNo matching official incident evidence was retrieved. This does not mean the fire was undocumented or that its cause is known.\n\n### Temporal Progression & Episode Duration\n\nThe automatically discovered thermal episode runs from **2022-08-15** to **2022-08-19**: **5 consecutive days** above the activity threshold. Peak: **2022-08-17**, **30,139.956 MJ/km²/day** (25,032.485 GJ). Integrated episode FRE: **59,515.938 GJ**. [6]\n\nThreshold: 1,506.998 MJ/km²/day; background sample: 3 days from other years. This estimates thermal activity within ±15 days, not official ignition, containment or extinction dates. A regional envelope can contain several fires. Available AOI archive: 2001-04-23–2026-08-26.\n\n### Thermodynamic, Atmospheric & Ecological Consequences\n\n- Estimated dry biomass consumed: **21,901.865 tonnes**, using 0.368 kg/MJ. [1]\n- PM2.5 emission estimate unavailable: measured annual fuel support is incomplete.\n- Assumed-factor CO2 emissions: **34,604.947 tonnes**, using 1,580 g/kg dry biomass.\n\nThese are model and factor-based scenario estimates, not measured emissions, ambient PM2.5 concentrations or burned hectares. Emission factors vary with fuel and combustion. Local health effects, ecological losses, casualties and damage require incident-specific evidence; they cannot be inferred from energy alone. [11]\n\n### Sensor & Statistical Verification\n\nActive sensors: **Terra, Aqua, NOAA-20, SNPP**; reconstructed days: **0**. Reconstruction enabled: **yes**. Selected polygon area: **830.542 km²**. [4] [6]\n\nCircular mean of annual peak months: **4.94** (1=January, 12=December; 15 years). Post/pre-2012 raw counts per recorded cube day: **35.627×**. This descriptive ratio includes coverage and real variability; it is not an isolated sensor effect. Industrial candidates in the full AOI history: **0 cells**, **0 cube detection counts**; these are screening counts, not distinct facilities or fires. [10]\n\nThis is a statistical thermal-activity classification, not confirmation of vegetation fuel or an identified wildfire. MODIS and VIIRS differ in resolution and sensitivity; calibrated FRE is used instead of comparing raw counts as fire totals. The episode profile sums within-cell sensor fusion times exact cell areas, with industrial sources excluded. Dashboard density is that sum divided by the selected polygon area. Unknown days remain unfilled; only explicitly evidenced gaps permit reconstruction. This is a sampled model-derived energy proxy, not a continuous physical measurement. H3 cell centers define the selection, not an administrative boundary or mapped fire perimeter. [2] [3] [5]",
+    "provider_used": "offline-physics-engine",
+    "episode_summary": {
+      "status": "ok",
+      "data_source": "real",
+      "region_name": "Bejís, Castellón — Iberian pilot",
+      "auto_discovered": true,
+      "requested_target_date": null,
+      "episode_start_date": "2022-08-15",
+      "peak_date": "2022-08-17",
+      "episode_end_date": "2022-08-19",
+      "duration_days": 5,
+      "above_background": true,
+      "baseline_sample_days": 3,
+      "background_fre_mj_km2": 6.916560326446034,
+      "activity_threshold_mj_km2": 1506.9978010618063,
+      "peak_daily_fre_mj_km2": 30139.956021236125,
+      "peak_daily_fre_gj": 25032.48489260677,
+      "total_episode_fre_gj": 59515.93752268897,
+      "estimated_biomass_burned_tonnes": 21901.86500834954,
+      "estimated_pm25_tonnes": null,
+      "estimated_co2_tonnes": 34604.94671319228,
+      "emission_assumptions": {
+        "biomass_kg_per_mj": 0.368,
+        "pm25_g_per_kg": null,
+        "co2_g_per_kg": 1580,
+        "status": "PM2.5 requires measured annual fuel classes and supported factors. CO2 uses an assumed constant factor; neither is measured emissions."
+      },
+      "dominant_sensors": [
+        "Terra",
+        "Aqua",
+        "NOAA-20",
+        "SNPP"
+      ],
+      "sensor_active_days": {
+        "Terra": 5,
+        "Aqua": 4,
+        "SNPP": 4,
+        "NOAA-20": 4
+      },
+      "gap_filling_occurred": false,
+      "gap_filled_days": 0,
+      "reconstruction_enabled": true,
+      "confidence_level": "nominal",
+      "industrial_excluded": true,
+      "represented_area_km2": 830.5415201989441,
+      "peak_represented_cell_area_km2": 830.5415201989442,
+      "coverage_start": "2001-04-23",
+      "coverage_end": "2026-08-26",
+      "window_start": "2022-08-02",
+      "window_end": "2022-09-01",
+      "left_censored": false,
+      "right_censored": false,
+      "average_peak_month": 4.944367982063497,
+      "peak_month_concentration": 0.2244969285823614,
+      "climatology_years": 15,
+      "industrial_candidate_cells": 0,
+      "industrial_candidate_detections": 0,
+      "pre_2012_raw_count_per_recorded_day": 1.8,
+      "post_2012_raw_count_per_recorded_day": 64.12820512820512,
+      "raw_count_inflation_factor": 35.62678062678062,
+      "sample_h3_indices": [
+        "873954800ffffff",
+        "873954802ffffff",
+        "873954803ffffff"
+      ],
+      "daily_series": [
+        {
+          "date": "2022-08-02",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-03",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-04",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-05",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-06",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-07",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-08",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-09",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-10",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-11",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-12",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-13",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-14",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-15",
+          "harmonized_fre_mj_km2": 2593.6827409070165,
+          "fre_gj": 2154.1612065466775,
+          "raw_hotspot_count": 6,
+          "is_gap_filled": false,
+          "active_sensors": [
+            "Terra"
+          ]
+        },
+        {
+          "date": "2022-08-16",
+          "harmonized_fre_mj_km2": 24782.849993374166,
+          "fre_gj": 20583.185908359374,
+          "raw_hotspot_count": 281,
+          "is_gap_filled": false,
+          "active_sensors": [
+            "Terra",
+            "Aqua",
+            "SNPP",
+            "NOAA-20"
+          ]
+        },
+        {
+          "date": "2022-08-17",
+          "harmonized_fre_mj_km2": 30139.956021236125,
+          "fre_gj": 25032.48489260677,
+          "raw_hotspot_count": 807,
+          "is_gap_filled": false,
+          "active_sensors": [
+            "Terra",
+            "Aqua",
+            "SNPP",
+            "NOAA-20"
+          ]
+        },
+        {
+          "date": "2022-08-18",
+          "harmonized_fre_mj_km2": 8303.2255083121,
+          "fre_gj": 6896.173536228182,
+          "raw_hotspot_count": 396,
+          "is_gap_filled": false,
+          "active_sensors": [
+            "Terra",
+            "Aqua",
+            "SNPP",
+            "NOAA-20"
+          ]
+        },
+        {
+          "date": "2022-08-19",
+          "harmonized_fre_mj_km2": 5839.481664668896,
+          "fre_gj": 4849.931978947966,
+          "raw_hotspot_count": 233,
+          "is_gap_filled": false,
+          "active_sensors": [
+            "Terra",
+            "Aqua",
+            "SNPP",
+            "NOAA-20"
+          ]
+        },
+        {
+          "date": "2022-08-20",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-21",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-22",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-23",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-24",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-25",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-26",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-27",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-28",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-29",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-30",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-08-31",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        },
+        {
+          "date": "2022-09-01",
+          "harmonized_fre_mj_km2": 0.0,
+          "fre_gj": 0.0,
+          "raw_hotspot_count": 0,
+          "is_gap_filled": false,
+          "active_sensors": []
+        }
+      ],
+      "method": "Dashboard full-history calibrated daily FRE integrated over the cells represented each day, with industrial exclusion (<0.75); robust same-month median + 3 scaled MAD, at least 5% of peak. Candidate counts use <=0.75. Duration is consecutive thermal activity within ±15 days, not official incident duration."
+    },
+    "guardrail_triggered": false,
+    "verified_calculations": {
+      "items": [
+        {
+          "label": "Episode radiative energy",
+          "formula": "Σ daily energy over 5 days = 59,515.938 GJ",
+          "value": 59515.93752268897,
+          "unit": "GJ"
+        },
+        {
+          "label": "Consumed dry biomass",
+          "formula": "59,515.938 GJ × 0.368 t/GJ = 21,901.865 t",
+          "value": 21901.86500834954,
+          "unit": "t"
+        },
+        {
+          "label": "CO2 scenario",
+          "formula": "21,901.865 t × 1,580 kg/t ÷ 1,000 = 34,604.947 t",
+          "value": 34604.94671319228,
+          "unit": "t"
+        }
+      ],
+      "note": "Model-derived estimates from sampled satellite observations. CO2 uses an assumed constant factor; neither is a measured emission."
+    },
+    "suggested_prompts": [],
+    "evidence_sources": [
+      "local_cube",
+      "verified_calculation",
+      "knowledge"
+    ]
+  },
+  "status_code": 200,
+  "elapsed_ms": 21960
+}

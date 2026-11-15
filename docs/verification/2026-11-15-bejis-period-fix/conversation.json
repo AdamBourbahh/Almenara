@@ -1,0 +1,606 @@
+{
+  "commit": "a2dc209af1c42f455aa7df501143c86bb2b5e5ee",
+  "uncommitted_fix": true,
+  "generated_utc": "2026-11-15T11:18:59.115242+00:00",
+  "configured_provider": "gemini",
+  "configured_model": "gemini-3.8-flash",
+  "model_credential_present": true,
+  "selection": "Repeat of the original Bejis conversation after the period propagation fix; no reference answers or incident-specific rules supplied.",
+  "scope_note": "Study rectangle around Bejís, not an official fire perimeter. Reference answers and URLs were not supplied to the model.",
+  "records": [
+    {
+      "question": "¿Qué ocurrió en el incendio de Bejís (Castellón) iniciado el 15 de agosto de 2022? Investiga lo documentado sobre su evolución y causa.",
+      "request": {
+        "region_name": "Bejís, Castellón — Iberian pilot",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -0.85,
+                39.8
+              ],
+              [
+                -0.5,
+                39.8
+              ],
+              [
+                -0.5,
+                40.05
+              ],
+              [
+                -0.85,
+                40.05
+              ],
+              [
+                -0.85,
+                39.8
+              ]
+            ]
+          ]
+        },
+        "prefer_map_context": true,
+        "period_start": "2022-08-15",
+        "period_end": "2022-08-28",
+        "user_question": "¿Qué ocurrió en el incendio de Bejís (Castellón) iniciado el 15 de agosto de 2022? Investiga lo documentado sobre su evolución y causa.",
+        "conversation": [
+          {
+            "role": "user",
+            "content": "¿Qué ocurrió en el incendio de Bejís (Castellón) iniciado el 15 de agosto de 2022? Investiga lo documentado sobre su evolución y causa."
+          },
+          {
+            "role": "assistant",
+            "content": "### Root Cause & Ignition Mechanism\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### Temporal Progression & Episode Duration\n\nSelect an area or name a supported pilot region to investigate its episode. Official duration is not established.\n\n### Thermodynamic, Atmospheric & Ecological Consequences\n\nNo integrated episode energy is available; biomass, emissions and ecological losses have not been invented. Instantaneous MW and raw detection counts cannot replace them. [1]\n\n### Sensor & Statistical Verification\n\nChoose a place and a date or year to query local detections.\n\nMODIS and VIIRS have different sensitivities; reconstruction and forecasts are estimates. [2] [3] [4]"
+          },
+          {
+            "role": "user",
+            "content": "¿Se conoce la causa de ignición o estás deduciéndola de las condiciones meteorológicas? Cita la evidencia específica para este incendio."
+          },
+          {
+            "role": "assistant",
+            "content": "Ignition is not being deduced from weather conditions, satellite detections, or heat measurements. The cause of ignition is absent from the retrieved article text.\n\nThe retrieved reports identify a candidate regional event, the Bejís fire, active across l'Alt Palància and Els Serrans and leading to municipal evacuations [W1]. While reports note regional lightning strikes occurring in the area [W3], they do not determine the ignition cause of the fire. Furthermore, thermal detections consistent with active burning do not confirm identity with a specific named wildfire perimeter. Establishing the verified ignition cause requires official forensic incident investigation records, which are not present in the retrieved texts."
+          },
+          {
+            "role": "user",
+            "content": "¿Cuántas detecciones y cuánta energía en GJ registra el archivo para el área seleccionada del 15 al 28 de agosto de 2022? Distingue detecciones de incendios y explica si son mediciones continuas."
+          },
+          {
+            "role": "assistant",
+            "content": "**59,515.938 GJ** of mapped, observation-based energy proxy for **2022-08-15 to 2022-08-28** in **Bejís, Castellón — Iberian pilot**. [6]\n\nRegional temporal estimate: **59,515.938 GJ**, over **14 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **21,901.865 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **377.314 km²**; selected polygon: **830.542 km²**. Available through **2022-08-28**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,723 satellite detections** in the **Bejís, Castellón — Iberian pilot** for **2022-08-15 to 2022-08-28** (Aqua, N20, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **70,264.31 MW**.\n- Strongest individual detection: **1,814.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter."
+          }
+        ]
+      },
+      "status_code": 200,
+      "elapsed_ms": 27287,
+      "actual_model": "deterministic-offline-science",
+      "tools": [
+        {
+          "elapsed_ms": 2196,
+          "tools": [
+            {
+              "name": "search_incident_reports",
+              "arguments": "{\"query\":\"Bejis Castellon incendio agosto 2022 causa evolucion\"}"
+            }
+          ]
+        },
+        {
+          "elapsed_ms": 1948,
+          "tools": [
+            {
+              "name": "search_incident_reports",
+              "arguments": "{\"query\":\"Bejis Castellon rayo tormenta seca agosto 2022\"}"
+            }
+          ]
+        },
+        {
+          "elapsed_ms": 3858,
+          "tools": []
+        }
+      ],
+      "response": {
+        "physical_classification": "INSUFFICIENT_CONTEXT",
+        "explanation_markdown": "### Root Cause & Ignition Mechanism\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### Temporal Progression & Episode Duration\n\nSelect an area or name a supported pilot region to investigate its episode. Official duration is not established.\n\n### Thermodynamic, Atmospheric & Ecological Consequences\n\nNo integrated episode energy is available; biomass, emissions and ecological losses have not been invented. Instantaneous MW and raw detection counts cannot replace them. [1]\n\n### Sensor & Statistical Verification\n\nChoose a place and a date or year to query local detections.\n\nMODIS and VIIRS have different sensitivities; reconstruction and forecasts are estimates. [2] [3] [4]",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          },
+          {
+            "id": "[2]",
+            "source_type": "PEER_REVIEWED",
+            "title": "The New VIIRS 375 m active fire detection product",
+            "authors_or_agency": "Schroeder et al.",
+            "year": 2014,
+            "dataset_or_doi": "10.1016/j.rse.2013.12.008",
+            "url": "https://doi.org/10.1016/j.rse.2013.12.008",
+            "relevance_note": "VIIRS active fire detection methodology."
+          },
+          {
+            "id": "[3]",
+            "source_type": "PEER_REVIEWED",
+            "title": "The Collection 6 MODIS active fire detection algorithm and fire products",
+            "authors_or_agency": "Giglio et al.",
+            "year": 2016,
+            "dataset_or_doi": "10.1016/j.rse.2016.02.054",
+            "url": "https://doi.org/10.1016/j.rse.2016.02.054",
+            "relevance_note": "MODIS active fire detection methodology."
+          },
+          {
+            "id": "[1]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+            "authors_or_agency": "Wooster et al.",
+            "year": 2005,
+            "dataset_or_doi": "10.1029/2005JD006318",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+          },
+          {
+            "id": "[4]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Maximum likelihood estimates of linear dynamic systems",
+            "authors_or_agency": "Rauch, Tung and Striebel",
+            "year": 1965,
+            "dataset_or_doi": "10.2514/3.3166",
+            "url": "https://doi.org/10.2514/3.3166",
+            "relevance_note": "Fixed-interval smoothing estimates a latent state; it does not directly observe a fire."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-offline-science",
+        "data_source": "real",
+        "map_context": null,
+        "answer_markdown": "### Root Cause & Ignition Mechanism\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### Temporal Progression & Episode Duration\n\nSelect an area or name a supported pilot region to investigate its episode. Official duration is not established.\n\n### Thermodynamic, Atmospheric & Ecological Consequences\n\nNo integrated episode energy is available; biomass, emissions and ecological losses have not been invented. Instantaneous MW and raw detection counts cannot replace them. [1]\n\n### Sensor & Statistical Verification\n\nChoose a place and a date or year to query local detections.\n\nMODIS and VIIRS have different sensitivities; reconstruction and forecasts are estimates. [2] [3] [4]",
+        "provider_used": "deterministic-offline-science",
+        "episode_summary": {
+          "status": "missing_scope",
+          "message": "Select an area or name a supported pilot region to investigate its episode."
+        },
+        "guardrail_triggered": false,
+        "verified_calculations": null,
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube",
+          "knowledge"
+        ]
+      }
+    },
+    {
+      "question": "¿Se conoce la causa de ignición o estás deduciéndola de las condiciones meteorológicas? Cita la evidencia específica para este incendio.",
+      "request": {
+        "region_name": "Bejís, Castellón — Iberian pilot",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -0.85,
+                39.8
+              ],
+              [
+                -0.5,
+                39.8
+              ],
+              [
+                -0.5,
+                40.05
+              ],
+              [
+                -0.85,
+                40.05
+              ],
+              [
+                -0.85,
+                39.8
+              ]
+            ]
+          ]
+        },
+        "prefer_map_context": true,
+        "period_start": "2022-08-15",
+        "period_end": "2022-08-28",
+        "user_question": "¿Se conoce la causa de ignición o estás deduciéndola de las condiciones meteorológicas? Cita la evidencia específica para este incendio.",
+        "conversation": [
+          {
+            "role": "user",
+            "content": "¿Qué ocurrió en el incendio de Bejís (Castellón) iniciado el 15 de agosto de 2022? Investiga lo documentado sobre su evolución y causa."
+          },
+          {
+            "role": "assistant",
+            "content": "### Root Cause & Ignition Mechanism\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### Temporal Progression & Episode Duration\n\nSelect an area or name a supported pilot region to investigate its episode. Official duration is not established.\n\n### Thermodynamic, Atmospheric & Ecological Consequences\n\nNo integrated episode energy is available; biomass, emissions and ecological losses have not been invented. Instantaneous MW and raw detection counts cannot replace them. [1]\n\n### Sensor & Statistical Verification\n\nChoose a place and a date or year to query local detections.\n\nMODIS and VIIRS have different sensitivities; reconstruction and forecasts are estimates. [2] [3] [4]"
+          },
+          {
+            "role": "user",
+            "content": "¿Se conoce la causa de ignición o estás deduciéndola de las condiciones meteorológicas? Cita la evidencia específica para este incendio."
+          },
+          {
+            "role": "assistant",
+            "content": "Ignition is not being deduced from weather conditions, satellite detections, or heat measurements. The cause of ignition is absent from the retrieved article text.\n\nThe retrieved reports identify a candidate regional event, the Bejís fire, active across l'Alt Palància and Els Serrans and leading to municipal evacuations [W1]. While reports note regional lightning strikes occurring in the area [W3], they do not determine the ignition cause of the fire. Furthermore, thermal detections consistent with active burning do not confirm identity with a specific named wildfire perimeter. Establishing the verified ignition cause requires official forensic incident investigation records, which are not present in the retrieved texts."
+          },
+          {
+            "role": "user",
+            "content": "¿Cuántas detecciones y cuánta energía en GJ registra el archivo para el área seleccionada del 15 al 28 de agosto de 2022? Distingue detecciones de incendios y explica si son mediciones continuas."
+          },
+          {
+            "role": "assistant",
+            "content": "**59,515.938 GJ** of mapped, observation-based energy proxy for **2022-08-15 to 2022-08-28** in **Bejís, Castellón — Iberian pilot**. [6]\n\nRegional temporal estimate: **59,515.938 GJ**, over **14 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **21,901.865 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **377.314 km²**; selected polygon: **830.542 km²**. Available through **2022-08-28**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,723 satellite detections** in the **Bejís, Castellón — Iberian pilot** for **2022-08-15 to 2022-08-28** (Aqua, N20, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **70,264.31 MW**.\n- Strongest individual detection: **1,814.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter."
+          }
+        ]
+      },
+      "status_code": 200,
+      "elapsed_ms": 31627,
+      "actual_model": "gemini-agent/gemini-3.8-flash",
+      "tools": [
+        {
+          "elapsed_ms": 1604,
+          "tools": [
+            {
+              "name": "search_incident_reports",
+              "arguments": "{\"query\":\"Bejis Castellon causa ignicion rayo agosto 2022\"}"
+            }
+          ]
+        },
+        {
+          "elapsed_ms": 1902,
+          "tools": [
+            {
+              "name": "search_incident_reports",
+              "arguments": "{\"query\":\"incendio Bejis rayo caida rayo tormenta seca agosto 2022\"}"
+            }
+          ]
+        },
+        {
+          "elapsed_ms": 3414,
+          "tools": []
+        },
+        {
+          "elapsed_ms": 3089,
+          "tools": []
+        },
+        {
+          "elapsed_ms": 3606,
+          "tools": []
+        }
+      ],
+      "response": {
+        "physical_classification": "RETRIEVED_EVIDENCE",
+        "explanation_markdown": "Ignition is not being deduced from weather conditions, satellite detections, or heat measurements. The cause of ignition is absent from the retrieved article text.\n\nThe retrieved reports identify a candidate regional event, the Bejís fire, active across l'Alt Palància and Els Serrans and leading to municipal evacuations [W1]. While reports note regional lightning strikes occurring in the area [W3], they do not determine the ignition cause of the fire. Furthermore, thermal detections consistent with active burning do not confirm identity with a specific named wildfire perimeter. Establishing the verified ignition cause requires official forensic incident investigation records, which are not present in the retrieved texts.",
+        "citations": [
+          {
+            "id": "[W1]",
+            "source_type": "WEB_NEWS_REPORT",
+            "title": "lavanguardia.com",
+            "authors_or_agency": "www.lavanguardia.com",
+            "year": 2026,
+            "dataset_or_doi": "News report; article text retrieved; incident match unconfirmed",
+            "url": "https://www.lavanguardia.com/local/valencia/20220821/8476439/siete-dias-incendio-bejis-activo.html",
+            "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+          },
+          {
+            "id": "[W3]",
+            "source_type": "WEB_NEWS_REPORT",
+            "title": "europapress.es",
+            "authors_or_agency": "www.europapress.es",
+            "year": 2026,
+            "dataset_or_doi": "News report; article text retrieved; incident match unconfirmed",
+            "url": "https://www.europapress.es/comunitat-valenciana/noticia-comunitat-registra-3324-rayos-dia-810-ellos-tierra-muchos-zona-incendio-bejis-20220818155242.html",
+            "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+          }
+        ],
+        "web_search_used": true,
+        "search_query_executed": "Iberian near latitude 39.9250, longitude -0.6750 wildfire official reports 2022-08-15 to 2022-08-28. Bejis Castellon causa ignicion rayo agosto 2022 | Iberian near latitude 39.9250, longitude -0.6750 wildfire official reports 2022-08-15 to 2022-08-28. incendio Bejis rayo caida rayo tormenta seca agosto 2022",
+        "model_used": "gemini-agent/gemini-3.8-flash",
+        "data_source": "real",
+        "map_context": {
+          "label": "Bejís, Castellón — Iberian pilot",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -0.85,
+                  39.8
+                ],
+                [
+                  -0.5,
+                  39.8
+                ],
+                [
+                  -0.5,
+                  40.05
+                ],
+                [
+                  -0.85,
+                  40.05
+                ],
+                [
+                  -0.85,
+                  39.8
+                ]
+              ]
+            ]
+          },
+          "period_start": "2022-08-15",
+          "period_end": "2022-08-28",
+          "h3_index": null
+        },
+        "answer_markdown": "Ignition is not being deduced from weather conditions, satellite detections, or heat measurements. The cause of ignition is absent from the retrieved article text.\n\nThe retrieved reports identify a candidate regional event, the Bejís fire, active across l'Alt Palància and Els Serrans and leading to municipal evacuations [W1]. While reports note regional lightning strikes occurring in the area [W3], they do not determine the ignition cause of the fire. Furthermore, thermal detections consistent with active burning do not confirm identity with a specific named wildfire perimeter. Establishing the verified ignition cause requires official forensic incident investigation records, which are not present in the retrieved texts.",
+        "provider_used": "gemini-agent/gemini-3.8-flash",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": null,
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "web"
+        ]
+      }
+    },
+    {
+      "question": "¿Cuántas detecciones y cuánta energía en GJ registra el archivo para el área seleccionada del 15 al 28 de agosto de 2022? Distingue detecciones de incendios y explica si son mediciones continuas.",
+      "request": {
+        "region_name": "Bejís, Castellón — Iberian pilot",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -0.85,
+                39.8
+              ],
+              [
+                -0.5,
+                39.8
+              ],
+              [
+                -0.5,
+                40.05
+              ],
+              [
+                -0.85,
+                40.05
+              ],
+              [
+                -0.85,
+                39.8
+              ]
+            ]
+          ]
+        },
+        "prefer_map_context": true,
+        "period_start": "2022-08-15",
+        "period_end": "2022-08-28",
+        "user_question": "¿Cuántas detecciones y cuánta energía en GJ registra el archivo para el área seleccionada del 15 al 28 de agosto de 2022? Distingue detecciones de incendios y explica si son mediciones continuas.",
+        "conversation": [
+          {
+            "role": "user",
+            "content": "¿Qué ocurrió en el incendio de Bejís (Castellón) iniciado el 15 de agosto de 2022? Investiga lo documentado sobre su evolución y causa."
+          },
+          {
+            "role": "assistant",
+            "content": "### Root Cause & Ignition Mechanism\n\nThe observations do not establish why the thermal activity developed here. Explaining its spread needs matching weather, fuel or incident evidence; the ignition cause is **not verified for this area and period**. Satellite detections alone cannot distinguish these explanations. [5]\n\n### Temporal Progression & Episode Duration\n\nSelect an area or name a supported pilot region to investigate its episode. Official duration is not established.\n\n### Thermodynamic, Atmospheric & Ecological Consequences\n\nNo integrated episode energy is available; biomass, emissions and ecological losses have not been invented. Instantaneous MW and raw detection counts cannot replace them. [1]\n\n### Sensor & Statistical Verification\n\nChoose a place and a date or year to query local detections.\n\nMODIS and VIIRS have different sensitivities; reconstruction and forecasts are estimates. [2] [3] [4]"
+          },
+          {
+            "role": "user",
+            "content": "¿Se conoce la causa de ignición o estás deduciéndola de las condiciones meteorológicas? Cita la evidencia específica para este incendio."
+          },
+          {
+            "role": "assistant",
+            "content": "Ignition is not being deduced from weather conditions, satellite detections, or heat measurements. The cause of ignition is absent from the retrieved article text.\n\nThe retrieved reports identify a candidate regional event, the Bejís fire, active across l'Alt Palància and Els Serrans and leading to municipal evacuations [W1]. While reports note regional lightning strikes occurring in the area [W3], they do not determine the ignition cause of the fire. Furthermore, thermal detections consistent with active burning do not confirm identity with a specific named wildfire perimeter. Establishing the verified ignition cause requires official forensic incident investigation records, which are not present in the retrieved texts."
+          },
+          {
+            "role": "user",
+            "content": "¿Cuántas detecciones y cuánta energía en GJ registra el archivo para el área seleccionada del 15 al 28 de agosto de 2022? Distingue detecciones de incendios y explica si son mediciones continuas."
+          },
+          {
+            "role": "assistant",
+            "content": "**59,515.938 GJ** of mapped, observation-based energy proxy for **2022-08-15 to 2022-08-28** in **Bejís, Castellón — Iberian pilot**. [6]\n\nRegional temporal estimate: **59,515.938 GJ**, over **14 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **21,901.865 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **377.314 km²**; selected polygon: **830.542 km²**. Available through **2022-08-28**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,723 satellite detections** in the **Bejís, Castellón — Iberian pilot** for **2022-08-15 to 2022-08-28** (Aqua, N20, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **70,264.31 MW**.\n- Strongest individual detection: **1,814.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter."
+          }
+        ],
+        "previous_context": {
+          "label": "Bejís, Castellón — Iberian pilot",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -0.85,
+                  39.8
+                ],
+                [
+                  -0.5,
+                  39.8
+                ],
+                [
+                  -0.5,
+                  40.05
+                ],
+                [
+                  -0.85,
+                  40.05
+                ],
+                [
+                  -0.85,
+                  39.8
+                ]
+              ]
+            ]
+          },
+          "period_start": "2022-08-15",
+          "period_end": "2022-08-28",
+          "h3_index": null
+        }
+      },
+      "status_code": 200,
+      "elapsed_ms": 55316,
+      "actual_model": "deterministic-offline-science",
+      "tools": [
+        {
+          "elapsed_ms": 2778,
+          "tools": [
+            {
+              "name": "query_observations",
+              "arguments": "{\"start\":\"2022-08-15\",\"end\":\"2022-08-28\"}"
+            },
+            {
+              "name": "query_energy",
+              "arguments": "{\"end\":\"2022-08-28\",\"start\":\"2022-08-15\"}"
+            }
+          ]
+        },
+        {
+          "elapsed_ms": 3924,
+          "tools": []
+        },
+        {
+          "elapsed_ms": 1651,
+          "error_type": "ReadTimeout"
+        }
+      ],
+      "response": {
+        "physical_classification": "LOCAL_ENERGY_SUMMARY",
+        "explanation_markdown": "**59,515.938 GJ** of mapped, observation-based energy proxy for **2022-08-15 to 2022-08-28** in **Bejís, Castellón — Iberian pilot**. [6]\n\nRegional temporal estimate: **59,515.938 GJ**, over **14 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **21,901.865 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **377.314 km²**; selected polygon: **830.542 km²**. Available through **2022-08-28**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,723 satellite detections** in the **Bejís, Castellón — Iberian pilot** for **2022-08-15 to 2022-08-28** (Aqua, N20, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **70,264.31 MW**.\n- Strongest individual detection: **1,814.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "citations": [
+          {
+            "id": "[5]",
+            "source_type": "NASA_DATASET",
+            "title": "NASA FIRMS active fire observations",
+            "authors_or_agency": "NASA EOSDIS LANCE",
+            "year": 2026,
+            "dataset_or_doi": "NASA Earthdata / FIRMS",
+            "url": "https://firms.modaps.eosdis.nasa.gov/",
+            "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+          },
+          {
+            "id": "[6]",
+            "source_type": "NASA_DATASET",
+            "title": "Local FIRMS-Harmonizer scientific cube",
+            "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+            "year": 2026,
+            "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+            "url": null,
+            "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+          },
+          {
+            "id": "[1]",
+            "source_type": "PEER_REVIEWED",
+            "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+            "authors_or_agency": "Wooster et al.",
+            "year": 2005,
+            "dataset_or_doi": "10.1029/2005JD006318",
+            "url": "https://doi.org/10.1029/2005JD006318",
+            "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+          }
+        ],
+        "web_search_used": false,
+        "search_query_executed": null,
+        "model_used": "deterministic-offline-science",
+        "data_source": "real",
+        "map_context": {
+          "label": "Bejís, Castellón — Iberian pilot",
+          "aoi": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -0.85,
+                  39.8
+                ],
+                [
+                  -0.5,
+                  39.8
+                ],
+                [
+                  -0.5,
+                  40.05
+                ],
+                [
+                  -0.85,
+                  40.05
+                ],
+                [
+                  -0.85,
+                  39.8
+                ]
+              ]
+            ]
+          },
+          "period_start": "2022-08-15",
+          "period_end": "2022-08-28",
+          "h3_index": null
+        },
+        "answer_markdown": "**59,515.938 GJ** of mapped, observation-based energy proxy for **2022-08-15 to 2022-08-28** in **Bejís, Castellón — Iberian pilot**. [6]\n\nRegional temporal estimate: **59,515.938 GJ**, over **14 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **21,901.865 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **377.314 km²**; selected polygon: **830.542 km²**. Available through **2022-08-28**. Industrial sources excluded.\n\n### Satellite observations\n\nThe local FIRMS archive contains **1,723 satellite detections** in the **Bejís, Castellón — Iberian pilot** for **2022-08-15 to 2022-08-28** (Aqua, N20, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **70,264.31 MW**.\n- Strongest individual detection: **1,814.20 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+        "provider_used": "deterministic-offline-science",
+        "episode_summary": null,
+        "guardrail_triggered": false,
+        "verified_calculations": {
+          "items": [
+            {
+              "label": "Total radiative energy",
+              "formula": "Σ daily FRE (MJ/km²) × represented cell area (km²) ÷ 1,000 over 14 days = 59,515.938 GJ",
+              "value": 59515.937522688975,
+              "unit": "GJ"
+            },
+            {
+              "label": "Consumed dry biomass",
+              "formula": "59,515.938 GJ × 0.368 t/GJ = 21,901.865 t",
+              "value": 21901.86500834954,
+              "unit": "t"
+            }
+          ],
+          "note": "Energy is a model-derived estimate from sampled satellite observations, not a continuous physical measurement. Biomass uses the Wooster combustion factor of 0.368 t per GJ."
+        },
+        "suggested_prompts": [],
+        "evidence_sources": [
+          "local_cube",
+          "verified_calculation",
+          "knowledge"
+        ]
+      }
+    }
+  ],
+  "health": {
+    "status_code": 200,
+    "response": {
+      "status": "ok",
+      "duckdb": "ok",
+      "row_count": 729742,
+      "data_source": "real",
+      "cube_path": "C:\\Users\\eddy1\\Desktop\\Nueva carpeta\\Almenara\\firms-harmonizer\\data\\processed\\fire_cube.parquet",
+      "missing_columns": [],
+      "core": {
+        "compute_cross_prior": true,
+        "kalman_rts_smooth": true,
+        "fit_von_mises_year": true,
+        "phenology_trend": true,
+        "chow_test": true,
+        "wasserstein_w1_normalized": true,
+        "descriptive_r2": true,
+        "run_chaos_monkey_simulation": true
+      },
+      "core_signatures": {
+        "compute_cross_prior": null,
+        "kalman_rts_smooth": null,
+        "fit_von_mises_year": null,
+        "phenology_trend": null,
+        "chow_test": null,
+        "wasserstein_w1_normalized": null,
+        "descriptive_r2": null,
+        "run_chaos_monkey_simulation": null
+      },
+      "nrt": {
+        "status": "idle",
+        "last_poll_utc": null,
+        "last_success_utc": null,
+        "rows_ingested": 0,
+        "last_error": null
+      }
+    }
+  }
+}

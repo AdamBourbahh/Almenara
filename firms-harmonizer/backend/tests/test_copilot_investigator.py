@@ -252,6 +252,58 @@ def test_generic_first_question_and_remembered_context_are_supported(cube):
     assert r.episode_summary['peak_date']=='2026-07-24'
 
 
+@pytest.mark.parametrize('context_source',['map','previous_context','conversation'])
+def test_gemini_fallback_keeps_resolved_follow_up_period(cube,monkeypatch,context_source):
+    from backend.api import copilot_agent
+
+    aoi,cell,rows=cube
+    monkeypatch.setenv('COPILOT_OFFLINE','0')
+    monkeypatch.setenv('COPILOT_PROVIDER','gemini')
+    monkeypatch.setenv('GEMINI_API_KEY','test')
+    # Only the external model boundary is replaced. A provider failure must
+    # fall through the actual agent, scope resolver, DuckDB and dossier builder.
+    def unavailable_provider(*args,**kwargs):
+        raise httpx.ConnectError('Provider unavailable')
+    monkeypatch.setattr(copilot_agent,'turn',unavailable_provider)
+    context=dict(aoi=aoi.model_dump(),label='Selected area',
+        period_start='2011-07-01',period_end='2011-07-10')
+    request=dict(aoi=aoi,enable_kalman_gap_filling=False,
+        user_question='Is the ignition cause documented for this wildfire? Cite the evidence.')
+    if context_source=='map':
+        request.update(prefer_map_context=True,period_start=context['period_start'],period_end=context['period_end'])
+    elif context_source=='previous_context':
+        request.update(previous_context=context,period_start='2026-01-01',period_end='2026-12-31')
+    else:
+        request.update(conversation=[{'role':'user','content':'Investigate the wildfire from 2011-07-01 to 2011-07-10.'}])
+
+    with TestClient(app) as client:
+        response=client.post('/api/explain-spike',json=ExplainSpikeRequest(**request).model_dump())
+    assert response.status_code==200,response.text
+    result=ExplainSpikeResponse.model_validate(response.json())
+    assert result.model_used=='deterministic-offline-science'
+    # The much stronger 2026 episode is deliberately outside this selection.
+    assert result.episode_summary['peak_date']=='2011-07-01'
+    assert result.map_context.period_start==context['period_start']
+    assert result.map_context.period_end==context['period_end']
+
+
+@pytest.mark.parametrize('question,start,end,expected_peak',[
+    ('Investigate the wildfire from 2026-07-20 to 2026-07-28.','2026-07-20','2026-07-28','2026-07-24'),
+    ('Is the ignition cause documented for this wildfire?','2020-07-01','2020-07-10',None),
+])
+def test_episode_selection_honors_new_dates_and_empty_periods(cube,question,start,end,expected_peak):
+    aoi,cell,rows=cube
+    result=c.answer(ExplainSpikeRequest(aoi=aoi,period_start='2011-07-01' if expected_peak else start,
+        period_end='2011-07-10' if expected_peak else end,enable_kalman_gap_filling=False,user_question=question))
+    assert result.map_context.period_start==start
+    assert result.map_context.period_end==end
+    if expected_peak:
+        assert result.episode_summary['peak_date']==expected_peak
+    else:
+        assert result.episode_summary['status']=='empty'
+        assert 'peak_date' not in result.episode_summary
+
+
 def test_summary_cannot_introduce_numbers_or_erase_investigation_status():
     from backend.api.copilot_answers import summary_matches_excerpt
     assert not summary_matches_excerpt('The fire killed 999 people.','A regional fire was reported.')

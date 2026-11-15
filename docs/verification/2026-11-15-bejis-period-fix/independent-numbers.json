@@ -1,0 +1,14 @@
+{
+  "method": "Direct Parquet SQL and independent per-cell available-sensor mean times H3 area.",
+  "selected_cells": 164,
+  "detections": 1723,
+  "summed_frp_mw": 70264.30999999982,
+  "maximum_detection_frp_mw": 1814.2,
+  "first_detection": "2022-08-15",
+  "last_detection": "2022-08-19",
+  "energy_gj": 59515.93752268897,
+  "peak_energy_date": "2022-08-17",
+  "peak_daily_energy_gj": 25032.48489260677,
+  "response_count_matches": true,
+  "response_energy_matches": true
+}

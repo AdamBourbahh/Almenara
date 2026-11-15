@@ -1,5 +1,19 @@
 # Change log — integration changes
 
+## 2026-11-15 — Preserve episode dates during provider fallback
+
+The local investigator now forwards the resolved map/conversation period to the
+episode profiler, including follow-up questions without dates. A selected period
+is retained in the returned map context; only discovery without a period creates
+a new context around the detected peak. Explicit new dates still take precedence,
+and an empty selected period cannot substitute an event from another year.
+
+Regression cases exercise the actual fallback endpoint, scope resolver, DuckDB
+and scientific profile against a stronger out-of-period episode. The core import
+check reads UTF-8 explicitly on Windows without changing its assertions. Public
+schemas and frozen tests are unchanged. Real Bejís before/after evidence is in
+`../docs/verification/2026-11-15-bejis-period-fix/README.md`.
+
 ## 2026-11-15 — Fire Copilot context and evidence quality
 
 Preserved inclusive date endpoints, selected geometry and scientific filters across
