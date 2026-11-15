@@ -397,10 +397,11 @@ function englishVoiceScore(voice: SpeechSynthesisVoice): number {
   return score;
 }
 
-function pickEnglishVoice(): SpeechSynthesisVoice | null {
+function pickEnglishVoice(localOnly = false): SpeechSynthesisVoice | null {
   let best: SpeechSynthesisVoice | null = null;
   let bestScore = -1;
   for (const voice of window.speechSynthesis.getVoices()) {
+    if (localOnly && !voice.localService) continue;
     const score = englishVoiceScore(voice);
     if (score > bestScore) {
       best = voice;
@@ -446,7 +447,15 @@ function useReadAloud() {
       utterance.lang = voice?.lang ?? "en-US";
       utterance.onend = () => speakChunk(index + 1);
       utterance.onerror = () => {
-        if (token === current.token) setSpeakingId(null);
+        if (token !== current.token) return;
+        // Online voices (Google / Edge Natural) fail without internet:
+        // switch to an installed offline English voice and retry the sentence.
+        if (voice && !voice.localService) {
+          voiceRef.current = pickEnglishVoice(true);
+          speakChunk(index);
+          return;
+        }
+        setSpeakingId(null);
       };
       window.speechSynthesis.speak(utterance);
     };
