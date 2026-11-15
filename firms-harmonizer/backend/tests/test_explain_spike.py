@@ -212,7 +212,7 @@ def test_metrics_are_local_and_do_not_call_model_or_search(real_archive, monkeyp
 
 def test_2012_method_question_does_not_invent_a_percentage_jump(client):
     response = client.post('/api/explain-spike', json={'user_question':'Why did raw counts jump in January 2012?'}).json()
-    assert response['physical_classification'] == 'SCIENTIFIC_EXPLANATION'
+    assert response['physical_classification'] == 'INSTRUMENTAL_2012_ARTIFACT'
     assert '420' not in response['explanation_markdown']
     assert 'p >' not in response['explanation_markdown']
     assert 'VIIRS' in response['explanation_markdown']

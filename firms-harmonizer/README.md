@@ -36,6 +36,7 @@ Answers and UI text are in English. For example:
 - “And on the next day?” (after a dated question)
 - “How much energy in GJ and how many detections are in this area?”
 - “Show energy by year for this area from 2020 to 2025.”
+- “Tell me everything about the main wildfire in this region: cause, progression, duration and consequences.”
 
 Selecting a map area, hexagon or timeline day automatically adds **Area and day
 added as context** above the chat input. Month/year selections are labeled as periods,
@@ -50,7 +51,14 @@ explicit date can change the scope. Answers show their actual queried scope.
 
 For “why did this fire happen?”, responses start with what can be established, then
 show concise local evidence and distinguish incident reports from scientific context.
-A whole-year selection is not treated as a single incident. Ignition causes are never
+A broad first-time investigation discovers the highest-energy thermal episode in the
+available local history without needing a calendar click. Explicit question dates take
+precedence. Its four-section dossier explains ignition evidence, progression, physical
+estimates and sensor verification. The ±15-day activity window and any censored bounds
+are disclosed; this is a statistical thermal episode, not an official fire duration.
+Biomass uses integrated FRE; PM2.5 and CO2 are clearly labeled scenario estimates with
+assumed emission factors, not measured pollution or a replacement for null dashboard
+emissions. A whole-year selection is not treated as a single incident. Ignition causes are never
 inferred from detection counts, power, weather theory or the busiest day.
 
 The assistant searches official agencies and reputable news, reads a bounded number of
@@ -81,8 +89,15 @@ but local counts require a supported envelope or a drawn AOI. Amazonas/Manaus co
 is a limited study area, not the whole Amazon basin.
 
 For natural-language interpretation and prose, configure `GROQ_API_KEY` in a local `.env`.
-`GROQ_MODEL` defaults to `openai/gpt-oss-120b`; `GROQ_FALLBACK_MODEL` defaults to
-`openai/gpt-oss-20b`. Optional `TAVILY_API_KEY` enables Tavily search; otherwise the assistant
+Legacy concise answers default to `openai/gpt-oss-120b`; dossier extraction first tries
+`llama-3.3-70b-versatile`. Set `GROQ_MODEL` to override either. If the account returns
+404 for a model, `GROQ_FALLBACK_MODEL` (default `openai/gpt-oss-120b`) is tried within
+the same deadline. The current local account cannot access the requested Llama model.
+Optional `GITHUB_TOKEN` and `GEMINI_API_KEY` enable the subsequent provider cascade,
+using the supported GitHub Models endpoint and Gemini OpenAI-compatible endpoint.
+Requests are bounded to 4,500 content characters, 900 output tokens and a 10-second
+provider deadline. These reduce request size; they cannot guarantee free-tier quota
+availability or sub-second network latency. Optional `TAVILY_API_KEY` enables Tavily search; otherwise the assistant
 uses public search through `ddgs`. Search results are contextual leads, not automatic
 confirmation of a matching fire. Inline source markers open the actual cited pages.
 Provider availability and model permissions depend on the configured account.
@@ -102,6 +117,9 @@ python scripts/06_validate_copilot.py --output data/processed/copilot_validation
 python scripts/06_validate_copilot.py --live --output data/processed/copilot_validation_live.json
 python scripts/08_validate_copilot_acceptance.py
 python scripts/08_validate_copilot_acceptance.py --live
+python -m pytest backend/tests/ -v
+python scripts/test_copilot_e2e.py
+python scripts/test_copilot_e2e.py --live
 cd frontend && node --test tests/*.test.mjs && npm run build
 ```
 

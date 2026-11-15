@@ -706,3 +706,38 @@ spread explanation for the user's Madrid 24 July case, rather than only HTTP suc
 The automated suite also covers provider failures, malformed results, evidence checks,
 encoding/navigation cleanup and multilingual scientific/data questions. These finite
 checks do not imply universal correctness or independent certification of every report.
+
+### 5.8 Autonomous scientific episode investigation (2026-11-15)
+
+The synchronous `/api/explain-spike` route also supports first-time, broad fire
+investigations through `backend/api/copilot_researcher.py`. An attached AOI without
+a clicked day discovers the highest daily harmonized FRE in the available
+2001–2026 cube history. Explicit question dates take precedence. A ±15-day window
+estimates consecutive above-background thermal activity; it is not an official
+ignition-to-extinction interval or an identified fire perimeter. Window and archive
+censoring, reconstruction, industrial filtering and coverage are disclosed.
+
+Coordinated additive contract fields: `ExplainSpikeRequest.audit_metrics` (nullable,
+client context only), `chat_history` (bounded compatibility input, used only if
+`conversation` is empty); `ExplainSpikeResponse.answer_markdown` and `provider_used`
+mirror `explanation_markdown` and `model_used`; `episode_summary` is a nullable
+JSON-safe scientific profile. Existing fields and types are retained in Python and
+TypeScript. Client telemetry and audit verdicts never override server measurements.
+
+Emission estimates use explicitly assumed factors (0.368 kg/MJ dry biomass,
+9.5 g/kg PM2.5 and 1,580 g/kg CO2). They are scenario estimates, not measured
+emissions or air concentrations, and do not replace null dashboard emissions.
+Physics gates skip incident-news retrieval for industrial candidates, sensor
+transition questions, reconstruction and forecasts. Entropy or client flags alone
+do not establish an industrial facility; no universal 2012 count multiplier is
+asserted. Geographic context comes from H3 or the AOI and a local catalogue,
+without substituting a municipality for a study envelope.
+
+Investigations combine bounded cause, progression and consequences searches with
+Wikipedia context and scientific references; snippets and encyclopedic search
+results are leads, not ignition evidence. LLM requests have at most 4,500 content
+characters and 900 output tokens, provider timeouts and a deterministic four-section
+offline dossier. Rate limits and latency depend on external providers and cannot
+be guaranteed by a prompt length. Deprecated provider URLs must be replaced with
+supported endpoints. `scripts/test_copilot_e2e.py` exercises the required five
+scenarios and additional failure, scope, schema and numeric checks.

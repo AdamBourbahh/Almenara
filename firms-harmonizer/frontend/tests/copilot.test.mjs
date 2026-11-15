@@ -196,3 +196,24 @@ test('hovering the chronology does not replace a deliberately added context', as
   assert.equal(store.getState().copilotContext.start, '2025-09-01');
   await store.getState().loadMapYear();
 });
+
+test('opening the copilot attaches the active region before any telemetry click and respects removal', async () => {
+  store.getState().clearCopilotMessages();
+  store.setState({ copilotContextRemoved: false, isCopilotOpen: false, selectedDate: null,
+    selectedYear: 2026, selectedMonth: null, analysisData: null });
+  const calls = [];
+  globalThis.fetch = async (_url, options) => {
+    calls.push(JSON.parse(options.body));
+    return new Response(JSON.stringify(reply));
+  };
+  store.getState().toggleCopilot();
+  await store.getState().askCopilot('Tell me everything about the main wildfire in this region.');
+  assert.deepEqual(calls[0].aoi, store.getState().currentAoi);
+  assert.equal(calls[0].selected_day, null);
+  store.getState().removeCopilotContext();
+  store.getState().closeCopilot();
+  store.getState().openCopilot();
+  await store.getState().askCopilot('What can you tell me?');
+  assert.equal(calls[1].aoi, null);
+  assert.equal(calls[1].previous_context, null);
+});

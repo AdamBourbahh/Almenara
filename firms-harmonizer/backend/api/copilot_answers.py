@@ -49,6 +49,22 @@ def fallback_summary(excerpt: str, kind: str) -> str:
             return 'The cited report discusses '+', '.join(factors)+' in explaining the fire’s development. This describes spread, not proof of ignition.'
     return 'The cited source describes reported fire activity in the requested region; it does not establish an ignition cause for a selected satellite cell.'
 
+
+def summary_matches_excerpt(summary: str, excerpt: str) -> bool:
+    """Reject new quantities and loss of explicit uncertainty in an extraction.
+
+    A model summary is still an attributed paraphrase, not independently verified
+    fact. Exact source sentences remain mandatory before applying this check.
+    """
+    numbers = lambda value: set(re.findall(r'\d+(?:[.,]\d+)*', value))
+    if not numbers(summary) <= numbers(excerpt):
+        return False
+    source = research.normalize(excerpt)
+    uncertain = bool(re.search(r'unknown|unconfirmed|not confirmed|no se (?:conoce|ha confirmado)|desconoc|investig|sin confirmar|se desconoce', source))
+    if uncertain and not re.search(r'unknown|unconfirm|not (?:known|verified|confirmed|establish)|investigat|uncertain|undetermined|suspect|possible|alleg', summary, re.I):
+        return False
+    return True
+
 def causal_answer(req, scope, observed, source, *, search, complete, firms, methods, context) -> ExplainSpikeResponse:
     reports, papers, query = [], [], ""
     if not scope.error and source != "synthetic":
@@ -89,7 +105,7 @@ def causal_answer(req, scope, observed, source, *, search, complete, firms, meth
                     if kind == "ignition" and not re.search(r"caus|origin|ignit|provoc|rayo|lightning|negligen|arson|investig", research.normalize(excerpt)):
                         checked = False
                     summary = claim.get("summary", "")
-                    if checked and isinstance(summary, str) and not re.search(r"https?://|[<>\[\]]", summary):
+                    if checked and isinstance(summary, str) and not re.search(r"https?://|[<>\[\]]", summary) and summary_matches_excerpt(summary, excerpt):
                         quotes.append((citation, excerpt, kind, summary[:650]))
                 if quotes:
                     model = candidate_model

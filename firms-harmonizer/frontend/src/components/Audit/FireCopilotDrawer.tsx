@@ -108,6 +108,14 @@ function renderMarkdownBlocks(content: string, citations: CitationReference[] = 
   const elements: React.ReactNode[] = [];
   let inTable = false;
   let tableRows: string[][] = [];
+  let listItems: string[] = [];
+  const flushList = (key: number) => {
+    if (!listItems.length) return;
+    elements.push(<ul key={`list-${key}`} className="ml-4 list-disc space-y-1 text-xs leading-relaxed text-muted">
+      {listItems.map((item, index) => <li key={index}>{parseInlineFormatting(item, citations)}</li>)}
+    </ul>);
+    listItems = [];
+  };
 
   const flushTable = (key: number) => {
     if (tableRows.length === 0) return;
@@ -148,6 +156,13 @@ function renderMarkdownBlocks(content: string, citations: CitationReference[] = 
     const rawLine = lines[idx];
     const line = rawLine.trim();
 
+    if (line.startsWith("- ") || line.startsWith("* ")) {
+      if (inTable) flushTable(idx);
+      listItems.push(line.slice(2));
+      continue;
+    }
+    flushList(idx);
+
     // Table row detection
     if (line.startsWith("|") && line.endsWith("|")) {
       inTable = true;
@@ -164,10 +179,10 @@ function renderMarkdownBlocks(content: string, citations: CitationReference[] = 
     if (!line) continue;
 
     // Headers
-    if (line.startsWith("### ")) {
+    if (/^#{1,3} /.test(line)) {
       elements.push(
         <h4 key={idx} className="mt-3.5 mb-1.5 font-serif text-base font-semibold text-ink">
-          {parseInlineFormatting(line.slice(4), citations)}
+          {parseInlineFormatting(line.replace(/^#{1,3} /, ""), citations)}
         </h4>
       );
     } else if (line.startsWith("#### ")) {
@@ -175,12 +190,6 @@ function renderMarkdownBlocks(content: string, citations: CitationReference[] = 
         <h5 key={idx} className="mt-2.5 mb-1 text-xs font-semibold uppercase tracking-wider text-faint">
           {parseInlineFormatting(line.slice(5), citations)}
         </h5>
-      );
-    } else if (line.startsWith("- ") || line.startsWith("* ")) {
-      elements.push(
-        <li key={idx} className="ml-4 list-disc text-xs leading-relaxed text-muted">
-          {parseInlineFormatting(line.slice(2), citations)}
-        </li>
       );
     } else {
       elements.push(
@@ -192,6 +201,7 @@ function renderMarkdownBlocks(content: string, citations: CitationReference[] = 
   }
 
   if (inTable) flushTable(lines.length);
+  flushList(lines.length);
 
   return <div className="space-y-1">{elements}</div>;
 }

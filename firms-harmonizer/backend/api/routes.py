@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from backend.api.science_adapter import KalmanInput
-from backend.api import core_contract, fire_copilot
+from backend.api import core_contract, fire_copilot, copilot_researcher
 from backend.api.cache import ANALYZE_CACHE, GEOMETRY_CACHE, CachedJSON, LRUCache, geometry_key, make_cache_key
 from backend.api.schemas import (AnalyzeRequest, AnalyzeResponse, ChaosMonkeyRequest, ChaosMonkeyResponse,
                                  CubeSyncRequest, CubeSyncStatusResponse,
@@ -398,7 +398,7 @@ def observations(aoi: GeoJSONPolygon):
 @router.post("/explain-spike", response_model=ExplainSpikeResponse)
 def explain_spike(req: ExplainSpikeRequest) -> ExplainSpikeResponse:
     """Answer using retrieved observations and explicitly attributed reports."""
-    return fire_copilot.answer(req)
+    return copilot_researcher.answer(req)
 
 
 @router.post("/cube/sync", response_model=CubeSyncStatusResponse)

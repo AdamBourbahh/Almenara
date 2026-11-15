@@ -338,3 +338,13 @@ Risk AI and Impact share the timeline cutoff. The additive assessment field
 origin. Forecasts after a gap blend toward historical event frequency as the gap
 grows. `python -m scripts.07_risk_blackout_benchmark` replays Chilecito and Iberia
 with hidden input blocks and scores the next 1, 7 and 14 days against later reports.
+
+## 2026-11-15 — Autonomous scientific episode investigations
+
+Coordinated additive Python/TypeScript contract update, documented in SPECS §5.8:
+optional request `audit_metrics` and bounded `chat_history`; response
+`answer_markdown`/`provider_used` compatibility mirrors and nullable
+`episode_summary`. Existing names and types remain valid. The episode pipeline
+profiles local measurements independently of model prose and exposes assumptions,
+coverage limits and censored duration. Assumed PM2.5/CO2 estimates are confined to
+this dossier and do not change the dashboard's unavailable measured emissions.

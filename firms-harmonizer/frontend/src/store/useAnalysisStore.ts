@@ -214,6 +214,7 @@ interface AnalysisState {
   copilotContext: CopilotSelection | null;
   copilotContextKey: string | null;
   copilotContextStart: number;
+  copilotContextRemoved: boolean;
   attachCopilotContext: (selection?: { day?: DailyCalendarCell | null; hex?: H3MapSummaryHex | null }) => void;
   removeCopilotContext: () => void;
 
@@ -329,6 +330,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   copilotContext: null,
   copilotContextKey: null,
   copilotContextStart: 0,
+  copilotContextRemoved: false,
 
   // Cube Live Sync
   syncStatus: "idle",
@@ -592,16 +594,19 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       context.label = `Map cell at ${lat.toFixed(3)}°, ${lng.toFixed(3)}°`;
     }
     set({ copilotContext: context, activeSpikeDay: context.day, activeSpikeHex: context.hex,
-      copilotContextKey: null, copilotError: null });
+      copilotContextKey: null, copilotError: null, copilotContextRemoved: false });
   },
   removeCopilotContext: () => set({ copilotContext: null, activeSpikeDay: null, activeSpikeHex: null,
-    copilotContextKey: null, copilotContextStart: get().copilotMessages.length }),
+    copilotContextKey: null, copilotContextStart: get().copilotMessages.length, copilotContextRemoved: true }),
   openCopilot: (selection) => {
-    if (selection?.day || selection?.hex) get().attachCopilotContext(selection);
+    if (selection?.day || selection?.hex || (!get().copilotContext && !get().copilotContextRemoved)) get().attachCopilotContext(selection);
     set({ isCopilotOpen: true, copilotError: null });
   },
   closeCopilot: () => set({ isCopilotOpen: false }),
-  toggleCopilot: () => set((s) => ({ isCopilotOpen: !s.isCopilotOpen })),
+  toggleCopilot: () => {
+    if (get().isCopilotOpen) get().closeCopilot();
+    else get().openCopilot();
+  },
 
   askCopilot: async (question: string) => {
     const trimmed = question.trim();

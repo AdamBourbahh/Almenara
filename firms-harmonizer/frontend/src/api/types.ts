@@ -203,6 +203,8 @@ export interface ExplainSpikeRequest {
   exclude_industrial_flaring?: boolean;
   enable_kalman_gap_filling?: boolean;
   previous_context?: CopilotMapContext | null;
+  audit_metrics?: ScientificAuditMetrics | null;
+  chat_history?: CopilotTurn[];
 }
 
 export interface CopilotMapContext {
@@ -222,6 +224,9 @@ export interface ExplainSpikeResponse {
   model_used?: string;
   data_source?: "real" | "synthetic";
   map_context?: CopilotMapContext | null;
+  answer_markdown?: string;
+  provider_used?: string;
+  episode_summary?: Record<string, unknown> | null;
 }
 
 /** Pilot regions = SPECS.md §5.3 bounds (the synthetic cube places its cells inside them). */

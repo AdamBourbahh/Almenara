@@ -258,6 +258,14 @@ class ExplainSpikeRequest(ContractModel):
     exclude_industrial_flaring: bool = True
     enable_kalman_gap_filling: bool = True
     previous_context: CopilotMapContext | None = None
+    audit_metrics: ScientificAuditMetrics | None = None
+    chat_history: list[CopilotTurn] = Field(default_factory=list, max_length=12)
+
+    @model_validator(mode="after")
+    def compatible_history(self) -> "ExplainSpikeRequest":
+        if self.chat_history and not self.conversation:
+            self.conversation = self.chat_history
+        return self
 
 
 class ExplainSpikeResponse(ContractModel):
@@ -269,6 +277,15 @@ class ExplainSpikeResponse(ContractModel):
     model_used: str = "deterministic-fallback"
     data_source: Literal["real", "synthetic"] = "synthetic"
     map_context: CopilotMapContext | None = None
+    answer_markdown: str = ""
+    provider_used: str = ""
+    episode_summary: dict | None = None
+
+    @model_validator(mode="after")
+    def compatible_answer(self) -> "ExplainSpikeResponse":
+        self.answer_markdown = self.explanation_markdown
+        self.provider_used = self.model_used
+        return self
 
 
 class CubeSyncRequest(ContractModel):

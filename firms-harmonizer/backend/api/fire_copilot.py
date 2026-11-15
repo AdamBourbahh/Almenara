@@ -441,43 +441,10 @@ def filter_reports(scope: Scope, results: list[dict]) -> list[CitationReference]
 
 def complete(messages: list[dict], *, structured: bool = False, timeout: float = 18.0,
              schema: dict | None = None) -> tuple[str | None, str]:
-    """At most two configured models; do not retry authentication or quota failures."""
-    if os.getenv("COPILOT_OFFLINE") == "1":
-        return None, "deterministic-offline-science"
-    key = os.getenv("GROQ_API_KEY")
-    if not key:
-        return None, "deterministic-offline-science"
-    models = list(dict.fromkeys([os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
-                                 os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")]))
-    deadline = monotonic() + timeout
-    for model in models:
-        remaining = deadline - monotonic()
-        if remaining < 1:
-            break
-        body = {"model": model, "messages": messages, "temperature": 0.15, "max_completion_tokens": 5000}
-        if "gpt-oss" in model:
-            body["reasoning_effort"] = "low"
-        if schema:
-            body["response_format"] = {"type": "json_schema", "json_schema": {
-                "name": "fire_answer", "strict": True, "schema": schema}}
-        elif structured:
-            body["response_format"] = {"type": "json_object"}
-        try:
-            with httpx.Client(timeout=httpx.Timeout(remaining, connect=min(3.0, remaining))) as client:
-                res = client.post("https://api.groq.com/openai/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {key}"}, json=body)
-            if res.status_code in (401, 403, 429):
-                log.warning("Copilot model provider returned HTTP %s", res.status_code)
-                break
-            res.raise_for_status()
-            choice = res.json()["choices"][0]
-            content = choice["message"].get("content")
-            log.info("Copilot model finish=%s, content_chars=%s", choice.get("finish_reason"), len(content or ""))
-            if choice.get("finish_reason") == "stop" and isinstance(content, str) and content.strip():
-                return content.strip(), f"groq/{model}"
-        except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError):
-            log.info("Copilot model unavailable: %s", model)
-    return None, "deterministic-offline-science"
+    """Bound requests and fall through configured providers without retry loops."""
+    from backend.api.copilot_providers import complete as provider_complete
+    return provider_complete(messages, structured=structured, schema=schema,
+                             timeout=timeout, default_model="openai/gpt-oss-120b")
 
 
 def refine_scope(req: ExplainSpikeRequest, scope: Scope) -> Scope:
