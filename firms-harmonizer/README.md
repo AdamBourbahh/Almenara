@@ -253,3 +253,17 @@ or prove a match between a detection and a news-reported incident.
 - `../AGENTS.md` — ownership and technical guardrails.
 - `CAMBIOS.md` — approved contract changes.
 - `frontendExpects.md` — historical frontend expectations (superseded by `Miguelspecs.md`).
+
+### Map search and drawn-context repair (2026-11-15)
+
+Location search returns places only inside the four UI study envelopes: Iberia,
+Chilecito, Orlando and Amazonas/Manaus. Photon queries use a bounding box for each
+envelope and results are checked locally against those bounds. Coordinates outside
+all four envelopes are rejected; selected location boxes are clipped at the edge.
+Place-name search needs a connection; region shortcuts and coordinates work offline.
+The Explore panel no longer duplicates region shortcuts. Satellite and Terrain are
+the available basemaps. The Copilot drawer ends at the top of the chronology bar.
+
+A drawn Sierra Oeste selection now recognizes a matching Madrid regional report
+when its body uses Madrid as the regional name. The source date still has to match,
+and reported spread conditions remain distinct from an established ignition cause.

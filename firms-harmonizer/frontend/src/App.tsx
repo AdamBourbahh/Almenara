@@ -121,10 +121,10 @@ export default function App() {
             </PageShell>
           )}
           {section === "observations" && <ObservationsPage />}
+          <FireCopilotDrawer />
         </main>
         <HeatHistoryCard />
         {section !== "risk" && <DateRiskPrompt onView={() => openSection("risk")} />}
-        <FireCopilotDrawer />
       </div>
     </div>
   );

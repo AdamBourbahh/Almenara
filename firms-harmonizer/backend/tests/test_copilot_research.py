@@ -214,3 +214,25 @@ def test_article_body_extraction_removes_share_links_and_preserves_encoding(monk
     assert 'investigación' in result.relevance_note
     assert 'Compartir' not in result.relevance_note
     assert '�' not in result.relevance_note
+
+
+def test_drawn_sierra_oeste_selection_uses_madrid_report_without_discarding_spread(real_archive,monkeypatch):
+    coordinates=[[[-4.8,40.2],[-4.15,40.2],[-4.15,40.58],[-4.8,40.58],[-4.8,40.2]]]
+    req=ExplainSpikeRequest(region_name='Selected area at 40.393°, -4.478°',aoi={'coordinates':coordinates},
+        period_start='2026-07-24',period_end='2026-07-24',user_question='Why did this fire happen?')
+    scope=copilot.resolve_scope(req)
+    assert scope.locality=='Sierra Oeste'
+    sentence='En este sentido, atribuyó la gravedad de la situación a una combinación de factores excepcionales, entre ellos las altas temperaturas, el fuerte viento y la confluencia de tres incendios, que han terminado por unirse y multiplicar sus efectos.'
+    article=official('Retrieved article text:\nLa Comunidad de Madrid informó sobre el incendio.\n'+sentence).model_copy(update={
+        'title':'Madrid regional government report on the fire','url':'https://www.comunidad.madrid/noticias/2026/07/24/incendio'})
+    assert research.supported_report_excerpt(article,sentence,scope)
+    monkeypatch.setattr(copilot,'search_reports',lambda scope:([article],'mock official source'))
+    monkeypatch.setattr(copilot,'complete',lambda *a,**k:(None,'offline'))
+    response=copilot.answer(req)
+    assert response.physical_classification=='REPORTED_INCIDENT_CONTEXT'
+    lead=response.explanation_markdown.split('### What the local')[0]
+    assert 'strong wind' in lead and 'high temperatures' in lead and 'merging' in lead
+    assert response.map_context.aoi.coordinates==coordinates
+    assert 'do not establish the ignition cause' in response.explanation_markdown
+    scope.start=scope.end='2025-07-24'
+    assert not research.supported_report_excerpt(article,sentence,scope)

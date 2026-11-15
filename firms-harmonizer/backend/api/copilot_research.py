@@ -196,11 +196,10 @@ def scientific_sources(question: str) -> list[CitationReference]:
             continue
         authors = ", ".join(a["family"] for a in item.get("author", [])[:3] if a.get("family")) or item.get("publisher", "Publisher metadata")
         journal = "; ".join(item.get("container-title", []))
-        abstract = unescape(re.sub(r"<[^>]+>", " ", item.get("abstract", "")))[:1000]
         sources.append(CitationReference(id=f"[{7 + len(sources)}]", source_type="PEER_REVIEWED",
             title=title[:250], authors_or_agency=authors, year=parts[0][0],
             dataset_or_doi=f"{doi}; Crossref publication metadata; full text not reviewed", url="https://doi.org/" + quote(doi, safe="/"),
-            relevance_note=f"Scientific background, not an investigation of the selected incident. Publication metadata verified through Crossref. {journal}. {abstract}"))
+            relevance_note=f"Scientific background, not an investigation of the selected incident. Publication metadata verified through Crossref. {journal}. Full text not reviewed."))
         seen.add(doi)
         if len(sources) == 3:
             break
@@ -265,6 +264,8 @@ def supported_report_excerpt(citation: CitationReference, excerpt: str, scope) -
     if exact[-1] not in ".!?" and after and after[0] not in ".!?":
         return False
     terms = set(re.findall(r"[a-z]{4,}", normalize(scope.locality or scope.label))) - {"selected", "area", "study", "envelope", "near", "spain", "brazil"}
+    if {'sierra', 'oeste'} <= terms:
+        terms |= {'madrid', 'san martin de valdeiglesias', 'villa del prado', 'robledo de chavela'}
     if not terms or not any(t in text for t in terms) or not scope.start or not scope.end:
         return False
     # Explicit article dates can occur in the article header rather than beside each sentence.

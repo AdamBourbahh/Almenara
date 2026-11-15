@@ -25,39 +25,15 @@ const DECK_VIEW = new MapView({ clear: false });
 
 const ESRI_IMAGERY =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
-const ESRI_HILLSHADE =
-  "https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}";
 const OPENTOPO = "https://a.tile.opentopomap.org/{z}/{x}/{y}.png";
-const CARTO_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
-const CARTO_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
-
-type BasemapKey = "satelliteRelief" | "satellite" | "terrain" | "streets";
-
+type BasemapKey = "satellite" | "terrain";
 const IMAGERY_SOURCE = {
   type: "raster",
   tiles: [ESRI_IMAGERY],
   tileSize: 256,
   attribution: "Imagery © Esri, Maxar, Earthstar Geographics"
 };
-const HILLSHADE_SOURCE = {
-  type: "raster",
-  tiles: [ESRI_HILLSHADE],
-  tileSize: 256,
-  attribution: "Relief © Esri"
-};
-
 const BASEMAPS: Record<BasemapKey, { label: string; style: unknown }> = {
-  satelliteRelief: {
-    label: "Satellite + relief",
-    style: {
-      version: 8,
-      sources: { imagery: IMAGERY_SOURCE, hillshade: HILLSHADE_SOURCE },
-      layers: [
-        { id: "imagery", type: "raster", source: "imagery" },
-        { id: "hillshade", type: "raster", source: "hillshade", paint: { "raster-opacity": 0.35 } }
-      ]
-    }
-  },
   satellite: {
     label: "Satellite",
     style: {
@@ -82,7 +58,6 @@ const BASEMAPS: Record<BasemapKey, { label: string; style: unknown }> = {
       layers: [{ id: "topo", type: "raster", source: "topo" }]
     }
   },
-  streets: { label: "Streets", style: CARTO_LIGHT }
 };
 
 const INDUSTRIAL_PURPLE: [number, number, number, number] = [106, 61, 154, 235];
@@ -186,7 +161,7 @@ export function HexagonMap() {
   );
 
   const theme = useTheme((s) => s.theme);
-  const [basemap, setBasemap] = useState<BasemapKey>("satelliteRelief");
+  const [basemap, setBasemap] = useState<BasemapKey>("satellite");
   const [is3D, setIs3D] = useState(false);
   const [showHeat, setShowHeat] = useState(true);
   const [basemapAvailable, setBasemapAvailable] = useState(() => typeof navigator === "undefined" || navigator.onLine);
@@ -440,7 +415,7 @@ export function HexagonMap() {
   // Keep the dock contextual: selections must occupy a meaningful visible
   // area. A large region can remain relevant even at a low absolute zoom.
 
-  const mapStyle = basemap === "streets" ? (theme === "dark" ? CARTO_DARK : CARTO_LIGHT) : BASEMAPS[basemap].style;
+  const mapStyle = BASEMAPS[basemap].style;
 
   return (
     <div ref={containerRef} data-map-viewport className="relative h-full w-full overflow-hidden bg-paper"
