@@ -191,3 +191,99 @@ def test_unknown_ignition_does_not_erase_sourced_incident_explanation(online, mo
     result = a.answer(ExplainSpikeRequest(user_question='Why did this happen?'))
     assert 'report describes a wildfire' in result.explanation_markdown
     assert 'ignition cause is unknown' in result.explanation_markdown
+
+
+# ---------------------------------------------------------------- calculation tools and provenance
+
+PERIODS = {'start': '2021-01-01', 'end': '2021-12-31', 'compare_start': '2025-01-01', 'compare_end': '2025-12-31'}
+FORMULA = {'items': [{'label': 'Energy change', 'formula': '(125.000 GJ − 100.000 GJ) ÷ 100.000 GJ × 100 = +25.00%', 'value': 25.0, 'unit': '%'}], 'note': None}
+
+
+@pytest.fixture
+def comparison(online, monkeypatch):
+    periods = []
+    def compare(scope, req, first, second):
+        periods.append((first, second))
+        return {'status': 'ok', 'energy_change_pct': 25.0}
+    monkeypatch.setattr(a.metrics, 'retrieve_comparison', compare)
+    monkeypatch.setattr(a.metrics, 'comparison_answer', lambda *args: '### Period comparison\n\n**+25.00%** [6]')
+    monkeypatch.setattr(a.metrics, 'comparison_calculations', lambda evidence: FORMULA)
+    return periods
+
+
+def test_comparison_tool_supplies_the_percentage_and_its_formula(comparison, monkeypatch):
+    turns = iter([call('compare_periods', PERIODS), {'content': 'Fire energy rose by 25% between the two years. [6]'}])
+    monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: next(turns))
+    result = a.answer(ExplainSpikeRequest(user_question='Did this area burn more in 2025 than in 2021?'))
+    assert comparison == [(('2021-01-01', '2021-12-31'), ('2025-01-01', '2025-12-31'))]
+    assert result.model_used.startswith('groq-agent/')
+    assert result.verified_calculations == FORMULA
+    assert '**+25.00%**' in result.explanation_markdown
+    assert result.evidence_sources[:2] == ['local_cube', 'verified_calculation']
+
+
+def test_unsupported_figures_are_stripped_and_the_verified_table_is_kept(comparison, monkeypatch):
+    wrong = {'content': 'Fire energy rose by 31%, which equals 4 football fields. The second period burned more. [6]'}
+    turns = iter([call('compare_periods', PERIODS), wrong, wrong])
+    monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: next(turns))
+    result = a.answer(ExplainSpikeRequest(user_question='Did this area burn more in 2025 than in 2021?'))
+    assert result.model_used.startswith('groq-agent/')
+    assert '31' not in result.explanation_markdown and 'football' not in result.explanation_markdown
+    assert 'The second period burned more.' in result.explanation_markdown
+    assert '**+25.00%**' in result.explanation_markdown and result.verified_calculations == FORMULA
+
+
+def test_comparison_without_two_complete_periods_falls_back_to_local_engine(comparison, monkeypatch):
+    monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: call('compare_periods', {'start': '2021-01-01', 'end': '2021-12-31'}))
+    result = a.answer(ExplainSpikeRequest(user_question='Explain FRP and FRE'))
+    assert comparison == [] and result.model_used == 'deterministic-offline-science'
+
+
+@pytest.mark.parametrize('tool', ['estimate_emissions', 'query_fire_season', 'query_risk_outlook', 'query_data_quality',
+    'query_burned_area', 'find_quiet_burn_windows', 'rank_thermal_events', 'query_sensor_breakdown'])
+def test_every_calculation_tool_is_advertised_and_renders_server_text(online, monkeypatch, tool):
+    assert tool in [t['function']['name'] for t in a.TOOLS] and tool in a.CALCULATION_TOOLS
+    names = {'estimate_emissions': ('retrieve_emissions', 'emissions_answer'), 'query_fire_season': ('retrieve_phenology', 'phenology_answer'),
+        'query_risk_outlook': ('retrieve_risk', 'risk_answer'), 'query_data_quality': ('retrieve_data_quality', 'quality_answer'),
+        'query_burned_area': ('retrieve_burned_area', 'burned_area_answer'), 'find_quiet_burn_windows': ('retrieve_low_activity_windows', 'windows_answer'),
+        'rank_thermal_events': ('retrieve_top_events', 'events_answer'),
+        'query_sensor_breakdown': ('retrieve_sensor_breakdown', 'sensors_answer')}[tool]
+    monkeypatch.setattr(a.metrics, names[0], lambda *args, **kwargs: {'status': 'ok', 'value': 42.5})
+    monkeypatch.setattr(a.metrics, names[1], lambda *args, **kwargs: 'Server result: **42.5** [6]')
+    for name in ('emissions_calculations', 'phenology_calculations', 'burned_area_calculations', 'events_calculations'):
+        monkeypatch.setattr(a.metrics, name, lambda evidence: None)
+    turns = iter([call(tool, {}), {'content': 'The local record gives 42.5 for this area. [6]'}])
+    monkeypatch.setattr(a, 'turn', lambda *args, **kwargs: next(turns))
+    result = a.answer(ExplainSpikeRequest(user_question='Summarise the local record for this area'))
+    assert result.model_used.startswith('groq-agent/')
+    assert 'Server result: **42.5**' in result.explanation_markdown
+    assert 'local_cube' in result.evidence_sources and result.web_search_used is False
+
+
+def test_web_search_runs_only_for_event_reports_and_regulations(online, monkeypatch):
+    assert a.wants_reports('Which regulations apply to agricultural burning here?')
+    assert a.wants_reports('What happened in this area on 2026-07-24?')
+    assert not a.wants_reports('How much energy was released in this area?')
+    def forbidden(*args, **kwargs):
+        raise AssertionError('A numeric question must not reach the web')
+    monkeypatch.setattr(a.researcher, 'investigate_fire_literature_and_web', forbidden)
+    monkeypatch.setattr(a.local.research, 'google_search_reports', forbidden)
+    seen = []
+    def model(messages, **kwargs):
+        seen.append(messages[-1])
+        return [call('search_knowledge', {'query': 'FRP FRE energy'}), call('search_incident_reports', {}),
+                {'content': 'FRP is instantaneous power; FRE integrates energy. [K1]'}][len(seen) - 1]
+    monkeypatch.setattr(a, 'turn', model)
+    result = a.answer(ExplainSpikeRequest(user_question='How much energy was released in this area?'))
+    assert json.loads(seen[-1]['content'])['status'] == 'not_investigative'
+    assert result.web_search_used is False and result.search_query_executed is None
+
+
+def test_provider_outage_is_reported_as_the_local_engine(online, monkeypatch):
+    import httpx
+    def outage(*args, **kwargs):
+        raise httpx.ReadTimeout('search provider exceeded its deadline')
+    monkeypatch.setattr(a, 'turn', outage)
+    result = a.answer(ExplainSpikeRequest(user_question='Explain FRP and FRE'))
+    assert result.model_used == result.provider_used == 'deterministic-offline-science'
+    assert result.data_source == 'real' and result.web_search_used is False

@@ -622,6 +622,11 @@ class ExplainSpikeResponse(ContractModel):
     answer_markdown: str = ""
     provider_used: str = ""
     episode_summary: dict | None = None
+    guardrail_triggered: bool = False
+    verified_calculations: dict | None = None
+    suggested_prompts: list[str] = Field(default_factory=list, max_length=4)
+    evidence_sources: list[Literal["local_cube", "verified_calculation", "web", "knowledge", "guardrail"]] = Field(
+        default_factory=list)
 
     @model_validator(mode="after")
     def compatible_answer(self) -> "ExplainSpikeResponse":

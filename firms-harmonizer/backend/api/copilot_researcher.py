@@ -389,11 +389,129 @@ def synthesize_scientific_dossier(req,scope,episode:dict,reports:list[CitationRe
     return ExplainSpikeResponse(physical_classification=classification,explanation_markdown=text,
         citations=list(unique.values()),web_search_used=bool(reports),search_query_executed=query or None,
         model_used=causal.model_used if not causal.model_used.startswith('deterministic') else 'offline-physics-engine',
-        data_source=duckdb_engine.data_source(),map_context=legacy.map_context(scope),episode_summary=episode)
+        data_source=duckdb_engine.data_source(),map_context=legacy.map_context(scope),episode_summary=episode,
+        verified_calculations=episode_calculations(episode))
+
+
+def episode_calculations(episode:dict) -> dict | None:
+    """Formulas behind the dossier's consequence figures, with the exact server results."""
+    if episode.get('status')!='ok':
+        return None
+    energy,biomass=episode['total_episode_fre_gj'],episode['estimated_biomass_burned_tonnes']
+    return {'items':[
+        {'label':'Episode radiative energy','formula':f"Σ daily energy over {episode['duration_days']} days = {energy:,.3f} GJ",'value':energy,'unit':'GJ'},
+        {'label':'Consumed dry biomass','formula':f'{energy:,.3f} GJ × 0.368 t/GJ = {biomass:,.3f} t','value':biomass,'unit':'t'},
+        {'label':'CO2 scenario','formula':f"{biomass:,.3f} t × 1,580 kg/t ÷ 1,000 = {episode['estimated_co2_tonnes']:,.3f} t",'value':episode['estimated_co2_tonnes'],'unit':'t'}],
+        'note':'Model-derived estimates from sampled satellite observations. CO2 uses an assumed constant factor; neither is a measured emission.'}
+
+
+QUANTITY=r'how (?:many|much)|total|estimat|amount|cuant[oa]s?|quant[oa]s?|calcul'
+LOCAL_INTENTS=(
+    ('sensors',r'(?:by|per|each|por|cada) (?:sensor|satellite|satelite|instrument)|sensor breakdown|desglose por'),
+    ('windows',r'prescribed|controlled burn|planned burn|burn(?:ing)? window|quema (?:prescrita|controlada)|queima (?:prescrita|controlada)|(?:best|safest|quietest) (?:time|month|window|period|season)'),
+    ('comparison',r'compar|versus|\bvs\b|difference between|change(?:d)? (?:between|from)|between (?:19|20)\d{2} and (?:19|20)\d{2}|entre (?:19|20)\d{2} y (?:19|20)\d{2}'),
+    ('season',r'season.{0,40}(?:shift|drift|chang|moved|earlier|later|peak|length|duration|long|start|end)|peak.{0,30}(?:shift|drift|moved|earlier|later)|shifted|phenolog|fenolog|temporada.{0,40}(?:cambi|despla|pico|dura|adelant|retras)|when (?:does|is) the (?:fire|burning) season'),
+    ('risk',r'\brisk\b|riesgo|hazard|outlook|next (?:24 hours|7 days|14 days|week|two weeks)|proxim[oa]s (?:dias|semana)'),
+    ('sources',r'industrial|flaring|gas flare|persistent (?:heat|source|detection)|vegetative|refiner|antorcha'),
+    ('quality',r'reconstruct|gap[- ]?fill|sensor (?:gap|outage)|outage|cloud cover|cobertura nubosa|dias reconstruid|missing days'),
+    ('burned_area',r'hectare|hectarea|burned area|burnt area|area quemada|mcd64'),
+    ('emissions',r'\bco2\b|pm2[.,]?5|smoke|emission|emision|humo|carbon'),
+    ('events',r'(?:largest|biggest|strongest|major|main|most intense|worst|top|mayores|principales|peores)\b.{0,30}(?:events|episodes|fires|wildfires|incendios|eventos|episodios)'),
+)
+
+
+def comparison_periods(question:str,scope) -> tuple[tuple[str,str],tuple[str,str]] | None:
+    """Two calendar years named in the question, or the selected period against the previous year."""
+    years=sorted({int(y) for y in re.findall(r'\b(20\d{2})\b',legacy.normalized(question))})
+    if len(years)==2:
+        return (f'{years[0]}-01-01',f'{years[0]}-12-31'),(f'{years[1]}-01-01',f'{years[1]}-12-31')
+    if years or not scope.start or not scope.end or scope.start[:4]!=scope.end[:4]:
+        return None
+    def previous(day:str) -> str:
+        value=date.fromisoformat(day)
+        return value.replace(year=value.year-1,day=min(value.day,calendar.monthrange(value.year-1,value.month)[1])).isoformat()
+    return (previous(scope.start),previous(scope.end)),(scope.start,scope.end)
+
+
+def local_calculation(req:ExplainSpikeRequest,scope) -> ExplainSpikeResponse | None:
+    """Deterministic answers for territorial questions; no model and no network.
+
+    Returns None when the question is not one of these calculations, so the existing
+    quantitative, methodological and investigative paths keep their behaviour.
+    """
+    from backend.api import copilot_metrics as metrics
+    q=legacy.normalized(req.user_question)
+    quick=legacy.guidance(req.user_question)
+    # Totals the definitions path reports as unavailable are computed here when an area is attached.
+    if scope.error or not scope.coordinates or (quick and quick[0]!='DATA_NOT_AVAILABLE'):
+        return None
+    intent=next((name for name,pattern in LOCAL_INTENTS if re.search(pattern,q)),None)
+    definition=bool(re.search(r'\b(what (?:is|are|does)|que (?:es|son|significa)|define|meaning|explain|explica)\b',q))
+    if intent in ('burned_area','emissions','quality') and not re.search(QUANTITY,q):
+        intent=None
+    if intent is None or (definition and intent in ('sensors','sources','quality','burned_area','emissions')):
+        return None
+    recent=re.search(r'(?:last|past|ultimos|ultimas) (\d{1,2}) (?:years|anos)',q)
+    calc,extra=None,[]
+    try:
+        if intent=='comparison':
+            periods=comparison_periods(req.user_question,scope)
+            if not periods:
+                return None
+            evidence=metrics.retrieve_comparison(scope,req,*periods)
+            text,calc=metrics.comparison_answer(scope,evidence),metrics.comparison_calculations(evidence)
+        elif intent=='sensors':
+            evidence=metrics.retrieve_sensor_breakdown(scope,req)
+            text=metrics.sensors_answer(scope,evidence)
+        elif intent=='windows':
+            evidence=metrics.retrieve_low_activity_windows(scope,req)
+            text=metrics.windows_answer(scope,evidence)
+        elif intent=='season':
+            evidence=metrics.retrieve_phenology(scope,req,int(recent[1]) if recent else None)
+            text,calc=metrics.phenology_answer(scope,evidence),metrics.phenology_calculations(evidence)
+        elif intent=='risk':
+            evidence=metrics.retrieve_risk(scope,req)
+            text=metrics.risk_answer(scope,evidence)
+        elif intent in ('sources','quality'):
+            evidence=metrics.retrieve_data_quality(scope,req)
+            text=metrics.quality_answer(scope,evidence,sources_first=intent=='sources')
+            extra=[legacy.METHOD_SOURCES[3],ELVIDGE]
+        elif intent=='burned_area':
+            evidence=metrics.retrieve_burned_area(scope,req)
+            text,calc=metrics.burned_area_answer(scope,evidence),metrics.burned_area_calculations(evidence)
+        elif intent=='emissions':
+            if not scope.start or not scope.end:
+                return None
+            evidence=metrics.retrieve_emissions(scope,req)
+            text,calc=metrics.emissions_answer(scope,evidence),metrics.emissions_calculations(evidence)
+            extra=[EMISSIONS]
+        else:
+            explicit=legacy.question_period(req.user_question)
+            evidence=metrics.retrieve_top_events(scope,req,*(explicit or (None,None)))
+            text,calc=metrics.events_answer(scope,evidence),metrics.events_calculations(evidence)
+    except ValueError as exc:
+        return ExplainSpikeResponse(physical_classification='INSUFFICIENT_CONTEXT',explanation_markdown=str(exc),
+            model_used='deterministic-offline-science',data_source=duckdb_engine.data_source())
+    source=duckdb_engine.data_source()
+    if source=='synthetic':
+        text='**Synthetic demo mode — cannot verify real fire events.**\n\n'+text
+    cited=set(re.findall(r'\[\d+\]',text))
+    return ExplainSpikeResponse(
+        physical_classification='LOCAL_CALCULATION' if evidence.get('status')=='ok' else 'DATA_NOT_AVAILABLE',
+        explanation_markdown=text,citations=[c for c in [legacy.FIRMS,legacy.CUBE]+legacy.METHOD_SOURCES+extra if c.id in cited],
+        model_used='deterministic-offline-science',data_source=source,map_context=legacy.map_context(scope),
+        verified_calculations=calc)
 
 
 def answer(req:ExplainSpikeRequest) -> ExplainSpikeResponse:
+    from backend.api import copilot_guardrail
+    refused=copilot_guardrail.check(req,duckdb_engine.data_source())
+    if refused:
+        return refused
     scope=legacy.resolve_scope(req)
+    calculated=local_calculation(req,scope) if not physics_gate(req,scope) else None
+    if calculated:
+        return calculated
     quantitative,_=legacy.quantitative_intent(req.user_question)
     if quantitative and not is_investigative(req.user_question):
         return legacy.answer(req)

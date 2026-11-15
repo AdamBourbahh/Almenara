@@ -11,7 +11,7 @@ import duckdb
 from fastapi import HTTPException
 from pydantic import BaseModel,ConfigDict,Field
 
-from backend.api import copilot_rag,copilot_providers,fire_copilot as local,copilot_researcher as researcher
+from backend.api import copilot_guardrail,copilot_metrics as metrics,copilot_rag,copilot_providers,fire_copilot as local,copilot_researcher as researcher
 from backend.api.copilot_metrics import retrieve_energy,energy_answer
 from backend.api.schemas import CitationReference,ExplainSpikeResponse,GeoJSONPolygon
 from backend.db import duckdb_engine
@@ -45,6 +45,8 @@ class Args(BaseModel):
     start:date|None=None
     end:date|None=None
     target_date:date|None=None
+    compare_start:date|None=None
+    compare_end:date|None=None
 
 
 class Final(BaseModel):
@@ -66,6 +68,16 @@ TOOLS=[
  definition('query_energy','Calculate mapped and regional energy in GJ, biomass and yearly totals when the user requests these quantities or comparisons.',DATES),
  definition('inspect_observation_timeline','Check whether detections really stop and compare a map cutoff with reported incident duration. Returns daily local observations in an explicitly labeled comparison window, retaining the selected dates.',{}),
  definition('profile_episode','Discover the main thermal episode and estimate progression/duration and consequences.',{'target_date':{'type':'string'}}),
+ definition('compare_periods','Compare two periods of the selected area: energy, dry biomass, mean and peak day, with percentage change. start/end is the first period; compare_start/compare_end the second.',
+    {**DATES,**{k:{'type':'string','description':'ISO date YYYY-MM-DD of the second period.'} for k in ('compare_start','compare_end')}}),
+ definition('estimate_emissions','Scenario estimate of PM2.5 smoke and CO2 from consumed dry biomass, with its assumptions.',DATES),
+ definition('query_fire_season','Typical peak burning date, season duration in days and its drift in days per decade over the record.',{}),
+ definition('query_risk_outlook','Thermal risk for the next 24 hours, 7 and 14 days, intensity regime and main physical drivers.',{'target_date':{'type':'string'}}),
+ definition('query_data_quality','Days reconstructed during cloud cover or sensor outages, and stationary industrial heat sources versus vegetation fire.',DATES),
+ definition('query_burned_area','MCD64A1 validated burned area in hectares by year and fire energy per burned hectare.',DATES),
+ definition('find_quiet_burn_windows','Historical 30-day windows with the least fire energy and neighbour spread, for planning prescribed or agricultural burns.',{}),
+ definition('rank_thermal_events','Rank the largest thermal events recorded in the area by energy, with dates, duration and biomass.',DATES),
+ definition('query_sensor_breakdown','Yearly detections and calibrated energy density for each sensor channel (Terra, Aqua, VIIRS) in the selected area.',DATES),
  definition('search_incident_reports','Investigate real-world incidents for the selected place and period. Retrieve official/reputable reports for event identity, chronology, reported cause or spread; use this for event-specific questions.',{})]
 
 
@@ -91,7 +103,49 @@ def turn(messages,*,finish=False,timeout=10,used=()):
     return choice['message']
 
 
+CALCULATION_TOOLS=('compare_periods','estimate_emissions','query_fire_season','query_risk_outlook','query_data_quality',
+    'query_burned_area','find_quiet_burn_windows','rank_thermal_events','query_sensor_breakdown')
+CUBE_TOOLS=('query_energy','query_observations','profile_episode')+CALCULATION_TOOLS
+REPORT_INTENT=re.compile(r'report|news|noticia|official|oficial|agency|authorit|regulat|normativa|ordinance|permit|\blaw\b|\bley\b|incident|what happened|led to|evacuat|damage|casualt|contain|extinguish|\bwho\b|named|identity')
+MARKER=r'\[(?:[A-Z]*\d+(?:_\d+)?)\]'
+
+
+def wants_reports(question):
+    """Web retrieval is reserved for real-world event context, official reports and regulations."""
+    return bool(researcher.is_investigative(question) or local.is_causal(question) or REPORT_INTENT.search(local.normalized(question)))
+
+
+def strip_unsupported(text,supported):
+    """Drop every sentence carrying a number absent from the tool results."""
+    return ' '.join(s for s in re.split(r'(?<=[.!?])\s+|\n+',text) if s.strip() and supported(s)).strip()
+
+
+def provenance(response):
+    """Label which evidence families a finished answer rests on; never upgrades a claim."""
+    if not isinstance(response,ExplainSpikeResponse) or response.guardrail_triggered:
+        return response
+    ids={c.id for c in response.citations}
+    sources=[]
+    if ids & {'[5]','[6]'} or response.episode_summary or response.verified_calculations:
+        sources.append('local_cube')
+    if response.verified_calculations:
+        sources.append('verified_calculation')
+    if response.web_search_used:
+        sources.append('web')
+    if any(i[1:2] in ('K','E') or i in ('[1]','[2]','[3]','[4]','[10]','[11]') for i in ids):
+        sources.append('knowledge')
+    response.evidence_sources=sources
+    return response
+
+
 def answer(req):
+    """Domain gate first; then the tool agent online, or the local engine offline."""
+    if copilot_guardrail.assess(req.user_question):
+        return copilot_guardrail.refusal(req,duckdb_engine.data_source())
+    return provenance(_answer(req))
+
+
+def _answer(req):
     """No intent-keyword routing in the online path. Offline behavior stays local."""
     provider, key, _, model = copilot_providers.agent_config()
     if local.is_offline() or not key:
@@ -117,6 +171,7 @@ def answer(req):
     article_evidence=False
     pending_calls=[]
     batch_start=2
+    calculations=[]
     def knowledge(query):
         docs=copilot_rag.search(query)
         for doc in docs:
@@ -254,7 +309,8 @@ def answer(req):
                 return ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE',explanation_markdown=text,
                     citations=[c for k,c in citations.items() if k in used],model_used=provider+'-agent/'+model,
                     data_source=source,web_search_used=web,search_query_executed=' | '.join(queries) or None,
-                    map_context=local.map_context(scope),episode_summary=episode)
+                    map_context=local.map_context(scope),episode_summary=episode,
+                    verified_calculations=metrics.merge_verified(*calculations))
             args=Args.model_validate(raw)
             if name=='search_knowledge':
                 result=knowledge(args.query or req.user_question)
@@ -360,4 +416,8 @@ def answer(req):
         log.warning('%s agent fallback (%s); tools=%s',provider,reason[:160],trace)
         from backend.api.copilot_network import offline_context
         with offline_context():
-            return researcher.answer(req)
+            fallback=researcher.answer(req)
+        # A provider outage or timeout is reported as the local engine, never as the model.
+        if isinstance(fallback,ExplainSpikeResponse) and not fallback.guardrail_triggered:
+            fallback.model_used=fallback.provider_used='deterministic-offline-science'
+        return fallback
