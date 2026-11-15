@@ -79,6 +79,18 @@ def test_online_failure_does_not_run_local_fallback(online,monkeypatch):
     assert result.verified_calculations is None
 
 
+def test_pilot_envelope_cannot_replace_selected_location_label(online,monkeypatch):
+    seen=[]
+    def model(messages,**kwargs):
+        seen.append(json.loads(messages[1]['content']))
+        return {'content':'FRP is instantaneous power. [K1]'}
+    monkeypatch.setattr(a,'turn',model)
+    a.answer(ExplainSpikeRequest(region_name='Northern Africa selection',prefer_map_context=True,
+        aoi={'coordinates':[[[3.05,36.72],[3.10,36.72],[3.10,36.77],[3.05,36.77],[3.05,36.72]]]},
+        period_start='2023-01-01',period_end='2023-12-31',user_question='Explain FRP.'))
+    assert seen[0]['scope']['location']=='Northern Africa selection'
+
+
 def test_live_protocol_uses_auto_and_never_repeats_completed_tool(online,monkeypatch):
     import httpx
     seen=[]

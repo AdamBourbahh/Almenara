@@ -198,7 +198,8 @@ def _answer(req):
                 url=doc['url'],relevance_note=doc['text'])
         return [{'source_id':'['+d['id']+']','text':d['text']} for d in docs]
     evidence.extend(knowledge(req.user_question))
-    context={'question':req.user_question[:2500],'scope':{'location':scope.locality or scope.label,'start':scope.start,'end':scope.end,'has_aoi':bool(scope.coordinates)},
+    # Broad pilot envelopes can cross countries; they are not the selected place.
+    context={'question':req.user_question[:2500],'scope':{'location':scope.label,'start':scope.start,'end':scope.end,'has_aoi':bool(scope.coordinates)},
              'data_source':source,'client_selection_hints':{'start':req.period_start,'end':req.period_end,'forecast':bool(req.selected_day and req.selected_day.is_forecast),'reconstructed':bool(req.selected_day and req.selected_day.is_gap_filled),'industrial_candidate':bool(req.selected_hex and req.selected_hex.is_industrial_site)},'history':[{'role':m.role,'content':m.content[:600]} for m in req.conversation[-2:]],'knowledge':evidence[:2]}
     messages=[{'role':'system','content':SYSTEM},{'role':'user','content':json.dumps(context,ensure_ascii=False)}]
     deadline=monotonic()+55
