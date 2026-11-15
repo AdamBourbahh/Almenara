@@ -1076,7 +1076,9 @@ negatives; it is not a security boundary on its own.
 **Local tools.** Besides knowledge search, observations, energy, episode profile and
 incident reports, the agent can call: `compare_periods`, `estimate_emissions`,
 `query_fire_season`, `query_risk_outlook`, `query_data_quality`, `query_burned_area`,
-`find_quiet_burn_windows` and `rank_thermal_events`. Tool arguments are dates only;
+`find_quiet_burn_windows`, `rank_thermal_events` and `query_sensor_breakdown` (yearly
+MODIS and VIIRS detections with each channel's calibrated energy density; detection counts
+are not comparable between sensors). Tool arguments are dates only;
 geometry and SQL stay server-owned. The same calculations answer offline through
 deterministic routing, with `model_used = "deterministic-offline-science"`.
 

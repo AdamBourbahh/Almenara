@@ -74,6 +74,7 @@ TOOLS=[
  definition('query_burned_area','MCD64A1 validated burned area in hectares by year and fire energy per burned hectare.',DATES),
  definition('find_quiet_burn_windows','Historical 30-day windows with the least fire energy and neighbour spread, for planning prescribed or agricultural burns.',{}),
  definition('rank_thermal_events','Rank the largest thermal events recorded in the area by energy, with dates, duration and biomass.',DATES),
+ definition('query_sensor_breakdown','Yearly detections and calibrated energy density for each sensor channel (Terra, Aqua, VIIRS) in the selected area.',DATES),
  definition('search_incident_reports','Investigate real-world incidents for the selected place and period. Retrieve official/reputable reports for event identity, chronology, reported cause or spread; use this for event-specific questions.',{})]
 
 
@@ -100,7 +101,7 @@ def turn(messages,*,finish=False,timeout=10,used=()):
 
 
 CALCULATION_TOOLS=('compare_periods','estimate_emissions','query_fire_season','query_risk_outlook','query_data_quality',
-    'query_burned_area','find_quiet_burn_windows','rank_thermal_events')
+    'query_burned_area','find_quiet_burn_windows','rank_thermal_events','query_sensor_breakdown')
 CUBE_TOOLS=('query_energy','query_observations','profile_episode')+CALCULATION_TOOLS
 REPORT_INTENT=re.compile(r'report|news|noticia|official|oficial|agency|authorit|regulat|normativa|ordinance|permit|\blaw\b|\bley\b|incident|what happened|led to|evacuat|damage|casualt|contain|extinguish|\bwho\b|named|identity')
 MARKER=r'\[(?:[A-Z]*\d+(?:_\d+)?)\]'
@@ -330,6 +331,10 @@ def _answer(req):
                     elif name=='query_burned_area':
                         result=metrics.retrieve_burned_area(selected,req)
                         text,calc=metrics.burned_area_answer(selected,result),metrics.burned_area_calculations(result)
+                    elif name=='query_sensor_breakdown':
+                        result=metrics.retrieve_sensor_breakdown(selected,req)
+                        text=metrics.sensors_answer(selected,result)
+                        citations.update({c.id:c for c in [local.FIRMS]+local.METHOD_SOURCES[1:3]})
                     elif name=='find_quiet_burn_windows':
                         result=metrics.retrieve_low_activity_windows(selected,req)
                         text=metrics.windows_answer(selected,result)

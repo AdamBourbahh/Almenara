@@ -409,6 +409,7 @@ def episode_calculations(episode:dict) -> dict | None:
 
 QUANTITY=r'how (?:many|much)|total|estimat|amount|cuant[oa]s?|quant[oa]s?|calcul'
 LOCAL_INTENTS=(
+    ('sensors',r'(?:by|per|each|por|cada) (?:sensor|satellite|satelite|instrument)|sensor breakdown|desglose por'),
     ('windows',r'prescribed|controlled burn|planned burn|burn(?:ing)? window|quema (?:prescrita|controlada)|queima (?:prescrita|controlada)|(?:best|safest|quietest) (?:time|month|window|period|season)'),
     ('comparison',r'compar|versus|\bvs\b|difference between|change(?:d)? (?:between|from)|between (?:19|20)\d{2} and (?:19|20)\d{2}|entre (?:19|20)\d{2} y (?:19|20)\d{2}'),
     ('season',r'season.{0,40}(?:shift|drift|chang|moved|earlier|later|peak|length|duration|long|start|end)|peak.{0,30}(?:shift|drift|moved|earlier|later)|shifted|phenolog|fenolog|temporada.{0,40}(?:cambi|despla|pico|dura|adelant|retras)|when (?:does|is) the (?:fire|burning) season'),
@@ -450,7 +451,7 @@ def local_calculation(req:ExplainSpikeRequest,scope) -> ExplainSpikeResponse | N
     definition=bool(re.search(r'\b(what (?:is|are|does)|que (?:es|son|significa)|define|meaning|explain|explica)\b',q))
     if intent in ('burned_area','emissions','quality') and not re.search(QUANTITY,q):
         intent=None
-    if intent is None or (definition and intent in ('sources','quality','burned_area','emissions')):
+    if intent is None or (definition and intent in ('sensors','sources','quality','burned_area','emissions')):
         return None
     recent=re.search(r'(?:last|past|ultimos|ultimas) (\d{1,2}) (?:years|anos)',q)
     calc,extra=None,[]
@@ -461,6 +462,9 @@ def local_calculation(req:ExplainSpikeRequest,scope) -> ExplainSpikeResponse | N
                 return None
             evidence=metrics.retrieve_comparison(scope,req,*periods)
             text,calc=metrics.comparison_answer(scope,evidence),metrics.comparison_calculations(evidence)
+        elif intent=='sensors':
+            evidence=metrics.retrieve_sensor_breakdown(scope,req)
+            text=metrics.sensors_answer(scope,evidence)
         elif intent=='windows':
             evidence=metrics.retrieve_low_activity_windows(scope,req)
             text=metrics.windows_answer(scope,evidence)

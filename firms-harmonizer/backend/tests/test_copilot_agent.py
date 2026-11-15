@@ -247,13 +247,14 @@ def test_comparison_without_two_complete_periods_falls_back_to_local_engine(comp
 
 
 @pytest.mark.parametrize('tool', ['estimate_emissions', 'query_fire_season', 'query_risk_outlook', 'query_data_quality',
-    'query_burned_area', 'find_quiet_burn_windows', 'rank_thermal_events'])
+    'query_burned_area', 'find_quiet_burn_windows', 'rank_thermal_events', 'query_sensor_breakdown'])
 def test_every_calculation_tool_is_advertised_and_renders_server_text(online, monkeypatch, tool):
     assert tool in [t['function']['name'] for t in a.TOOLS] and tool in a.CALCULATION_TOOLS
     names = {'estimate_emissions': ('retrieve_emissions', 'emissions_answer'), 'query_fire_season': ('retrieve_phenology', 'phenology_answer'),
         'query_risk_outlook': ('retrieve_risk', 'risk_answer'), 'query_data_quality': ('retrieve_data_quality', 'quality_answer'),
         'query_burned_area': ('retrieve_burned_area', 'burned_area_answer'), 'find_quiet_burn_windows': ('retrieve_low_activity_windows', 'windows_answer'),
-        'rank_thermal_events': ('retrieve_top_events', 'events_answer')}[tool]
+        'rank_thermal_events': ('retrieve_top_events', 'events_answer'),
+        'query_sensor_breakdown': ('retrieve_sensor_breakdown', 'sensors_answer')}[tool]
     monkeypatch.setattr(a.metrics, names[0], lambda *args, **kwargs: {'status': 'ok', 'value': 42.5})
     monkeypatch.setattr(a.metrics, names[1], lambda *args, **kwargs: 'Server result: **42.5** [6]')
     for name in ('emissions_calculations', 'phenology_calculations', 'burned_area_calculations', 'events_calculations'):

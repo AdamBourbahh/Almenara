@@ -29,6 +29,7 @@ period-over-period comparison with percentage change; fire-season timing (peak d
 duration, Theil-Sen drift in days per decade, optionally over the last N years);
 reconstructed days and persistent-source cells; MCD64A1 burned area with energy per
 hectare; 30-day historically quiet windows; ranked thermal events; thermal risk outlook;
+yearly detections and calibrated energy density per sensor channel (Terra, Aqua, VIIRS);
 and a smoke scenario. Each is exposed as an agent tool and through a deterministic offline
 router (`copilot_researcher.local_calculation`), so they work with `COPILOT_OFFLINE=1`.
 
@@ -61,7 +62,7 @@ logic lives in `frontend/src/components/Audit/copilotPresentation.ts`.
   gives a past-dated outlook.
 - `copilot_rag` now reads its sources as UTF-8 explicitly (they were mis-decoded on Windows).
 
-**Validation:** backend 590 passed, 1 failed (`test_real_cube_november_2026_coverage_and_schema`:
+**Validation:** backend 592 passed, 1 failed (`test_real_cube_november_2026_coverage_and_schema`:
 the local real cube ends 2026-11-01, unrelated); frozen-test hashes OK; frontend `tsc`
 clean, 55/55 tests, production build OK. On Windows the backend suite needs `PYTHONUTF8=1`
 for `test_core_has_only_allowed_imports`, which reads `risk_predictor.py` with the locale codec.

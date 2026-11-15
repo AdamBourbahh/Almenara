@@ -598,6 +598,64 @@ def events_answer(scope, evidence: dict) -> str:
         "Peaks are at least 15 days apart and events are ranked by their total energy. An event can combine several fires inside the area, and its dates are not official ignition or containment dates."])
 
 
+# ---- per-sensor record
+
+def retrieve_sensor_breakdown(scope, req: ExplainSpikeRequest, max_years: int = 15) -> dict:
+    """Yearly detections and calibrated energy density of each sensor channel in the cube."""
+    import numpy as np
+
+    if not scope.coordinates:
+        return {"status": "missing_scope", "message": "Select an area to list its record by sensor."}
+    r4, r7, _ = queries.get_hierarchical_h3_filter(scope.coordinates)
+    area = queries.polygon_area_km2(scope.coordinates)
+    first = max(2000, int(scope.start[:4])) if scope.start else 2000
+    last = min(2026, int(scope.end[:4])) if scope.end else 2026
+    daily = queries.fetch_aoi_aggregated_data(r4, r7, first, last, req.exclude_industrial_flaring, area, req.confidence_level).daily
+    if not len(daily["epoch_day"]):
+        return {"status": "empty", "message": "No satellite record is available for this area and these years. This does not prove that no fire occurred."}
+    years = np.unique(daily["year"])
+    rows = []
+    for year in years[-max_years:].tolist():
+        chosen = daily["year"] == year
+        row = {"year": int(year), "modis_detections": int(daily["raw_modis_cnt"][chosen].sum()),
+               "viirs_detections": int(daily["raw_viirs_cnt"][chosen].sum())}
+        for name in ("terra", "aqua", "viirs"):
+            values = daily[f"obs_{name}_fre"][chosen]
+            burning = np.isfinite(values) & (values > 0)
+            row[f"{name}_fire_days"] = int(burning.sum())
+            row[f"{name}_mean_energy_density_mj_km2"] = float(values[burning].mean()) if burning.any() else None
+        rows.append(row)
+    return {"status": "ok", "data_source": duckdb_engine.data_source(), "years": rows,
+            "years_omitted_before": int(years[0]) if len(years) > max_years else None,
+            "modis_detections": sum(r["modis_detections"] for r in rows),
+            "viirs_detections": sum(r["viirs_detections"] for r in rows),
+            "first_viirs_year": next((r["year"] for r in rows if r["viirs_detections"] > 0), None),
+            "industrial_sources_excluded": req.exclude_industrial_flaring}
+
+
+def sensors_answer(scope, evidence: dict) -> str:
+    if evidence["status"] != "ok":
+        return evidence["message"]
+    rows = evidence["years"]
+    def cell(row, name):
+        density = row[f"{name}_mean_energy_density_mj_km2"]
+        return "n/a" if density is None else f"{density:,.4f} ({row[f'{name}_fire_days']} d)"
+    viirs = (f" VIIRS detections begin in **{evidence['first_viirs_year']}** in this selection."
+             if evidence["first_viirs_year"] else " No VIIRS detections fall in this selection.")
+    return "\n\n".join([
+        f"### Record by sensor\n\nBetween {rows[0]['year']} and {rows[-1]['year']}, **{scope.label}** has "
+        f"**{evidence['modis_detections']:,} MODIS detections** (Terra and Aqua, 1 km) and "
+        f"**{evidence['viirs_detections']:,} VIIRS detections** (375 m).{viirs} [5] [6]",
+        "| Year | MODIS detections | VIIRS detections | Terra energy | Aqua energy | VIIRS energy |\n| --- | ---: | ---: | ---: | ---: | ---: |\n"
+        + "\n".join(f"| {r['year']} | {r['modis_detections']:,} | {r['viirs_detections']:,} | {cell(r, 'terra')} | "
+                    f"{cell(r, 'aqua')} | {cell(r, 'viirs')} |" for r in rows),
+        "Energy columns give each sensor's calibrated mean daily energy density in MJ/km²/day over the days it recorded fire, "
+        "with that number of days in brackets. A detection is a satellite thermal anomaly, not a count of distinct fires. "
+        "VIIRS sees smaller and cooler fires than MODIS, so detection counts are not comparable between sensors or across the "
+        "years before and after VIIRS; the calibrated energy columns are the comparable quantity. [2] [3]"
+        + (f" Years before {rows[0]['year']} are omitted from this table." if evidence["years_omitted_before"] else "")])
+
+
 # ---- thermal risk outlook
 
 def retrieve_risk(scope, req: ExplainSpikeRequest) -> dict:

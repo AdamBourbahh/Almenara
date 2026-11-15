@@ -306,6 +306,23 @@ def test_burned_area_is_never_invented_and_definitions_are_untouched(local_only)
     assert 'hectares' in definition['explanation_markdown'] and definition['physical_classification'] == 'SCIENTIFIC_EXPLANATION'
 
 
+def test_sensor_breakdown_lists_each_sensor_and_matches_dashboard_counts(local_only):
+    body, payload = local_only('Show energy and detections by sensor for this area', period_start='2010-01-01', period_end='2014-12-31')
+    assert body['physical_classification'] == 'LOCAL_CALCULATION'
+    rows = {int(cells[1]): cells for cells in (line.split('|') for line in body['explanation_markdown'].splitlines())
+            if len(cells) > 3 and cells[1].strip().isdigit()}
+    assert sorted(rows) == [2010, 2011, 2012, 2013, 2014]
+    series = local_only.analysis(payload)['calendar_series']
+    for year, cells in rows.items():
+        counted = int(cells[2].replace(',', '')) + int(cells[3].replace(',', ''))
+        assert counted == sum(c['raw_hotspot_count'] for c in series if c['year'] == year)
+    header = next(line for line in body['explanation_markdown'].splitlines() if line.startswith('| Year'))
+    assert all(name in header for name in ('MODIS detections', 'VIIRS detections', 'Terra', 'Aqua', 'VIIRS energy'))
+    assert 'not a count of distinct fires' in body['explanation_markdown']
+    definition, _ = local_only('What is the difference between MODIS and VIIRS by sensor?')
+    assert definition['physical_classification'] != 'LOCAL_CALCULATION'
+
+
 def test_energy_summary_carries_the_biomass_formula(local_only):
     body, payload = local_only('How much energy in GJ and biomass was consumed in this area?')
     energy = gj([c for c in local_only.analysis(payload)['calendar_series'] if c['year'] == 2022])
