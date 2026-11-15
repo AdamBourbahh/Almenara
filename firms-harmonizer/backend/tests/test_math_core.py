@@ -220,7 +220,7 @@ def test_core_has_only_allowed_imports():
     allowed = {'__future__', 'numpy', 'scipy', 'h3'}
     core = Path(__file__).resolve().parents[1] / 'core'
     for path in core.glob('*.py'):
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
             if isinstance(node, ast.Import):
                 assert all(alias.name.split('.')[0] in allowed for alias in node.names)
             elif isinstance(node, ast.ImportFrom):
