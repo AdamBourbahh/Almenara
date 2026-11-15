@@ -120,7 +120,7 @@ def turn(messages,*,finish=False,timeout=15,used=()):
 CALCULATION_TOOLS=('compare_periods','estimate_emissions','query_fire_season','query_risk_outlook','query_data_quality',
     'query_burned_area','find_quiet_burn_windows','rank_thermal_events','query_sensor_breakdown','query_scientific_audit')
 CUBE_TOOLS=('query_energy','query_observations','profile_episode')+CALCULATION_TOOLS
-REPORT_INTENT=re.compile(r'which fire|what fire|report|news|noticia|official|oficial|agency|authorit|regulat|normativa|ordinance|permit|\blaw\b|\bley\b|incident|what happened|led to|evacuat|damage|casualt|contain|extinguish|\bwho\b|named|identity')
+REPORT_INTENT=re.compile(r'which fire|what fire|report|news|noticia|official|oficial|agency|authorit|regulat|normativa|ordinance|permit|\blaw\b|\bley\b|incident|what\s+(?:(?:has|had|is|was)\s+)?happen(?:ed|ing)|what[\'’]s\s+happen(?:ed|ing)|que\s+(?:(?:ha|esta)\s+)?(?:pasado|pasando)|led to|evacuat|damage|casualt|contain|extinguish|\bwho\b|named|identity')
 MARKER=r'\[(?:[A-Z]*\d+(?:_\d+)?)\]'
 
 
@@ -161,6 +161,7 @@ def answer(req):
 
 def _answer(req):
     """No intent-keyword routing in the online path. Offline behavior stays local."""
+    started=monotonic()
     provider, key, _, model = copilot_providers.agent_config()
     if local.is_offline():
         return researcher.answer(req)
@@ -333,7 +334,7 @@ def _answer(req):
                 if observation_total and observation_total != primary_calculation:
                     text=observation_total+'\n\n'+text
                 used=set(re.findall(r'\[(?:[A-Z]*\d+(?:_\d+)?)\]',text))
-                log.info('%s agent tools: %s',provider,' -> '.join(trace))
+                log.info('%s agent tools: %s; elapsed_ms=%.1f',provider,' -> '.join(trace),(monotonic()-started)*1000)
                 return ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE',explanation_markdown=text,
                     citations=[c for k,c in citations.items() if k in used],model_used=provider+'-agent/'+model,
                     data_source=source,web_search_used=web,search_query_executed=' | '.join(queries) or None,
@@ -430,6 +431,12 @@ def _answer(req):
                     calculations.append(calc)
                 elif name=='search_incident_reports' and not wants_reports(req.user_question):
                     result={'status':'not_investigative','message':'Web retrieval is reserved for real-world event context, official reports and regulations. Answer from the local tools.'}
+                elif name=='search_incident_reports' and trace.count(name)>2:
+                    # Removing an advertised tool is not an execution bound: a
+                    # provider may still request it again. Retain earlier evidence
+                    # and answer instead of repeating another slow web search.
+                    result={'status':'search_limit_reached','message':
+                        'Two incident searches have already completed. Answer using the retrieved evidence and state what remains unverified. Do not search again.'}
                 elif name=='search_incident_reports':
                     if source=='synthetic':
                         result={'status':'synthetic','message':'Synthetic data cannot verify a real incident.'}
@@ -489,7 +496,7 @@ def _answer(req):
         raise ValueError('No final answer')
     except (httpx.HTTPError,HTTPException,duckdb.Error,duckdb_engine.CubeNotAvailableError,ValueError,KeyError,TypeError,IndexError,AttributeError,TimeoutError) as exc:
         reason = str(exc) if type(exc) is ValueError else type(exc).__name__
-        log.warning('%s agent failed (%s); tools=%s',provider,reason[:160],trace)
+        log.warning('%s agent failed (%s); tools=%s; elapsed_ms=%.1f',provider,reason[:160],trace,(monotonic()-started)*1000)
         return ExplainSpikeResponse(physical_classification='INSUFFICIENT_CONTEXT',
             explanation_markdown='The selected model could not produce a verified answer. Please retry. No local substitute answer was generated.',
             model_used=provider+'-error/'+model,data_source=source,map_context=local.map_context(scope))
