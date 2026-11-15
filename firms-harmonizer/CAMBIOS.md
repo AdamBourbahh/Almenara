@@ -365,3 +365,37 @@ optional request `audit_metrics` and bounded `chat_history`; response
 profiles local measurements independently of model prose and exposes assumptions,
 coverage limits and censored duration. Assumed PM2.5/CO2 estimates are confined to
 this dossier and do not change the dashboard's unavailable measured emissions.
+## 2026-11-14 — API energy accounting, calendar bounds and limits (Antonio)
+
+No field was added, removed or retyped; `schemas.py`, `types.ts` and the four frozen tests are
+unchanged. Several fields now carry their documented meaning:
+
+- `biomass_burned_tonnes`, `total_biomass_burned_kt`, `total_annual_fre_gj`: daily energy is the
+  cell-mean density times the km² of the cube cells present that day
+  (`AoiAggregate.daily_area_km2`). It used to be multiplied by the area of every cell that burned at
+  any time in 2001-2026, inflating totals 500-1,900x on the real cube (Iberia: 20,017,560 kt ->
+  25,109 kt). Days with no cube row now add no biomass. A 1.4-1.7x gap remains against a direct
+  per-cell sum because sensors are averaged over different cell subsets before the Kalman — a model
+  input decision for Adam, not a unit error.
+- `aoi_area_km2`: the polygon's R7 area (Chilecito 150,993 km²), no longer the area of cells with data.
+- `calendar_series` ends on the cube's last day (`duckdb_engine.last_epoch_day()`); it no longer
+  pads to 31 December with gap-filled days that have no data. Same for `/api/chaos-monkey`.
+- `active_sensors`: decodes all five ETL bits (Terra, Aqua, VIIRS S-NPP, VIIRS NOAA-20,
+  VIIRS NOAA-21). The previous `& 7` mask dropped NOAA-20/21, leaving 291-369 detection days per
+  preset with an empty sensor list.
+- Input limits (HTTP 422): more than 1,000 polygon positions; polygons estimated (R4 polyfill × 343)
+  above twice the 250,000 R7 limit are rejected before the exact polyfill (60°×60°: 4.1 s -> 12 ms);
+  `user_question` above 2,000 characters and `region_name` above 200 in `/api/explain-spike`.
+- Chaos Monkey learns its prior only from years other than the target year (holdout). Measured effect
+  is under 1%; the metric itself (recovery ~90-100% in every case) is for Adam to redefine.
+- Caches are bounded by bytes as well as entries (`/analyze` bodies 256 MB, geometries 128 MB).
+  Theil-Sen hex trends run in 64-row blocks (identical results, ~0.3 MB temporaries instead of
+  ~370 MB); Iberia `/analyze` cold time dropped from ~1.6-2.1 s to ~1.2-1.6 s.
+
+For Moha: a yearly map via `/api/map-period?start_date=YYYY-01-01&end_date=YYYY-12-31` returns the
+same hexagons as the yearly `/api/analyze` call used by `loadMapYear`, without running the Kalman,
+with 25-65% fewer bytes.
+
+Still blocked by frozen tests (team decision needed): restricting CORS (`allow_origins == ["*"]`),
+populating `forecast_series` / PM2.5, and raising the gzip level. Regression tests on a sparse,
+real-shaped cube: `backend/tests/test_api_accounting.py` (306 backend tests pass).
