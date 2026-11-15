@@ -558,3 +558,87 @@ complete assistant/tool exchanges and opaque metadata survive context trimming.
 The agent keeps its 35-second overall budget and server-owned numerical validation.
 No frozen public API fields or types changed. Existing legacy-provider tests declare
 their provider rather than inheriting the developer's local Google credentials.
+
+
+## 2026-11-15 — Risk AI recalibration and operational telemetry
+
+Additive, optional/nullable Python/TypeScript contract update (`backend/api/schemas.py`,
+`frontend/src/api/types.ts`), documented in SPECS §5.2 and §5.6. No existing field was
+renamed, removed or retyped, and every new field defaults to `null`.
+
+New models: `RiskObservationStatus` (`status`, `coverage_nominal`, `uncertainty_pct`,
+`days_since_observation`), `RiskIntensityRegime` (`regime`, `guidance`, `intensity_mw`,
+`diurnal_amplification_ratio`, `contagion_origin`, `neighbor_frp_mw`), `RiskPhenology`
+(`days_to_peak`, `peak_date_label`, `kappa`, `season_width_days`, `decadal_shift_days`,
+`biomass_exposure_tonnes`, `persistence_entropy`, `fuel_regime`) and `RiskOutlookPoint`
+(`date`, `prob_pct`, `baseline_prob_pct`).
+
+New optional fields on existing models:
+
+- `AIRiskAssessment`: `baseline_climatology_pct`, `multi_year_trend_delta_pct`,
+  `short_term_anomaly_delta_pct`, `anomaly_multiplier`, `markov_persistence`,
+  `horizon_explanation`, `observation`, `intensity`, `phenology`, `outlook_series`.
+- `RiskFactor`: `signed_impact_pct`, `observed_value`, `unit`.
+- `RiskDailyProbability`: `baseline_prob_pct`, `observed_event`.
+
+Behaviour changes in `backend/core/risk_predictor.py`:
+
+- The 24-hour probability uses a causal seasonal base rate (event-day frequency within
+  day of year ±15 days in strictly earlier years, shrunk by pseudo-counts; long-term and
+  recent-five-year versions) plus a persistence-state term (no event today, a run of 1–2
+  days, a run of 3 or more days) as the logistic offset.
+- Each target gets one 24-hour fit; the logistic, boosted-stump and Gaussian naive Bayes
+  learners enter as centred residuals on that offset. The nine independent per-horizon
+  fits and the running-maximum ratchet are gone.
+- The 7- and 14-day probabilities are a first-order autocorrelated Markov accumulation,
+  P_H = 1 − (1 − p_1) · Π_{k=2..H} (1 − p_k (1 − ρ)), where p_k relaxes from p_1 to the
+  seasonal base rate of day t+k and ρ is chosen from {0.55 … 0.85} on the calibration
+  slice (default 0.68, the RTS Kalman φ).
+- The 24-hour risk decomposes exactly (up to rounding) as baseline + multi-year trend +
+  short-term anomaly; driver bars now also carry a signed contribution in probability
+  points, an observed value, a unit and a physical description.
+- New operational telemetry: observation status, intensity regime (25/120/350 MW bands on
+  the peak mean FRP per detection), contagion origin, phenology (days to peak, κ, season
+  width, Theil–Sen decadal shift, biomass exposure, energy-weighted temporal entropy) and a
+  14-day outlook series.
+- `backend/db/queries.py`: `fetch_risk_daily` returns the extra causal array
+  `peak_detection_frp`; new `fetch_risk_diurnal_ratio` returns the matched-days-weighted
+  median ETL Aqua/Terra ratio from `data/lookup/diurnal_ratios.parquet` (None when the file
+  is absent). `backend/api/routes.py` merges it into `intensity.diurnal_amplification_ratio`.
+- Frontend: `RiskPredictionPanel.tsx` redesigned; new pure helper module
+  `src/components/Risk/riskPresentation.ts` and test `tests/risk-panel.test.mjs`.
+
+Limitations, unchanged in substance:
+
+1. The target is still a satellite thermal-event proxy, not confirmed incidents.
+2. The persistence range ρ ∈ [0.55, 0.85] is a design constraint. The measured lag-1
+   autocorrelation of the daily event indicator is lower in some regions (about 0.21 for
+   Orlando, about 0.42 for Iberia, combined target), so 7- and 14-day probabilities are
+   under-predicted there. Holdout Brier score, combined target, before → after: Orlando 7 d
+   0.186 → 0.215 and 14 d 0.167 → 0.196; Iberia 14 d 0.105 → 0.132. The 24-hour Brier score
+   is equal or better in three of four presets (Chilecito 0.051 → 0.044, Manaus 0.085 →
+   0.069, Iberia 0.159 → 0.161, Orlando 0.097 → 0.097).
+3. `observation.uncertainty_pct` measures observation coverage (gaps, staleness and cloud
+   when available). It is not a Kalman posterior variance: the predictor deliberately does
+   not use RTS-smoothed values, which would leak future information. Cloud cover is absent
+   (all missing) in the current real cube.
+4. `intensity.regime` uses satellite FRP per detection in MW as an equivalent scale, not
+   fireline intensity in kW/m. `contagion_origin` uses 1-ring neighbours inside the selected
+   area only, so it separates adjacent-cell spread from isolated ignition but cannot detect
+   ingress from outside the area.
+5. `biomass_exposure_tonnes` uses the project's one-hour FRP integration proxy and is an
+   order-of-magnitude estimate.
+6. `intensity.diurnal_amplification_ratio` is null when the ETL lookup is absent (always
+   with the synthetic cube).
+7. Fewer than 365 daily rows always use the causal prior. Between 365 and roughly 610 rows
+   (the fit slice, the first 60%, must contain days with a prior-year seasonal window) and
+   whenever the fit or calibration slice has fewer than five events or five non-events, the
+   prior path is used too; `prior_targets` lists the affected targets.
+8. `risk_predictor.py` reimplements Best–Fisher κ, the day-of-year label, entropy and
+   Theil–Sen locally, pinned by equivalence tests, because `test_core_has_only_allowed_imports`
+   forbids sibling imports in that module. The entropy shown is FRP-energy-weighted per month.
+
+Validation: backend 521 passed, 1 skipped, 1 pre-existing failure
+(`test_cube_schema.py::test_real_cube_november_2026_coverage_and_schema`: the local real
+cube ends 2026-11-01, unrelated to this change); frontend 45 tests passed; `tsc --noEmit`
+clean; production build succeeds.
