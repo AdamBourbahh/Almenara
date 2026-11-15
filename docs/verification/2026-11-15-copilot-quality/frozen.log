@@ -1,0 +1,4 @@
+backend/tests/conftest.py: OK
+backend/tests/test_db_layer.py: OK
+backend/tests/test_api_contract.py: OK
+backend/tests/test_core_validation.py: OK

@@ -1,0 +1,116 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_regional_news_does_not_prove_selected_thermal_incident_identity[**Yes, this is an active wildfire.**] _
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x702aa975b920>
+claim = '**Yes, this is an active wildfire.**'
+
+    @pytest.mark.parametrize('claim', [
+        '**Yes, this is an active wildfire.**',
+        'Official reports confirm that these thermal signals correspond to the Sierra Oeste wildfire.',
+        'The thermal detections belong to the officially identified Sierra Oeste fire.',
+    ])
+    def test_regional_news_does_not_prove_selected_thermal_incident_identity(online, monkeypatch, claim):
+        from backend.api.schemas import CitationReference
+        source=CitationReference(id='[W1]',source_type='WEB_NEWS_REPORT',title='Madrid regional fire',
+            authors_or_agency='Madrid',year=2026,dataset_or_doi='Official report; article text retrieved',
+            url='https://comunidad.madrid/noticias/2026/07/24/fire',
+            relevance_note='Madrid. 24 de julio de 2026. Strong winds affected the regional wildfire.')
+        monkeypatch.setattr(agent.researcher,'investigate_fire_literature_and_web',lambda *args:([source],'query'))
+        monkeypatch.setattr(local.research,'incident_passages',lambda *args:['Strong winds affected the regional wildfire.'])
+        monkeypatch.setattr(local.research,'supported_report_excerpt',lambda *args:True)
+        monkeypatch.setattr(local.research,'supported_ignition_excerpt',lambda *args:False)
+        turns=iter([{'tool_calls':[tool('search_incident_reports')]}, {'content':claim+' [W1]'}])
+        monkeypatch.setattr(agent,'turn',lambda *a,**k:next(turns,{'content':claim+' [W1]'}))
+        monkeypatch.setattr(agent.researcher,'answer',lambda req:'safe local answer')
+>       assert agent.answer(ExplainSpikeRequest(user_question='is this a fire?'))=='safe local answer'
+E       AssertionError: assert ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE', explanation_markdown='**Yes, this is an active wild...down='**Yes, this is an active wildfire.** [W1]', provider_used='groq-agent/openai/gpt-oss-120b', episode_summary=None) == 'safe local answer'
+E        +  where ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE', explanation_markdown='**Yes, this is an active wild...down='**Yes, this is an active wildfire.** [W1]', provider_used='groq-agent/openai/gpt-oss-120b', episode_summary=None) = <function answer at 0x702aa9767ba0>(ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='is this a fire?...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]))
+E        +    where <function answer at 0x702aa9767ba0> = agent.answer
+E        +    and   ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='is this a fire?...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]) = ExplainSpikeRequest(user_question='is this a fire?')
+
+backend/tests/test_copilot_quality.py:240: AssertionError
+_ test_regional_news_does_not_prove_selected_thermal_incident_identity[Official reports confirm that these thermal signals correspond to the Sierra Oeste wildfire.] _
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x702aa979a930>
+claim = 'Official reports confirm that these thermal signals correspond to the Sierra Oeste wildfire.'
+
+    @pytest.mark.parametrize('claim', [
+        '**Yes, this is an active wildfire.**',
+        'Official reports confirm that these thermal signals correspond to the Sierra Oeste wildfire.',
+        'The thermal detections belong to the officially identified Sierra Oeste fire.',
+    ])
+    def test_regional_news_does_not_prove_selected_thermal_incident_identity(online, monkeypatch, claim):
+        from backend.api.schemas import CitationReference
+        source=CitationReference(id='[W1]',source_type='WEB_NEWS_REPORT',title='Madrid regional fire',
+            authors_or_agency='Madrid',year=2026,dataset_or_doi='Official report; article text retrieved',
+            url='https://comunidad.madrid/noticias/2026/07/24/fire',
+            relevance_note='Madrid. 24 de julio de 2026. Strong winds affected the regional wildfire.')
+        monkeypatch.setattr(agent.researcher,'investigate_fire_literature_and_web',lambda *args:([source],'query'))
+        monkeypatch.setattr(local.research,'incident_passages',lambda *args:['Strong winds affected the regional wildfire.'])
+        monkeypatch.setattr(local.research,'supported_report_excerpt',lambda *args:True)
+        monkeypatch.setattr(local.research,'supported_ignition_excerpt',lambda *args:False)
+        turns=iter([{'tool_calls':[tool('search_incident_reports')]}, {'content':claim+' [W1]'}])
+        monkeypatch.setattr(agent,'turn',lambda *a,**k:next(turns,{'content':claim+' [W1]'}))
+        monkeypatch.setattr(agent.researcher,'answer',lambda req:'safe local answer')
+>       assert agent.answer(ExplainSpikeRequest(user_question='is this a fire?'))=='safe local answer'
+E       AssertionError: assert ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE', explanation_markdown='Official reports confirm that...s correspond to the Sierra Oeste wildfire. [W1]', provider_used='groq-agent/openai/gpt-oss-120b', episode_summary=None) == 'safe local answer'
+E        +  where ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE', explanation_markdown='Official reports confirm that...s correspond to the Sierra Oeste wildfire. [W1]', provider_used='groq-agent/openai/gpt-oss-120b', episode_summary=None) = <function answer at 0x702aa9767ba0>(ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='is this a fire?...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]))
+E        +    where <function answer at 0x702aa9767ba0> = agent.answer
+E        +    and   ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='is this a fire?...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]) = ExplainSpikeRequest(user_question='is this a fire?')
+
+backend/tests/test_copilot_quality.py:240: AssertionError
+_ test_regional_news_does_not_prove_selected_thermal_incident_identity[The thermal detections belong to the officially identified Sierra Oeste fire.] _
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x702aa979a4e0>
+claim = 'The thermal detections belong to the officially identified Sierra Oeste fire.'
+
+    @pytest.mark.parametrize('claim', [
+        '**Yes, this is an active wildfire.**',
+        'Official reports confirm that these thermal signals correspond to the Sierra Oeste wildfire.',
+        'The thermal detections belong to the officially identified Sierra Oeste fire.',
+    ])
+    def test_regional_news_does_not_prove_selected_thermal_incident_identity(online, monkeypatch, claim):
+        from backend.api.schemas import CitationReference
+        source=CitationReference(id='[W1]',source_type='WEB_NEWS_REPORT',title='Madrid regional fire',
+            authors_or_agency='Madrid',year=2026,dataset_or_doi='Official report; article text retrieved',
+            url='https://comunidad.madrid/noticias/2026/07/24/fire',
+            relevance_note='Madrid. 24 de julio de 2026. Strong winds affected the regional wildfire.')
+        monkeypatch.setattr(agent.researcher,'investigate_fire_literature_and_web',lambda *args:([source],'query'))
+        monkeypatch.setattr(local.research,'incident_passages',lambda *args:['Strong winds affected the regional wildfire.'])
+        monkeypatch.setattr(local.research,'supported_report_excerpt',lambda *args:True)
+        monkeypatch.setattr(local.research,'supported_ignition_excerpt',lambda *args:False)
+        turns=iter([{'tool_calls':[tool('search_incident_reports')]}, {'content':claim+' [W1]'}])
+        monkeypatch.setattr(agent,'turn',lambda *a,**k:next(turns,{'content':claim+' [W1]'}))
+        monkeypatch.setattr(agent.researcher,'answer',lambda req:'safe local answer')
+>       assert agent.answer(ExplainSpikeRequest(user_question='is this a fire?'))=='safe local answer'
+E       AssertionError: assert ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE', explanation_markdown='The thermal detections belong...e officially identified Sierra Oeste fire. [W1]', provider_used='groq-agent/openai/gpt-oss-120b', episode_summary=None) == 'safe local answer'
+E        +  where ExplainSpikeResponse(physical_classification='RETRIEVED_EVIDENCE', explanation_markdown='The thermal detections belong...e officially identified Sierra Oeste fire. [W1]', provider_used='groq-agent/openai/gpt-oss-120b', episode_summary=None) = <function answer at 0x702aa9767ba0>(ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='is this a fire?...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]))
+E        +    where <function answer at 0x702aa9767ba0> = agent.answer
+E        +    and   ExplainSpikeRequest(region_name='Unknown Region', selected_day=None, selected_hex=None, user_question='is this a fire?...de_industrial_flaring=True, enable_kalman_gap_filling=True, previous_context=None, audit_metrics=None, chat_history=[]) = ExplainSpikeRequest(user_question='is this a fire?')
+
+backend/tests/test_copilot_quality.py:240: AssertionError
+_______ test_detection_quantity_leads_a_count_answer_after_prose_repair ________
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x702aa97c9e20>
+
+    def test_detection_quantity_leads_a_count_answer_after_prose_repair(online, monkeypatch):
+        turns=iter([{'tool_calls':[tool('query_observations')]}, {'content':'Thermal activity was recorded here. [5]'}])
+        monkeypatch.setattr(agent,'turn',lambda *a,**k:next(turns))
+        monkeypatch.setattr(local,'retrieve_observations',lambda scope:{'status':'ok','detections':12})
+        monkeypatch.setattr(local,'local_answer',lambda *args:'Verified check: 12 detections. [5]')
+        result=agent.answer(ExplainSpikeRequest(user_question='How many detections here?'))
+>       assert '**12 satellite detections**' in result.explanation_markdown.split('\n\n')[0]
+E       AssertionError: assert '**12 satellite detections**' in 'Thermal activity was recorded here. [5]'
+
+backend/tests/test_copilot_quality.py:249: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_copilot_quality.py::test_regional_news_does_not_prove_selected_thermal_incident_identity[**Yes, this is an active wildfire.**]
+FAILED backend/tests/test_copilot_quality.py::test_regional_news_does_not_prove_selected_thermal_incident_identity[Official reports confirm that these thermal signals correspond to the Sierra Oeste wildfire.]
+FAILED backend/tests/test_copilot_quality.py::test_regional_news_does_not_prove_selected_thermal_incident_identity[The thermal detections belong to the officially identified Sierra Oeste fire.]
+FAILED backend/tests/test_copilot_quality.py::test_detection_quantity_leads_a_count_answer_after_prose_repair
+4 failed, 41 deselected in 0.36s

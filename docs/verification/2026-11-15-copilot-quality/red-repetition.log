@@ -1,0 +1,28 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_single_energy_question_does_not_repeat_the_model_measurements ______
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x742c03852a80>
+
+    def test_single_energy_question_does_not_repeat_the_model_measurements(online, monkeypatch):
+        turns=iter([{'tool_calls':[tool('query_energy')]},{'content':'The integrated output is 12.5 GJ. [6]'}])
+        monkeypatch.setattr(agent,'turn',lambda *a,**k:next(turns))
+        monkeypatch.setattr(agent,'retrieve_energy',lambda *args:{'status':'ok','energy_gj':12.5})
+        summary='**12.500 GJ** is the observed proxy, with sparse temporal sampling. [6]'
+        monkeypatch.setattr(agent,'energy_answer',lambda *args:summary)
+        result=agent.answer(ExplainSpikeRequest(user_question='How much energy in GJ was released here?'))
+>       assert result.explanation_markdown==summary
+E       AssertionError: assert '**12.500 GJ*... 12.5 GJ. [6]' == '**12.500 GJ*...sampling. [6]'
+E
+E         Skipping 60 identical leading characters in diff, use -v to show
+E         - mpling. [6]
+E         + mpling. [6]
+E         ?            +
+E         +
+E         + The integrated output is 12.5 GJ. [6]
+
+backend/tests/test_copilot_quality.py:277: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/test_copilot_quality.py::test_single_energy_question_does_not_repeat_the_model_measurements
+1 failed, 48 deselected in 0.35s

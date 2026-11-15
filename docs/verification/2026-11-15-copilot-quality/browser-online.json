@@ -1,0 +1,144 @@
+{
+  "request": {
+    "region_name": "Selected area at 40.400\u00b0, -4.300\u00b0",
+    "selected_day": {
+      "date": "2026-07-24",
+      "year": 2026,
+      "doy": 205,
+      "raw_hotspot_count": 807,
+      "raw_frp_mw": 57546.91030463576,
+      "harmonized_fre_mj_km2": 40084.348211934324,
+      "historical_cross_prior_fre": 3527.478810649545,
+      "ci_95_lower": 40081.6854770065,
+      "ci_95_upper": 40087.01094686215,
+      "uncertainty_pct": 1,
+      "biomass_burned_tonnes": 22248.682028023424,
+      "pm25_emitted_kg": null,
+      "z_score_anomaly": 50.24871112206485,
+      "is_gap_filled": false,
+      "is_forecast": false,
+      "gap_reason": null,
+      "active_sensors": [
+        "Terra",
+        "Aqua",
+        "SNPP",
+        "NOAA-20",
+        "NOAA-21"
+      ],
+      "tooltip_narrative": "Observed energy is a sampling proxy. Zero reported energy does not establish no fire.",
+      "observation_status": "detected",
+      "pm25_factor_sd_kg": null
+    },
+    "selected_hex": null,
+    "aoi": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -4.5,
+            40.199999999999996
+          ],
+          [
+            -4.1,
+            40.199999999999996
+          ],
+          [
+            -4.1,
+            40.6
+          ],
+          [
+            -4.5,
+            40.6
+          ],
+          [
+            -4.5,
+            40.199999999999996
+          ]
+        ]
+      ]
+    },
+    "period_start": "2026-07-24",
+    "period_end": "2026-07-24",
+    "prefer_map_context": true,
+    "exclude_industrial_flaring": true,
+    "enable_kalman_gap_filling": true,
+    "previous_context": null,
+    "conversation": [],
+    "user_question": "how much energy in GJ was released here?"
+  },
+  "response": {
+    "physical_classification": "RETRIEVED_EVIDENCE",
+    "explanation_markdown": "**60,458.375 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected area at 40.400\u00b0, -4.300\u00b0**. [6]\n\nRegional temporal estimate: **60,458.375 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **22,248.682 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **545.872 km\u00b2**; selected polygon: **1,508.279 km\u00b2**. Available through **2026-07-24**. Industrial sources excluded.",
+    "citations": [
+      {
+        "id": "[6]",
+        "source_type": "NASA_DATASET",
+        "title": "Local FIRMS-Harmonizer scientific cube",
+        "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+        "year": 2026,
+        "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+        "url": null,
+        "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+      },
+      {
+        "id": "[1]",
+        "source_type": "PEER_REVIEWED",
+        "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+        "authors_or_agency": "Wooster et al.",
+        "year": 2005,
+        "dataset_or_doi": "10.1029/2005JD006318",
+        "url": "https://doi.org/10.1029/2005JD006318",
+        "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+      }
+    ],
+    "web_search_used": false,
+    "search_query_executed": null,
+    "model_used": "gemini-agent/gemini-3.8-flash",
+    "data_source": "real",
+    "map_context": {
+      "label": "Selected area at 40.400\u00b0, -4.300\u00b0",
+      "aoi": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -4.5,
+              40.199999999999996
+            ],
+            [
+              -4.1,
+              40.199999999999996
+            ],
+            [
+              -4.1,
+              40.6
+            ],
+            [
+              -4.5,
+              40.6
+            ],
+            [
+              -4.5,
+              40.199999999999996
+            ]
+          ]
+        ]
+      },
+      "period_start": "2026-07-24",
+      "period_end": "2026-07-24",
+      "h3_index": null
+    },
+    "answer_markdown": "**60,458.375 GJ** of mapped, observation-based energy proxy for **2026-07-24 to 2026-07-24** in **Selected area at 40.400\u00b0, -4.300\u00b0**. [6]\n\nRegional temporal estimate: **60,458.375 GJ**, over **1 days**, including **0 reconstructed days**. Both fuse available sensors within each cell and use exact H3 areas; the map contains observations only. [6]\n\nDerived dry biomass: **22,248.682 tonnes**, using 0.368 kg/MJ. This is a calibrated one-hour integration proxy from sparse satellite samples, not continuously measured heat release, burned area or measured emissions. [1]\n\nObserved cell footprint: **545.872 km\u00b2**; selected polygon: **1,508.279 km\u00b2**. Available through **2026-07-24**. Industrial sources excluded.",
+    "provider_used": "gemini-agent/gemini-3.8-flash",
+    "episode_summary": null
+  },
+  "result": "passed",
+  "expected": {
+    "data_source": "real",
+    "selected_day": "2026-07-24",
+    "mapped_energy_gj": 60458.37507615063,
+    "provider": "gemini-agent/gemini-3.8-flash",
+    "method": "Independent per-cell cube scan with Shapely center selection, available sensor mean and exact H3 area"
+  },
+  "criterion": "Actual browser to HTTP API to the configured provider; exact selected geometry/date and real provenance"
+}

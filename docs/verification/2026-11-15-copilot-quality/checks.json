@@ -1,0 +1,19 @@
+{
+  "implementation_commit": "3c070a4",
+  "base_commit": "8f16bc4",
+  "new_unique_cases": 110,
+  "controlled_new": 49,
+  "real_archive": 36,
+  "real_provider_conversations": 15,
+  "provider_turns": 30,
+  "browser": 10,
+  "existing_backend_plus_new": 544,
+  "existing_frontend": 30,
+  "typecheck": "passed",
+  "build": "passed",
+  "frozen_checksums": "passed",
+  "core_conformance": "passed",
+  "source_contents_reviewed": 5,
+  "external_blockers": [],
+  "provider": "gemini/gemini-3.8-flash"
+}

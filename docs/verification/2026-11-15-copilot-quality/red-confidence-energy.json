@@ -1,0 +1,182 @@
+{
+  "files": [
+    {
+      "path": "data/processed/fire_cube.parquet",
+      "sha256": "c2746957e314f319546780727d0370add745ac2ab3ef15c0a2b2f42be429c47e",
+      "provenance": "real FIRMS inputs; locally rebuilt"
+    },
+    {
+      "path": "data/processed/staged_firms.parquet",
+      "sha256": "41ff970f7d9415c7e7b63c6232933cbbdc9371a32bf8f69509ce97832b6dbb08",
+      "provenance": "real FIRMS inputs; locally rebuilt"
+    }
+  ],
+  "records": [
+    {
+      "question": "How much energy in GJ with low detection confidence?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ with low detection confidence?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "low",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet",
+        "data/processed/fire_cube_low.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 97392.94174434057
+      },
+      "expected_method": "Independent scan of the separately published confidence cube, per-cell available sensor fusion",
+      "response": {
+        "mapped_energy_gj": 84971.6656262539,
+        "mapped_biomass_tonnes": 31269.572950461436,
+        "mapped_footprint_km2": 863.1462965358388,
+        "mapped_detections": 1860,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-07-24",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 97392.94174434054,
+        "area_km2": 2328.742409388672,
+        "days": 1,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 35840.602561917316,
+        "peak_day": "2026-07-24",
+        "peak_day_gj": 97392.94174434054,
+        "annual_gj": {
+          "2026": 97392.94174434054
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_uses_same_confidence_cube_as_map_and_temporal_model[low]",
+      "result": "failed",
+      "failure": "oracle = <_duckdb.DuckDBPyConnection object at 0x7485f160ca40>, level = 'low'\nrequest = <FixtureRequest for <Function test_energy_uses_same_confidence_cube_as_map_and_temporal_model[low]>>\n\n    @pytest.mark.parametrize('level',['low','high'])\n    def test_energy_uses_same_confidence_cube_as_map_and_temporal_model(oracle, level, request):\n        req=globals()['request']('2026-07-24',confidence_level=level,enable_kalman_gap_filling=False)\n        req.user_question=f'How much energy in GJ with {level} detection confidence?'\n        rows=oracle.execute('''select h3_r7,obs_terra_fre,obs_aqua_fre,obs_viirs_fre\n            from read_parquet(?) where h3_r7 in (select cell from selected) and epoch_day=? and industrial_prob<=0.75''',\n            [str(ROOT/f'data/processed/fire_cube_{level}.parquet'),(date(2026,7,24)-EPOCH).days]).fetchall()\n        terms=[]\n        for cell,*sensors in rows:\n            valid=[value for value in sensors if value is not None and math.isfinite(value)]\n            if valid:\n                terms.append(math.fsum(valid)/len(valid)*h3.cell_area(format(cell,'x'),unit='km^2')/1000)\n        expected=math.fsum(terms)\n        actual=retrieve_energy(local.resolve_scope(req),req)\n        audit(request.node,req,{'energy_gj':expected},actual,['retrieve_energy'],\n              'Independent scan of the separately published confidence cube, per-cell available sensor fusion')\n        request.node.audit['files'].append(f'data/processed/fire_cube_{level}.parquet')\n>       assert actual['mapped_energy_gj']==pytest.approx(expected,rel=1e-10,abs=1e-8)\nE       assert 84971.6656262539 == 97392.94174434057 \u00b1 9.7e-06\nE         \nE         comparison failed\nE         Obtained: 84971.6656262539\nE         Expected: 97392.94174434057 \u00b1 9.7e-06\n\nqa/test_copilot_archive.py:242: AssertionError"
+    },
+    {
+      "question": "How much energy in GJ with high detection confidence?",
+      "context": {
+        "region_name": "Selected Sierra Oeste area",
+        "selected_day": null,
+        "selected_hex": null,
+        "user_question": "How much energy in GJ with high detection confidence?",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "confidence_level": "high",
+        "conversation": [],
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "prefer_map_context": false,
+        "exclude_industrial_flaring": true,
+        "enable_kalman_gap_filling": false,
+        "previous_context": null,
+        "audit_metrics": null,
+        "chat_history": []
+      },
+      "files": [
+        "data/processed/staged_firms.parquet",
+        "data/processed/fire_cube.parquet",
+        "data/processed/fire_cube_high.parquet"
+      ],
+      "tools_executed": [
+        "retrieve_energy"
+      ],
+      "expected": {
+        "energy_gj": 79403.9281360955
+      },
+      "expected_method": "Independent scan of the separately published confidence cube, per-cell available sensor fusion",
+      "response": {
+        "mapped_energy_gj": 84971.6656262539,
+        "mapped_biomass_tonnes": 31269.572950461436,
+        "mapped_footprint_km2": 863.1462965358388,
+        "mapped_detections": 1860,
+        "comparison_note": "Mapped energy is the sum of per-cell calibrated observations. energy_gj is the regional model estimate using sensor aggregation and optional reconstruction; these are different estimators.",
+        "available_through": "2026-07-24",
+        "status": "ok",
+        "data_source": "real",
+        "energy_gj": 79403.9281360955,
+        "area_km2": 2328.742409388672,
+        "days": 1,
+        "gap_filled_days": 0,
+        "biomass_tonnes": 29220.64555408315,
+        "peak_day": "2026-07-24",
+        "peak_day_gj": 79403.9281360955,
+        "annual_gj": {
+          "2026": 79403.9281360955
+        }
+      },
+      "external_sources": [],
+      "criterion": "independent numerical equality and scientific interpretation",
+      "case": "qa/test_copilot_archive.py::test_energy_uses_same_confidence_cube_as_map_and_temporal_model[high]",
+      "result": "failed",
+      "failure": "oracle = <_duckdb.DuckDBPyConnection object at 0x7485f160ca40>, level = 'high'\nrequest = <FixtureRequest for <Function test_energy_uses_same_confidence_cube_as_map_and_temporal_model[high]>>\n\n    @pytest.mark.parametrize('level',['low','high'])\n    def test_energy_uses_same_confidence_cube_as_map_and_temporal_model(oracle, level, request):\n        req=globals()['request']('2026-07-24',confidence_level=level,enable_kalman_gap_filling=False)\n        req.user_question=f'How much energy in GJ with {level} detection confidence?'\n        rows=oracle.execute('''select h3_r7,obs_terra_fre,obs_aqua_fre,obs_viirs_fre\n            from read_parquet(?) where h3_r7 in (select cell from selected) and epoch_day=? and industrial_prob<=0.75''',\n            [str(ROOT/f'data/processed/fire_cube_{level}.parquet'),(date(2026,7,24)-EPOCH).days]).fetchall()\n        terms=[]\n        for cell,*sensors in rows:\n            valid=[value for value in sensors if value is not None and math.isfinite(value)]\n            if valid:\n                terms.append(math.fsum(valid)/len(valid)*h3.cell_area(format(cell,'x'),unit='km^2')/1000)\n        expected=math.fsum(terms)\n        actual=retrieve_energy(local.resolve_scope(req),req)\n        audit(request.node,req,{'energy_gj':expected},actual,['retrieve_energy'],\n              'Independent scan of the separately published confidence cube, per-cell available sensor fusion')\n        request.node.audit['files'].append(f'data/processed/fire_cube_{level}.parquet')\n>       assert actual['mapped_energy_gj']==pytest.approx(expected,rel=1e-10,abs=1e-8)\nE       assert 84971.6656262539 == 79403.9281360955 \u00b1 7.9e-06\nE         \nE         comparison failed\nE         Obtained: 84971.6656262539\nE         Expected: 79403.9281360955 \u00b1 7.9e-06\n\nqa/test_copilot_archive.py:242: AssertionError"
+    }
+  ]
+}

@@ -1,0 +1,935 @@
+[
+  {
+    "question": "is this a fire?",
+    "tools": [
+      "query_observations",
+      "search_incident_reports",
+      "profile_episode"
+    ],
+    "passed": true,
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "**Yes, satellite observations show intense thermal activity consistent with a major fire event.**\n\n### Evidence\n- **Satellite Detections:** On 24 July 2026, satellite sensors recorded 2,130 active fire detections across the selected 2,311.42 km² area, with a combined instantaneous Fire Radiative Power (FRP) of 121,537.83 MW and individual detection peaks reaching 1,509.7 MW [5].\n- **Episode Characteristics:** Calibrated time-series analysis identifies this within a multi-day burning episode running from 22 July to 27 July 2026 (peaking on 25 July) [1] [5] [6]. Across the full 6-day episode, total radiative energy reached 360,602.06 GJ, corresponding to an estimated 132,701.56 tonnes of dry biomass combusted [1] [6].\n- **Incident Reports:** An official emergency declaration was noted on 24 July 2026 regarding wildfires in Spain, though detailed local incident log passages remain unverified in the retrieved text [W1].\n\n### Limits\n- Satellite thermal detections confirm heat output and burning activity, but they cannot verify individual named fire boundaries or establish the cause of ignition [K5] [5]. \n- Specific local incident management agency reports would be required to identify the official fire name, exact ground perimeter, and ignition circumstances [K5].\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected map area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "citations": [
+        {
+          "id": "[K5]",
+          "source_type": "NASA_DATASET",
+          "title": "Ignition and fire spread evidence",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://firms.modaps.eosdis.nasa.gov/faq/",
+          "relevance_note": "Satellite thermal detections alone cannot establish what ignited a fire. Ignition evidence requires a matching investigation or incident report. Wind, high temperature, low humidity and fuel conditions can affect spread but do not establish ignition. A command post location is not necessarily the location of a fire. A regional report is not proof that each selected satellite cell belongs to that incident. A cause absent from retrieved reports is unverified in those reports, not necessarily unknown to authorities."
+        },
+        {
+          "id": "[5]",
+          "source_type": "NASA_DATASET",
+          "title": "NASA FIRMS active fire observations",
+          "authors_or_agency": "NASA EOSDIS LANCE",
+          "year": 2026,
+          "dataset_or_doi": "NASA Earthdata / FIRMS",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+        },
+        {
+          "id": "[W1]",
+          "source_type": "WEB_NEWS_REPORT",
+          "title": "usembassy.gov",
+          "authors_or_agency": "es.usembassy.gov",
+          "year": 2026,
+          "dataset_or_doi": "Google Search source lead; article and incident match not yet verified",
+          "url": "https://es.usembassy.gov/emergency-declared-due-to-wildfires-in-spain-july-24-2026/",
+          "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        },
+        {
+          "id": "[1]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+          "authors_or_agency": "Wooster et al.",
+          "year": 2005,
+          "dataset_or_doi": "10.1029/2005JD006318",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+        }
+      ],
+      "web_search_used": true,
+      "search_query_executed": "Sierra Oeste wildfire official reports 2026-07-24 to 2026-07-24",
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Selected map area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2026-07-10",
+        "period_end": "2026-08-09",
+        "h3_index": null
+      },
+      "answer_markdown": "**Yes, satellite observations show intense thermal activity consistent with a major fire event.**\n\n### Evidence\n- **Satellite Detections:** On 24 July 2026, satellite sensors recorded 2,130 active fire detections across the selected 2,311.42 km² area, with a combined instantaneous Fire Radiative Power (FRP) of 121,537.83 MW and individual detection peaks reaching 1,509.7 MW [5].\n- **Episode Characteristics:** Calibrated time-series analysis identifies this within a multi-day burning episode running from 22 July to 27 July 2026 (peaking on 25 July) [1] [5] [6]. Across the full 6-day episode, total radiative energy reached 360,602.06 GJ, corresponding to an estimated 132,701.56 tonnes of dry biomass combusted [1] [6].\n- **Incident Reports:** An official emergency declaration was noted on 24 July 2026 regarding wildfires in Spain, though detailed local incident log passages remain unverified in the retrieved text [W1].\n\n### Limits\n- Satellite thermal detections confirm heat output and burning activity, but they cannot verify individual named fire boundaries or establish the cause of ignition [K5] [5]. \n- Specific local incident management agency reports would be required to identify the official fire name, exact ground perimeter, and ignition circumstances [K5].\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected map area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": {
+        "status": "ok",
+        "data_source": "real",
+        "region_name": "Selected map area",
+        "auto_discovered": false,
+        "requested_target_date": "2026-07-24",
+        "episode_start_date": "2026-07-22",
+        "peak_date": "2026-07-25",
+        "episode_end_date": "2026-07-27",
+        "duration_days": 6,
+        "above_background": true,
+        "baseline_sample_days": 49,
+        "background_fre_mj_km2": 71.4478275869295,
+        "activity_threshold_mj_km2": 2802.622245390541,
+        "peak_daily_fre_mj_km2": 56052.44490781082,
+        "peak_daily_fre_gj": 130531.70560674119,
+        "total_episode_fre_gj": 360602.0608141326,
+        "estimated_biomass_burned_tonnes": 132701.5583796008,
+        "estimated_pm25_tonnes": null,
+        "estimated_co2_tonnes": 209668.4622397693,
+        "emission_assumptions": {
+          "biomass_kg_per_mj": 0.368,
+          "pm25_g_per_kg": null,
+          "co2_g_per_kg": 1580,
+          "status": "PM2.5 requires measured annual fuel classes and supported factors. CO2 uses an assumed constant factor; neither is measured emissions."
+        },
+        "dominant_sensors": [
+          "NOAA-20",
+          "NOAA-21",
+          "SNPP",
+          "Terra",
+          "Aqua"
+        ],
+        "sensor_active_days": {
+          "Terra": 6,
+          "SNPP": 6,
+          "NOAA-20": 6,
+          "NOAA-21": 6,
+          "Aqua": 5
+        },
+        "gap_filling_occurred": false,
+        "gap_filled_days": 0,
+        "reconstruction_enabled": true,
+        "represented_area_km2": 2328.742409388672,
+        "peak_represented_cell_area_km2": 2328.742409388672,
+        "coverage_start": "2001-04-23",
+        "coverage_end": "2026-11-02",
+        "window_start": "2026-07-10",
+        "window_end": "2026-08-09",
+        "left_censored": false,
+        "right_censored": false,
+        "average_peak_month": 7.262676179342452,
+        "peak_month_concentration": 0.7013219426288478,
+        "climatology_years": 26,
+        "industrial_candidate_cells": 0,
+        "industrial_candidate_detections": 0,
+        "pre_2012_raw_count_per_recorded_day": 2.3508771929824563,
+        "post_2012_raw_count_per_recorded_day": 57.12605042016807,
+        "raw_count_inflation_factor": 24.299887119026714,
+        "sample_h3_indices": [
+          "873901a45ffffff",
+          "873901a61ffffff",
+          "873901a68ffffff"
+        ],
+        "daily_series": [
+          {
+            "date": "2026-07-10",
+            "harmonized_fre_mj_km2": 79.72639983501534,
+            "fre_gj": 185.66224844367824,
+            "raw_hotspot_count": 5,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-11",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-12",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-13",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-14",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-15",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-16",
+            "harmonized_fre_mj_km2": 15.354540453143555,
+            "fre_gj": 35.756769529909356,
+            "raw_hotspot_count": 2,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-17",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-18",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-19",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-20",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-21",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-07-22",
+            "harmonized_fre_mj_km2": 4027.6757532589395,
+            "fre_gj": 9379.419337880558,
+            "raw_hotspot_count": 112,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-23",
+            "harmonized_fre_mj_km2": 36478.184031673656,
+            "fre_gj": 84948.2941720431,
+            "raw_hotspot_count": 1143,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-24",
+            "harmonized_fre_mj_km2": 40669.08455480586,
+            "fre_gj": 94707.82195379023,
+            "raw_hotspot_count": 2130,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-25",
+            "harmonized_fre_mj_km2": 56052.44490781082,
+            "fre_gj": 130531.70560674119,
+            "raw_hotspot_count": 3201,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-26",
+            "harmonized_fre_mj_km2": 11862.150004723164,
+            "fre_gj": 27623.89178252887,
+            "raw_hotspot_count": 2817,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-27",
+            "harmonized_fre_mj_km2": 5758.871357811199,
+            "fre_gj": 13410.927961148665,
+            "raw_hotspot_count": 1145,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Terra",
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-28",
+            "harmonized_fre_mj_km2": 165.9014428816489,
+            "fre_gj": 386.34172581726824,
+            "raw_hotspot_count": 71,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Aqua",
+              "SNPP",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-07-29",
+            "harmonized_fre_mj_km2": 26.536893721668168,
+            "fre_gj": 61.79758982308866,
+            "raw_hotspot_count": 1,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "NOAA-20"
+            ]
+          },
+          {
+            "date": "2026-07-30",
+            "harmonized_fre_mj_km2": 1.7651627747394212,
+            "fre_gj": 4.110609413009874,
+            "raw_hotspot_count": 2,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "SNPP",
+              "NOAA-20"
+            ]
+          },
+          {
+            "date": "2026-07-31",
+            "harmonized_fre_mj_km2": 134.88845468848805,
+            "fre_gj": 314.12046496998437,
+            "raw_hotspot_count": 6,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Aqua",
+              "NOAA-20",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-08-01",
+            "harmonized_fre_mj_km2": 257.9179463668927,
+            "fre_gj": 600.624459847016,
+            "raw_hotspot_count": 15,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "Aqua",
+              "SNPP",
+              "NOAA-21"
+            ]
+          },
+          {
+            "date": "2026-08-02",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-03",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-04",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-05",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-06",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-07",
+            "harmonized_fre_mj_km2": 1.5695108169591012,
+            "fre_gj": 3.6549864014469207,
+            "raw_hotspot_count": 1,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "NOAA-20"
+            ]
+          },
+          {
+            "date": "2026-08-08",
+            "harmonized_fre_mj_km2": 0.0,
+            "fre_gj": 0.0,
+            "raw_hotspot_count": 0,
+            "is_gap_filled": false,
+            "active_sensors": []
+          },
+          {
+            "date": "2026-08-09",
+            "harmonized_fre_mj_km2": 20.130798724083906,
+            "fre_gj": 46.87944472364156,
+            "raw_hotspot_count": 1,
+            "is_gap_filled": false,
+            "active_sensors": [
+              "SNPP"
+            ]
+          }
+        ],
+        "method": "Dashboard full-history calibrated daily FRE integrated over the cells represented each day, with industrial exclusion (<0.75); robust same-month median + 3 scaled MAD, at least 5% of peak. Candidate counts use <=0.75. Duration is consecutive thermal activity within ±15 days, not official incident duration."
+      }
+    }
+  },
+  {
+    "question": "why did this happen?",
+    "tools": [
+      "search_incident_reports",
+      "query_observations"
+    ],
+    "passed": true,
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "The exact ignition cause for the thermal activity in Sierra Oeste on 2026-07-24 is not documented in the available incident records. \n\nWhile satellite observations recorded 2,130 active fire detections across the selected envelope on 2026-07-24 (with a combined instantaneous FRP of 121,537.83 MW) [5], satellite sensors only measure radiative power and thermal presence. Satellite observations cannot determine what sparked a fire, whether an ignition was natural (e.g., lightning), accidental, or deliberate, nor can ignition be deduced from thermal intensity or weather conditions.\n\n### Limits & Next Steps\n- **Evidence Gap:** Available incident reports for this event do not contain verified passages detailing an ignition source or official investigative findings [W1] [W2].\n- **Next Step:** Consult official local emergency management services or forest fire investigation reports (such as from Madrid's regional emergency services, Bomberos de la Comunidad de Madrid, or the Guardia Civil / SEPRONA) for certified cause determinations.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected map area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "citations": [
+        {
+          "id": "[W1]",
+          "source_type": "WEB_NEWS_REPORT",
+          "title": "elpais.com",
+          "authors_or_agency": "elpais.com",
+          "year": 2026,
+          "dataset_or_doi": "Google Search source lead; article and incident match not yet verified",
+          "url": "https://elpais.com/espana/madrid/2026-08-04/controlado-el-incendio-de-la-sierra-oeste-de-madrid-tras-14-dias-ardiendo.html",
+          "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+        },
+        {
+          "id": "[W2]",
+          "source_type": "WEB_NEWS_REPORT",
+          "title": "usembassy.gov",
+          "authors_or_agency": "es.usembassy.gov",
+          "year": 2026,
+          "dataset_or_doi": "Google Search source lead; article and incident match not yet verified",
+          "url": "https://es.usembassy.gov/emergency-declared-due-to-wildfires-in-spain-july-24-2026/",
+          "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+        },
+        {
+          "id": "[5]",
+          "source_type": "NASA_DATASET",
+          "title": "NASA FIRMS active fire observations",
+          "authors_or_agency": "NASA EOSDIS LANCE",
+          "year": 2026,
+          "dataset_or_doi": "NASA Earthdata / FIRMS",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+        }
+      ],
+      "web_search_used": true,
+      "search_query_executed": "Sierra Oeste wildfire official reports 2026-07-24 to 2026-07-24",
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Selected map area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "h3_index": null
+      },
+      "answer_markdown": "The exact ignition cause for the thermal activity in Sierra Oeste on 2026-07-24 is not documented in the available incident records. \n\nWhile satellite observations recorded 2,130 active fire detections across the selected envelope on 2026-07-24 (with a combined instantaneous FRP of 121,537.83 MW) [5], satellite sensors only measure radiative power and thermal presence. Satellite observations cannot determine what sparked a fire, whether an ignition was natural (e.g., lightning), accidental, or deliberate, nor can ignition be deduced from thermal intensity or weather conditions.\n\n### Limits & Next Steps\n- **Evidence Gap:** Available incident reports for this event do not contain verified passages detailing an ignition source or official investigative findings [W1] [W2].\n- **Next Step:** Consult official local emergency management services or forest fire investigation reports (such as from Madrid's regional emergency services, Bomberos de la Comunidad de Madrid, or the Guardia Civil / SEPRONA) for certified cause determinations.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected map area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null
+    }
+  },
+  {
+    "question": "the reason of the fire is known?",
+    "tools": [
+      "search_incident_reports",
+      "query_observations"
+    ],
+    "passed": true,
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "**No, the ignition cause is not established in the available data.**\n\n### Evidence\n* Satellite active-fire observations from 2026-07-24 recorded 2,130 detections with a peak Fire Radiative Power (FRP) of 1,509.7 MW in the selected Sierra Oeste envelope [5]. However, satellite thermal detections record thermal energy release; they cannot determine how or why a fire started [K5].\n* A search of incident records returned no verified reports or official investigation findings detailing the ignition cause for this date and location [W1]. \n\n### Limits & Next Steps\n* Thermal intensity, weather, and fuel conditions only describe fire behavior and spread, not what caused the ignition [K5].\n* An absence of cause in retrieved records does not mean it is unknown to authorities; it simply means it is unverified in available documentation [K5].\n* **Next step:** Consult post-incident investigation reports from local forestry, emergency management, or civil protection authorities for the Sierra Oeste area to determine if an official cause (such as lightning, agricultural burning, equipment use, or arson) has been verified.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected map area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "citations": [
+        {
+          "id": "[K5]",
+          "source_type": "NASA_DATASET",
+          "title": "Ignition and fire spread evidence",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://firms.modaps.eosdis.nasa.gov/faq/",
+          "relevance_note": "Satellite thermal detections alone cannot establish what ignited a fire. Ignition evidence requires a matching investigation or incident report. Wind, high temperature, low humidity and fuel conditions can affect spread but do not establish ignition. A command post location is not necessarily the location of a fire. A regional report is not proof that each selected satellite cell belongs to that incident. A cause absent from retrieved reports is unverified in those reports, not necessarily unknown to authorities."
+        },
+        {
+          "id": "[W1]",
+          "source_type": "WEB_NEWS_REPORT",
+          "title": "osac.gov",
+          "authors_or_agency": "www.osac.gov",
+          "year": 2026,
+          "dataset_or_doi": "Google Search source lead; article and incident match not yet verified",
+          "url": "https://www.osac.gov/Content/Report/4dffa2f1-7d1b-423f-866c-2aac2e857670",
+          "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+        },
+        {
+          "id": "[5]",
+          "source_type": "NASA_DATASET",
+          "title": "NASA FIRMS active fire observations",
+          "authors_or_agency": "NASA EOSDIS LANCE",
+          "year": 2026,
+          "dataset_or_doi": "NASA Earthdata / FIRMS",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+        }
+      ],
+      "web_search_used": true,
+      "search_query_executed": "Sierra Oeste wildfire official reports 2026-07-24 to 2026-07-24",
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Selected map area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "h3_index": null
+      },
+      "answer_markdown": "**No, the ignition cause is not established in the available data.**\n\n### Evidence\n* Satellite active-fire observations from 2026-07-24 recorded 2,130 detections with a peak Fire Radiative Power (FRP) of 1,509.7 MW in the selected Sierra Oeste envelope [5]. However, satellite thermal detections record thermal energy release; they cannot determine how or why a fire started [K5].\n* A search of incident records returned no verified reports or official investigation findings detailing the ignition cause for this date and location [W1]. \n\n### Limits & Next Steps\n* Thermal intensity, weather, and fuel conditions only describe fire behavior and spread, not what caused the ignition [K5].\n* An absence of cause in retrieved records does not mean it is unknown to authorities; it simply means it is unverified in available documentation [K5].\n* **Next step:** Consult post-incident investigation reports from local forestry, emergency management, or civil protection authorities for the Sierra Oeste area to determine if an official cause (such as lightning, agricultural burning, equipment use, or arson) has been verified.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected map area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null
+    }
+  },
+  {
+    "question": "how much energy in GJ was released here?",
+    "tools": [
+      "query_energy"
+    ],
+    "passed": true,
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "The total energy released for the selected area on **2026-07-24** was **94,707.82 GJ** (mapped energy: 94,707.82195379019 GJ; regional model estimate: 94,707.82195379023 GJ) [6].\n\n### Evidence\n* **Integrated Energy (FRE):** 94,707.82195379019 GJ [6].\n* **Estimated Biomass Consumed:** 34,852.47847899479 tonnes [6].\n* **Observation Count & Footprint:** 2,130 mapped detections across an active footprint of 895.29 km² (regional area: 2,328.74 km²) [6].\n\n### Limits\n* Fire Radiative Energy (FRE) is integrated over calibrated daily satellite passes rather than continuously measured [K1].\n* Dry biomass consumed is derived using a standard conversion factor (0.368 tonnes per GJ) [K6], which does not reflect site-specific fuel moisture, fuel types, or combustion phases.\n\n### Visible map energy\n\nFor the same area and requested dates, the mapped observation-based proxy is **94,707.822 GJ**, with **34,852.478 tonnes** of derived biomass. This matches the Explore panel's map calculation. [6]\n\nBoth calculations fuse available sensor observations within each cell and integrate against exact cell areas. The temporal estimate can additionally include reconstruction across explicitly evidenced gaps; the map contains observed energy only. Neither is a continuous physical energy measurement.\n\n### Regional model energy\n\nFor **Selected map area**, **2026-07-24 to 2026-07-24**, the scientific cube gives **94,707.822 GJ** of integrated fire radiative energy. [6]\n\n### Scope and method\n\nThis uses per-cell observed energy with reconstruction limited to evidenced gaps, with industrial heat sources excluded. The calculation covers **2,328.742 km²** of requested polygon area and **1 days**, including **0 reconstructed days**. It uses the dashboard's 2001–2026 analysis history, then selects the requested inclusive dates.\n\n### Derived estimates\n\n- Estimated dry biomass consumed: **34,852.478 tonnes** (0.368 kg/MJ). This is a model-derived estimate, not measured burned area or emissions. [1]\n\n- The highest-energy day in this period is **2026-07-24** with **94,707.822 GJ**. [6]\n\n### Interpretation\n\nGJ = Σ daily FRE (MJ/km²) × the cube cell area represented on that day (km²) / 1,000. The full polygon area is not used for every day. Model density averages sensors with different spatial coverage; totals are derived estimates. This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. Raw detection counts below use accepted centers before the scientific industrial-source filter.\n\n### Available dates\n\nThe requested period is 2026-07-24–2026-07-24; the model series available for this query ends on **2026-07-24**. Dates after archive coverage are not forecasts. Selected polygon area and observed cell footprint also differ: the mapped footprint is **895.295 km²**, not burned area.",
+      "citations": [
+        {
+          "id": "[K1]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Fire radiative power and energy",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "FRP is instantaneous fire radiative power in MW, equivalent to MJ per second. FRE is energy integrated over time in MJ. One GJ is 1000 MJ. Summing instantaneous satellite FRP samples does not give energy. The local scientific energy tool integrates calibrated daily FRE over the cube cells represented each day. Estimates depend on temporal reconstruction and sensor coverage."
+        },
+        {
+          "id": "[K6]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Biomass and emission estimates",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "The application estimates dry biomass consumed using 0.368 kg per MJ of integrated FRE. For GJ this is energy_GJ times 0.368 tonnes. Episode scenario emissions assume 9.5 g PM2.5 per kg biomass and 1580 g CO2 per kg biomass. These constant factors do not establish measured emissions, ambient air concentrations, health impacts, casualties, ecological damage or burned hectares. Emission factors vary with fuel and combustion. Dashboard PM2.5 and burned-area validation fields can remain null."
+        },
+        {
+          "id": "[6]",
+          "source_type": "NASA_DATASET",
+          "title": "Local FIRMS-Harmonizer scientific cube",
+          "authors_or_agency": "FIRMS-Harmonizer / NASA FIRMS inputs",
+          "year": 2026,
+          "dataset_or_doi": "Local fire_cube.parquet via /api/analyze",
+          "url": null,
+          "relevance_note": "Derived calibrated daily FRE with optional RTS reconstruction. GJ totals use the dashboard calculation, per-day represented H3 cell area and inclusive dates; they are not direct satellite measurements."
+        },
+        {
+          "id": "[1]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Retrieval of biomass combustion rates and totals from fire radiative power observations",
+          "authors_or_agency": "Wooster et al.",
+          "year": 2005,
+          "dataset_or_doi": "10.1029/2005JD006318",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "Combustion estimates require time-integrated radiative energy; instantaneous FRP alone is insufficient."
+        }
+      ],
+      "web_search_used": false,
+      "search_query_executed": null,
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Selected map area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "h3_index": null
+      },
+      "answer_markdown": "The total energy released for the selected area on **2026-07-24** was **94,707.82 GJ** (mapped energy: 94,707.82195379019 GJ; regional model estimate: 94,707.82195379023 GJ) [6].\n\n### Evidence\n* **Integrated Energy (FRE):** 94,707.82195379019 GJ [6].\n* **Estimated Biomass Consumed:** 34,852.47847899479 tonnes [6].\n* **Observation Count & Footprint:** 2,130 mapped detections across an active footprint of 895.29 km² (regional area: 2,328.74 km²) [6].\n\n### Limits\n* Fire Radiative Energy (FRE) is integrated over calibrated daily satellite passes rather than continuously measured [K1].\n* Dry biomass consumed is derived using a standard conversion factor (0.368 tonnes per GJ) [K6], which does not reflect site-specific fuel moisture, fuel types, or combustion phases.\n\n### Visible map energy\n\nFor the same area and requested dates, the mapped observation-based proxy is **94,707.822 GJ**, with **34,852.478 tonnes** of derived biomass. This matches the Explore panel's map calculation. [6]\n\nBoth calculations fuse available sensor observations within each cell and integrate against exact cell areas. The temporal estimate can additionally include reconstruction across explicitly evidenced gaps; the map contains observed energy only. Neither is a continuous physical energy measurement.\n\n### Regional model energy\n\nFor **Selected map area**, **2026-07-24 to 2026-07-24**, the scientific cube gives **94,707.822 GJ** of integrated fire radiative energy. [6]\n\n### Scope and method\n\nThis uses per-cell observed energy with reconstruction limited to evidenced gaps, with industrial heat sources excluded. The calculation covers **2,328.742 km²** of requested polygon area and **1 days**, including **0 reconstructed days**. It uses the dashboard's 2001–2026 analysis history, then selects the requested inclusive dates.\n\n### Derived estimates\n\n- Estimated dry biomass consumed: **34,852.478 tonnes** (0.368 kg/MJ). This is a model-derived estimate, not measured burned area or emissions. [1]\n\n- The highest-energy day in this period is **2026-07-24** with **94,707.822 GJ**. [6]\n\n### Interpretation\n\nGJ = Σ daily FRE (MJ/km²) × the cube cell area represented on that day (km²) / 1,000. The full polygon area is not used for every day. Model density averages sensors with different spatial coverage; totals are derived estimates. This integrates calibrated daily energy; it does not convert a sum of instantaneous FRP samples into energy. Raw detection counts below use accepted centers before the scientific industrial-source filter.\n\n### Available dates\n\nThe requested period is 2026-07-24–2026-07-24; the model series available for this query ends on **2026-07-24**. Dates after archive coverage are not forecasts. Selected polygon area and observed cell footprint also differ: the mapped footprint is **895.295 km²**, not burned area.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null
+    }
+  },
+  {
+    "question": "how many fires were there?",
+    "tools": [
+      "query_observations",
+      "search_incident_reports"
+    ],
+    "passed": true,
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "Satellite data cannot directly provide a count of individual, distinct fires [K2]. \n\nOn **2026-07-24**, the satellite observation systems recorded **2,130 active thermal detections** across the selected Sierra Oeste map area, with a combined instantaneous Fire Radiative Power (FRP) sum of **121,537.83 MW** [5]. \n\n### Context & Limitations\n* **Detections vs. Fires:** Thermal anomalies represent individual satellite pixel detections where heat was observed during an overpass, not separate fire incidents [K2]. A single large or rapidly spreading wildfire typically produces hundreds or thousands of detections across multiple sensors (Aqua, Terra, SNPP, N20, N21) throughout the day [K2] [5].\n* **Incident Reports:** Regional news coverage references a major wildfire event active in the Sierra Oeste area during this timeframe [W1] [W2], but determining the exact number of distinct fire ignitions or administrative wildfire incidents requires official reports from local emergency services or civil protection agencies.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected map area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "citations": [
+        {
+          "id": "[K2]",
+          "source_type": "NASA_DATASET",
+          "title": "Satellite detections and incident identity",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "NASA FIRMS detections are satellite thermal anomalies, not a count of distinct fires. A single fire may generate many detections over different sensors and days. Thermal anomalies can also be agricultural burning or industrial sources. A selected polygon or H3 hexagon is a query area, not a confirmed wildfire perimeter. Zero detections do not prove absence of fire: clouds, overpasses, thresholds and archive coverage affect observation."
+        },
+        {
+          "id": "[5]",
+          "source_type": "NASA_DATASET",
+          "title": "NASA FIRMS active fire observations",
+          "authors_or_agency": "NASA EOSDIS LANCE",
+          "year": 2026,
+          "dataset_or_doi": "NASA Earthdata / FIRMS",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+        },
+        {
+          "id": "[W1]",
+          "source_type": "WEB_NEWS_REPORT",
+          "title": "elpais.com",
+          "authors_or_agency": "elpais.com",
+          "year": 2026,
+          "dataset_or_doi": "Google Search source lead; article and incident match not yet verified",
+          "url": "https://elpais.com/espana/2026-07-24/ultima-hora-de-los-incendios-forestales-en-directo.html",
+          "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+        },
+        {
+          "id": "[W2]",
+          "source_type": "WEB_NEWS_REPORT",
+          "title": "elpais.com",
+          "authors_or_agency": "elpais.com",
+          "year": 2026,
+          "dataset_or_doi": "Google Search source lead; article and incident match not yet verified",
+          "url": "https://elpais.com/espana/madrid/2026-08-04/controlado-el-incendio-de-la-sierra-oeste-de-madrid-tras-14-dias-ardiendo.html",
+          "relevance_note": "Retrieved incident evidence; a match to an individual satellite cell is not established."
+        }
+      ],
+      "web_search_used": true,
+      "search_query_executed": "Sierra Oeste wildfire official reports 2026-07-24 to 2026-07-24",
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Selected map area",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "h3_index": null
+      },
+      "answer_markdown": "Satellite data cannot directly provide a count of individual, distinct fires [K2]. \n\nOn **2026-07-24**, the satellite observation systems recorded **2,130 active thermal detections** across the selected Sierra Oeste map area, with a combined instantaneous Fire Radiative Power (FRP) sum of **121,537.83 MW** [5]. \n\n### Context & Limitations\n* **Detections vs. Fires:** Thermal anomalies represent individual satellite pixel detections where heat was observed during an overpass, not separate fire incidents [K2]. A single large or rapidly spreading wildfire typically produces hundreds or thousands of detections across multiple sensors (Aqua, Terra, SNPP, N20, N21) throughout the day [K2] [5].\n* **Incident Reports:** Regional news coverage references a major wildfire event active in the Sierra Oeste area during this timeframe [W1] [W2], but determining the exact number of distinct fire ignitions or administrative wildfire incidents requires official reports from local emergency services or civil protection agencies.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected map area** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null
+    }
+  },
+  {
+    "question": "why does the map seem to stop on July 27 if the Madrid fire lasted fourteen days?",
+    "tools": [
+      "query_observations",
+      "search_incident_reports",
+      "search_knowledge"
+    ],
+    "passed": true,
+    "response": {
+      "physical_classification": "RETRIEVED_EVIDENCE",
+      "explanation_markdown": "The map stops showing thermal activity because it displays only direct, calibrated satellite detections per cell, rather than the administrative timeline or containment status of a reported wildfire [K2], [K10].\n\nActivity consistent with burning detected by satellites reflects instantaneous heat release observed during orbital passes [K2]. A reported wildfire event, by contrast, includes active flame, perimeter containment, mop-up, and subsequent monitoring before authorities officially declare it extinguished.\n\nSeveral factors explain why detections cease on the map while an incident remains ongoing:\n\n* **Observation Gaps vs. Extinction**: A lack of satellite detections does not prove extinction [K2]. Cloud cover, dense smoke, satellite pass timing, or thermal radiation dropping below sensor detection limits can result in unobserved days even while burning continues on the ground [K2].\n* **Map Scope vs. Regional Modeling**: The visible map presents calibrated cell observations directly and does not fill unobserved days with regional reconstructed estimates [K10].\n* **Detections vs. Event Perimeters**: Satellite thermal anomalies indicate locations of elevated heat at the time of an overpass; they are not drawn fire boundaries, administrative perimeters, or confirmation of a single named wildfire event [K2].\n\n### Evidence and Limits\nThermal detections confirm heat release consistent with burning, not the official start, containment, or extinction dates of a named fire [K2], [K9]. For verified ground status and operational timelines, consult local emergency management agency logs.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected area near Madrid** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "citations": [
+        {
+          "id": "[K9]",
+          "source_type": "NASA_DATASET",
+          "title": "Thermal episode duration",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "The episode profiling tool discovers the greatest daily energy within available history when no date is specified. It computes consecutive above-background activity in a window of 15 days before and after the peak, with robust same-month background from other years. This is a statistical thermal episode that can include several fires. It is not the official ignition, containment or extinction interval. If activity reaches the window or archive edge its duration is censored and may extend beyond the reported interval."
+        },
+        {
+          "id": "[K10]",
+          "source_type": "PEER_REVIEWED",
+          "title": "Visible map versus regional energy estimate",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://doi.org/10.1029/2005JD006318",
+          "relevance_note": "The visible map integrates calibrated observations per H3 cell and does not include regional Kalman reconstruction. The regional model first averages each sensor over potentially different sets of cells, then combines sensors and optionally reconstructs missing values. These are different estimators, so totals can differ even with reconstruction disabled. Compare the same area, inclusive dates and industrial settings. Biomass must use the matching energy: 0.368 tonnes per GJ. Observed cell footprint differs from selected polygon area; neither is measured burned area. A full-year selection can contain only the days available before the archive cutoff."
+        },
+        {
+          "id": "[5]",
+          "source_type": "NASA_DATASET",
+          "title": "NASA FIRMS active fire observations",
+          "authors_or_agency": "NASA EOSDIS LANCE",
+          "year": 2026,
+          "dataset_or_doi": "NASA Earthdata / FIRMS",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "Local accepted, deduplicated detection centers; detections are not distinct fires. FRP is power in MW, not energy or burned area."
+        },
+        {
+          "id": "[K2]",
+          "source_type": "NASA_DATASET",
+          "title": "Satellite detections and incident identity",
+          "authors_or_agency": "FIRMS-Harmonizer local knowledge index",
+          "year": 2026,
+          "dataset_or_doi": "Versioned local scientific note",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "relevance_note": "NASA FIRMS detections are satellite thermal anomalies, not a count of distinct fires. A single fire may generate many detections over different sensors and days. Thermal anomalies can also be agricultural burning or industrial sources. A selected polygon or H3 hexagon is a query area, not a confirmed wildfire perimeter. Zero detections do not prove absence of fire: clouds, overpasses, thresholds and archive coverage affect observation."
+        }
+      ],
+      "web_search_used": true,
+      "search_query_executed": "Sierra Oeste wildfire official reports 2026-07-24 to 2026-07-24",
+      "model_used": "gemini-agent/gemini-3.8-flash",
+      "data_source": "real",
+      "map_context": {
+        "label": "Selected area near Madrid",
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.8,
+                40.2
+              ],
+              [
+                -4.15,
+                40.2
+              ],
+              [
+                -4.15,
+                40.58
+              ],
+              [
+                -4.8,
+                40.58
+              ],
+              [
+                -4.8,
+                40.2
+              ]
+            ]
+          ]
+        },
+        "period_start": "2026-07-24",
+        "period_end": "2026-07-24",
+        "h3_index": null
+      },
+      "answer_markdown": "The map stops showing thermal activity because it displays only direct, calibrated satellite detections per cell, rather than the administrative timeline or containment status of a reported wildfire [K2], [K10].\n\nActivity consistent with burning detected by satellites reflects instantaneous heat release observed during orbital passes [K2]. A reported wildfire event, by contrast, includes active flame, perimeter containment, mop-up, and subsequent monitoring before authorities officially declare it extinguished.\n\nSeveral factors explain why detections cease on the map while an incident remains ongoing:\n\n* **Observation Gaps vs. Extinction**: A lack of satellite detections does not prove extinction [K2]. Cloud cover, dense smoke, satellite pass timing, or thermal radiation dropping below sensor detection limits can result in unobserved days even while burning continues on the ground [K2].\n* **Map Scope vs. Regional Modeling**: The visible map presents calibrated cell observations directly and does not fill unobserved days with regional reconstructed estimates [K10].\n* **Detections vs. Event Perimeters**: Satellite thermal anomalies indicate locations of elevated heat at the time of an overpass; they are not drawn fire boundaries, administrative perimeters, or confirmation of a single named wildfire event [K2].\n\n### Evidence and Limits\nThermal detections confirm heat release consistent with burning, not the official start, containment, or extinction dates of a named fire [K2], [K9]. For verified ground status and operational timelines, consult local emergency management agency logs.\n\n### Satellite observations\n\nThe local FIRMS archive contains **2,130 satellite detections** in the **Selected area near Madrid** for **2026-07-24** (Aqua, N20, N21, SNPP, Terra). [5]\n\n### Power measurements\n\n- Summed instantaneous FRP: **121,537.83 MW**.\n- Strongest individual detection: **1,509.70 MW**.\n\nThis sum is not energy, burned area or the number of fires.\n\nThe query uses H3 R7 cells inside a study envelope, not an administrative boundary or a mapped fire perimeter.",
+      "provider_used": "gemini-agent/gemini-3.8-flash",
+      "episode_summary": null
+    }
+  }
+]

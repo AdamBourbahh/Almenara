@@ -1,0 +1,27 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_episode_tool_receives_the_selected_scientific_filters __________
+
+online = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f95e8d1c980>
+
+    def test_episode_tool_receives_the_selected_scientific_filters(online, monkeypatch):
+        seen=[]
+        def profile(*args,**kwargs):
+            seen.append(kwargs)
+            return {'status':'empty','message':'No matching thermal episode.'}
+        monkeypatch.setattr(agent.researcher,'profile_fire_episode_from_duckdb',profile)
+        turns=iter([{'tool_calls':[tool('profile_episode')]},{'content':'No matching thermal episode is available. [6]'}])
+        monkeypatch.setattr(agent,'turn',lambda *a,**k:next(turns))
+        result=agent.answer(ExplainSpikeRequest(user_question='Describe the selected episode',
+            period_start='2026-07-24',period_end='2026-07-24',confidence_level='high',
+            exclude_industrial_flaring=False,enable_kalman_gap_filling=False))
+        assert result.model_used.startswith('groq-agent/')
+>       assert seen[0]['confidence_level']=='high'
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'confidence_level'
+
+backend/tests/test_copilot_quality.py:264: KeyError
+=========================== short test summary info ============================
+FAILED backend/tests/test_copilot_quality.py::test_episode_tool_receives_the_selected_scientific_filters
+1 failed, 45 deselected in 0.36s

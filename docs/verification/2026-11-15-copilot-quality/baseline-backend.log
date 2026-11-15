@@ -1,0 +1,407 @@
+.............FF.........F..F.F...........F.............................. [ 14%]
+........................................................................ [ 29%]
+.............................................................F..F.F..... [ 43%]
+......................................F................................. [ 58%]
+..........F................FF.FFF....................................... [ 72%]
+........................................................................ [ 87%]
+...............................F.F.........................FFFF          [100%]
+=================================== FAILURES ===================================
+____________________ test_analyze_chilecito_matches_schema _____________________
+
+client = <starlette.testclient.TestClient object at 0x770403befef0>
+fake_core = {'compute_cross_prior': <function <lambda> at 0x770457f51940>, 'kalman_rts_smooth': <function <lambda> at 0x770457f519..._von_mises_year': <function <lambda> at 0x770457f51a80>, 'phenology_trend': <function <lambda> at 0x770457f51b20>, ...}
+
+    def test_analyze_chilecito_matches_schema(client, fake_core):
+        resp = AnalyzeResponse.model_validate(analyze(client, {"aoi": CHILECITO}).json())
+        assert resp.data_source == "synthetic"
+>       assert resp.calendar_series and resp.map_hexagons and resp.phenology_by_year
+E       AssertionError: assert ([])
+E        +  where [] = AnalyzeResponse(data_source='synthetic', query_hash='7eb04840fb669dd21f9579ddaa9b00304b82ea771ce9a88dc7f77d92a5bbfc1b'... detections do not establish complete observation coverage.', forecast_validation=[], forecast_unavailable_reason=None).calendar_series
+
+backend/tests/test_api_contract.py:61: AssertionError
+________________ test_h3_indices_are_15_char_hex_inside_brazil _________________
+
+client = <starlette.testclient.TestClient object at 0x770403befef0>
+fake_core = {'compute_cross_prior': <function <lambda> at 0x770457f51940>, 'kalman_rts_smooth': <function <lambda> at 0x770457f519..._von_mises_year': <function <lambda> at 0x770457f51a80>, 'phenology_trend': <function <lambda> at 0x770457f51b20>, ...}
+
+    def test_h3_indices_are_15_char_hex_inside_brazil(client, fake_core):
+        hexes = analyze(client, {"aoi": CHILECITO}).json()["map_hexagons"]
+>       assert hexes
+E       assert []
+
+backend/tests/test_api_contract.py:71: AssertionError
+_______________________ test_chaos_monkey_matches_schema _______________________
+
+client = <starlette.testclient.TestClient object at 0x770403befef0>
+fake_core = {'compute_cross_prior': <function <lambda> at 0x770457f51940>, 'kalman_rts_smooth': <function <lambda> at 0x770457f519..._von_mises_year': <function <lambda> at 0x770457f51a80>, 'phenology_trend': <function <lambda> at 0x770457f51b20>, ...}
+
+    def test_chaos_monkey_matches_schema(client, fake_core):
+        r = client.post("/api/chaos-monkey", json={"aoi": CHILECITO})
+>       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":"No non-industrial fire data inside the AOI"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+backend/tests/test_api_contract.py:107: AssertionError
+________________________ test_core_missing_returns_503 _________________________
+
+client = <starlette.testclient.TestClient object at 0x770403befef0>
+fake_core = {'compute_cross_prior': <function <lambda> at 0x770457f51940>, 'kalman_rts_smooth': <function <lambda> at 0x770457f519..._von_mises_year': <function <lambda> at 0x770457f51a80>, 'phenology_trend': <function <lambda> at 0x770457f51b20>, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x770403bed1c0>
+
+    def test_core_missing_returns_503(client, fake_core, monkeypatch):
+        def resolve(name):
+            if name == "kalman_rts_smooth":
+                raise core_contract.CoreMissingError("Missing backend.core.kalman_rts.kalman_rts_smooth")
+            return fake_core[name]
+        monkeypatch.setattr(core_contract, "_resolve", resolve)
+        r = client.post("/api/analyze", json={"aoi": CHILECITO})
+>       assert r.status_code == 503 and "kalman_rts_smooth" in r.text
+E       assert (200 == 503)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+backend/tests/test_api_contract.py:129: AssertionError
+_____________________________ test_gzip_is_applied _____________________________
+
+client = <starlette.testclient.TestClient object at 0x770403befef0>
+fake_core = {'compute_cross_prior': <function <lambda> at 0x770457f51940>, 'kalman_rts_smooth': <function <lambda> at 0x770457f519..._von_mises_year': <function <lambda> at 0x770457f51a80>, 'phenology_trend': <function <lambda> at 0x770457f51b20>, ...}
+
+    def test_gzip_is_applied(client, fake_core):
+>       assert analyze(client, {"aoi": CHILECITO}).headers.get("content-encoding") == "gzip"
+E       AssertionError: assert None == 'gzip'
+E        +  where None = get('content-encoding')
+E        +    where get = Headers({'x-cache': 'MISS', 'server-timing': 'h3;dur=17.86, db;dur=18.40, build;dur=0.02, validate;dur=0.05, serialize;dur=0.10', 'content-length': '448', 'content-type': 'application/json', 'vary': 'Origin'}).get
+E        +      where Headers({'x-cache': 'MISS', 'server-timing': 'h3;dur=17.86, db;dur=18.40, build;dur=0.02, validate;dur=0.05, serialize;dur=0.10', 'content-length': '448', 'content-type': 'application/json', 'vary': 'Origin'}) = <Response [200 OK]>.headers
+E        +        where <Response [200 OK]> = analyze(<starlette.testclient.TestClient object at 0x770403befef0>, {'aoi': {'type': 'Polygon', 'coordinates': [[[-69.5, -31], [-65.5, -31], [-65.5, -27.5], [-69.5, -27.5], [-69.5, -31]]]}})
+
+backend/tests/test_api_contract.py:143: AssertionError
+__________ test_missing_observation_credentials_have_actionable_error __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x770403c93560>
+
+    def test_missing_observation_credentials_have_actionable_error(monkeypatch):
+        monkeypatch.syspath_prepend(str(queries.duckdb_engine.ROOT / 'scripts'))
+>       import earthaccess
+E       ModuleNotFoundError: No module named 'earthaccess'
+
+backend/tests/test_audit_regressions.py:122: ModuleNotFoundError
+______________ test_api_returns_500_naming_the_violating_function ______________
+
+client = <starlette.testclient.TestClient object at 0x770403144d10>
+fake_core = {'compute_cross_prior': <function <lambda> at 0x770457f51940>, 'kalman_rts_smooth': <function <lambda> at 0x770457f519..._von_mises_year': <function <lambda> at 0x770457f51a80>, 'phenology_trend': <function <lambda> at 0x770457f51b20>, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x770403146b40>
+
+    def test_api_returns_500_naming_the_violating_function(client, fake_core, monkeypatch):
+        bad = lambda obs, u, p: SimpleNamespace(x_smooth=np.ones(len(obs)), p_smooth=-np.ones(len(obs)))  # noqa: E731
+        use_core(monkeypatch, {**fake_core, "kalman_rts_smooth": bad})
+        r = client.post("/api/analyze", json={"aoi": CHILECITO})
+>       assert r.status_code == 500 and "kalman_rts_smooth" in r.text
+E       assert (200 == 500)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+backend/tests/test_core_validation.py:107: AssertionError
+__________________ test_server_timing_header_and_cached_json ___________________
+
+client = <starlette.testclient.TestClient object at 0x770403144d10>
+fake_core = {'compute_cross_prior': <function <lambda> at 0x770457f51940>, 'kalman_rts_smooth': <function <lambda> at 0x770457f519..._von_mises_year': <function <lambda> at 0x770457f51a80>, 'phenology_trend': <function <lambda> at 0x770457f51b20>, ...}
+
+    def test_server_timing_header_and_cached_json(client, fake_core):
+        cold = client.post("/api/analyze", json={"aoi": CHILECITO})
+        hit = client.post("/api/analyze", json={"aoi": CHILECITO})
+        assert cold.status_code == hit.status_code == 200
+>       assert STAGES <= _stages(cold.headers["server-timing"])
+E       AssertionError: assert {'build', 'co...', 'validate'} <= {'build', 'db...', 'validate'}
+E
+E         Extra items in the left set:
+E         'core'
+
+backend/tests/test_core_validation.py:131: AssertionError
+__________________________ test_check_core_exit_codes __________________________
+
+fake_core = {'compute_cross_prior': <function <lambda> at 0x770457f51940>, 'kalman_rts_smooth': <function <lambda> at 0x770457f519..._von_mises_year': <function <lambda> at 0x770457f51a80>, 'phenology_trend': <function <lambda> at 0x770457f51b20>, ...}
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x770403806840>
+
+    def test_check_core_exit_codes(fake_core, monkeypatch):
+        use_core(monkeypatch, dict(fake_core))
+>       assert check_core.main([]) == 0
+               ^^^^^^^^^^^^^^^^^^^
+
+backend/tests/test_core_validation.py:148:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend/check_core.py:76: in main
+    inputs = build_inputs()
+             ^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def build_inputs() -> dict[str, tuple]:
+        """Deterministic positional arguments for every core function (inputs only, never used as results)."""
+        from backend.api.science_adapter import KalmanInput
+        from backend.db import duckdb_engine, queries
+
+        duckdb_engine.init_engine()
+        w, s, e, n = next(iter(validation_regions().values()))
+        coordinates = [[[w, s], [e, s], [e, n], [w, n], [w, s]]]
+        r4, r7, _ = queries.get_hierarchical_h3_filter(coordinates)
+        daily = queries.fetch_aoi_aggregated_data(r4, r7, 2001, 2026, True).daily
+        if len(daily["epoch_day"]) == 0:
+>           raise RuntimeError("The cube has no data for the selected conformance region; cannot build conformance inputs.")
+E           RuntimeError: The cube has no data for the selected conformance region; cannot build conformance inputs.
+
+backend/check_core.py:47: RuntimeError
+________________________ test_mock_and_request_contract ________________________
+
+    def test_mock_and_request_contract():
+        from backend.api.routes import analyze
+        response = AnalyzeResponse.model_validate_json(analyze(AnalyzeRequest(aoi=GeoJSONPolygon(
+            coordinates=[[[-69.5,-31],[-65.5,-31],[-65.5,-27.5],[-69.5,-27.5],[-69.5,-31]]]), forecast_days=0)).body)
+        assert response.data_source == "synthetic"
+>       assert response.calendar_series and all(not c.is_forecast for c in response.calendar_series)
+E       AssertionError: assert ([])
+E        +  where [] = AnalyzeResponse(data_source='synthetic', query_hash='756b692dfd0de45bbed842cc1eec47f66dcb6e299f976b16a0e639f17aa0f47f'... detections do not establish complete observation coverage.', forecast_validation=[], forecast_unavailable_reason=None).calendar_series
+
+backend/tests/test_cube_schema.py:647: AssertionError
+_______________ test_real_cube_november_2026_coverage_and_schema _______________
+
+    def test_real_cube_november_2026_coverage_and_schema():
+        """Verify that the published master cube spans through November 14, 2026 with valid schema and H3."""
+        regions = json.loads((ROOT / "data/regions.json").read_text(encoding="utf-8"))
+        for reg in ("chilecito_la_rioja", "iberia_med", "orlando_florida", "amazonas_manaus"):
+            assert reg in regions
+            ranges = regions[reg].get("coverage", [])
+            assert any(end >= "2026-11-14" for _, end in ranges)
+
+        cube_file = ROOT / "data/processed/fire_cube.parquet"
+        assert cube_file.is_file(), "Master fire_cube.parquet must be published"
+        table = pq.read_table(cube_file)
+        assert [(f.name, f.type) for f in table.schema] == EXPECTED
+
+        # Check date coverage spanning through 2026-11-14 (epoch_day 20771)
+>       with duckdb.connect() as con:
+
+backend/tests/test_cube_schema.py:1219:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def test_real_cube_november_2026_coverage_and_schema():
+        """Verify that the published master cube spans through November 14, 2026 with valid schema and H3."""
+        regions = json.loads((ROOT / "data/regions.json").read_text(encoding="utf-8"))
+        for reg in ("chilecito_la_rioja", "iberia_med", "orlando_florida", "amazonas_manaus"):
+            assert reg in regions
+            ranges = regions[reg].get("coverage", [])
+            assert any(end >= "2026-11-14" for _, end in ranges)
+
+        cube_file = ROOT / "data/processed/fire_cube.parquet"
+        assert cube_file.is_file(), "Master fire_cube.parquet must be published"
+        table = pq.read_table(cube_file)
+        assert [(f.name, f.type) for f in table.schema] == EXPECTED
+
+        # Check date coverage spanning through 2026-11-14 (epoch_day 20771)
+        with duckdb.connect() as con:
+            min_day, max_day, total_rows = con.execute(
+                "SELECT min(epoch_day), max(epoch_day), count(*) FROM read_parquet(?)",
+                [str(cube_file)]
+            ).fetchone()
+            assert min_day == (date(2000, 11, 1) - date(1970, 1, 1)).days
+            assert max_day >= (date(2026, 11, 14) - date(1970, 1, 1)).days
+            staged = ROOT / "data/processed/staged_firms.parquet"
+            expected_rows = con.execute("SELECT count(*) FROM (SELECT DISTINCT h3_r7, acq_date FROM read_parquet(?) WHERE confidence_norm IN ('nominal','high'))", [str(staged)]).fetchone()[0]
+>           assert total_rows == expected_rows and total_rows > 0
+E           assert (927542 == 885626)
+
+backend/tests/test_cube_schema.py:1228: AssertionError
+_____________ test_query_returns_exactly_cube_cells_inside_polygon _____________
+
+engine = <module 'backend.db.duckdb_engine' from '/tmp/almenara-copilot-quality/firms-harmonizer/backend/db/duckdb_engine.py'>
+
+    def test_query_returns_exactly_cube_cells_inside_polygon(engine):
+        _, r7, _ = queries.get_hierarchical_h3_filter(CHILECITO)
+        cube_cells = set(pq.read_table(engine.cube_path(), columns=["h3_r7"])["h3_r7"].to_pylist())
+        expected = sorted(h3.int_to_str(c) for c in set(r7) & cube_cells)
+>       assert expected
+E       assert []
+
+backend/tests/test_db_layer.py:102: AssertionError
+________________________ test_query_filters_r7_after_r4 ________________________
+
+engine = <module 'backend.db.duckdb_engine' from '/tmp/almenara-copilot-quality/firms-harmonizer/backend/db/duckdb_engine.py'>
+
+    def test_query_filters_r7_after_r4(engine):
+        center = h3.latlng_to_cell(-29.25, -67.5, 7)  # synthetic Chilecito centre
+        lat, lng = h3.cell_to_latlng(center)
+        small = square(lng, lat, 0.003)
+        _, r7, _ = queries.get_hierarchical_h3_filter(small)
+        assert r7 == [h3.str_to_int(center)]
+>       assert [h.h3_index for h in fetch(small).hexagons] == [center]
+E       AssertionError: assert [] == ['87b209a22ffffff']
+E
+E         Right contains one more item: '87b209a22ffffff'
+E         Use -v to get more diff
+
+backend/tests/test_db_layer.py:112: AssertionError
+_____________________________ test_daily_contract ______________________________
+
+engine = <module 'backend.db.duckdb_engine' from '/tmp/almenara-copilot-quality/firms-harmonizer/backend/db/duckdb_engine.py'>
+
+    def test_daily_contract(engine):
+        agg = fetch(CHILECITO, 2015, 2016)
+        d = agg.daily
+        assert set(d) == DAILY_KEYS
+>       assert all(isinstance(v, np.ndarray) and len(v) == 731 for v in d.values())
+E       assert False
+E        +  where False = all(<generator object test_daily_contract.<locals>.<genexpr> at 0x7703f5cbb4c0>)
+
+backend/tests/test_db_layer.py:125: AssertionError
+______________________ test_industrial_exclusion_contract ______________________
+
+engine = <module 'backend.db.duckdb_engine' from '/tmp/almenara-copilot-quality/firms-harmonizer/backend/db/duckdb_engine.py'>
+
+    def test_industrial_exclusion_contract(engine):
+        keep, drop = fetch(AMAZONAS, exclude=False), fetch(AMAZONAS, exclude=True)
+        total = int(keep.daily["raw_modis_cnt"].sum() + keep.daily["raw_viirs_cnt"].sum())
+>       assert keep.industrial_false_positives_removed == 0 and total > 0
+E       AssertionError: assert (0 == 0 and 0 > 0)
+E        +  where 0 = AoiAggregate(daily={'epoch_day': array([], dtype=int64), 'year': array([], dtype=int64), 'doy': array([], dtype=int64)...dtype=float64)}, hexagons=[], industrial_false_positives_removed=0, n_cells_used=0, used_cells=[], daily_area_km2=None).industrial_false_positives_removed
+
+backend/tests/test_db_layer.py:135: AssertionError
+_____________________________ test_hexagon_format ______________________________
+
+engine = <module 'backend.db.duckdb_engine' from '/tmp/almenara-copilot-quality/firms-harmonizer/backend/db/duckdb_engine.py'>
+
+    def test_hexagon_format(engine):
+        hexes = fetch(CHILECITO).hexagons
+>       assert hexes and all(isinstance(h, H3MapSummaryHex) for h in hexes)
+E       assert ([])
+
+backend/tests/test_db_layer.py:145: AssertionError
+_________________ test_risk_route_cutoff_provenance_and_cache __________________
+
+client = <starlette.testclient.TestClient object at 0x7704037dce60>
+
+    def test_risk_route_cutoff_provenance_and_cache(client):
+        body = {"aoi": AOI, "as_of_date": "2023-08-01"}
+        first = client.post("/api/predict-risk", json=body)
+        assert first.status_code == 200, first.text
+        assert first.headers["X-Cache"] == "MISS"
+        parsed = RiskPredictionResponse.model_validate(first.json())
+        assert parsed.data_source == "synthetic"
+        assert parsed.target == "satellite_thermal_event_proxy"
+>       assert parsed.assessment
+E       AssertionError: assert None
+E        +  where None = RiskPredictionResponse(data_source='synthetic', target='satellite_thermal_event_proxy', assessment=None, unavailable_r...tions in the selected area and date range.', model_time_ms=0.0006210029823705554, execution_time_ms=20.994436003093142).assessment
+
+backend/tests/test_risk_api.py:35: AssertionError
+_________________ test_risk_cube_features_are_prefix_invariant _________________
+
+client = <starlette.testclient.TestClient object at 0x770403c845c0>
+
+    def test_risk_cube_features_are_prefix_invariant(client):
+        r4, r7, _ = queries.get_hierarchical_h3_filter(AOI["coordinates"])
+        start, end = (date(2021, 12, 31) - EPOCH).days, (date(2023, 8, 1) - EPOCH).days
+        prefix = queries.fetch_risk_daily(r4, r7, 2020, 2023, start)
+        whole = queries.fetch_risk_daily(r4, r7, 2020, 2023, end)
+        assert duckdb_engine.data_source() == "synthetic"
+>       assert len(prefix["epoch_day"]) >= 365
+                   ^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'epoch_day'
+
+backend/tests/test_risk_api.py:58: KeyError
+___ test_analysis_matches_real_smoother_and_keeps_cache_contract[2001-2026] ____
+
+real_client = <starlette.testclient.TestClient object at 0x77040311c0e0>
+start = 2001, end = 2026
+
+    @pytest.mark.parametrize('start,end', [(2001, 2026), (2022, 2022)])
+    def test_analysis_matches_real_smoother_and_keeps_cache_contract(real_client, start, end):
+        body = {'aoi': CHILECITO, 'start_year': start, 'end_year': end}
+        response = real_client.post('/api/analyze', json=body)
+        assert response.status_code == 200, response.text
+        result = AnalyzeResponse.model_validate(response.json())
+>       assert result.data_source == 'synthetic' and len(result.phenology_by_year) == end - start + 1
+E       AssertionError: assert ('synthetic' == 'synthetic'
+E
+E           synthetic and 0 == ((2026 - 2001) + 1))
+E        +  where 0 = len([])
+E        +    where [] = AnalyzeResponse(data_source='synthetic', query_hash='7eb04840fb669dd21f9579ddaa9b00304b82ea771ce9a88dc7f77d92a5bbfc1b'... detections do not establish complete observation coverage.', forecast_validation=[], forecast_unavailable_reason=None).phenology_by_year
+
+backend/tests/test_science_integration.py:33: AssertionError
+___ test_analysis_matches_real_smoother_and_keeps_cache_contract[2022-2022] ____
+
+real_client = <starlette.testclient.TestClient object at 0x7704037deea0>
+start = 2022, end = 2022
+
+    @pytest.mark.parametrize('start,end', [(2001, 2026), (2022, 2022)])
+    def test_analysis_matches_real_smoother_and_keeps_cache_contract(real_client, start, end):
+        body = {'aoi': CHILECITO, 'start_year': start, 'end_year': end}
+        response = real_client.post('/api/analyze', json=body)
+        assert response.status_code == 200, response.text
+        result = AnalyzeResponse.model_validate(response.json())
+>       assert result.data_source == 'synthetic' and len(result.phenology_by_year) == end - start + 1
+E       AssertionError: assert ('synthetic' == 'synthetic'
+E
+E           synthetic and 0 == ((2022 - 2022) + 1))
+E        +  where 0 = len([])
+E        +    where [] = AnalyzeResponse(data_source='synthetic', query_hash='7aace468225a4a81a431667bfd482cfcb3352bfacfafd5f6a9d50b0a751ba185'... detections do not establish complete observation coverage.', forecast_validation=[], forecast_unavailable_reason=None).phenology_by_year
+
+backend/tests/test_science_integration.py:33: AssertionError
+________ test_chaos_runs_actual_recovery_and_preserves_cube_provenance _________
+
+real_client = <starlette.testclient.TestClient object at 0x77040311f200>
+
+    def test_chaos_runs_actual_recovery_and_preserves_cube_provenance(real_client):
+        request = {'aoi': CHILECITO, 'target_year': 2022, 'drop_fraction': .25,
+                   'simulate_dual_blackout': True, 'random_seed': 42}
+        response = real_client.post('/api/chaos-monkey', json=request)
+>       assert response.status_code == 200, response.text
+E       AssertionError: {"detail":"No non-industrial fire data inside the AOI"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+backend/tests/test_science_integration.py:61: AssertionError
+______________ test_health_and_missing_dependency_use_actual_core ______________
+
+real_client = <starlette.testclient.TestClient object at 0x7704037df500>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x77040311cb60>
+
+    def test_health_and_missing_dependency_use_actual_core(real_client, monkeypatch):
+        from backend.core import kalman_rts
+
+        health = real_client.get('/api/health').json()
+        assert all(health['core'].values())
+        assert all(issue is None for issue in health['core_signatures'].values())
+        monkeypatch.delattr(kalman_rts, 'rts_kalman_smoother_with_cross_guard')
+        assert not core_contract.core_status()['kalman_rts_smooth']
+        response = real_client.post('/api/analyze', json={'aoi': CHILECITO})
+>       assert response.status_code == 503
+E       assert 200 == 503
+E        +  where 200 = <Response [200 OK]>.status_code
+
+backend/tests/test_science_integration.py:78: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /tmp/almenara-copilot-quality/firms-harmonizer/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_api_contract.py::test_analyze_chilecito_matches_schema
+FAILED backend/tests/test_api_contract.py::test_h3_indices_are_15_char_hex_inside_brazil
+FAILED backend/tests/test_api_contract.py::test_chaos_monkey_matches_schema
+FAILED backend/tests/test_api_contract.py::test_core_missing_returns_503 - as...
+FAILED backend/tests/test_api_contract.py::test_gzip_is_applied - AssertionEr...
+FAILED backend/tests/test_audit_regressions.py::test_missing_observation_credentials_have_actionable_error
+FAILED backend/tests/test_core_validation.py::test_api_returns_500_naming_the_violating_function
+FAILED backend/tests/test_core_validation.py::test_server_timing_header_and_cached_json
+FAILED backend/tests/test_core_validation.py::test_check_core_exit_codes - Ru...
+FAILED backend/tests/test_cube_schema.py::test_mock_and_request_contract - As...
+FAILED backend/tests/test_cube_schema.py::test_real_cube_november_2026_coverage_and_schema
+FAILED backend/tests/test_db_layer.py::test_query_returns_exactly_cube_cells_inside_polygon
+FAILED backend/tests/test_db_layer.py::test_query_filters_r7_after_r4 - Asser...
+FAILED backend/tests/test_db_layer.py::test_daily_contract - assert False
+FAILED backend/tests/test_db_layer.py::test_industrial_exclusion_contract - A...
+FAILED backend/tests/test_db_layer.py::test_hexagon_format - assert ([])
+FAILED backend/tests/test_risk_api.py::test_risk_route_cutoff_provenance_and_cache
+FAILED backend/tests/test_risk_api.py::test_risk_cube_features_are_prefix_invariant
+FAILED backend/tests/test_science_integration.py::test_analysis_matches_real_smoother_and_keeps_cache_contract[2001-2026]
+FAILED backend/tests/test_science_integration.py::test_analysis_matches_real_smoother_and_keeps_cache_contract[2022-2022]
+FAILED backend/tests/test_science_integration.py::test_chaos_runs_actual_recovery_and_preserves_cube_provenance
+FAILED backend/tests/test_science_integration.py::test_health_and_missing_dependency_use_actual_core
+22 failed, 473 passed, 1 warning in 29.77s
