@@ -1,0 +1,72 @@
+<section id="matematica" class="s-mat">
+<h2 class="title2">Del dato crudo al dato armonizado</h2>
+<div class="flow">
+<div class="col c1">
+<div class="hd"><p class="num">1</p><h3 class="hd-title">Malla y ordenación de detecciones</h3></div>
+<p class="sub">Pixel → huella elíptica → celdas H3</p>
+<p class="fl">Solape bow-tie</p>{{s1_overlap}}
+<p class="fl">Huella elíptica</p>{{s1_sigma}}
+<p class="fl">Pixel deformado</p>{{s1_area}}
+<p class="fl">Peso PSF</p>{{s1_weight}}
+<p class="fl">Celda H3 r7</p>{{s1_h3}}
+<p class="fl">Grafo ST-H3 (DAG)</p>{{s1_dag}}
+<p class="fl">FRE del evento</p>{{s1_fre_a}}{{+s1_fre_b}}
+</div>
+<div class="arrow a1"><x-shape kind="arrow-right" class="arrow-shape"></x-shape></div>
+<div class="col c2">
+<div class="hd"><p class="num">2</p><h3 class="hd-title">Filtro industrial</h3></div>
+<p class="sub">Aparta fuentes térmicas persistentes</p>
+<p class="fl">Entropía de Shannon</p>{{s2_entropy}}
+<p class="fl">Vegetal · industrial</p>{{s2_thresholds}}
+<p class="fl">Contraste IR</p>{{s2_ir}}
+<p class="fl">Varianza de posición</p>{{s2_pos}}
+<p class="fl">Centro sigmoide</p>{{s2_h0}}
+<p class="fl">Filtro SAMA</p>{{s2_sama}}
+</div>
+<div class="arrow a2"><x-shape kind="arrow-right" class="arrow-shape"></x-shape></div>
+<div class="col c3">
+<div class="hd"><p class="num">3</p><h3 class="hd-title">Armonización entre instrumentos</h3></div>
+<p class="sub"><span class="viirs">VIIRS</span> → escala <span class="modis">MODIS</span> por cuantiles</p>
+<p class="fl">Umbral FRP</p>{{s3_frpmin}}
+<p class="fl">Prob. de detección</p>{{s3_pidet}}
+<p class="fl">Cuantiles EQM</p>{{s3_eqm}}
+<p class="fl">Cola de Pareto</p>{{s3_gpd}}
+<p class="fl">Wasserstein W1</p>{{s3_w1}}
+<p class="fl">Ruptura de Chow</p>{{s3_chow}}
+</div>
+<div class="arrow a3"><x-shape kind="arrow-right" class="arrow-shape"></x-shape></div>
+<div class="col c4">
+<div class="hd"><p class="num">4</p><h3 class="hd-title">Estimación de huecos con incertidumbre</h3></div>
+<p class="sub">Kalman RTS con banda de confianza</p>
+<p class="fl">Horvitz-Thompson</p>{{s4_ht}}{{+s4_piorb}}
+<p class="fl">Escalado diurno</p>{{s4_kappa}}
+<p class="fl">Prior cruzado</p>{{s4_mucross}}
+<p class="fl">Predicción</p>{{s4_xpred}}{{+s4_ppred}}
+<p class="fl">Ganancia de Kalman</p>{{s4_gain}}
+<p class="fl">Actualización Joseph</p>{{s4_joseph_a}}{{+s4_joseph_b}}
+<p class="fl">Guardia de apagón</p>{{s4_guard_a}}{{+s4_guard_b}}
+<p class="fl">Suavizado RTS</p>{{s4_G}}{{+s4_xs}}{{+s4_ps}}
+<p class="fl">IC 95 %</p>{{s4_ci}}
+</div>
+<div class="strip">
+<div class="strip-hd"><h3 class="strip-title">Salidas del dato armonizado</h3><p class="strip-sub">calendario circular · biomasa y humo · previsión</p></div>
+<div class="strip-body">
+<div class="grp g1">
+<p class="fl">Ángulo anual</p>{{o_psi}}
+<p class="fl">Momentos circulares</p>{{o_moments}}
+<p class="fl">Día pico</p>{{o_mu}}
+</div>
+<div class="grp g2">
+<p class="fl">Concentración</p>{{o_kappa}}
+<p class="fl">Ancho de temporada</p>{{o_width}}
+</div>
+<div class="grp g3">
+<p class="fl">Biomasa quemada</p>{{o_biomass}}
+<p class="fl">Humo PM2.5 · CO2</p>{{o_emis_a}}{{+o_emis_b}}
+<p class="fl">Previsión 14 días (pendiente)</p>{{o_forecast}}
+</div>
+</div>
+</div>
+<div class="arrow a4"><x-shape kind="arrow-left" class="arrow-shape"></x-shape></div>
+</div>
+</section>

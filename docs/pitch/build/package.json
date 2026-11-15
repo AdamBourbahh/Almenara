@@ -1,0 +1,11 @@
+{
+  "name": "pitch-formulas",
+  "private": true,
+  "description": "Typesets the slide-2 formulas to SVG with MathJax and assembles deck/project/slides/matematica.html",
+  "scripts": {
+    "build": "node split.js && node render.js formulas_split.json rendered.json '#dbe3ee' 15 && node build.js"
+  },
+  "dependencies": {
+    "mathjax-full": "3.2.2"
+  }
+}
