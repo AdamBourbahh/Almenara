@@ -29,6 +29,7 @@ export function HeatHistoryCard() {
   const [open, setOpen] = useState(false);
   const [draftMode, setDraftMode] = useState<Precision>(precision);
   const [draftStart, setDraftStart] = useState(anchor);
+  const [draftYear, setDraftYear] = useState(anchor.slice(0, 4));
   const [draftEnd, setDraftEnd] = useState(end);
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -134,10 +135,10 @@ export function HeatHistoryCard() {
     else applyPeriod(next.start, precision);
   }
   function togglePicker() {
-    if (!open) { setDraftMode(precision); setDraftStart(anchor); setDraftEnd(end > (state.max ?? end) ? state.max! : end); }
+    if (!open) { setDraftMode(precision); setDraftStart(anchor); setDraftYear(anchor.slice(0, 4)); setDraftEnd(end > (state.max ?? end) ? state.max! : end); }
     setOpen(!open);
   }
-  const draftValue = draftMode === "year" ? draftStart.slice(0, 4) : draftMode === "month" ? draftStart.slice(0, 7) : draftStart;
+  const draftValue = draftMode === "year" ? draftYear : draftMode === "month" ? draftStart.slice(0, 7) : draftStart;
   const invalidRange = draftMode === "range" && (!draftStart || !draftEnd || draftStart > draftEnd
     || draftStart < (state.min ?? draftStart) || draftEnd > (state.max ?? draftEnd));
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -173,7 +174,7 @@ export function HeatHistoryCard() {
         <div role="group" aria-label="Period type" className="mb-4 grid grid-cols-4 gap-1 rounded-lg bg-paper p-1">{UNITS.map(unit => <button key={unit.value} type="button" aria-pressed={draftMode === unit.value} onClick={() => setDraftMode(unit.value)} className={`rounded-md px-2 py-2 text-xs ${draftMode === unit.value ? "bg-reference text-white" : "text-muted hover:bg-panel"}`}>{unit.label}</button>)}</div>
         <form onSubmit={submit} className="space-y-3">
           <div className={draftMode === "range" ? "grid grid-cols-2 gap-3" : ""}>
-            <label className="block space-y-1 text-xs"><span>{draftMode === "range" ? "From (UTC)" : draftMode === "year" ? "Year" : draftMode === "month" ? "Month" : "Date (UTC)"}</span><input ref={firstInput} required aria-label={draftMode === "range" ? "Start date" : draftMode === "year" ? "Choose year" : draftMode === "month" ? "Choose month" : "Choose day"} type={draftMode === "year" ? "number" : draftMode === "month" ? "month" : "date"} value={draftValue} min={draftMode === "year" ? state.min?.slice(0, 4) : draftMode === "month" ? state.min?.slice(0, 7) : state.min ?? undefined} max={draftMode === "year" ? state.max?.slice(0, 4) : draftMode === "month" ? state.max?.slice(0, 7) : state.max ?? undefined} onChange={e => { const value = e.target.value; setDraftStart(draftMode === "year" ? `${value}-01-01` : draftMode === "month" ? `${value}-01` : value); }} className={fieldClass} /></label>
+            <label className="block space-y-1 text-xs"><span>{draftMode === "range" ? "From (UTC)" : draftMode === "year" ? "Year" : draftMode === "month" ? "Month" : "Date (UTC)"}</span><input ref={firstInput} required aria-label={draftMode === "range" ? "Start date" : draftMode === "year" ? "Choose year" : draftMode === "month" ? "Choose month" : "Choose day"} type={draftMode === "year" ? "number" : draftMode === "month" ? "month" : "date"} value={draftValue} min={draftMode === "year" ? state.min?.slice(0, 4) : draftMode === "month" ? state.min?.slice(0, 7) : state.min ?? undefined} max={draftMode === "year" ? state.max?.slice(0, 4) : draftMode === "month" ? state.max?.slice(0, 7) : state.max ?? undefined} onChange={e => { const value = e.target.value; if (draftMode === "year") { setDraftYear(value); if (/^\d{4}$/.test(value)) setDraftStart(`${value}-01-01`); } else { setDraftStart(draftMode === "month" ? `${value}-01` : value); setDraftYear(value.slice(0, 4)); } }} className={fieldClass} /></label>
             {draftMode === "range" && <label className="block space-y-1 text-xs"><span>To (UTC, inclusive)</span><input required aria-label="End date" type="date" value={draftEnd} min={state.min ?? undefined} max={state.max ?? undefined} onChange={e => setDraftEnd(e.target.value)} className={fieldClass} /></label>}
           </div>
           {invalidRange && <p role="alert" className="text-xs text-terracotta">Choose an end date on or after the start, within the available record.</p>}
