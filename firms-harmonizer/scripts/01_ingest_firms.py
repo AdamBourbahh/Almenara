@@ -96,8 +96,13 @@ def footprint(lat, lon, cell, scan, track, modis):
     return list(result.items())
 
 
-def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED):
+def ingest_raw_firms(raw_dir="data/raw", output_path=STAGED, extra_raw_dirs=()):
+    """Stage every FIRMS CSV of ``raw_dir`` plus those of ``extra_raw_dirs`` (relative paths are under ROOT)."""
     files = sorted((ROOT / raw_dir).glob("*.csv"))
+    for extra in extra_raw_dirs:
+        if not (ROOT / extra).is_dir():
+            raise SystemExit(f"Extra raw directory not found: {extra}")
+        files += sorted((ROOT / extra).glob("*.csv"))
     if not files:
         raise SystemExit("No FIRMS CSVs found. Use script 04 --bootstrap for the offline fixture.")
     regions = load_regions()
@@ -407,15 +412,21 @@ def fetch_firms_nrt(
     return counts_by_file
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw-dir", default="data/raw")
+    parser.add_argument("--extra-raw-dir", action="append", default=[],
+                        help="additional directory of FIRMS CSVs (repeatable), e.g. data/real/regions/<region>/archive_csv")
     parser.add_argument("--output", default=STAGED)
     parser.add_argument("--fetch-nrt", action="store_true", help="Fetch live NRT detections from NASA FIRMS API")
     parser.add_argument("--start-date", default="2026-11-01", help="Start date for NRT fetch (YYYY-MM-DD)")
     parser.add_argument("--end-date", default="2026-11-14", help="End date for NRT fetch (YYYY-MM-DD)")
     parser.add_argument("--regions", nargs="*", default=None, help="Optional subset of region names to fetch")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.fetch_nrt:
         fetch_firms_nrt(raw_dir=args.raw_dir, start_date=args.start_date, end_date=args.end_date, regions_filter=args.regions)
-    ingest_raw_firms(args.raw_dir, args.output)
+    ingest_raw_firms(args.raw_dir, args.output, args.extra_raw_dir)
+
+
+if __name__ == "__main__":
+    main()

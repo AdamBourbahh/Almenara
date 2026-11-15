@@ -113,6 +113,8 @@ def answer(req):
     web_report_count=0
     numeric_repairs=0
     identity_repairs=0
+    reviewed=False
+    article_evidence=False
     pending_calls=[]
     batch_start=2
     def knowledge(query):
@@ -206,7 +208,7 @@ def answer(req):
                             'Answer in two concise paragraphs and retain only supported citations.'})
                         continue
                     raise ValueError('Unverified selected-incident identity')
-                invalid_numbers = unsupported_numbers(final.answer, evidence)
+                invalid_numbers = unsupported_numbers(final.answer, evidence + [{"start":scope.start,"end":scope.end,"centroid":researcher.geographic_context(scope)[1]}])
                 if invalid_numbers:
                     if numeric_repairs == 0 and step < 5:
                         numeric_repairs += 1

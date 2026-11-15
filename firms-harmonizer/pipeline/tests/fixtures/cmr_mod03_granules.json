@@ -1,0 +1,129 @@
+{
+ "feed": {
+  "updated": "2026-11-14T19:48:46.005Z",
+  "id": "https://cmr.earthdata.nasa.gov:443/search/granules.json?short_name=MOD03&bounding_box=-62%2C-5%2C-58%2C-1&temporal=2022-08-01T00%3A00%3A00Z%2C2022-08-02T00%3A00%3A00Z&page_size=10",
+  "title": "ECHO granule metadata",
+  "entry": [
+   {
+    "producer_granule_id": "MOD03.A2022213.0215.061.2022213185025.hdf",
+    "time_start": "2022-08-01T02:15:00.000Z",
+    "updated": "2024-08-13T22:16:24.790Z",
+    "dataset_id": "MODIS/Terra Geolocation Fields 5-Min L1A Swath 1km",
+    "data_center": "LAADS",
+    "title": "LAADS:7022664199",
+    "coordinate_system": "GEODETIC",
+    "day_night_flag": "NIGHT",
+    "time_end": "2022-08-01T02:20:00.000Z",
+    "id": "G2378565683-LAADS",
+    "original_format": "ECHO10",
+    "granule_size": "34.6237926483154",
+    "browse_flag": false,
+    "polygons": [
+     [
+      "2.513893 -50.288328 -0.400538 -71.173636 -18.41056 -67.910458 -15.320336 -46.12695 2.513893 -50.288328"
+     ]
+    ],
+    "collection_concept_id": "C1379767668-LAADS",
+    "online_access_flag": true,
+    "links": [
+     {
+      "rel": "http://esipfed.org/ns/fedsearch/1.1/data#",
+      "type": "application/x-hdfeos",
+      "hreflang": "en-US",
+      "href": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/MOD03/MOD03.A2022213.0215.061.2022213185025.hdf"
+     }
+    ]
+   },
+   {
+    "producer_granule_id": "MOD03.A2022213.0215.007.2025123033040.nc",
+    "time_start": "2022-08-01T02:15:00.000Z",
+    "updated": "2026-02-10T03:28:57.370Z",
+    "dataset_id": "MODIS/Terra Geolocation Fields 5-Min L1A Swath 1km V7",
+    "data_center": "LAADS",
+    "title": "LAADS:8883847224",
+    "coordinate_system": "GEODETIC",
+    "day_night_flag": "NIGHT",
+    "time_end": "2022-08-01T02:20:00.000Z",
+    "id": "G4014174209-LAADS",
+    "original_format": "ECHO10",
+    "granule_size": "111.205666542053",
+    "browse_flag": false,
+    "polygons": [
+     [
+      "2.513902 -50.287766 -0.400264 -71.173094 -18.410258 -67.909893 -15.320297 -46.126378 2.513902 -50.287766"
+     ]
+    ],
+    "collection_concept_id": "C3860159104-LAADS",
+    "online_access_flag": true,
+    "links": [
+     {
+      "rel": "http://esipfed.org/ns/fedsearch/1.1/data#",
+      "type": "application/x-netcdf",
+      "hreflang": "en-US",
+      "href": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/MOD03/MOD03.A2022213.0215.007.2025123033040.nc"
+     }
+    ]
+   },
+   {
+    "producer_granule_id": "MOD03.A2022213.1440.061.2022213214432.hdf",
+    "time_start": "2022-08-01T14:40:00.000Z",
+    "updated": "2024-08-13T22:16:45.840Z",
+    "dataset_id": "MODIS/Terra Geolocation Fields 5-Min L1A Swath 1km",
+    "data_center": "LAADS",
+    "title": "LAADS:7023057462",
+    "coordinate_system": "GEODETIC",
+    "day_night_flag": "DAY",
+    "time_end": "2022-08-01T14:45:00.000Z",
+    "id": "G2379192270-LAADS",
+    "original_format": "ECHO10",
+    "granule_size": "33.7011337280273",
+    "browse_flag": false,
+    "polygons": [
+     [
+      "-11.782264 -79.537249 -14.923188 -58.201269 3.071843 -54.679941 6.100486 -75.528104 -11.782264 -79.537249"
+     ]
+    ],
+    "collection_concept_id": "C1379767668-LAADS",
+    "online_access_flag": true,
+    "links": [
+     {
+      "rel": "http://esipfed.org/ns/fedsearch/1.1/data#",
+      "type": "application/x-hdfeos",
+      "hreflang": "en-US",
+      "href": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/MOD03/MOD03.A2022213.1440.061.2022213214432.hdf"
+     }
+    ]
+   },
+   {
+    "producer_granule_id": "MOD03.A2022213.1440.007.2025123034333.nc",
+    "time_start": "2022-08-01T14:40:00.000Z",
+    "updated": "2026-02-10T03:29:03.210Z",
+    "dataset_id": "MODIS/Terra Geolocation Fields 5-Min L1A Swath 1km V7",
+    "data_center": "LAADS",
+    "title": "LAADS:8883865643",
+    "coordinate_system": "GEODETIC",
+    "day_night_flag": "DAY",
+    "time_end": "2022-08-01T14:45:00.000Z",
+    "id": "G4014174437-LAADS",
+    "original_format": "ECHO10",
+    "granule_size": "110.325200080872",
+    "browse_flag": false,
+    "polygons": [
+     [
+      "-11.782092 -79.537815 -14.923313 -58.20188 3.07171 -54.68053 6.10067 -75.528662 -11.782092 -79.537815"
+     ]
+    ],
+    "collection_concept_id": "C3860159104-LAADS",
+    "online_access_flag": true,
+    "links": [
+     {
+      "rel": "http://esipfed.org/ns/fedsearch/1.1/data#",
+      "type": "application/x-netcdf",
+      "hreflang": "en-US",
+      "href": "https://data.laadsdaac.earthdatacloud.nasa.gov/prod-lads/MOD03/MOD03.A2022213.1440.007.2025123034333.nc"
+     }
+    ]
+   }
+  ]
+ }
+}
