@@ -93,3 +93,31 @@ def test_missing_build_directory_is_ignored(tmp_path, monkeypatch):
     assert not any(getattr(route, "name", "") == "frontend" for route in app.routes)
     monkeypatch.delenv("FRONTEND_DIST")
     importlib.reload(main)
+
+
+@pytest.mark.parametrize("bundled", [False, True])
+def test_entrypoint_downloads_only_when_cube_is_not_bundled(tmp_path, monkeypatch, bundled):
+    entrypoint = load_deploy_module("entrypoint")
+    cube = tmp_path / "data" / "processed" / "fire_cube.parquet"
+    cube.parent.mkdir(parents=True)
+    if bundled:
+        cube.write_bytes(b"real cube supplied by image")
+    monkeypatch.setattr(entrypoint, "APP_ROOT", tmp_path)
+    monkeypatch.setattr(entrypoint, "DATA_DIR", tmp_path / "data")
+    monkeypatch.setattr(entrypoint, "CUBE", cube)
+    monkeypatch.setenv("DATA_REPO", "example/runtime-data")
+    monkeypatch.setenv("USE_SYNTHETIC_CUBE", "0")
+    downloads = []
+    launches = []
+
+    def download(repo):
+        downloads.append(repo)
+        cube.write_bytes(b"downloaded real cube")
+
+    monkeypatch.setattr(entrypoint, "fetch_runtime_data", download)
+    monkeypatch.setattr(entrypoint.os, "chdir", lambda path: None)
+    monkeypatch.setattr(entrypoint.os, "execvp", lambda binary, args: launches.append(args))
+    entrypoint.main()
+    assert downloads == ([] if bundled else ["example/runtime-data"])
+    assert len(launches) == 1
+    assert "backend.api.main:app" in launches[0]

@@ -4,8 +4,10 @@
 
 FIRMS Harmonizer deploys as a single Docker container that serves the FastAPI backend and
 the built React frontend from the same origin. The image is built from the repository
-`Dockerfile` and runs on Google Cloud Run; runtime data is downloaded at start-up from a
-public Hugging Face dataset.
+`Dockerfile` and runs on Google Cloud Run. Local releases bundle the real cube, accepted
+detections and lookup tables when available. If the image has no real cube, start-up
+downloads runtime data from the public Hugging Face dataset. Bundled releases avoid
+Hugging Face download limits during cold starts.
 
 ## Stack and costs
 
@@ -35,7 +37,8 @@ required a prepayment, which is kept as account credit.
 ### Trade-offs
 
 - After a period without visitors the first request starts a new instance: about 10 s for
-  the data download and start-up, plus the frontend download in the browser.
+  start-up, plus the frontend download in the browser. Images without bundled data also
+  need a dataset download, which can fail if Hugging Face rate-limits the request.
 - Instances have no persistent disk, so the "Update through today" sync cannot keep new
   data. Publish a new dataset version instead (see below).
 
@@ -52,8 +55,9 @@ authenticated `gcloud` (`gcloud auth login`).
 
 - **Check the live service:** `... deploy\cloudrun.py --project firms-harmonizer-2026 status`
 - **Publish new data** after rebuilding the cube (`python scripts/run_pipeline.py etl`). It
-  needs a Hugging Face write token (`hf auth login`). New instances pick it up; to apply it
-  immediately, redeploy.
+  needs a Hugging Face write token (`hf auth login`). Rebuild and redeploy bundled images
+  to apply updated local data. Images without bundled data fetch the published dataset
+  when a new instance starts.
 
   ```powershell
   firms-harmonizer\.venv\Scripts\python deploy\publish.py data --repo andearlla/firms-harmonizer-data
